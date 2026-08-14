@@ -1,0 +1,21 @@
+/node_modules
+/.next
+/out
+/.env
+/.env.local
+/.env.production
+*.log
+tsconfig.tsbuildinfo
+/storage
+/secrets
+*.p12
+
+# As regras acima sao ancoradas na raiz e nao alcancam subpacotes: sem estas,
+# packages/*/node_modules entra no commit (61 MB no primeiro import), e um
+# .env dentro de um pacote vazaria junto.
+node_modules/
+.next/
+.env
+.env.local
+.env.production
+secrets/
