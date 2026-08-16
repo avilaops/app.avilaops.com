@@ -200,6 +200,55 @@ async function authorizeCobrancas(): Promise<string> {
   return accessToken;
 }
 
+/**
+ * Chaves PIX aleatórias (EVP) da conta.
+ *
+ * A chave que recebe é uma EVP de propósito, e não o CNPJ nem o telefone: ela
+ * é um identificador sem significado, que não conta ao pagador nada sobre quem
+ * recebe, e pode ser trocada sem mexer em nada que o cliente veja. É o que a
+ * própria Efí recomenda para cobrança por API.
+ *
+ * Exige o escopo `gn.pix.evp.read` na aplicação do Efí; sem ele a resposta é
+ * 403 e a mensagem diz isso.
+ */
+export async function listarChavesPix(): Promise<string[]> {
+  const token = await authorizePix();
+
+  const resposta = asRecord(
+    await requestJson(new URL(`${pixBaseUrl()}/v2/gn/evp`), {
+      token,
+      pfx: certificateBuffer(),
+    }),
+  );
+
+  const chaves = resposta.chaves;
+  return Array.isArray(chaves) ? chaves.filter((c): c is string => typeof c === "string") : [];
+}
+
+/**
+ * Cria uma chave aleatória nova.
+ *
+ * A conta tem limite de chaves — criar sem olhar o que já existe é o caminho
+ * para estourar o limite com chaves órfãs que ninguém sabe de onde vieram. Por
+ * isso quem chama precisa ter listado antes.
+ */
+export async function criarChavePixAleatoria(): Promise<string> {
+  const token = await authorizePix();
+
+  const resposta = asRecord(
+    await requestJson(new URL(`${pixBaseUrl()}/v2/gn/evp`), {
+      method: "POST",
+      token,
+      pfx: certificateBuffer(),
+      body: JSON.stringify({}),
+    }),
+  );
+
+  const chave = asString(resposta.chave);
+  if (!chave) throw new Error("O Efí não devolveu a chave criada");
+  return chave;
+}
+
 export type PixCharge = {
   externalId: string;
   status: string;
