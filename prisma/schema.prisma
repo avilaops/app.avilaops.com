@@ -404,6 +404,7 @@ model Organization {
   leads                    Lead[]
   domains                  DomainAsset[]
   deliverables             Deliverable[]
+  subscriptions            Subscription[]
   integrationConnections   OrganizationIntegrationConnection[]
   metaBusinessAccounts     MetaBusinessAccount[]
   metaPages                MetaPage[]
@@ -441,6 +442,10 @@ model OrganizationProfile {
   bestContactTime         String?  @map("best_contact_time")
   stateRegistration       String?  @map("state_registration")
   municipalRegistration   String?  @map("municipal_registration")
+  /// CPF de quem responde pela empresa. A Efí exige uma pessoa física no
+  /// boleto e no cartão mesmo quando quem paga é CNPJ — sem este campo, as
+  /// duas formas de pagamento ficam indisponíveis para o cliente.
+  responsibleCpf          String?  @map("responsible_cpf")
   companyDescription      String?  @map("company_description")
   servicesOffered         String?  @map("services_offered")
   productsOffered         String?  @map("products_offered")
@@ -1138,6 +1143,106 @@ model DeliverableCharge {
   @@index([deliverableId, status])
   @@index([externalId])
   @@map("deliverable_charges")
+  @@schema("operations")
+}
+
+/// Mensalidade de um cliente (levantamento de cobrança recorrente, §3.2).
+///
+/// Genérica por decisão: vale para a plataforma de restaurantes, saudepet,
+/// brilhax e o próximo — o custo de escrever assim é o mesmo do específico, e
+/// o específico vira refatoração no banco compartilhado quando o segundo
+/// cliente chega.
+///
+/// `productKey` + `productTenantId` dizem qual conta, dentro de qual produto,
+/// esta assinatura paga. É por esse par que o produto pergunta "qual é a minha
+/// fatura?" — o produto não conhece `Organization`, e não precisa conhecer.
+model Subscription {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  description    String
+  amount         Decimal   @db.Decimal(10, 2)
+  currency       String    @default("BRL")
+  /// Dia do vencimento, 1–28. Os dias 29, 30 e 31 não existem em todo mês, e
+  /// mensalidade que some em fevereiro é conversa desagradável.
+  billingDay     Int       @map("billing_day")
+  /// ACTIVE | PAUSED | CANCELLED
+  status         String    @default("ACTIVE")
+  startedAt      DateTime  @map("started_at")
+  endedAt        DateTime? @map("ended_at")
+  productKey      String?  @map("product_key")
+  productTenantId String?  @map("product_tenant_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices     SubscriptionInvoice[]
+
+  @@unique([productKey, productTenantId])
+  @@index([organizationId, status])
+  @@map("subscriptions")
+  @@schema("operations")
+}
+
+/// A fatura de um mês.
+///
+/// `unique(assinatura, competência)` é o que impede faturar agosto duas vezes
+/// quando o job roda de novo — sem isso, ninguém tem coragem de reexecutar.
+model SubscriptionInvoice {
+  id             String    @id @default(cuid())
+  subscriptionId String    @map("subscription_id")
+  /// AAAA-MM. Competência, não data de emissão.
+  competence     String
+  amount         Decimal   @db.Decimal(10, 2)
+  dueDate        DateTime  @map("due_date") @db.Date
+  /// OPEN | PAID | OVERDUE | CANCELLED
+  status         String    @default("OPEN")
+  paidAt         DateTime? @map("paid_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  charges      SubscriptionCharge[]
+
+  @@unique([subscriptionId, competence])
+  @@index([status, dueDate])
+  @@map("subscription_invoices")
+  @@schema("operations")
+}
+
+/// Uma tentativa de pagamento da fatura, no formato que a EFI devolve.
+///
+/// Espelha `DeliverableCharge` de propósito: é a mesma integração, e o webhook
+/// procura nos dois lugares. Várias por fatura porque o cliente gera PIX,
+/// desiste, e no dia seguinte tira um boleto — as duas cobranças existem, e
+/// só uma vai ser paga.
+model SubscriptionCharge {
+  id        String @id @default(cuid())
+  invoiceId String @map("invoice_id")
+  /// PIX | BOLETO | CARD
+  method    String
+  provider  String @default("EFI")
+  externalId String? @map("external_id")
+  status    String  @default("CREATED")
+  /// O que foi cobrado de fato. No cartão parcelado já inclui o juros — é o
+  /// valor que o cliente vê e o que a EFI captura, e guardar o da fatura aqui
+  /// faria a conciliação divergir todo mês.
+  amount    Decimal @db.Decimal(10, 2)
+  installments   Int     @default(1)
+  interestAmount Decimal @default(0) @map("interest_amount") @db.Decimal(10, 2)
+  pixCopyPaste  String?   @map("pix_copy_paste")
+  pixQrBase64   String?   @map("pix_qr_base64")
+  boletoUrl     String?   @map("boleto_url")
+  boletoBarcode String?   @map("boleto_barcode")
+  expiresAt     DateTime? @map("expires_at")
+  paidAt        DateTime? @map("paid_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, status])
+  @@index([externalId])
+  @@map("subscription_charges")
   @@schema("operations")
 }
 

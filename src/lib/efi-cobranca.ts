@@ -214,11 +214,42 @@ export type BoletoCharge = {
   expiresAt: Date;
 };
 
+/**
+ * Pagador da Efí.
+ *
+ * A empresa NÃO substitui a pessoa: quando quem paga é CNPJ, a Efí ainda exige
+ * um titular pessoa física, e o CNPJ entra como `juridical_person` ao lado.
+ * Mandar só o CNPJ devolve 400 sem explicar isso.
+ */
+export type EfiPayer = {
+  name: string;
+  cpf: string;
+  email: string;
+  company?: { cnpj: string; corporateName: string };
+};
+
+function customerPayload(payer: EfiPayer): JsonRecord {
+  const customer: JsonRecord = {
+    name: payer.name,
+    cpf: payer.cpf.replace(/\D/g, ""),
+    email: payer.email,
+  };
+
+  if (payer.company) {
+    customer.juridical_person = {
+      corporate_name: payer.company.corporateName,
+      cnpj: payer.company.cnpj.replace(/\D/g, ""),
+    };
+  }
+
+  return customer;
+}
+
 export async function createBoletoCharge(input: {
   amountCents: number;
   description: string;
   expireInDays?: number;
-  payer: { name: string; cpf: string; email: string };
+  payer: EfiPayer;
 }): Promise<BoletoCharge> {
   const token = await authorizeCobrancas();
   const expireInDays = input.expireInDays ?? 3;
@@ -233,11 +264,7 @@ export async function createBoletoCharge(input: {
         payment: {
           banking_billet: {
             expire_at: expireAt.toISOString().slice(0, 10),
-            customer: {
-              name: input.payer.name,
-              cpf: input.payer.cpf.replace(/\D/g, ""),
-              email: input.payer.email,
-            },
+            customer: customerPayload(input.payer),
           },
         },
       }),
@@ -281,7 +308,7 @@ export async function createCardCharge(input: {
   description: string;
   installments: number;
   paymentToken: string;
-  payer: { name: string; cpf: string; email: string };
+  payer: EfiPayer;
 }): Promise<{ externalId: string; status: string }> {
   const token = await authorizeCobrancas();
 
@@ -295,11 +322,7 @@ export async function createCardCharge(input: {
           credit_card: {
             installments: input.installments,
             payment_token: input.paymentToken,
-            customer: {
-              name: input.payer.name,
-              cpf: input.payer.cpf.replace(/\D/g, ""),
-              email: input.payer.email,
-            },
+            customer: customerPayload(input.payer),
           },
         },
       }),
