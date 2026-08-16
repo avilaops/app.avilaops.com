@@ -1,8 +1,31 @@
 import { readFileSync } from "fs";
 import https from "https";
 
-const PIX_BASE_URL = "https://pix.api.efipay.com.br";
-const COBRANCAS_BASE_URL = "https://cobrancas.api.efipay.com.br";
+/**
+ * Produção ou homologação, escolhido por ambiente.
+ *
+ * `EFI_ENVIRONMENT=homologacao` troca os endereços, as credenciais e o
+ * certificado — os três juntos, sempre. Trocar só a URL e manter a credencial
+ * de produção rende 401 confuso; trocar só a credencial cobra de verdade
+ * achando que é teste, que é o erro caro.
+ *
+ * O padrão é produção porque é o que já roda. Testar exige dizer que quer.
+ */
+function homologacao(): boolean {
+  return (process.env.EFI_ENVIRONMENT ?? "producao").trim().toLowerCase() === "homologacao";
+}
+
+function pixBaseUrl(): string {
+  return homologacao()
+    ? "https://pix-h.api.efipay.com.br"
+    : "https://pix.api.efipay.com.br";
+}
+
+function cobrancasBaseUrl(): string {
+  return homologacao()
+    ? "https://cobrancas-h.api.efipay.com.br"
+    : "https://cobrancas.api.efipay.com.br";
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -17,6 +40,17 @@ function asString(value: unknown): string | null {
 }
 
 function certificateBuffer(): Buffer {
+  if (homologacao()) {
+    const caminho = process.env.EFI_CERTIFICATE_PATH_HOMOLOGACAO?.trim();
+    if (!caminho) {
+      throw new Error(
+        "EFI_ENVIRONMENT=homologacao exige EFI_CERTIFICATE_PATH_HOMOLOGACAO — o " +
+          "certificado de produção não autentica no ambiente de teste",
+      );
+    }
+    return readFileSync(caminho);
+  }
+
   const base64 = process.env.EFI_CERTIFICATE_P12_BASE64?.trim();
   if (base64) return Buffer.from(base64, "base64");
 
@@ -103,15 +137,26 @@ function requestJson(
 }
 
 async function authorizePix(): Promise<string> {
-  const clientId = process.env.EFI_CLIENT_ID_PRODUCAO?.trim();
-  const secret = process.env.EFI_SECRET_KEY_PRODUCAO?.trim();
+  const clientId = (
+    homologacao()
+      ? process.env.EFI_CLIENT_ID_HOMOLOGACAO
+      : process.env.EFI_CLIENT_ID_PRODUCAO
+  )?.trim();
+  const secret = (
+    homologacao()
+      ? process.env.EFI_SECRET_KEY_HOMOLOGACAO
+      : process.env.EFI_SECRET_KEY_PRODUCAO
+  )?.trim();
+
   if (!clientId || !secret) {
-    throw new Error("Credenciais de produção do Efí (PIX) não configuradas");
+    throw new Error(
+      `Credenciais do Efí (PIX) não configuradas para ${homologacao() ? "homologação" : "produção"}`,
+    );
   }
 
   const basicAuth = Buffer.from(`${clientId}:${secret}`).toString("base64");
   const response = asRecord(
-    await requestJson(new URL(`${PIX_BASE_URL}/oauth/token`), {
+    await requestJson(new URL(`${pixBaseUrl()}/oauth/token`), {
       method: "POST",
       basicAuth,
       body: JSON.stringify({ grant_type: "client_credentials" }),
@@ -125,8 +170,16 @@ async function authorizePix(): Promise<string> {
 }
 
 async function authorizeCobrancas(): Promise<string> {
-  const clientId = process.env.EFI_COBRANCA_CLIENT_ID?.trim();
-  const secret = process.env.EFI_COBRANCA_CLIENT_SECRET?.trim();
+  const clientId = (
+    homologacao()
+      ? process.env.EFI_COBRANCA_CLIENT_ID_HOMOLOGACAO ?? process.env.EFI_CLIENT_ID_HOMOLOGACAO
+      : process.env.EFI_COBRANCA_CLIENT_ID
+  )?.trim();
+  const secret = (
+    homologacao()
+      ? process.env.EFI_COBRANCA_CLIENT_SECRET_HOMOLOGACAO ?? process.env.EFI_SECRET_KEY_HOMOLOGACAO
+      : process.env.EFI_COBRANCA_CLIENT_SECRET
+  )?.trim();
   if (!clientId || !secret) {
     throw new Error(
       "Credenciais da aplicação de Cobranças do Efí não configuradas (EFI_COBRANCA_CLIENT_ID/EFI_COBRANCA_CLIENT_SECRET)",
@@ -135,7 +188,7 @@ async function authorizeCobrancas(): Promise<string> {
 
   const basicAuth = Buffer.from(`${clientId}:${secret}`).toString("base64");
   const response = asRecord(
-    await requestJson(new URL(`${COBRANCAS_BASE_URL}/v1/authorize`), {
+    await requestJson(new URL(`${cobrancasBaseUrl()}/v1/authorize`), {
       method: "POST",
       basicAuth,
       body: JSON.stringify({ grant_type: "client_credentials" }),
@@ -167,7 +220,7 @@ export async function createPixCharge(input: {
   const expiracao = input.expiresInSeconds ?? 3600;
 
   const cobranca = asRecord(
-    await requestJson(new URL(`${PIX_BASE_URL}/v2/cob`), {
+    await requestJson(new URL(`${pixBaseUrl()}/v2/cob`), {
       method: "POST",
       token,
       pfx: certificateBuffer(),
@@ -185,7 +238,7 @@ export async function createPixCharge(input: {
   if (!txid || !locId) throw new Error("Resposta inesperada do Efí ao criar a cobrança PIX");
 
   const qrcode = asRecord(
-    await requestJson(new URL(`${PIX_BASE_URL}/v2/loc/${locId}/qrcode`), {
+    await requestJson(new URL(`${pixBaseUrl()}/v2/loc/${locId}/qrcode`), {
       token,
       pfx: certificateBuffer(),
     }),
@@ -256,7 +309,7 @@ export async function createBoletoCharge(input: {
   const expireAt = new Date(Date.now() + expireInDays * 24 * 60 * 60 * 1000);
 
   const response = asRecord(
-    await requestJson(new URL(`${COBRANCAS_BASE_URL}/v1/charge/one-step`), {
+    await requestJson(new URL(`${cobrancasBaseUrl()}/v1/charge/one-step`), {
       method: "POST",
       token,
       body: JSON.stringify({
@@ -289,10 +342,33 @@ export async function createBoletoCharge(input: {
   };
 }
 
+/**
+ * Situação real de uma cobrança PIX, perguntada ao Efí.
+ *
+ * Existe porque a notificação do webhook é um AVISO, não uma prova: ela chega
+ * por HTTP, pode ser repetida, pode chegar fora de ordem e — sem mTLS
+ * configurado na borda — pode ser forjada por qualquer um que saiba o formato.
+ * Quem decide se entrou dinheiro é a API, nunca o corpo do POST.
+ *
+ * `CONCLUIDA` é o único estado que significa pago.
+ */
+export async function getPixChargeStatus(txid: string): Promise<string> {
+  const token = await authorizePix();
+
+  const cobranca = asRecord(
+    await requestJson(new URL(`${pixBaseUrl()}/v2/cob/${encodeURIComponent(txid)}`), {
+      token,
+      pfx: certificateBuffer(),
+    }),
+  );
+
+  return asString(cobranca.status) ?? "DESCONHECIDO";
+}
+
 export async function getCobrancaChargeStatus(chargeId: string): Promise<string> {
   const token = await authorizeCobrancas();
   const response = asRecord(
-    await requestJson(new URL(`${COBRANCAS_BASE_URL}/v1/charge/${chargeId}`), { token }),
+    await requestJson(new URL(`${cobrancasBaseUrl()}/v1/charge/${chargeId}`), { token }),
   );
   const data = asRecord(response.data);
   return asString(data.status) ?? "PENDING";
@@ -313,7 +389,7 @@ export async function createCardCharge(input: {
   const token = await authorizeCobrancas();
 
   const response = asRecord(
-    await requestJson(new URL(`${COBRANCAS_BASE_URL}/v1/charge/one-step`), {
+    await requestJson(new URL(`${cobrancasBaseUrl()}/v1/charge/one-step`), {
       method: "POST",
       token,
       body: JSON.stringify({
