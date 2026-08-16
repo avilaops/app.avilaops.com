@@ -26,6 +26,8 @@ export type MetodoCobranca = "PIX" | "BOLETO" | "CARD";
 export type FaturaResumo = {
   id: string;
   competencia: string;
+  /** MONTHLY | SETUP — a tela do produto escreve "Implantação" no segundo. */
+  tipo: string;
   valorCents: number;
   vencimento: string;
   status: string;
@@ -63,6 +65,7 @@ function centavos(valor: { toString(): string }): number {
 function resumoFatura(fatura: {
   id: string;
   competence: string;
+  kind: string;
   amount: { toString(): string };
   dueDate: Date;
   status: string;
@@ -83,6 +86,7 @@ function resumoFatura(fatura: {
   return {
     id: fatura.id,
     competencia: fatura.competence,
+    tipo: fatura.kind,
     valorCents: centavos(fatura.amount),
     vencimento: fatura.dueDate.toISOString().slice(0, 10),
     status: fatura.status,
@@ -314,6 +318,10 @@ export async function criarCobrancaDaFatura(params: {
 export async function garantirFatura(params: {
   subscriptionId: string;
   competencia: string;
+  /** MONTHLY (padrão) ou SETUP, a implantação — que tem valor próprio. */
+  tipo?: "MONTHLY" | "SETUP";
+  valorCents?: number;
+  vencimento?: Date;
 }) {
   const assinatura = await prisma.subscription.findUnique({
     where: { id: params.subscriptionId },
@@ -321,21 +329,26 @@ export async function garantirFatura(params: {
 
   if (!assinatura || assinatura.status !== "ACTIVE") return null;
 
+  const tipo = params.tipo ?? "MONTHLY";
   const [ano, mes] = params.competencia.split("-").map(Number);
-  const vencimento = new Date(Date.UTC(ano, mes - 1, assinatura.billingDay));
+  const vencimento =
+    params.vencimento ?? new Date(Date.UTC(ano, mes - 1, assinatura.billingDay));
 
   return prisma.subscriptionInvoice.upsert({
     where: {
-      subscriptionId_competence: {
+      subscriptionId_competence_kind: {
         subscriptionId: assinatura.id,
         competence: params.competencia,
+        kind: tipo,
       },
     },
     update: {},
     create: {
       subscriptionId: assinatura.id,
       competence: params.competencia,
-      amount: assinatura.amount,
+      kind: tipo,
+      amount:
+        params.valorCents === undefined ? assinatura.amount : params.valorCents / 100,
       dueDate: vencimento,
       status: "OPEN",
     },

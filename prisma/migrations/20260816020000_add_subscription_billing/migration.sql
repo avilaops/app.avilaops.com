@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS "operations"."subscription_invoices" (
     "id" TEXT NOT NULL,
     "subscription_id" TEXT NOT NULL,
     "competence" TEXT NOT NULL,
+    -- MONTHLY | SETUP. A implantação é cobrada uma vez e não é mensalidade,
+    -- mas é fatura do mesmo cliente, na mesma tela, paga pelos mesmos meios.
+    "kind" TEXT NOT NULL DEFAULT 'MONTHLY',
     "amount" DECIMAL(10,2) NOT NULL,
     "due_date" DATE NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'OPEN',
@@ -72,8 +75,10 @@ CREATE INDEX IF NOT EXISTS "subscriptions_organization_id_status_idx"
 
 -- Faturar a mesma competência duas vezes é o erro que faz ninguém ter coragem
 -- de reexecutar o job. O banco recusa.
-CREATE UNIQUE INDEX IF NOT EXISTS "subscription_invoices_subscription_id_competence_key"
-    ON "operations"."subscription_invoices"("subscription_id", "competence");
+-- A competência sozinha não basta: a implantação e a primeira mensalidade
+-- caem no mesmo mês, e são duas faturas legítimas.
+CREATE UNIQUE INDEX IF NOT EXISTS "subscription_invoices_subscription_id_competence_kind_key"
+    ON "operations"."subscription_invoices"("subscription_id", "competence", "kind");
 CREATE INDEX IF NOT EXISTS "subscription_invoices_status_due_date_idx"
     ON "operations"."subscription_invoices"("status", "due_date");
 

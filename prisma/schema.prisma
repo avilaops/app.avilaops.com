@@ -1192,6 +1192,11 @@ model SubscriptionInvoice {
   subscriptionId String    @map("subscription_id")
   /// AAAA-MM. Competência, não data de emissão.
   competence     String
+  /// MONTHLY | SETUP. A implantação é cobrada uma vez, no começo, e não é
+  /// mensalidade — mas é fatura do mesmo cliente, aparece na mesma tela e é
+  /// paga pelos mesmos meios. Separar em outra tabela renderia duas telas e
+  /// dois webhooks para a mesma coisa.
+  kind           String    @default("MONTHLY")
   amount         Decimal   @db.Decimal(10, 2)
   dueDate        DateTime  @map("due_date") @db.Date
   /// OPEN | PAID | OVERDUE | CANCELLED
@@ -1203,7 +1208,9 @@ model SubscriptionInvoice {
   subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   charges      SubscriptionCharge[]
 
-  @@unique([subscriptionId, competence])
+  /// A competência sozinha não basta: a implantação e a primeira mensalidade
+  /// caem no mesmo mês, e são duas faturas legítimas.
+  @@unique([subscriptionId, competence, kind])
   @@index([status, dueDate])
   @@map("subscription_invoices")
   @@schema("operations")
