@@ -1,0 +1,34 @@
+# Postgres descartável da suíte de testes.
+#
+# Existe porque o banco de verdade deste projeto é o `cliente_portal`, que é
+# COMPARTILHADO com o portal do cliente. Testar contra ele não é opção: a suíte
+# cria e apaga organização, assinatura e fatura.
+#
+# A porta é configurável (`TEST_DB_PORT`) porque esta máquina já roda Postgres
+# de outros projetos — o padrão 5432 e o 5433 costumam estar ocupados, e um
+# teste que não sobe por conflito de porta vira teste que ninguém roda.
+#
+#   docker compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml down -v    <- apaga os dados
+services:
+  db-test:
+    image: postgres:18-alpine
+    container_name: app-avilaops-db-test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cliente_portal_test
+    ports:
+      - "${TEST_DB_PORT:-55433}:5432"
+    # `tmpfs`: o banco inteiro vive em memória e some com o container. Não há
+    # volume para esquecer de limpar, e a suíte começa sempre do zero.
+    #
+    # O ponto é `/var/lib/postgresql`, e não `.../data`: a imagem 18 recusa um
+    # mount só no subdiretório de dados e sai com erro na primeira subida.
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cliente_portal_test"]
+      interval: 3s
+      timeout: 5s
+      retries: 20

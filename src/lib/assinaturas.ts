@@ -372,17 +372,27 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
   if (!cobranca) return null;
 
   const pago = ["PAID", "paid", "CONFIRMED", "settled"].includes(status);
+  const jaEstavaPago = cobranca.status === "PAID";
   const agora = new Date();
 
   await prisma.subscriptionCharge.update({
     where: { id: cobranca.id },
-    data: { status, paidAt: pago ? agora : cobranca.paidAt },
+    data: {
+      // Cobrança paga não volta atrás. A Efí reenvia notificação e a ordem de
+      // chegada não é garantida: um "pendente" atrasado, processado depois do
+      // "pago", deixaria a cobrança aberta com o dinheiro na conta.
+      status: jaEstavaPago ? "PAID" : status,
+      // `paidAt` é o instante do pagamento, não o do reprocessamento. Sem esta
+      // guarda, reenviar o mesmo evento amanhã moveria a data de hoje para
+      // amanhã — e a conciliação bancária deixaria de bater.
+      paidAt: cobranca.paidAt ?? (pago ? agora : null),
+    },
   });
 
   if (pago && cobranca.invoice.status !== "PAID") {
     await prisma.subscriptionInvoice.update({
       where: { id: cobranca.invoiceId },
-      data: { status: "PAID", paidAt: agora },
+      data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? agora },
     });
   }
 
