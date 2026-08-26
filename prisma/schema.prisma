@@ -1,5 +1,9 @@
 generator client {
   provider = "prisma-client-js"
+  // O build sai desta máquina (Windows) e roda em Debian dentro do container.
+  // Sem o alvo Linux o Prisma sobe procurando um engine que não foi gerado e a
+  // aplicação morre na primeira consulta, já em produção.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
