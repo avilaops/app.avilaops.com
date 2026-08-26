@@ -178,6 +178,22 @@ a {
   transform: translateY(-1px);
 }
 
+/*
+ * O tema normalmente segue o relógio. Quando alguém fixa um tema pelo botão,
+ * este ponto avisa que o automático está suspenso até a próxima virada — sem
+ * ele, o usuário não tem como saber por que às 18h não escureceu.
+ */
+.theme-toggle:not([data-modo="auto"])::after {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent, #6ea8fe);
+  content: "";
+}
+
 .side-nav {
   display: grid;
   gap: 4px;

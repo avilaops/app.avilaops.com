@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { scriptInicial } from "@/lib/tema-noturno";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.avilaops.com";
@@ -34,25 +35,17 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const themeScript = `
-    (() => {
-      try {
-        const theme = window.localStorage.getItem("avila-ops-theme-v2") || "light";
-        document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
-        document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
-      } catch {
-        document.documentElement.dataset.theme = "light";
-        document.documentElement.style.colorScheme = "light";
-      }
-    })();
-  `;
-
   return (
     <html lang="pt-BR" data-theme="light" style={{ colorScheme: "light" }}>
-      <body>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {children}
-      </body>
+      <head>
+        {/*
+          Modo noturno da casa: 18h escurece, 6h clareia. Precisa rodar antes do
+          CSS, senão a tela pinta clara e escurece depois — o flash branco às
+          22h é pior do que não ter tema escuro.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: scriptInicial() }} />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
