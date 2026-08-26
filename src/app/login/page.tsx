@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
 import LoginForm from "@/components/LoginForm";
 import { getAdmin } from "@/lib/auth";
+import { urlLoginSSO } from "@/lib/sso";
 
+/**
+ * O login da equipe é o `auth.avilaops.com`: uma tela, um cookie válido em
+ * todos os `*.avilaops.com`. Este endereço só redireciona para lá.
+ *
+ * O formulário local por CPF/senha fica apenas para ambiente sem SSO ligado
+ * (dev sem `SSO_JWT_SECRET`), para não travar quem roda o app na máquina.
+ */
 export default async function LoginPage() {
   const admin = await getAdmin();
   if (admin) redirect("/operacao");
+
+  if (process.env.SSO_JWT_SECRET) redirect(urlLoginSSO());
 
   return (
     <main className="login-page">
@@ -29,14 +39,12 @@ export default async function LoginPage() {
           </span>
         </div>
         <div>
-          <span className="eyebrow">Acesso seguro</span>
+          <span className="eyebrow">Acesso local (sem SSO)</span>
           <h2>Entre no painel</h2>
-          <p>Use o mesmo acesso administrativo já autorizado no portal.</p>
+          <p>Em produção o login é feito em auth.avilaops.com.</p>
         </div>
         <LoginForm />
-        <small className="login-footnote">
-          A sessão é independente do portal do cliente e expira em 8 horas.
-        </small>
+        <small className="login-footnote">A sessão expira em 8 horas.</small>
       </section>
     </main>
   );
