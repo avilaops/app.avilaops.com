@@ -4,7 +4,7 @@ import https from "https";
 
 const PIX_BASE_URL = "https://pix.api.efipay.com.br";
 
-type JsonRecord = Record<string, unknown>;
+export type JsonRecord = Record<string, unknown>;
 
 export type NormalizedBankTransaction = {
   externalId: string;
@@ -49,6 +49,69 @@ function asNumber(value: unknown): number {
 
 function nestedString(record: JsonRecord, parent: string, field: string) {
   return asString(asRecord(record[parent])[field]);
+}
+
+/** Chave aleatória (EVP) do Pix: 36 caracteres no formato UUID. */
+const CHAVE_ALEATORIA = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Quem está do outro lado da movimentação.
+ *
+ * As duas pontas do Pix não são simétricas na API do Éfi, e a diferença é o
+ * motivo de a conciliação viver cheia de "Não informado":
+ *
+ * **Enviado** (`/v2/gn/pix/enviados`) — o nome vem, mas dois níveis abaixo, em
+ * `favorecido.identificacao.nome`, ao lado do CPF/CNPJ. Ler `favorecido.nome`
+ * devolve `undefined` em 100% dos registros.
+ *
+ * **Recebido** (`/v2/pix`) — o Éfi devolve só `endToEndId`, `valor`, `chave`
+ * (a NOSSA chave, a que recebeu) e `horario`. Não existe `pagador` na resposta,
+ * o detalhe em `/v2/pix/{e2e}` traz os mesmos campos, e `/v2/gn/pix/{e2e}` não
+ * existe (404). Pix recebido fora de cobrança simplesmente não identifica o
+ * pagador — e é por isso que aqui não há fallback nenhum a tentar.
+ */
+function counterpartyName(record: JsonRecord, isCredit: boolean): string | null {
+  if (isCredit) {
+    // Mantido para o dia em que o Éfi passar a devolver, e para Pix vindo de
+    // cobrança, onde o objeto existe.
+    return nestedString(record, "pagador", "nome");
+  }
+
+  const favorecido = asRecord(record.favorecido);
+  const nome =
+    asString(asRecord(favorecido.identificacao).nome) ??
+    // Formato antigo da API, caso algum registro anterior ainda apareça.
+    asString(favorecido.nome);
+  if (nome) return nome;
+
+  // Sem nome, a chave ainda diz algo — telefone, e-mail e CPF são
+  // reconhecíveis. Chave aleatória não identifica ninguém e vira ruído.
+  const chave = asString(favorecido.chave);
+  return chave && !CHAVE_ALEATORIA.test(chave) ? chave : null;
+}
+
+/** Limite do texto livre na descrição: o suficiente para reconhecer a origem. */
+const LIMITE_INFO_PAGADOR = 80;
+
+/**
+ * Descrição da movimentação com o texto livre do Pix, quando existe.
+ *
+ * `infoPagador` é o que a pessoa digita ao pagar ("pgto redes sociais", ou o
+ * próprio nome). Não é o nome do pagador e não pode ocupar a coluna de
+ * origem/destino — mas, em Pix recebido, é a única pista que chega, e quem
+ * concilia precisa dela na tela.
+ */
+function describeTransaction(record: JsonRecord, isCredit: boolean): string {
+  const base = isCredit ? "Pix recebido" : "Pix enviado";
+  const info = asString(record.infoPagador);
+  if (!info) return base;
+
+  const cortado =
+    info.length > LIMITE_INFO_PAGADOR
+      ? `${info.slice(0, LIMITE_INFO_PAGADOR - 1)}…`
+      : info;
+
+  return `${base} · ${cortado}`;
 }
 
 function certificateBuffer(): Buffer {
@@ -206,7 +269,11 @@ function normalizeDate(record: JsonRecord): Date {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
-function normalizeTransaction(
+/**
+ * Exportada para teste: é aqui que mora a diferença de formato entre as duas
+ * pontas do Pix, e foi ela que deixou a conciliação inteira sem nome.
+ */
+export function normalizeTransaction(
   record: JsonRecord,
   direction: "CREDIT" | "DEBIT",
 ): NormalizedBankTransaction {
@@ -218,9 +285,6 @@ function normalizeTransaction(
     .digest("hex");
   const stableId = endToEndId ?? idEnvio ?? txid ?? rawHash;
   const isCredit = direction === "CREDIT";
-  const counterpartyName = isCredit
-    ? nestedString(record, "pagador", "nome")
-    : nestedString(record, "favorecido", "nome");
 
   return {
     externalId: `${isCredit ? "received" : "sent"}:${stableId}`,
@@ -229,8 +293,8 @@ function normalizeTransaction(
     direction,
     transactionType: isCredit ? "PIX_RECEIVED" : "PIX_SENT",
     amount: Math.abs(asNumber(record.valor)),
-    description: isCredit ? "Pix recebido" : "Pix enviado",
-    counterpartyName,
+    description: describeTransaction(record, isCredit),
+    counterpartyName: counterpartyName(record, isCredit),
     occurredAt: normalizeDate(record),
     rawHash,
   };
