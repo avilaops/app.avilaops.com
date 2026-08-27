@@ -14,6 +14,7 @@ type AppShellProps = {
     | "transactions"
     | "ledger"
     | "import"
+    | "mercadopago"
     | "reports"
     | "seo"
     | "obs"
@@ -22,7 +23,8 @@ type AppShellProps = {
     | "services"
     | "newsletter"
     | "jobs"
-    | "partner-network";
+    | "partner-network"
+    | "google-suite";
   children: ReactNode;
 };
 
@@ -61,39 +63,45 @@ const navigation = [
         section: "seo",
       },
       {
+        href: "/operacao/google",
+        label: "Google Command Center",
+        marker: "06",
+        section: "google-suite",
+      },
+      {
         href: "/operacao/obs",
         label: "Observabilidade OSB",
-        marker: "06",
+        marker: "07",
         section: "obs",
       },
       {
         href: "/operacao/meta",
         label: "Meta Business",
-        marker: "07",
+        marker: "08",
         section: "meta",
       },
       {
         href: "/operacao/whatsapp",
         label: "WhatsApp Business",
-        marker: "08",
+        marker: "09",
         section: "whatsapp",
       },
       {
         href: "/operacao/servicos",
         label: "Catálogo de serviços",
-        marker: "09",
+        marker: "10",
         section: "services",
       },
       {
         href: "/operacao/newsletter",
         label: "Newsletter",
-        marker: "10",
+        marker: "11",
         section: "newsletter",
       },
       {
         href: "/vagas",
         label: "Vagas e recrutamento",
-        marker: "11",
+        marker: "12",
         section: "jobs",
       },
     ],
@@ -130,6 +138,12 @@ const navigation = [
         label: "Importar extrato",
         marker: "12",
         section: "import",
+      },
+      {
+        href: "/financeiro/mercadopago",
+        label: "Mercado Pago",
+        marker: "13",
+        section: "mercadopago",
       },
       {
         href: "/relatorios",
