@@ -52,12 +52,8 @@ export default async function MetaLeadsPage({
     <AppShell adminName={admin.nome} section="meta">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Meta Business · Lead Ads</span>
-          <h1>Leads da Meta entrando no operacional.</h1>
-          <p>
-            Formulários, leads recebidos e status de processamento para transformar
-            anúncios em atendimento, CRM e venda acompanhável.
-          </p>
+          <h1>Leads da Meta</h1>
+          <p>Formulários, leads recebidos e status de processamento.</p>
         </div>
       </header>
 
@@ -90,7 +86,6 @@ export default async function MetaLeadsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Formulários</span>
             <h2>Fontes de captação</h2>
           </div>
           <small>Lead Ads disponíveis por cliente</small>
@@ -135,7 +130,6 @@ export default async function MetaLeadsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Leads</span>
             <h2>Fila operacional</h2>
           </div>
           <small>Últimos 80 registros importados</small>

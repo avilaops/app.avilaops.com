@@ -67,7 +67,6 @@ export default function DeliverableForm({ projectId }: { projectId: string }) {
         <form className="organization-form" onSubmit={submit}>
           <div className="form-title">
             <div>
-              <span className="eyebrow">Novo entregável</span>
               <h2>Prévia gratuita, download pago</h2>
             </div>
             <span className="status-chip">PIX · Boleto · Cartão</span>

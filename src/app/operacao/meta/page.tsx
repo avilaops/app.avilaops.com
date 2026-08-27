@@ -30,12 +30,8 @@ export default async function MetaOperationsPage({
     <AppShell adminName={admin.nome} section="meta">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Ávila OS · Conteúdo e campanhas</span>
-          <h1>Meta Business integrado ao operacional.</h1>
-          <p>
-            Facebook, Instagram, contas de anúncio, formulários de lead e
-            webhooks preparados para entrar no mesmo Postgres da operação.
-          </p>
+          <h1>Meta Business</h1>
+          <p>Contas, formulários e webhooks ligados à operação.</p>
         </div>
       </header>
 

@@ -23,13 +23,10 @@ export default async function GoogleCommandCenterPage() {
     <AppShell adminName={admin.nome} section="google-suite">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Google Command Center</span>
-          <h1>Central de Presença & Analytics</h1>
-          <p>
-            Gestão unificada do Google Meu Negócio para as 10 empresas do ecossistema e métricas de tráfego GA4 em tempo real.
-          </p>
+          <h1>Google</h1>
+          <p>Google Meu Negócio das empresas do grupo e tráfego do GA4.</p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
+        <div className="page-actions">
           <Link href="/operacao/seo" className="secondary-button">
             SEO & Cloudflare
           </Link>

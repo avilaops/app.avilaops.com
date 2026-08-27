@@ -178,7 +178,6 @@ export default function JobPostingEditor({
       <section className="operations-panel job-actions-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Estado da vaga</span>
             <h2>Publicação</h2>
           </div>
           <span className="panel-count">{posting.applicationCount}</span>
@@ -265,7 +264,6 @@ export default function JobPostingEditor({
         <section className="operations-panel job-form-panel">
           <div className="operations-panel-heading">
             <div>
-              <span className="eyebrow">Conteúdo</span>
               <h2>Editor da vaga</h2>
             </div>
             <small>{posting.ref}</small>
@@ -463,7 +461,6 @@ export default function JobPostingEditor({
         <section className="operations-panel job-preview-panel">
           <div className="operations-panel-heading">
             <div>
-              <span className="eyebrow">Prévia</span>
               <h2>Como a página lê</h2>
             </div>
             <small>/vagas/{posting.slug}/</small>

@@ -80,12 +80,8 @@ export default async function ContasPage({
     <AppShell adminName={admin.nome} section="ledger">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Control room · Financeiro</span>
-          <h1>Contas a pagar e a receber.</h1>
-          <p>
-            O que vence, o que já venceu e o que a conciliação bancária já deu
-            por quitado.
-          </p>
+          <h1>Contas a pagar e receber</h1>
+          <p>O que vence, o que já venceu e o que a conciliação bancária deu por quitado.</p>
         </div>
         <div className="page-header-actions">
           <NewLedgerEntryButton />

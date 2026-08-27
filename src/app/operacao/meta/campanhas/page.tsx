@@ -53,12 +53,8 @@ export default async function MetaCampaignsPage({
     <AppShell adminName={admin.nome} section="meta">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Meta Business · Campanhas</span>
-          <h1>Campanhas, verba e performance no mesmo painel.</h1>
-          <p>
-            Snapshots de campanha preparados para ligar investimento, tráfego,
-            leads e resultado comercial dentro do operacional da Ávila Ops.
-          </p>
+          <h1>Campanhas da Meta</h1>
+          <p>Verba, tráfego e resultado de cada campanha.</p>
         </div>
         <div className="page-actions">
           <MetaCampaignSyncButton organizationId={selectedOrganizationId} />
@@ -94,7 +90,6 @@ export default async function MetaCampaignsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Performance</span>
             <h2>Snapshots de campanha</h2>
           </div>
           <small>Últimos 100 registros capturados</small>
@@ -145,7 +140,6 @@ export default async function MetaCampaignsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Contas disponíveis</span>
             <h2>Origem das campanhas</h2>
           </div>
           <small>{adAccounts.length} contas de anúncio importadas</small>

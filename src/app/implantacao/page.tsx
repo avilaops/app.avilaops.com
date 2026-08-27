@@ -31,12 +31,8 @@ export default async function ImplantacaoPage() {
     <AppShell adminName={admin.nome} section="partner-network">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Control room · Implantação</span>
-          <h1>Prontidão para a OpenAI Partner Network.</h1>
-          <p>
-            Progresso real da candidatura ao nível Select — pilares, roadmap de 90 dias,
-            casos-piloto e o repositório de documentos exigidos pelo dossiê.
-          </p>
+          <h1>Implantação OpenAI</h1>
+          <p>Pilares, roadmap de 90 dias, casos-piloto e documentos do dossiê.</p>
         </div>
       </header>
 
@@ -75,7 +71,6 @@ export default async function ImplantacaoPage() {
         <article className="section-panel chart-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Cinco pilares</span>
               <h2>Peso e evidência acumulada</h2>
             </div>
           </div>
@@ -98,7 +93,6 @@ export default async function ImplantacaoPage() {
         </article>
 
         <aside className="section-panel health-panel">
-          <span className="eyebrow">Regra de corte</span>
           <h2>Como a pontuação é calculada</h2>
           <p style={{ fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
             Um pilar só pontua quando existe evidência real: item de roadmap marcado,
@@ -124,7 +118,6 @@ export default async function ImplantacaoPage() {
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <span className="eyebrow">Roadmap</span>
             <h2>90 dias, fase por fase</h2>
           </div>
         </div>
@@ -154,7 +147,6 @@ export default async function ImplantacaoPage() {
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <span className="eyebrow">Ávila AI Core</span>
             <h2>Núcleo técnico concluído — integração e validação em andamento.</h2>
           </div>
           <AiCoreValidateButton />
@@ -245,7 +237,6 @@ export default async function ImplantacaoPage() {
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <span className="eyebrow">Governança · Ávila AI Core</span>
             <h2>Aprovações humanas pendentes</h2>
             <p style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: 4 }}>
               Toda ferramenta sensível chamada por um agente passa por aqui antes de executar.
@@ -313,7 +304,6 @@ export default async function ImplantacaoPage() {
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <span className="eyebrow">Casos candidatos</span>
             <h2>Evidências de cliente</h2>
           </div>
         </div>
@@ -336,7 +326,6 @@ export default async function ImplantacaoPage() {
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <span className="eyebrow">Repositório</span>
             <h2>Documentos do dossiê</h2>
           </div>
         </div>

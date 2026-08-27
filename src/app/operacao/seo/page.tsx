@@ -127,13 +127,8 @@ export default async function SeoIntegrationsPage({
     <AppShell adminName={admin.nome} section="seo">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Ávila OS · SEO e integrações</span>
-          <h1>SEO das empresas cadastradas.</h1>
-          <p>
-            Domínios, DNS, Search Console e sitemap por cliente. O objetivo é
-            saber quem está pronto para aparecer no Google e quem ainda precisa
-            de configuração.
-          </p>
+          <h1>SEO</h1>
+          <p>Domínios, DNS, Search Console e sitemap por cliente.</p>
         </div>
       </header>
 
@@ -163,7 +158,6 @@ export default async function SeoIntegrationsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Clientes e domínios</span>
             <h2>Status SEO operacional</h2>
           </div>
           <small>Base atual do Postgres de produção</small>

@@ -16,12 +16,8 @@ export default async function ServicePlansPage() {
     <AppShell adminName={admin.nome} section="services">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Catálogo comercial</span>
-          <h1>Planos e preços administráveis.</h1>
-          <p>
-            Controle domínios, catálogos, redes sociais, e-mail profissional,
-            identidade visual e loja online sem editar código.
-          </p>
+          <h1>Catálogo de serviços</h1>
+          <p>Planos e preços editáveis, sem mexer em código.</p>
         </div>
       </header>
 

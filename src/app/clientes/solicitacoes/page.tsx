@@ -23,20 +23,14 @@ export default async function RegistrationRequestsPage() {
     <AppShell adminName={admin.nome} section="client-requests">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Solicitações de cadastro</span>
-          <h1>Documentação antes de qualquer acesso.</h1>
-          <p>
-            Todo cliente novo passa por aqui antes de receber login. Revise a
-            documentação enviada e aprove ou rejeite — a aprovação cria o
-            acesso no portal e envia a senha provisória por e-mail.
-          </p>
+          <h1>Solicitações de cadastro</h1>
+          <p>Revise a documentação enviada. Aprovar cria o acesso e envia a senha provisória por e-mail.</p>
         </div>
       </header>
 
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Fila de revisão</span>
             <h2>Pendentes de aprovação</h2>
           </div>
           <small>{requests.length} aguardando</small>

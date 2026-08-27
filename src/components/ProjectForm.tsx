@@ -105,7 +105,6 @@ export default function ProjectForm({
         <form className="organization-form" onSubmit={submit}>
           <div className="form-title">
             <div>
-              <span className="eyebrow">Novo projeto</span>
               <h2>Abertura de entrega</h2>
             </div>
             <span className="status-chip">Dados mínimos</span>

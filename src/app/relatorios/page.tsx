@@ -14,12 +14,8 @@ export default async function ReportsPage() {
     <AppShell adminName={admin.nome} section="reports">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Financeiro · Relatórios</span>
-          <h1>Fechamento que explica o número.</h1>
-          <p>
-            Exporte dados conciliados, abra pendências e acompanhe a qualidade
-            da integração.
-          </p>
+          <h1>Relatórios</h1>
+          <p>Exporte dados conciliados e acompanhe a qualidade da integração.</p>
         </div>
         <Link href="/financeiro" className="secondary-button">
           Voltar ao painel

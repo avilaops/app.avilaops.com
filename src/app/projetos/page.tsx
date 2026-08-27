@@ -45,12 +45,8 @@ export default async function ProjectsPage({
     <AppShell adminName={admin.nome} section="projects">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Entregas</span>
-          <h1>Projetos com prazo e responsável.</h1>
-          <p>
-            Cada projeto nasce vinculado a um cliente, com tarefas abertas,
-            prioridade e prazo — sem depender de memória para saber o que falta.
-          </p>
+          <h1>Entregas</h1>
+          <p>Projetos por cliente, com tarefas, prioridade e prazo.</p>
         </div>
         <ProjectForm organizations={organizations} />
       </header>
@@ -85,7 +81,6 @@ export default async function ProjectsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Fonte operacional</span>
             <h2>Projetos cadastrados</h2>
           </div>
           <small>Sem dados de demonstração</small>

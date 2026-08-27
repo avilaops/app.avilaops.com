@@ -90,12 +90,8 @@ export default async function FinancePage({
     <AppShell adminName={admin.nome} section={activeSection}>
       <header className="page-header">
         <div>
-          <span className="eyebrow">Control room · Financeiro</span>
-          <h1>Conciliação sem zona cega.</h1>
-          <p>
-            Movimentações do Éfi, evidências e decisões em uma única linha
-            operacional.
-          </p>
+          <h1>Financeiro</h1>
+          <p>Movimentações do Efí, evidências e o que ainda depende de decisão.</p>
         </div>
         <div className="page-header-actions">
           <Link href="/financeiro/contas" className="secondary-button">
@@ -223,7 +219,6 @@ export default async function FinancePage({
         <article className="section-panel chart-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Fluxo de caixa</span>
               <h2>Entradas × saídas</h2>
             </div>
             <div className="range-switch" aria-label="Intervalo">
@@ -242,7 +237,6 @@ export default async function FinancePage({
         </article>
 
         <aside className="section-panel health-panel">
-          <span className="eyebrow">Saúde da operação</span>
           <h2>O que merece atenção</h2>
           <dl className="health-list">
             <div>
@@ -271,7 +265,6 @@ export default async function FinancePage({
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <span className="eyebrow">Conciliação</span>
             <h2>Movimentações bancárias</h2>
           </div>
           <div className="filter-tabs" aria-label="Filtrar por estado">

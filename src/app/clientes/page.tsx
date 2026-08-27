@@ -21,12 +21,8 @@ export default async function ClientsPage() {
     <AppShell adminName={admin.nome} section="clients">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Clientes e marcas</span>
-          <h1>Uma carteira com contexto.</h1>
-          <p>
-            Cada organização nasce separada, com marca principal e espaço para
-            projetos, tarefas, domínios, aprovações e resultados.
-          </p>
+          <h1>Clientes</h1>
+          <p>Organizações, marcas e o que está aberto em cada uma.</p>
         </div>
         <OrganizationForm />
       </header>
@@ -58,7 +54,6 @@ export default async function ClientsPage() {
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Fonte operacional</span>
             <h2>Organizações cadastradas</h2>
           </div>
           <small>Sem dados de demonstração</small>

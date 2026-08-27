@@ -62,14 +62,13 @@ export default async function JobPostingsPage({
     <AppShell adminName={admin.nome} section="jobs">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Recrutamento</span>
-          <h1>Vagas publicadas a partir do banco.</h1>
+          <h1>Vagas</h1>
           <p>
-            Cada vaga vive em <code>operations.job_postings</code> e vai para{" "}
+            Cada vaga sai do banco para{" "}
             <a className="text-link" href={JOBS_SITE_URL} target="_blank" rel="noreferrer">
               jobs.avilaops.com
             </a>{" "}
-            no build do site — o mesmo conteúdo que alimenta o Google Jobs.
+            no build do site — é o conteúdo que alimenta o Google Jobs.
           </p>
         </div>
         <JobPostingForm />
@@ -158,7 +157,6 @@ export default async function JobPostingsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Fonte da verdade</span>
             <h2>Vagas cadastradas</h2>
           </div>
           <span className="panel-count">{postings.length}</span>

@@ -809,7 +809,6 @@ export default function ClientDossierForm({
         <div className="seo-keyword-panel">
           <div className="seo-keyword-heading">
             <div>
-              <span className="eyebrow">SEO e conteúdo</span>
               <h3>Palavras-chave recomendadas</h3>
             </div>
             <small>{organization.seoKeywords.length} itens cadastrados</small>

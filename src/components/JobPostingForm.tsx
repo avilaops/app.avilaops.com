@@ -71,7 +71,6 @@ export default function JobPostingForm() {
         <form className="organization-form" onSubmit={submit}>
           <div className="form-title">
             <div>
-              <span className="eyebrow">Nova vaga</span>
               <h2>Abertura em rascunho</h2>
             </div>
             <span className="status-chip">Não vai ao ar agora</span>

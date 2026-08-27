@@ -116,13 +116,10 @@ export default async function OsbDashboardPage() {
 
   return (
     <AppShell adminName={admin.nome} section="operations">
-      <header className="page-header operations-header" style={{ marginBottom: "1.5rem" }}>
+      <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Ávila OS · Módulo OSB</span>
-          <h1>Observabilidade & Saúde de Portfólio</h1>
-          <p>
-            Monitoramento unificado de Uptime, SEO Técnico, Performance Core Web Vitals, Integridade de Links e Vencimento de Domínios.
-          </p>
+          <h1>Observabilidade</h1>
+          <p>Uptime, SEO técnico, Core Web Vitals, links quebrados e vencimento de domínio.</p>
         </div>
       </header>
 

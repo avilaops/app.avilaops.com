@@ -18,12 +18,8 @@ export default async function WhatsappOperationsPage() {
     <AppShell adminName={admin.nome} section="whatsapp">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Ávila OS · Atendimento e automações</span>
-          <h1>WhatsApp Business dentro da operação.</h1>
-          <p>
-            Webhooks, WhatsApp Flows, catálogo e eventos preparados para sair do
-            container solto e entrar no mesmo Postgres operacional.
-          </p>
+          <h1>WhatsApp Business</h1>
+          <p>Webhooks, Flows, catálogo e eventos da conta.</p>
         </div>
       </header>
 
@@ -50,7 +46,6 @@ export default async function WhatsappOperationsPage() {
         <article className="operations-panel">
           <div className="operations-panel-heading">
             <div>
-              <span className="eyebrow">Meta WhatsApp</span>
               <h2>URLs oficiais</h2>
             </div>
             <small>{status.configured ? "Pronto para validação" : "Variáveis pendentes"}</small>
@@ -83,7 +78,6 @@ export default async function WhatsappOperationsPage() {
         <article className="operations-panel">
           <div className="operations-panel-heading">
             <div>
-              <span className="eyebrow">Estado técnico</span>
               <h2>Conexão WhatsApp</h2>
             </div>
           </div>

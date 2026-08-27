@@ -264,3 +264,89 @@ export const alterarValorAssinatura = (id: string, valorCentavos: number) =>
 /** URL do Mercado Pago para conferir um pagamento na origem. */
 export const linkDoPagamento = (id: number) =>
   `https://www.mercadopago.com.br/activities/detail/payment-${id}`;
+
+/* ── cobrança avulsa e estorno ───────────────────────────────────────────── */
+
+export interface LinkPagamento {
+  id: string;
+  titulo: string;
+  valorCentavos: number;
+  referencia: string | null;
+  link: string;
+  criadoEm: string;
+}
+
+/**
+ * Link de pagamento avulso — o setup de R$ 497, um serviço fora do plano, uma
+ * cobrança combinada no WhatsApp.
+ *
+ * Não confundir com a mensalidade: aqui é cobrança única, sem cartão salvo e
+ * sem recorrência. O comprador escolhe PIX, cartão ou boleto na página do
+ * Mercado Pago; nada disso passa por nós.
+ */
+export async function criarLinkPagamento(input: {
+  titulo: string;
+  valorCentavos: number;
+  referencia?: string;
+  emailPagador?: string;
+}): Promise<LinkPagamento> {
+  const d = await chamar<Record<string, unknown>>("/checkout/preferences", {
+    method: "POST",
+    body: {
+      items: [
+        {
+          title: input.titulo,
+          quantity: 1,
+          unit_price: input.valorCentavos / 100,
+          currency_id: "BRL",
+        },
+      ],
+      ...(input.referencia ? { external_reference: input.referencia } : {}),
+      ...(input.emailPagador ? { payer: { email: input.emailPagador } } : {}),
+      // Aparece na fatura do cartão de quem paga. Sem isso vira um nome
+      // genérico do Mercado Pago e o cliente abre contestação sem saber o que é.
+      statement_descriptor: "AVILAOPS",
+      back_urls: { success: "https://app.avilaops.com/financeiro/mercadopago" },
+    },
+  });
+  return {
+    id: String(d.id ?? ""),
+    titulo: input.titulo,
+    valorCentavos: input.valorCentavos,
+    referencia: input.referencia ?? null,
+    link: String(d.init_point ?? ""),
+    criadoEm: String(d.date_created ?? new Date().toISOString()),
+  };
+}
+
+export async function listarLinksPagamento(limite = 20): Promise<LinkPagamento[]> {
+  const d = await chamar<{ elements?: Array<Record<string, unknown>>; results?: Array<Record<string, unknown>> }>(
+    `/checkout/preferences/search?limit=${limite}`,
+  );
+  // A busca devolve um resumo (`reason` e `price`), não o item completo da
+  // preferência. É o bastante para a lista; o detalhe fica no próprio link.
+  const lista = d.elements ?? d.results ?? [];
+  return lista.map((p) => {
+    const resumo = p as { id?: string; reason?: string; price?: number; external_reference?: string; init_point?: string; date_created?: string };
+    return {
+      id: String(resumo.id ?? ""),
+      titulo: resumo.reason || "Cobrança",
+      valorCentavos: centavos(resumo.price),
+      referencia: resumo.external_reference || null,
+      link: resumo.init_point ?? "",
+      criadoEm: resumo.date_created ?? "",
+    };
+  });
+}
+
+/**
+ * Estorno. Sem valor, devolve tudo; com valor, devolve em parte.
+ *
+ * É definitivo e o dinheiro sai da conta na hora — por isso a tela pede
+ * confirmação digitada em vez de um clique só.
+ */
+export const estornarPagamento = (pagamentoId: number, valorCentavos?: number) =>
+  chamar<Record<string, unknown>>(`/v1/payments/${pagamentoId}/refunds`, {
+    method: "POST",
+    body: valorCentavos ? { amount: valorCentavos / 100 } : {},
+  });

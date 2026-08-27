@@ -210,7 +210,6 @@ export default function OrganizationForm() {
         <form className="organization-form" onSubmit={submit}>
           <div className="form-title">
             <div>
-              <span className="eyebrow">Nova organização</span>
               <h2>Entrada operacional do cliente</h2>
             </div>
             <span className="status-chip">Dados mínimos</span>

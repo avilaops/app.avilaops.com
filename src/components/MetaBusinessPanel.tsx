@@ -179,7 +179,6 @@ export default function MetaBusinessPanel({
       </article>
 
       <aside className="operations-panel meta-setup-panel">
-        <span className="eyebrow">Configuração no painel Meta</span>
         <h2>URLs oficiais</h2>
         <dl>
           <div>
@@ -200,7 +199,6 @@ export default function MetaBusinessPanel({
       <section className="operations-panel meta-counts-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Dados importados</span>
             <h2>Objetos da Meta no Postgres</h2>
           </div>
           <small>Contadores reais das tabelas `operations`.</small>

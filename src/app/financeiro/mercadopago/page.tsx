@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AcoesAssinatura from "@/components/AcoesAssinatura";
@@ -52,14 +53,13 @@ export default async function MercadoPagoPage() {
     <AppShell adminName={admin.nome} section="mercadopago">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Control room · Financeiro</span>
-          <h1>Mercado Pago.</h1>
-          <p>
-            A conta que cobra a mensalidade das lojas, cruzada com o que a plataforma acha que está
-            acontecendo. O que importa aqui é a diferença entre os dois.
-          </p>
+          <h1>Mercado Pago</h1>
+          <p>A conta que cobra a mensalidade das lojas, comparada com o que a plataforma registra.</p>
         </div>
         <div className="page-header-actions">
+          <Link className="text-button" href="/financeiro/mercadopago/cobrar">
+            Cobrança avulsa
+          </Link>
           <VarreduraCobrancaButton />
         </div>
       </header>
@@ -159,7 +159,13 @@ export default async function MercadoPagoPage() {
                       return (
                         <tr key={chave} className={pior?.gravidade === "erro" ? "mp-linha-erro" : undefined}>
                           <td>
-                            <strong>{l.loja?.nome ?? l.mp?.loja ?? "—"}</strong>
+                            <strong>
+                              {l.mp ? (
+                                <Link href={`/financeiro/mercadopago/${l.mp.id}`}>{l.loja?.nome ?? l.mp.loja ?? "—"}</Link>
+                              ) : (
+                                (l.loja?.nome ?? "—")
+                              )}
+                            </strong>
                             <small>{l.loja?.slug ?? l.mp?.pagador ?? ""}</small>
                             {pior && (
                               <p className={classePorGravidade[pior.gravidade]}>

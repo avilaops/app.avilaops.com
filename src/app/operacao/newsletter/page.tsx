@@ -18,13 +18,8 @@ export default async function NewsletterPage() {
     <AppShell adminName={admin.nome} section="newsletter">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Newsletter</span>
-          <h1>Uma base, um envio, um responsável.</h1>
-          <p>
-            Contatos de todos os projetos em um lugar só. Componha em HTML,
-            mensagem simples ou imagem, veja a prévia exata do que sai e envie
-            — com descadastro em todo e-mail e registro de quem recebeu.
-          </p>
+          <h1>Newsletter</h1>
+          <p>Contatos, composição, prévia e envio — com descadastro em todo e-mail.</p>
         </div>
       </header>
 

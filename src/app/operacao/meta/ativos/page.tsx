@@ -50,12 +50,8 @@ export default async function MetaAssetsPage({
     <AppShell adminName={admin.nome} section="meta">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Meta Business · Ativos</span>
-          <h1>Inventário social e mídia por cliente.</h1>
-          <p>
-            Business Managers, páginas, Instagram Business e contas de anúncio
-            importados da Meta e vinculados à organização selecionada.
-          </p>
+          <h1>Ativos da Meta</h1>
+          <p>Business Managers, páginas, Instagram e contas de anúncio por organização.</p>
         </div>
       </header>
 
@@ -88,7 +84,6 @@ export default async function MetaAssetsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Páginas e Instagram</span>
             <h2>Presença conectada</h2>
           </div>
           <small>Dados retornados pela Graph API</small>
@@ -140,7 +135,6 @@ export default async function MetaAssetsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Mídia paga</span>
             <h2>Contas de anúncio</h2>
           </div>
           <small>Base para métricas e campanhas</small>
@@ -185,7 +179,6 @@ export default async function MetaAssetsPage({
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Business Managers</span>
             <h2>Portfólios empresariais</h2>
           </div>
           <small>Origem dos ativos importados</small>

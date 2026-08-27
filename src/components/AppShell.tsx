@@ -28,129 +28,66 @@ type AppShellProps = {
   children: ReactNode;
 };
 
+/*
+ * Rótulo curto e sem numeração. O número na frente de cada item não dizia nada
+ * — só empurrava o nome para a direita e, no celular, cortava o texto.
+ */
 const navigation = [
   {
     label: "Operação",
     items: [
-      {
-        href: "/operacao",
-        label: "Visão central",
-        marker: "01",
-        section: "operations",
-      },
-      {
-        href: "/clientes",
-        label: "Clientes e marcas",
-        marker: "02",
-        section: "clients",
-      },
+      { href: "/operacao", label: "Visão central", section: "operations" },
+      { href: "/clientes", label: "Clientes", section: "clients" },
       {
         href: "/clientes/solicitacoes",
-        label: "Solicitações de cadastro",
-        marker: "03",
+        label: "Solicitações",
         section: "client-requests",
       },
-      {
-        href: "/projetos",
-        label: "Entregas",
-        marker: "04",
-        section: "projects",
-      },
-      {
-        href: "/operacao/seo",
-        label: "SEO e integrações",
-        marker: "05",
-        section: "seo",
-      },
-      {
-        href: "/operacao/google",
-        label: "Google Command Center",
-        marker: "06",
-        section: "google-suite",
-      },
-      {
-        href: "/operacao/obs",
-        label: "Observabilidade OSB",
-        marker: "07",
-        section: "obs",
-      },
-      {
-        href: "/operacao/meta",
-        label: "Meta Business",
-        marker: "08",
-        section: "meta",
-      },
-      {
-        href: "/operacao/whatsapp",
-        label: "WhatsApp Business",
-        marker: "09",
-        section: "whatsapp",
-      },
-      {
-        href: "/operacao/servicos",
-        label: "Catálogo de serviços",
-        marker: "10",
-        section: "services",
-      },
+      { href: "/projetos", label: "Entregas", section: "projects" },
+      { href: "/operacao/seo", label: "SEO", section: "seo" },
+      { href: "/operacao/google", label: "Google", section: "google-suite" },
+      { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
+      { href: "/operacao/meta", label: "Meta", section: "meta" },
+      { href: "/operacao/whatsapp", label: "WhatsApp", section: "whatsapp" },
+      { href: "/operacao/servicos", label: "Serviços", section: "services" },
       {
         href: "/operacao/newsletter",
         label: "Newsletter",
-        marker: "11",
         section: "newsletter",
       },
-      {
-        href: "/vagas",
-        label: "Vagas e recrutamento",
-        marker: "12",
-        section: "jobs",
-      },
+      { href: "/vagas", label: "Vagas", section: "jobs" },
     ],
   },
   {
     label: "Financeiro",
     items: [
-      {
-        href: "/financeiro",
-        label: "Visão financeira",
-        marker: "08",
-        section: "overview",
-      },
+      { href: "/financeiro", label: "Visão geral", section: "overview" },
       {
         href: "/financeiro?status=PENDING",
         label: "Conciliação",
-        marker: "09",
         section: "reconciliation",
       },
       {
         href: "/financeiro/contas",
         label: "Contas a pagar e receber",
-        marker: "10",
         section: "ledger",
       },
       {
         href: "/financeiro?range=90",
         label: "Movimentações",
-        marker: "11",
         section: "transactions",
       },
       {
         href: "/financeiro/importar",
         label: "Importar extrato",
-        marker: "12",
         section: "import",
       },
       {
         href: "/financeiro/mercadopago",
         label: "Mercado Pago",
-        marker: "13",
         section: "mercadopago",
       },
-      {
-        href: "/relatorios",
-        label: "Relatórios",
-        marker: "13",
-        section: "reports",
-      },
+      { href: "/relatorios", label: "Relatórios", section: "reports" },
     ],
   },
   {
@@ -159,7 +96,6 @@ const navigation = [
       {
         href: "/implantacao",
         label: "Implantação OpenAI",
-        marker: "14",
         section: "partner-network",
       },
     ],
@@ -176,10 +112,7 @@ export default function AppShell({
       <aside className="sidebar">
         <Link href="/operacao" className="brand-lockup" aria-label="Ávila Ops">
           <span className="brand-mark">A</span>
-          <span>
-            <strong>Ávila Ops</strong>
-            <small>Operating system</small>
-          </span>
+          <strong>Ávila Ops</strong>
         </Link>
         <ThemeToggle />
 
@@ -195,7 +128,6 @@ export default function AppShell({
                     href={item.href}
                     key={item.href}
                   >
-                    <span>{item.marker}</span>
                     {item.label}
                   </Link>
                 );

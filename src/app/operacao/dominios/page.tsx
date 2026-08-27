@@ -21,13 +21,8 @@ export default async function DominiosPage() {
     <AppShell adminName={admin.nome} section="seo">
       <header className="page-header operations-header">
         <div>
-          <span className="eyebrow">Ávila OS · Domínios</span>
-          <h1>Todo domínio no Cloudflare é um cliente.</h1>
-          <p>
-            Cada zona ativa no Cloudflare vira uma organização e um domínio
-            aqui, com todos os registros de DNS espelhados — não é preciso
-            cadastrar nada manualmente.
-          </p>
+          <h1>Domínios</h1>
+          <p>Cada zona do Cloudflare vira uma organização e um domínio aqui, com o DNS espelhado.</p>
         </div>
       </header>
 

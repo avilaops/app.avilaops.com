@@ -348,7 +348,6 @@ export default function NewsletterStudio({
           <section className="operations-panel">
             <div className="operations-panel-heading">
               <div>
-                <span className="eyebrow">Base</span>
                 <h2>Importar contatos</h2>
               </div>
               <small>{overview.metrics.subscribed} inscritos</small>
@@ -394,7 +393,6 @@ export default function NewsletterStudio({
           <section className="operations-panel">
             <div className="operations-panel-heading">
               <div>
-                <span className="eyebrow">Etiquetas</span>
                 <h2>Públicos disponíveis</h2>
               </div>
               <small>{overview.tags.length} etiquetas</small>
@@ -415,7 +413,6 @@ export default function NewsletterStudio({
           <section className="operations-panel">
             <div className="operations-panel-heading">
               <div>
-                <span className="eyebrow">Base</span>
                 <h2>Contatos recentes</h2>
               </div>
               <small>{overview.contacts.length} exibidos</small>
@@ -640,7 +637,6 @@ export default function NewsletterStudio({
         <section className="operations-panel">
           <div className="operations-panel-heading">
             <div>
-              <span className="eyebrow">Registro</span>
               <h2>Campanhas</h2>
             </div>
             <small>{overview.campaigns.length} no histórico</small>

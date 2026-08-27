@@ -74,7 +74,6 @@ export default async function ProjectDetailPage({
       <section className="operations-panel task-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Checklist executável</span>
             <h2>Tarefas abertas</h2>
           </div>
           <span className="panel-count">{openTasks.length}</span>
@@ -134,7 +133,6 @@ export default async function ProjectDetailPage({
       <section className="operations-panel task-panel">
         <div className="operations-panel-heading">
           <div>
-            <span className="eyebrow">Prévia gratuita, download pago</span>
             <h2>Entregáveis</h2>
           </div>
           <DeliverableForm projectId={project.id} />

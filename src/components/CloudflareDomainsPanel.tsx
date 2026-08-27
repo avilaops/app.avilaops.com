@@ -50,8 +50,7 @@ export default function CloudflareDomainsPanel({
     <article className="operations-panel module-panel">
       <div className="operations-panel-heading">
         <div>
-          <span className="eyebrow">Cloudflare</span>
-          <h2>Domínios e DNS</h2>
+          <h2>Domínios e DNS no Cloudflare</h2>
         </div>
         <button
           className="primary-button"

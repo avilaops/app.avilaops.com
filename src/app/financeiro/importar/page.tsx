@@ -21,13 +21,8 @@ export default async function ImportarPage() {
     <AppShell adminName={admin.nome} section="import">
       <header className="page-header">
         <div>
-          <span className="eyebrow">Control room · Financeiro</span>
-          <h1>Importar extrato da Wise.</h1>
-          <p>
-            O Éfi entra sozinho pela API. A Wise não abre API para conta
-            pessoal, então o extrato entra por arquivo — e vira a mesma
-            movimentação, na mesma fila de conciliação.
-          </p>
+          <h1>Importar extrato</h1>
+          <p>A Wise não abre API para conta pessoal: o extrato entra por arquivo e cai na mesma fila de conciliação.</p>
         </div>
       </header>
 
@@ -39,7 +34,6 @@ export default async function ImportarPage() {
         <section className="section-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Contas Wise</span>
               <h2>O que já entrou</h2>
             </div>
           </div>
@@ -73,7 +67,6 @@ export default async function ImportarPage() {
       <section className="section-panel">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Como o arquivo é lido</span>
             <h2>O que o importador faz com cada linha</h2>
           </div>
         </div>
