@@ -34,8 +34,8 @@ Para um banco novo e isolado:
 npm run db:migrate
 ```
 
-Se o `DATABASE_URL` apontar para o banco compartilhado com
-`cliente.avila.inc`, primeiro alinhe o baseline do histórico de migrations. O
+Se o `DATABASE_URL` apontar para o banco compartilhado com o portal
+`cliente.avilaops.com`, primeiro alinhe o baseline do histórico de migrations. O
 banco local atual já possui migrations do portal que não pertencem a esta
 pasta; não execute migrations compartilhadas no ambiente de produção sem essa
 reconciliação.
@@ -69,6 +69,31 @@ Rotas relevantes:
 - `/relatorios`: exportações operacionais e resumo executivo;
 - `POST /api/integrations/efi/sync`: sincronização autenticada;
 - `PATCH /api/reconciliations/:id`: decisão de conciliação autenticada.
+
+## Vagas e recrutamento
+
+As vagas de `jobs.avilaops.com` vivem em `operations.job_postings` e vão para o
+site no build — o site continua sendo export estático, porque o JSON-LD
+`JobPosting` precisa estar no HTML servido para o Google Jobs indexar.
+
+Rotas relevantes:
+
+- `/vagas`: listagem com filtro por estado, área e busca, e aviso de site
+  desatualizado;
+- `/vagas/[id]`: editor da vaga com prévia da página e as ações de publicação;
+- `GET|POST /api/job-postings` e `GET|PUT|DELETE /api/job-postings/:id`;
+- `POST /api/job-postings/:id/publish|pause|close`;
+- `GET /api/public/job-postings`: consumida pelo build do site, com service JWT.
+
+Publicar no painel **não** publica o site. Depois de mudar uma vaga no ar:
+
+```powershell
+cd ../jobs.avilaops.com
+npm run deploy
+```
+
+O painel avisa quando isso está pendente comparando a última edição de vaga
+publicada com o carimbo da última leitura feita pelo build.
 
 ## Integração Meta Business
 

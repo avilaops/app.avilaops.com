@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { FinanceScope } from "@/lib/finance-escopo";
 import { prisma } from "@/lib/prisma";
 
 export type ReconciliationFilter =
@@ -8,38 +9,73 @@ export type ReconciliationFilter =
   | "MATCHED"
   | "IGNORED";
 
+export type ScopeFilter = FinanceScope | "ALL";
+
+const DEFAULT_ACCOUNT_ID = "efi-production";
+
+/**
+ * Painel financeiro de uma conta.
+ *
+ * Duas regras seguram os números aqui:
+ *
+ * **Uma conta por vez.** `bank_accounts` tem moeda única, e o painel soma
+ * valores — misturar a conta em EUR com a em BRL produziria um "total" que não
+ * existe em lugar nenhum. Quem escolhe é o seletor de conta na tela.
+ *
+ * **`INTERNO` nunca entra em entradas e saídas.** Dinheiro que sai do Éfi e
+ * chega na Wise aparece nos dois extratos; contá-lo dobraria receita e despesa
+ * ao mesmo tempo. Ele continua visível na tabela — só não conta como
+ * resultado.
+ */
 export async function getFinanceDashboard(
   rangeDays: number,
   filter: ReconciliationFilter,
+  options?: { accountId?: string | null; scope?: ScopeFilter },
 ) {
   const days = [7, 30, 90, 365].includes(rangeDays) ? rangeDays : 30;
   const periodStart = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const scope = options?.scope ?? "ALL";
+
+  const accounts = await prisma.bankAccount.findMany({
+    where: { active: true },
+    orderBy: [{ provider: "asc" }, { currency: "asc" }],
+  });
+
+  const requested = options?.accountId?.trim();
+  const account =
+    accounts.find((item) => item.id === requested) ??
+    accounts.find((item) => item.id === DEFAULT_ACCOUNT_ID) ??
+    accounts[0] ??
+    null;
+  const accountId = account?.id ?? DEFAULT_ACCOUNT_ID;
+
+  const scopeWhere: Prisma.BankTransactionWhereInput =
+    scope === "ALL" ? {} : { scope };
+
   const baseWhere: Prisma.BankTransactionWhereInput = {
-    accountId: "efi-production",
+    accountId,
     occurredAt: { gte: periodStart },
+    ...scopeWhere,
   };
   const tableWhere: Prisma.BankTransactionWhereInput = {
     ...baseWhere,
-    ...(filter === "ALL"
-      ? {}
-      : { reconciliation: { is: { status: filter } } }),
+    ...(filter === "ALL" ? {} : { reconciliation: { is: { status: filter } } }),
   };
 
   const [
-    account,
     latestBalance,
     latestSync,
     transactions,
     tableTransactions,
     reconciliationGroups,
+    scopeGroups,
   ] = await Promise.all([
-    prisma.bankAccount.findUnique({ where: { id: "efi-production" } }),
     prisma.balanceSnapshot.findFirst({
-      where: { accountId: "efi-production" },
+      where: { accountId },
       orderBy: { capturedAt: "desc" },
     }),
     prisma.bankSyncRun.findFirst({
-      where: { accountId: "efi-production" },
+      where: { accountId },
       orderBy: { startedAt: "desc" },
     }),
     prisma.bankTransaction.findMany({
@@ -57,18 +93,27 @@ export async function getFinanceDashboard(
       by: ["status"],
       where: {
         transaction: {
-          accountId: "efi-production",
+          accountId,
           occurredAt: { gte: periodStart },
+          ...scopeWhere,
         },
       },
       _count: { _all: true },
     }),
+    prisma.bankTransaction.groupBy({
+      by: ["scope"],
+      where: { accountId, occurredAt: { gte: periodStart } },
+      _count: { _all: true },
+    }),
   ]);
 
-  const credits = transactions
+  const resultTransactions = transactions.filter(
+    (item) => item.scope !== "INTERNO",
+  );
+  const credits = resultTransactions
     .filter((item) => item.direction === "CREDIT")
     .reduce((sum, item) => sum + Number(item.amount), 0);
-  const debits = transactions
+  const debits = resultTransactions
     .filter((item) => item.direction === "DEBIT")
     .reduce((sum, item) => sum + Number(item.amount), 0);
 
@@ -85,11 +130,15 @@ export async function getFinanceDashboard(
     )
     .reduce((sum, item) => sum + Number(item.amount), 0);
 
+  const scopeCounts = Object.fromEntries(
+    scopeGroups.map((group) => [group.scope, group._count._all]),
+  ) as Record<string, number>;
+
   const chartMap = new Map<
     string,
     { date: string; credits: number; debits: number }
   >();
-  for (const transaction of transactions) {
+  for (const transaction of resultTransactions) {
     const key = transaction.occurredAt.toISOString().slice(0, 10);
     const point = chartMap.get(key) ?? { date: key, credits: 0, debits: 0 };
     if (transaction.direction === "CREDIT") {
@@ -103,7 +152,9 @@ export async function getFinanceDashboard(
   return {
     days,
     filter,
+    scope,
     periodStart,
+    accounts,
     account,
     latestBalance,
     latestSync,
@@ -115,7 +166,10 @@ export async function getFinanceDashboard(
       attentionCount,
       attentionAmount,
       transactionCount: total,
+      /** Quantas linhas ficaram de fora do resultado por serem entre contas. */
+      internalCount: transactions.length - resultTransactions.length,
       counts,
+      scopeCounts,
     },
     chart: Array.from(chartMap.values()),
     transactions: tableTransactions,

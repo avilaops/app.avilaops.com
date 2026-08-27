@@ -1,9 +1,19 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
+import {
+  LEDGER_DIRECTIONS,
+  LEDGER_STATUSES,
+  listLedgerEntries,
+  type LedgerDirection,
+  type LedgerFilter,
+  type LedgerStatus,
+} from "@/lib/contas";
+import { isFinanceScope } from "@/lib/finance-escopo";
 import { prisma } from "@/lib/prisma";
 
-const allowedDirections = new Set(["PAYABLE", "RECEIVABLE"]);
+const allowedDirections = new Set<string>(LEDGER_DIRECTIONS);
+const allowedCurrencies = new Set(["BRL", "EUR", "USD"]);
 
 function requiredText(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
@@ -17,6 +27,44 @@ function optionalText(value: unknown, maxLength: number): string | null {
   return normalized ? normalized.slice(0, maxLength) : null;
 }
 
+export async function GET(request: Request) {
+  const admin = await getAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const direction = url.searchParams.get("direction") ?? "ALL";
+  const status = url.searchParams.get("status") ?? "ALL";
+  const scope = url.searchParams.get("scope") ?? "ALL";
+  const currency = url.searchParams.get("currency") ?? "";
+  const search = url.searchParams.get("q") ?? "";
+
+  const filter: LedgerFilter = {
+    direction: allowedDirections.has(direction)
+      ? (direction as LedgerDirection)
+      : "ALL",
+    status:
+      status === "OVERDUE" || (LEDGER_STATUSES as readonly string[]).includes(status)
+        ? (status as LedgerStatus | "OVERDUE")
+        : "ALL",
+    scope: isFinanceScope(scope) ? scope : "ALL",
+    currency: allowedCurrencies.has(currency) ? currency : undefined,
+    search: search.trim() || undefined,
+  };
+
+  const { rows, totals } = await listLedgerEntries(filter);
+
+  return NextResponse.json({
+    entries: rows.map((row) => ({
+      ...row,
+      dueDate: row.dueDate.toISOString(),
+      paidAt: row.paidAt?.toISOString() ?? null,
+    })),
+    totals,
+  });
+}
+
 export async function POST(request: Request) {
   const admin = await getAdmin();
   if (!admin) {
@@ -28,6 +76,8 @@ export async function POST(request: Request) {
     description?: unknown;
     counterparty?: unknown;
     amount?: unknown;
+    currency?: unknown;
+    scope?: unknown;
     dueDate?: unknown;
     category?: unknown;
     note?: unknown;
@@ -38,6 +88,14 @@ export async function POST(request: Request) {
   const counterparty = optionalText(body.counterparty, 160);
   const category = optionalText(body.category, 60);
   const note = optionalText(body.note, 300);
+  const currency =
+    typeof body.currency === "string" && allowedCurrencies.has(body.currency)
+      ? body.currency
+      : "BRL";
+  // Só faz sentido lançar conta como empresa ou pessoal: "entre contas" é
+  // classificação de extrato, não de compromisso a vencer.
+  const scope =
+    body.scope === "PESSOAL" ? "PESSOAL" : ("EMPRESA" as "EMPRESA" | "PESSOAL");
   const amount =
     typeof body.amount === "number"
       ? body.amount
@@ -78,6 +136,8 @@ export async function POST(request: Request) {
         description,
         counterparty,
         amount: new Prisma.Decimal(amount),
+        currency,
+        scope,
         dueDate,
         category,
         note,
@@ -94,6 +154,8 @@ export async function POST(request: Request) {
         metadata: {
           direction,
           amount,
+          currency,
+          scope,
           dueDate: dueDate.toISOString(),
         },
       },

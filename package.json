@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "efi:sync": "tsx scripts/sync-efi.ts",
+    "wise:import": "tsx scripts/importar-wise.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",

@@ -7,6 +7,9 @@ const allowedReferenceTypes = new Set([
   "ORDER",
   "INVOICE",
   "EXPENSE",
+  // Vínculo com uma conta a pagar/receber — é o que a conciliação automática
+  // escreve, e a revisão manual precisa poder confirmar sem trocar o tipo.
+  "LEDGER",
   "MANUAL",
 ]);
 
@@ -72,6 +75,33 @@ export async function PATCH(
           matchSource: "MANUAL_REVIEW",
         },
       });
+
+      // Confirmar o vínculo com uma conta a pagar/receber é o mesmo ato que
+      // dar a conta por paga: deixar os dois lados fora de sincronia é o jeito
+      // mais rápido de a tela de contas mentir.
+      if (
+        reconciliation.referenceType === "LEDGER" &&
+        reconciliation.referenceId &&
+        /^\d+$/.test(reconciliation.referenceId)
+      ) {
+        const movement = await transaction.bankTransaction.findUnique({
+          where: { id: transactionId },
+          select: { occurredAt: true },
+        });
+
+        await transaction.ledgerEntry.update({
+          where: { id: BigInt(reconciliation.referenceId) },
+          data:
+            status === "MATCHED"
+              ? {
+                  status: "PAID",
+                  paidAt: movement?.occurredAt ?? new Date(),
+                  referenceType: "BANK_TRANSACTION",
+                  referenceId: id,
+                }
+              : { status: "OPEN", paidAt: null },
+        });
+      }
 
       await transaction.financeAuditEvent.create({
         data: {

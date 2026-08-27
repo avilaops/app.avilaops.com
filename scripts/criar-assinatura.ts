@@ -39,6 +39,12 @@ async function main() {
   const valor = Number(exigir("VALOR"));
   const dia = Number(exigir("DIA"));
   const implantacao = process.env.IMPLANTACAO ? Number(process.env.IMPLANTACAO) : null;
+  const inicio = process.env.INICIO?.trim();
+
+  if (inicio && !/^\d{4}-\d{2}-\d{2}$/.test(inicio)) {
+    console.error("INICIO precisa ser AAAA-MM-DD.");
+    process.exit(1);
+  }
 
   if (!Number.isFinite(valor) || valor <= 0) {
     console.error("VALOR precisa ser um número maior que zero.");
@@ -72,7 +78,12 @@ async function main() {
   const assinatura = existente
     ? await prisma.subscription.update({
         where: { id: existente.id },
-        data: { amount: valor, billingDay: dia, status: "ACTIVE" },
+        data: {
+          amount: valor,
+          billingDay: dia,
+          status: "ACTIVE",
+          ...(inicio ? { startedAt: new Date(`${inicio}T00:00:00Z`) } : {}),
+        },
       })
     : await prisma.subscription.create({
         data: {
@@ -80,14 +91,17 @@ async function main() {
           description: process.env.DESCRICAO?.trim() || "Plataforma Avila Ops",
           amount: valor,
           billingDay: dia,
-          startedAt: new Date(),
+          startedAt: inicio ? new Date(`${inicio}T00:00:00Z`) : new Date(),
           productKey: produto,
           productTenantId: produtoTenant,
         },
       });
 
   console.log(`organização: ${organizacao.name} (${organizacao.slug})`);
-  console.log(`assinatura:  R$ ${valor.toFixed(2)}/mês, vence dia ${dia} — ${assinatura.status}`);
+  console.log(
+    `assinatura:  R$ ${valor.toFixed(2)}/mês, vence dia ${dia} — ${assinatura.status}` +
+      ` · começa em ${assinatura.startedAt.toISOString().slice(0, 10)}`,
+  );
   console.log(`produto:     ${produto} · tenant ${produtoTenant}`);
 
   if (implantacao) {
@@ -109,7 +123,13 @@ async function main() {
     );
   }
 
-  console.log("\nA fatura da mensalidade é gerada pelo job mensal (ou por garantirFatura).");
+  console.log(
+    implantacao
+      ? "\nA fatura da mensalidade é gerada pelo job mensal (ou por garantirFatura)."
+      : "\nNenhuma fatura foi criada — nem mensalidade, nem implantação. A assinatura\n" +
+          "fica cadastrada e editável: rode de novo com outro VALOR, DIA ou INICIO para\n" +
+          "ajustar antes de cobrar qualquer coisa.",
+  );
 }
 
 main()

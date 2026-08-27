@@ -4,6 +4,15 @@ import OsbDashboardClient, { OsbDomainRow } from "@/components/OsbDashboardClien
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+type ConnectionSnapshot = {
+  metadata: Record<string, unknown> | null;
+  lastSyncStatus: string | null;
+  lastSyncError: string | null;
+  lastSyncedAt: Date | null;
+};
+
+const num = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
+
 export default async function OsbDashboardPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
@@ -25,49 +34,65 @@ export default async function OsbDashboardPage() {
     },
   });
 
-  const connectionMap = new Map<string, Record<string, unknown>>();
+  const connectionMap = new Map<string, ConnectionSnapshot>();
   for (const c of connections) {
-    const key = `${c.provider}:${c.siteUrl}`;
-    connectionMap.set(key, c.metadata as Record<string, unknown>);
+    connectionMap.set(`${c.provider}:${c.siteUrl}`, {
+      metadata: c.metadata as Record<string, unknown> | null,
+      lastSyncStatus: c.lastSyncStatus,
+      lastSyncError: c.lastSyncError,
+      lastSyncedAt: c.lastSyncedAt,
+    });
   }
 
   const rows: OsbDomainRow[] = domains.map((domain) => {
     const fqdn = domain.fqdn;
 
-    const seoMeta = connectionMap.get(`seo_audit:${fqdn}`) as { score?: number; status?: string } | undefined;
-    const lightMeta = connectionMap.get(`lighthouse:${fqdn}`) as { performanceScore?: number; lcp?: string } | undefined;
-    const linkMeta = connectionMap.get(`link_audit:${fqdn}`) as { brokenLinksCount?: number } | undefined;
-    const renewMeta = connectionMap.get(`domain_renewal:${fqdn}`) as { daysRemaining?: number; needsRenewalNotice?: boolean } | undefined;
+    const seoConn = connectionMap.get(`seo_audit:${fqdn}`);
+    const lightConn = connectionMap.get(`lighthouse:${fqdn}`);
+    const linkConn = connectionMap.get(`link_audit:${fqdn}`);
+    const renewConn = connectionMap.get(`domain_renewal:${fqdn}`);
 
-    const seoScore = seoMeta?.score ?? null;
-    const perfScore = lightMeta?.performanceScore ?? null;
-    const lcp = lightMeta?.lcp ?? "N/A";
-    const brokenLinksCount = linkMeta?.brokenLinksCount ?? null;
+    // Uma coleta que falhou não é uma medição: vira "sem dados", nunca 0/100.
+    // `measured` é o campo novo; registros antigos são reconhecidos pelo lastSyncStatus.
+    const perfMeasured =
+      lightConn !== undefined &&
+      lightConn.metadata?.measured !== false &&
+      !(lightConn.metadata?.measured === undefined && lightConn.lastSyncStatus === "ERROR");
+
+    const seoScore = num(seoConn?.metadata?.score);
+    const perfScore = perfMeasured ? num(lightConn?.metadata?.performanceScore) : null;
+    const lcp = perfScore !== null ? (lightConn?.metadata?.lcp as string | null) ?? null : null;
+    const brokenLinksCount = num(linkConn?.metadata?.brokenLinksCount);
+
+    const perfError = perfScore === null ? lightConn?.lastSyncError ?? null : null;
+    const seoError = seoConn?.lastSyncError ?? null;
 
     const now = new Date();
     const daysToExpire = domain.expiresAt
       ? Math.ceil((domain.expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      : renewMeta?.daysRemaining ?? null;
+      : num(renewConn?.metadata?.daysRemaining);
 
-    const needsRenewal = Boolean(daysToExpire && daysToExpire <= 30);
+    const needsRenewal = daysToExpire !== null && daysToExpire <= 30;
 
-    let overallHealth: "CRITICAL" | "WARNING" | "HEALTHY" = "HEALTHY";
-
-    if (
+    const critical =
       (seoScore !== null && seoScore < 45) ||
       (perfScore !== null && perfScore < 50) ||
       (brokenLinksCount !== null && brokenLinksCount > 2) ||
-      (daysToExpire !== null && daysToExpire <= 14)
-    ) {
-      overallHealth = "CRITICAL";
-    } else if (
+      (daysToExpire !== null && daysToExpire <= 14);
+
+    const warning =
       (seoScore !== null && seoScore < 75) ||
       (perfScore !== null && perfScore < 80) ||
       (brokenLinksCount !== null && brokenLinksCount > 0) ||
-      needsRenewal
-    ) {
-      overallHealth = "WARNING";
-    }
+      needsRenewal;
+
+    const measuredSignals = [seoScore, perfScore, brokenLinksCount, daysToExpire].filter((v) => v !== null).length;
+
+    let overallHealth: OsbDomainRow["overallHealth"];
+    if (critical) overallHealth = "CRITICAL";
+    else if (warning) overallHealth = "WARNING";
+    else if (measuredSignals === 0) overallHealth = "UNKNOWN";
+    else overallHealth = "HEALTHY";
 
     return {
       id: domain.id,
@@ -76,8 +101,11 @@ export default async function OsbDashboardPage() {
       cloudflareStatus: domain.cloudflareStatus ?? domain.status,
       dnsRecordsCount: domain._count.dnsRecords,
       seoScore,
-      seoStatus: seoMeta?.status ?? "PENDING",
+      seoStatus: (seoConn?.metadata?.status as string | undefined) ?? "PENDING",
+      seoError,
       perfScore,
+      perfError,
+      perfCheckedAt: lightConn?.lastSyncedAt ? lightConn.lastSyncedAt.toISOString() : null,
       lcp,
       brokenLinksCount,
       daysToExpire,

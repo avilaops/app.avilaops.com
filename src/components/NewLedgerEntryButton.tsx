@@ -16,6 +16,8 @@ export default function NewLedgerEntryButton() {
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(todayIso());
   const [category, setCategory] = useState("");
+  const [scope, setScope] = useState<"EMPRESA" | "PESSOAL">("EMPRESA");
+  const [currency, setCurrency] = useState("BRL");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -27,6 +29,8 @@ export default function NewLedgerEntryButton() {
     setAmount("");
     setDueDate(todayIso());
     setCategory("");
+    setScope("EMPRESA");
+    setCurrency("BRL");
     setNote("");
     setError("");
   }
@@ -43,6 +47,8 @@ export default function NewLedgerEntryButton() {
           description,
           counterparty: counterparty || null,
           amount: Number.parseFloat(amount.replace(",", ".")),
+          currency,
+          scope,
           dueDate: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
           category: category || null,
           note: note || null,
@@ -123,13 +129,24 @@ export default function NewLedgerEntryButton() {
 
         <div className="reference-fields">
           <label>
-            Valor (R$)
+            Valor
             <input
               inputMode="decimal"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               placeholder="0,00"
             />
+          </label>
+          <label>
+            Moeda
+            <select
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value)}
+            >
+              <option value="BRL">BRL</option>
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+            </select>
           </label>
           <label>
             Vencimento
@@ -150,6 +167,27 @@ export default function NewLedgerEntryButton() {
             maxLength={160}
           />
         </label>
+
+        <div className="direction-toggle" role="radiogroup" aria-label="Escopo">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={scope === "EMPRESA"}
+            className={scope === "EMPRESA" ? "active" : ""}
+            onClick={() => setScope("EMPRESA")}
+          >
+            Empresa
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={scope === "PESSOAL"}
+            className={scope === "PESSOAL" ? "active" : ""}
+            onClick={() => setScope("PESSOAL")}
+          >
+            Pessoal
+          </button>
+        </div>
 
         <label>
           Categoria

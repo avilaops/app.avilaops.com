@@ -28,11 +28,17 @@ export async function generateWeeklyHealthReport(fqdn: string): Promise<WeeklyHe
   const lighthouseConn = connections.find((c) => c.provider === "lighthouse");
 
   const seoMeta = seoConn?.metadata as { score?: number } | undefined;
-  const lightMeta = lighthouseConn?.metadata as { performanceScore?: number; lcp?: string } | undefined;
+  const lightMeta = lighthouseConn?.metadata as
+    | { measured?: boolean; performanceScore?: number; lcp?: string | null }
+    | undefined;
 
-  const seoScore = seoMeta?.score ?? null;
-  const performanceScore = lightMeta?.performanceScore ?? null;
-  const lcp = lightMeta?.lcp ?? "N/A";
+  const seoScore = typeof seoMeta?.score === "number" ? seoMeta.score : null;
+  // Só reporta ao cliente o que foi realmente medido.
+  const performanceScore =
+    lightMeta?.measured !== false && typeof lightMeta?.performanceScore === "number"
+      ? lightMeta.performanceScore
+      : null;
+  const lcp = performanceScore !== null ? lightMeta?.lcp ?? "N/A" : "Pendente";
   const orgName = domain.organization.name || fqdn;
 
   const formattedMessage = [
@@ -41,11 +47,9 @@ export async function generateWeeklyHealthReport(fqdn: string): Promise<WeeklyHe
     `🌐 *Domínio*: ${fqdn}`,
     ``,
     `📊 *Métricas da Semana*:`,
-    `• Estabilidade (Uptime): 100% no ar (0 quedas)`,
     `• Performance (Lighthouse): ${performanceScore !== null ? `${performanceScore}/100` : "Pendente"}`,
     `• Maior Carregamento (LCP): ${lcp}`,
     `• Score de Saúde SEO: ${seoScore !== null ? `${seoScore}/100` : "Pendente"}`,
-    `• Certificado SSL: ✅ Válido e Protegido`,
     ``,
     `_Sua infraestrutura digital está sendo monitorada 24/7 pela plataforma Ávila Ops._`,
   ].join("\n");

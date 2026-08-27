@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
-import { authenticateAdmin, createAdminSession } from "@/lib/auth";
+import { autenticarPortal, createAdminSession, destinoPorPapel } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+/**
+ * Porta única do portal.
+ *
+ * Equipe e cliente entram pelo mesmo formulário, contra a mesma tabela
+ * (`portal_clients`). O papel não decide *se* entra — decide *para onde vai*:
+ * ADMIN cai na operação, CLIENT na área do cliente. As rotas administrativas
+ * seguem protegidas por `getAdmin()`, que continua exigindo ADMIN.
+ */
 
 export async function POST(request: Request) {
   try {
@@ -32,24 +41,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const admin = await authenticateAdmin(login, password);
-    if (!admin) {
+    const identidade = await autenticarPortal(login, password);
+    if (!identidade) {
       return NextResponse.json(
         { error: "Acesso não autorizado." },
         { status: 401 },
       );
     }
 
-    await createAdminSession(admin.id);
+    const papel = identidade.role === "ADMIN" ? "ADMIN" : "CLIENT";
+
+    await createAdminSession(identidade.id, papel);
     await prisma.financeAuditEvent.create({
       data: {
-        actorId: admin.id,
-        action: "ADMIN_LOGIN",
+        actorId: identidade.id,
+        action: papel === "ADMIN" ? "ADMIN_LOGIN" : "CLIENT_LOGIN",
         entityType: "Session",
       },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, destino: destinoPorPapel(papel) });
   } catch (error) {
     if (error instanceof Error && error.message === "PROVISIONAL_PASSWORD") {
       return NextResponse.json(

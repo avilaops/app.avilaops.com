@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { serializeJobPosting } from "@/lib/job-postings";
+import { recordJobsSiteRead, serializeJobPosting } from "@/lib/job-postings";
 import { verifyServiceJwt } from "@/lib/service-auth";
 
 export const runtime = "nodejs";
@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
     // poderiam gerar HTML em ordem diferente.
     orderBy: [{ postedAt: "desc" }, { ref: "asc" }],
   });
+
+  // Quem lê esta rota é o build do site. Carimbar a leitura é o que permite ao
+  // painel avisar "site desatualizado" quando uma vaga muda depois do último
+  // build. Nunca derruba a resposta: ver `recordJobsSiteRead`.
+  await recordJobsSiteRead(postings.length);
 
   return NextResponse.json({
     ok: true,

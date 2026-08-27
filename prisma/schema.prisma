@@ -78,6 +78,12 @@ model BankTransaction {
   counterpartyName String?  @map("counterparty_name")
   occurredAt       DateTime @map("occurred_at")
   rawHash          String   @map("raw_hash")
+  /// EMPRESA, PESSOAL, INTERNO (troca entre saldos próprios) ou INDEFINIDO.
+  scope            String   @default("INDEFINIDO")
+  /// Quem decidiu o escopo: REGRA, MANUAL ou IMPORTACAO.
+  scopeSource      String?  @map("scope_source")
+  /// Categoria de origem (a do extrato) preservada para auditoria.
+  category         String?
   importedAt       DateTime @default(now()) @map("imported_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -87,6 +93,7 @@ model BankTransaction {
   @@unique([accountId, externalId])
   @@index([accountId, occurredAt])
   @@index([direction, occurredAt])
+  @@index([scope, occurredAt])
   @@index([txid])
   @@map("bank_transactions")
   @@schema("finance")
@@ -155,6 +162,9 @@ model LedgerEntry {
   description   String
   counterparty  String?
   amount        Decimal   @db.Decimal(14, 2)
+  currency      String    @default("BRL")
+  /// EMPRESA ou PESSOAL: o que separa o caixa da Ávila do caixa do Nicolas.
+  scope         String    @default("EMPRESA")
   dueDate       DateTime  @map("due_date")
   paidAt        DateTime? @map("paid_at")
   category      String?
@@ -166,6 +176,7 @@ model LedgerEntry {
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@index([direction, status, dueDate])
+  @@index([scope, status, dueDate])
   @@index([dueDate])
   @@map("ledger_entries")
   @@schema("finance")
@@ -429,6 +440,7 @@ model Organization {
   onboardingSteps          OrganizationOnboardingStep[]
   serviceOpportunities     OrganizationServiceOpportunity[]
   assistantDocuments       AssistantDocument[]
+  newsletterContacts       NewsletterContact[]
 
   @@index([status, createdAt])
   @@map("organizations")
@@ -1553,4 +1565,91 @@ model AssistantMessage {
   @@index([conversationId, criadoEm])
   @@map("assistant_messages")
   @@schema("ai_core")
+}
+
+/// Contato da newsletter. Vive separado de `OrganizationContact` de propósito:
+/// aquele é o contato operacional de um cliente (quem eu ligo quando o site
+/// cai), este é quem consentiu — ou foi importado — para receber e-mail em
+/// massa. Misturar os dois faria um descadastro apagar o telefone do dono da
+/// empresa.
+model NewsletterContact {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  company        String?
+  organizationId String?   @map("organization_id")
+  /// MANUAL | CLIENTES | GMAIL | IMPORT | FORM
+  source         String    @default("MANUAL")
+  tags           String[]  @default([])
+  /// SUBSCRIBED | UNSUBSCRIBED | BOUNCED
+  status         String    @default("SUBSCRIBED")
+  lastSeenAt     DateTime? @map("last_seen_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  deliveries   NewsletterDelivery[]
+
+  @@index([status, createdAt])
+  @@index([organizationId])
+  @@map("newsletter_contacts")
+  @@schema("operations")
+}
+
+/// Campanha de newsletter. `format` decide o que a tela pede e o que o
+/// renderizador monta: HTML colado pronto, mensagem em texto ou uma imagem
+/// única (peça de social reaproveitada como e-mail).
+model NewsletterCampaign {
+  id             String    @id @default(cuid())
+  name           String
+  subject        String
+  previewText    String?   @map("preview_text")
+  /// HTML | TEXT | IMAGE
+  format         String    @default("HTML")
+  html           String?
+  text           String?
+  imageUrl       String?   @map("image_url")
+  imageAlt       String?   @map("image_alt")
+  imageLinkUrl   String?   @map("image_link_url")
+  audienceTags   String[]  @default([]) @map("audience_tags")
+  /// DRAFT | SENDING | SENT | FAILED
+  status         String    @default("DRAFT")
+  recipientCount Int       @default(0) @map("recipient_count")
+  sentCount      Int       @default(0) @map("sent_count")
+  failedCount    Int       @default(0) @map("failed_count")
+  createdById    String?   @map("created_by_id")
+  sentAt         DateTime? @map("sent_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  deliveries NewsletterDelivery[]
+
+  @@index([status, createdAt])
+  @@map("newsletter_campaigns")
+  @@schema("operations")
+}
+
+/// Uma linha por destinatário por campanha. É o que impede reenvio duplicado
+/// quando um envio falha no meio: a chave única (campanha, e-mail) já existe.
+model NewsletterDelivery {
+  id         String    @id @default(cuid())
+  campaignId String    @map("campaign_id")
+  contactId  String?   @map("contact_id")
+  email      String
+  /// PENDING | SENT | FAILED | SKIPPED
+  status     String    @default("PENDING")
+  providerId String?   @map("provider_id")
+  error      String?
+  sentAt     DateTime? @map("sent_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  campaign NewsletterCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  NewsletterContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status])
+  @@map("newsletter_deliveries")
+  @@schema("operations")
 }

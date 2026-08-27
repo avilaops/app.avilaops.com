@@ -23,9 +23,11 @@ export default function LoginForm() {
           password: form.get("password"),
         }),
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as { error?: string; destino?: string };
       if (!response.ok) throw new Error(result.error ?? "Acesso não autorizado");
-      router.replace("/operacao");
+      // O destino vem do servidor, decidido pelo papel: equipe vai para a
+      // operação, cliente para a própria área.
+      router.replace(result.destino ?? "/operacao");
       router.refresh();
     } catch (caught) {
       setError(

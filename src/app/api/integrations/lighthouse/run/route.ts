@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
-import { runPageSpeedAuditForDomain } from "@/lib/pagespeed";
+import { hasPageSpeedCredentials, runPageSpeedAuditForDomain } from "@/lib/pagespeed";
 import { verifyServiceJwt } from "@/lib/service-auth";
 import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+// A varredura completa espaça as chamadas, então precisa de janela longa.
+export const maxDuration = 900;
+
+// O PageSpeed Insights limita por IP/chave. Sem espaçamento entre os domínios a
+// varredura inteira volta 429 e nenhum domínio é medido de verdade.
+const DELAY_BETWEEN_DOMAINS_MS = hasPageSpeedCredentials() ? 1500 : 12000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function POST(req: NextRequest) {
   const admin = await getAdmin();
@@ -25,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     if (fqdn) {
       const result = await runPageSpeedAuditForDomain(fqdn);
-      return NextResponse.json({ success: true, result });
+      return NextResponse.json({ success: result.measured, result });
     }
 
     const domains = await prisma.domainAsset.findMany({
@@ -34,12 +45,22 @@ export async function POST(req: NextRequest) {
     });
 
     const results = [];
-    for (const d of domains) {
+    for (const [index, d] of domains.entries()) {
+      if (index > 0) await sleep(DELAY_BETWEEN_DOMAINS_MS);
       const res = await runPageSpeedAuditForDomain(d.fqdn);
       results.push(res);
     }
 
-    return NextResponse.json({ success: true, count: results.length, results });
+    const measured = results.filter((r) => r.measured).length;
+
+    return NextResponse.json({
+      success: measured > 0,
+      count: results.length,
+      measured,
+      failed: results.length - measured,
+      hasCredentials: hasPageSpeedCredentials(),
+      results,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

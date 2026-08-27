@@ -12,12 +12,16 @@ type AppShellProps = {
     | "overview"
     | "reconciliation"
     | "transactions"
+    | "ledger"
+    | "import"
     | "reports"
     | "seo"
     | "obs"
     | "meta"
     | "whatsapp"
     | "services"
+    | "newsletter"
+    | "jobs"
     | "partner-network";
   children: ReactNode;
 };
@@ -80,6 +84,18 @@ const navigation = [
         marker: "09",
         section: "services",
       },
+      {
+        href: "/operacao/newsletter",
+        label: "Newsletter",
+        marker: "10",
+        section: "newsletter",
+      },
+      {
+        href: "/vagas",
+        label: "Vagas e recrutamento",
+        marker: "11",
+        section: "jobs",
+      },
     ],
   },
   {
@@ -98,15 +114,27 @@ const navigation = [
         section: "reconciliation",
       },
       {
+        href: "/financeiro/contas",
+        label: "Contas a pagar e receber",
+        marker: "10",
+        section: "ledger",
+      },
+      {
         href: "/financeiro?range=90",
         label: "Movimentações",
-        marker: "10",
+        marker: "11",
         section: "transactions",
+      },
+      {
+        href: "/financeiro/importar",
+        label: "Importar extrato",
+        marker: "12",
+        section: "import",
       },
       {
         href: "/relatorios",
         label: "Relatórios",
-        marker: "11",
+        marker: "13",
         section: "reports",
       },
     ],
@@ -117,7 +145,7 @@ const navigation = [
       {
         href: "/implantacao",
         label: "Implantação OpenAI",
-        marker: "12",
+        marker: "14",
         section: "partner-network",
       },
     ],

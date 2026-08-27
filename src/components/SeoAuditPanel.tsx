@@ -107,7 +107,9 @@ export default function SeoAuditPanel({
   }
 
   const score = seoData?.score ?? null;
-  const perfScore = psiData?.performanceScore ?? null;
+  // Coleta falha não vira nota: sem medição o campo fica "Pendente".
+  const perfMeasured = psiData?.measured !== false && typeof psiData?.performanceScore === "number";
+  const perfScore = perfMeasured ? psiData!.performanceScore : null;
 
   return (
     <article className="operations-panel">

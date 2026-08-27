@@ -42,7 +42,12 @@ export async function analyzeDomainDigitalHealth(fqdn: string): Promise<DomainAd
   const linkMeta = linkConn?.metadata as Record<string, unknown> | undefined;
 
   const seoScore = typeof seoMeta?.score === "number" ? seoMeta.score : 50;
-  const perfScore = typeof lightMeta?.performanceScore === "number" ? lightMeta.performanceScore : 50;
+  // Sem medição real de performance não há recomendação de performance: um
+  // valor "chutado" gerava upsell em cima de dado inexistente.
+  const perfScore =
+    lightMeta?.measured !== false && typeof lightMeta?.performanceScore === "number"
+      ? lightMeta.performanceScore
+      : null;
   const brokenLinks = typeof linkMeta?.brokenLinksCount === "number" ? linkMeta.brokenLinksCount : 0;
 
   const recommendations: DigitalRecommendation[] = [];
@@ -62,7 +67,7 @@ export async function analyzeDomainDigitalHealth(fqdn: string): Promise<DomainAd
   }
 
   // 2. Check Performance / Cloudflare CDN
-  if (perfScore < 80) {
+  if (perfScore !== null && perfScore < 80) {
     totalUpsell += 149.0;
     recommendations.push({
       id: "perf_cdn",
@@ -102,7 +107,9 @@ export async function analyzeDomainDigitalHealth(fqdn: string): Promise<DomainAd
     estimatedValue: 299.0,
   });
 
-  const overallScore = Math.round((seoScore + perfScore) / 2);
+  // Média só dos sinais realmente medidos.
+  const overallScore =
+    perfScore !== null ? Math.round((seoScore + perfScore) / 2) : Math.round(seoScore);
 
   return {
     fqdn,

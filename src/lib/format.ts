@@ -1,7 +1,16 @@
-export function formatCurrency(value: number | string | null | undefined) {
+/**
+ * Formata em reais por padrão, mas aceita a moeda da conta.
+ *
+ * A Wise trouxe EUR e USD para dentro do módulo, e um valor em euro impresso
+ * com "R$" na frente é pior que valor nenhum: parece conferido e está errado.
+ */
+export function formatCurrency(
+  value: number | string | null | undefined,
+  currency = "BRL",
+) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
-    currency: "BRL",
+    currency,
   }).format(Number(value ?? 0));
 }
 

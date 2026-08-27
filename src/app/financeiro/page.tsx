@@ -1,17 +1,28 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import AutoReconcileButton from "@/components/AutoReconcileButton";
 import BalanceCard from "@/components/BalanceCard";
 import CashFlowChart from "@/components/CashFlowChart";
 import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
 import ReconciliationControl from "@/components/ReconciliationControl";
+import ScopePicker from "@/components/ScopePicker";
 import SyncButton from "@/components/SyncButton";
 import { getAdmin } from "@/lib/auth";
 import {
   getFinanceDashboard,
   ReconciliationFilter,
+  ScopeFilter,
 } from "@/lib/dashboard";
+import { isFinanceScope, type FinanceScope } from "@/lib/finance-escopo";
 import { formatCurrency, formatDateTime } from "@/lib/format";
+
+const scopeFilters: Array<{ value: ScopeFilter; label: string }> = [
+  { value: "ALL", label: "Tudo" },
+  { value: "EMPRESA", label: "Empresa" },
+  { value: "PESSOAL", label: "Pessoal" },
+  { value: "INDEFINIDO", label: "A classificar" },
+];
 
 const filters: Array<{ value: ReconciliationFilter; label: string }> = [
   { value: "ALL", label: "Todas" },
@@ -35,7 +46,12 @@ function statusLabel(status: string) {
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; status?: string }>;
+  searchParams: Promise<{
+    range?: string;
+    status?: string;
+    conta?: string;
+    escopo?: string;
+  }>;
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
@@ -45,7 +61,24 @@ export default async function FinancePage({
   const filter = filters.some((item) => item.value === params.status)
     ? (params.status as ReconciliationFilter)
     : "ALL";
-  const data = await getFinanceDashboard(range, filter);
+  const scope: ScopeFilter = isFinanceScope(params.escopo ?? "")
+    ? (params.escopo as FinanceScope)
+    : "ALL";
+  const data = await getFinanceDashboard(range, filter, {
+    accountId: params.conta ?? null,
+    scope,
+  });
+  const currency = data.account?.currency ?? "BRL";
+  const link = (next: Record<string, string>) => {
+    const search = new URLSearchParams({
+      range: String(data.days),
+      status: filter,
+      escopo: scope,
+      conta: data.account?.id ?? "",
+      ...next,
+    });
+    return `?${search.toString()}`;
+  };
   const activeSection =
     filter === "PENDING"
       ? "reconciliation"
@@ -65,16 +98,38 @@ export default async function FinancePage({
           </p>
         </div>
         <div className="page-header-actions">
+          <Link href="/financeiro/contas" className="secondary-button">
+            Contas a pagar e receber
+          </Link>
           <NewLedgerEntryButton />
+          <AutoReconcileButton />
           <SyncButton />
         </div>
       </header>
 
       <section className="connection-strip" aria-label="Estado da integração">
-        <div>
+        <div className="account-switch" role="group" aria-label="Conta">
           <span className="status-dot" />
-          <strong>{data.account?.displayName ?? "Conta Efí Produção"}</strong>
-          <span className="environment-tag">PRODUÇÃO</span>
+          {data.accounts.length === 0 ? (
+            <strong>Conta Efí Produção</strong>
+          ) : (
+            data.accounts.map((item) => (
+              <Link
+                href={link({ conta: item.id })}
+                className={data.account?.id === item.id ? "active" : ""}
+                key={item.id}
+              >
+                {item.displayName}
+              </Link>
+            ))
+          )}
+          {data.account?.provider === "wise" ? (
+            <Link href="/financeiro/importar" className="environment-tag">
+              IMPORTAR CSV
+            </Link>
+          ) : (
+            <span className="environment-tag">PRODUÇÃO</span>
+          )}
         </div>
         <span>
           Última sincronização:{" "}
@@ -96,24 +151,40 @@ export default async function FinancePage({
 
       <section className="metric-grid" aria-label="Resumo financeiro">
         <BalanceCard
-          formattedBalance={formatCurrency(data.latestBalance?.availableBalance.toString())}
-          capturedAtLabel={`Capturado em ${formatDateTime(data.latestBalance?.capturedAt)}`}
+          formattedBalance={
+            data.latestBalance
+              ? formatCurrency(
+                  data.latestBalance.availableBalance.toString(),
+                  currency,
+                )
+              : "—"
+          }
+          capturedAtLabel={
+            data.latestBalance
+              ? `Capturado em ${formatDateTime(data.latestBalance.capturedAt)}`
+              : "Extrato importado por arquivo não traz saldo"
+          }
         />
         <article className="metric">
           <span>Entradas · {data.days} dias</span>
           <strong className="positive">
-            {formatCurrency(data.metrics.credits)}
+            {formatCurrency(data.metrics.credits, currency)}
           </strong>
           <small>
             {data.metrics.transactionCount} movimentações analisadas
+            {data.metrics.internalCount > 0
+              ? ` · ${data.metrics.internalCount} entre contas fora do resultado`
+              : ""}
           </small>
         </article>
         <article className="metric">
           <span>Saídas · {data.days} dias</span>
           <strong className="negative">
-            {formatCurrency(data.metrics.debits)}
+            {formatCurrency(data.metrics.debits, currency)}
           </strong>
-          <small>Fluxo líquido {formatCurrency(data.metrics.net)}</small>
+          <small>
+            Fluxo líquido {formatCurrency(data.metrics.net, currency)}
+          </small>
         </article>
         <article className="metric">
           <span>Taxa de conciliação</span>
@@ -137,12 +208,12 @@ export default async function FinancePage({
             <div>
               <strong>Movimentações precisam de decisão</strong>
               <p>
-                {formatCurrency(data.metrics.attentionAmount)} ainda não possui
-                vínculo ou evidência confirmada.
+                {formatCurrency(data.metrics.attentionAmount, currency)} ainda
+                não possui vínculo ou evidência confirmada.
               </p>
             </div>
           </div>
-          <Link href={`?range=${data.days}&status=PENDING`} className="row-action">
+          <Link href={link({ status: "PENDING" })} className="row-action">
             Abrir fila de conciliação
           </Link>
         </section>
@@ -158,7 +229,7 @@ export default async function FinancePage({
             <div className="range-switch" aria-label="Intervalo">
               {[7, 30, 90, 365].map((days) => (
                 <Link
-                  href={`?range=${days}&status=${filter}`}
+                  href={link({ range: String(days) })}
                   className={data.days === days ? "active" : ""}
                   key={days}
                 >
@@ -206,7 +277,7 @@ export default async function FinancePage({
           <div className="filter-tabs" aria-label="Filtrar por estado">
             {filters.map((item) => (
               <Link
-                href={`?range=${data.days}&status=${item.value}`}
+                href={link({ status: item.value })}
                 className={filter === item.value ? "active" : ""}
                 key={item.value}
               >
@@ -216,10 +287,34 @@ export default async function FinancePage({
           </div>
         </div>
 
+        <div className="section-heading table-heading">
+          <p className="muted scope-explainer">
+            Uma conta só paga o mercado e paga o Porkbun. A separação acontece
+            aqui: o que estiver como Empresa entra no resultado da Ávila,
+            &ldquo;entre contas&rdquo; nunca entra.
+          </p>
+          <div className="filter-tabs" aria-label="Filtrar por escopo">
+            {scopeFilters.map((item) => (
+              <Link
+                href={link({ escopo: item.value })}
+                className={scope === item.value ? "active" : ""}
+                key={item.value}
+              >
+                {item.label}
+                {item.value !== "ALL" && data.metrics.scopeCounts[item.value]
+                  ? ` · ${data.metrics.scopeCounts[item.value]}`
+                  : ""}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {data.transactions.length === 0 ? (
           <div className="table-empty">
             <strong>Nenhuma movimentação neste recorte.</strong>
-            <span>Ajuste o período ou sincronize a conta do Éfi.</span>
+            <span>
+              Ajuste o período, sincronize o Éfi ou importe o extrato da Wise.
+            </span>
           </div>
         ) : (
           <div className="table-scroll">
@@ -230,6 +325,7 @@ export default async function FinancePage({
                   <th>Movimentação</th>
                   <th>Origem / destino</th>
                   <th>Valor</th>
+                  <th>Escopo</th>
                   <th>Vínculo</th>
                   <th>Estado</th>
                   <th aria-label="Ações" />
@@ -263,7 +359,20 @@ export default async function FinancePage({
                           </span>
                         </div>
                       </td>
-                      <td>{transaction.counterpartyName ?? "Não informado"}</td>
+                      <td>
+                        {transaction.counterpartyName ?? (
+                          <span
+                            className="muted"
+                            title={
+                              transaction.direction === "CREDIT"
+                                ? "O Éfi não identifica o pagador em Pix recebido fora de cobrança — a resposta da API não traz esse campo."
+                                : "O Éfi não devolveu o favorecido nesta movimentação."
+                            }
+                          >
+                            Não informado
+                          </span>
+                        )}
+                      </td>
                       <td
                         className={
                           transaction.direction === "CREDIT"
@@ -272,13 +381,30 @@ export default async function FinancePage({
                         }
                       >
                         {transaction.direction === "CREDIT" ? "+" : "−"}{" "}
-                        {formatCurrency(transaction.amount.toString())}
+                        {formatCurrency(
+                          transaction.amount.toString(),
+                          transaction.currency,
+                        )}
+                      </td>
+                      <td>
+                        <ScopePicker
+                          transactionId={transaction.id.toString()}
+                          scope={transaction.scope}
+                          source={transaction.scopeSource}
+                        />
                       </td>
                       <td>
                         {reconciliation?.referenceId ? (
                           <span className="reference">
-                            {reconciliation.referenceType} ·{" "}
-                            {reconciliation.referenceId}
+                            {reconciliation.referenceType === "LEDGER" ? (
+                              <Link
+                                href={`/financeiro/contas?status=ALL&scope=ALL`}
+                              >
+                                Conta #{reconciliation.referenceId}
+                              </Link>
+                            ) : (
+                              `${reconciliation.referenceType} · ${reconciliation.referenceId}`
+                            )}
                           </span>
                         ) : (
                           <span className="muted">Sem vínculo</span>

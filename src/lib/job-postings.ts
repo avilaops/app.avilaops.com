@@ -1,7 +1,15 @@
 import type { JobPosting } from "@prisma/client";
 
 import { cleanText } from "./http";
+import {
+  CONTRACTS,
+  JOB_STATUSES,
+  LOCATION_TYPES,
+  type JobPostingContent,
+} from "./job-postings.constants";
 import { prisma } from "./prisma";
+
+export * from "./job-postings.constants";
 
 /**
  * Vagas de jobs.avilaops.com.
@@ -39,15 +47,6 @@ export function endOfBusinessDay(day: string): Date {
 export function toBusinessDay(value: Date | null): string | null {
   return value ? dayFormatter.format(value) : null;
 }
-
-export type JobPostingContent = {
-  intro: string[];
-  responsibilities: { title: string; body: string; items: string[] }[];
-  expertise: string[];
-  closing: string[];
-  benefits: string[];
-  travel?: string;
-};
 
 /** Formato consumido pelo build do site — mesmo shape do antigo `jobs.ts`. */
 export type PublicJobPosting = {
@@ -98,22 +97,66 @@ export function serializeJobPosting(posting: JobPosting): PublicJobPosting {
   };
 }
 
-export const JOB_STATUSES = ["DRAFT", "PUBLISHED", "PAUSED", "CLOSED"] as const;
-export const LOCATION_TYPES = ["Presencial", "Híbrido", "Remoto"] as const;
-export const CONTRACTS = [
-  "Tempo integral",
-  "Meio período",
-  "Estágio",
-  "Freelance",
-  "Parceria",
-] as const;
+/**
+ * Ordem do painel: o que está no ar primeiro, o que já morreu por último.
+ * Deliberadamente diferente da ordem da API pública — lá a ordem existe para o
+ * build ser reprodutível, aqui para o operador ver o que importa antes.
+ */
+const STATUS_RANK: Record<string, number> = {
+  PUBLISHED: 0,
+  PAUSED: 1,
+  DRAFT: 2,
+  CLOSED: 3,
+};
+
+export type JobPostingFilters = {
+  status?: string;
+  area?: string;
+  q?: string;
+};
 
 /** Lista para o painel, com quantas candidaturas cada vaga tem. */
-export async function listJobPostings() {
-  return prisma.jobPosting.findMany({
-    orderBy: [{ status: "asc" }, { postedAt: "desc" }, { ref: "asc" }],
+export async function listJobPostings(filters: JobPostingFilters = {}) {
+  const status = filters.status?.trim().toUpperCase();
+  const area = filters.area?.trim();
+  const q = filters.q?.trim();
+
+  const postings = await prisma.jobPosting.findMany({
+    where: {
+      ...(status && (JOB_STATUSES as readonly string[]).includes(status)
+        ? { status }
+        : {}),
+      ...(area ? { area } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: "insensitive" as const } },
+              { ref: { contains: q, mode: "insensitive" as const } },
+              { summary: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
+    // `nulls: "last"` porque rascunho sem data não pode encabeçar a lista: no
+    // Postgres, `DESC` joga NULL para o topo por padrão.
+    orderBy: [{ postedAt: { sort: "desc", nulls: "last" } }, { ref: "asc" }],
     include: { _count: { select: { applications: true } } },
   });
+
+  // `sort` é estável, então dentro do mesmo status a ordem do banco se mantém.
+  return postings.sort(
+    (a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9),
+  );
+}
+
+/** Áreas já cadastradas, para o filtro do painel não ser uma lista fixa. */
+export async function listJobAreas(): Promise<string[]> {
+  const rows = await prisma.jobPosting.findMany({
+    distinct: ["area"],
+    select: { area: true },
+    orderBy: { area: "asc" },
+  });
+  return rows.map((row) => row.area);
 }
 
 export async function getJobPostingById(id: string) {
@@ -121,6 +164,25 @@ export async function getJobPostingById(id: string) {
     where: { id },
     include: { _count: { select: { applications: true } } },
   });
+}
+
+/** Vaga + quantas candidaturas há em cada estágio do funil. */
+export async function getJobPostingDetail(id: string) {
+  const posting = await getJobPostingById(id);
+  if (!posting) return null;
+
+  const grouped = await prisma.jobApplication.groupBy({
+    by: ["stage"],
+    where: { jobPostingId: id, deletedAt: null },
+    _count: { _all: true },
+  });
+
+  return {
+    ...posting,
+    stageCounts: Object.fromEntries(
+      grouped.map((row) => [row.stage, row._count._all]),
+    ) as Record<string, number>,
+  };
 }
 
 /** Uma vaga publicada e ainda no prazo? Usado na listagem do painel. */
@@ -211,6 +273,86 @@ export async function generateRef(year = new Date().getFullYear()): Promise<stri
   return `${prefix}${String(proximo).padStart(3, "0")}`;
 }
 
+/**
+ * Estado de publicação do site de vagas.
+ *
+ * O site é export estático: editar a vaga no banco não muda o HTML no ar até
+ * alguém rodar o build. O carimbo abaixo é o que permite ao painel avisar
+ * "site desatualizado" em vez de deixar o operador achar que publicou.
+ *
+ * Reaproveita `integration_connections`, no mesmo molde já usado por
+ * `google_search_console` e `indexnow` — não precisa de tabela nova.
+ *
+ * Limite conhecido: o carimbo marca quando o build **leu** as vagas, não
+ * quando o site foi publicado. Um build que lê e falha depois deixa o painel
+ * otimista. É por isso que a interface diz "última leitura do build", e não
+ * "última publicação". Fechar essa lacuna depende do gatilho de rebuild, que
+ * ainda é decisão em aberto (ver `docs/MODULO-RECRUTAMENTO.md`).
+ */
+export const JOBS_SITE_URL = process.env.JOBS_SITE_URL ?? "https://jobs.avilaops.com";
+const JOBS_BUILD_PROVIDER = "jobs_site_build";
+
+export async function recordJobsSiteRead(total: number): Promise<void> {
+  const now = new Date();
+  try {
+    await prisma.integrationConnection.upsert({
+      where: {
+        provider_siteUrl: { provider: JOBS_BUILD_PROVIDER, siteUrl: JOBS_SITE_URL },
+      },
+      create: {
+        provider: JOBS_BUILD_PROVIDER,
+        siteUrl: JOBS_SITE_URL,
+        status: "ACTIVE",
+        lastSyncedAt: now,
+        lastSyncStatus: "SUCCESS",
+        metadata: { postings: total },
+      },
+      update: {
+        status: "ACTIVE",
+        lastSyncedAt: now,
+        lastSyncStatus: "SUCCESS",
+        lastSyncError: null,
+        metadata: { postings: total },
+      },
+    });
+  } catch {
+    // O carimbo é diagnóstico. Se ele falhar, o build ainda precisa receber as
+    // vagas — derrubar a resposta aqui quebraria a publicação do site por causa
+    // de um indicador.
+  }
+}
+
+export type JobsSiteStatus = {
+  lastReadAt: Date | null;
+  pendingSince: Date | null;
+  stale: boolean;
+};
+
+export async function getJobsSiteStatus(): Promise<JobsSiteStatus> {
+  const [connection, ultimaEdicao] = await Promise.all([
+    prisma.integrationConnection.findUnique({
+      where: {
+        provider_siteUrl: { provider: JOBS_BUILD_PROVIDER, siteUrl: JOBS_SITE_URL },
+      },
+      select: { lastSyncedAt: true },
+    }),
+    prisma.jobPosting.findFirst({
+      where: { status: "PUBLISHED" },
+      orderBy: { atualizadoEm: "desc" },
+      select: { atualizadoEm: true },
+    }),
+  ]);
+
+  const lastReadAt = connection?.lastSyncedAt ?? null;
+  const pendingSince = ultimaEdicao?.atualizadoEm ?? null;
+
+  return {
+    lastReadAt,
+    pendingSince,
+    stale: pendingSince !== null && (lastReadAt === null || pendingSince > lastReadAt),
+  };
+}
+
 type RawBody = Record<string, unknown> | null;
 
 const lines = (value: unknown, max = 40): string[] =>
@@ -220,6 +362,15 @@ const lines = (value: unknown, max = 40): string[] =>
         .filter((item) => item.length > 0)
         .slice(0, max)
     : [];
+
+function pickFrom<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+): T {
+  const text = cleanText(value, 40);
+  return (allowed as readonly string[]).includes(text) ? (text as T) : fallback;
+}
 
 /** `YYYY-MM-DD` do formulário → instante UTC, ou null quando vazio. */
 function parseDay(value: unknown, edge: "start" | "end"): Date | null {
@@ -260,8 +411,11 @@ export function readPostingPayload(body: RawBody) {
     area: cleanText(body?.area, 80) || "Geral",
     team: cleanText(body?.team, 80) || "Avila Ops",
     location: cleanText(body?.location, 160),
-    locationType: cleanText(body?.locationType, 40) || "Remoto",
-    contract: cleanText(body?.contract, 40) || "Tempo integral",
+    // Vocabulário fechado: `locationType` e `contract` viram `jobLocationType` e
+    // `employmentType` no JSON-LD, e valor inventado faz o Google Jobs recusar o
+    // anúncio inteiro em vez de ignorar o campo.
+    locationType: pickFrom(body?.locationType, LOCATION_TYPES, "Remoto"),
+    contract: pickFrom(body?.contract, CONTRACTS, "Tempo integral"),
     summary: cleanText(body?.summary, 400),
     content,
     postedAt: parseDay(body?.postedAt, "start"),

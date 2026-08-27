@@ -13,6 +13,18 @@ export const metadata: Metadata = {
   // `noindex` tira da busca, mas não tira o card do WhatsApp: o link da
   // plataforma é justamente o que a gente manda para o cliente entrar.
   robots: { index: false, follow: false },
+  // Sem estas duas entradas os arquivos existem em /public mas nada os
+  // referencia — o navegador cai no /favicon.ico implícito e a instalação
+  // como app não encontra ícone nenhum.
+  manifest: "/site.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
   openGraph: {
     title: "Ávila OS — operação digital",
     description,

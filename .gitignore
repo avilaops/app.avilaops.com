@@ -19,3 +19,6 @@ node_modules/
 .env.local
 .env.production
 secrets/
+
+# Bundle de deploy: gerado por `npm run build`, nunca versionado.
+standalone.tgz
