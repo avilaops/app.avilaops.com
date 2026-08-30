@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { garantirAcessoCliente, slugLivreDeOrganizacao, urlDeLogin } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
+import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
 import { prisma } from "@/lib/prisma";
 
-const CLIENTE_PORTAL_URL =
-  process.env.CLIENTE_PORTAL_URL ?? "https://cliente.avilaops.com";
-
+/**
+ * Aprovar uma solicitação de acesso = três coisas, nesta ordem:
+ *
+ * 1. A conta no SSO (`portal_clients`), criada aqui mesmo — o portal antigo
+ *    que fazia isso foi desligado em 24/08/2026 e esta rota ficou chamando um
+ *    host morto durante uma semana.
+ * 2. A organização na carteira, se ainda não existe (por CNPJ/CPF), com o
+ *    solicitante como contato principal.
+ * 3. O e-mail com a senha provisória e a tarefa de onboarding, pelo n8n
+ *    ("Ávila OS — Cliente aprovado"). Se o n8n falhar, a aprovação NÃO volta
+ *    atrás: a conta existe; a senha vem na resposta para o admin repassar.
+ */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const admin = await getAdmin();
   if (!admin) {
@@ -19,77 +30,97 @@ export async function POST(
   }
 
   const { id } = await params;
-
-  const req = await prisma.clientRegistrationRequest.findUnique({
-    where: { id },
-  });
-
-  if (!req) {
+  const solicitacao = await prisma.clientRegistrationRequest.findUnique({ where: { id } });
+  if (!solicitacao) {
     return NextResponse.json({ error: "Solicitação não encontrada." }, { status: 404 });
   }
-
-  if (req.status !== "PENDING") {
-    return NextResponse.json(
-      { error: "Esta solicitação já foi processada." },
-      { status: 409 }
-    );
+  if (solicitacao.status !== "PENDING") {
+    return NextResponse.json({ error: "Esta solicitação já foi processada." }, { status: 409 });
   }
 
-  // ─── Chamar o cliente.avilaops.com para provisionar o cliente ───────────────────
-  const serviceSecret = process.env.SERVICE_JWT_SECRET;
-  if (!serviceSecret) {
+  // 1. Conta no SSO
+  let acesso;
+  try {
+    acesso = await garantirAcessoCliente({
+      nome: solicitacao.nome,
+      email: solicitacao.email,
+      cpfCnpj: solicitacao.cpfCnpj,
+      telefone: solicitacao.telefone,
+    });
+  } catch (erro) {
+    const mensagem = erro instanceof Error ? erro.message : "";
     return NextResponse.json(
-      { error: "SERVICE_JWT_SECRET não configurado." },
-      { status: 500 }
-    );
-  }
-
-  // Gera um JWT de serviço de curta duração (5 min)
-  const jwt = await import("jsonwebtoken");
-  const serviceToken = jwt.default.sign(
-    { iss: "app.avilaops.com", sub: "provision-client" },
-    serviceSecret,
-    { algorithm: "HS256", expiresIn: "5m" }
-  );
-
-  const provisionRes = await fetch(
-    `${CLIENTE_PORTAL_URL}/api/service/provision-client`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceToken}`,
+      {
+        error: /unique|duplic/i.test(mensagem)
+          ? "Já existe uma conta com este CPF/CNPJ em outro e-mail. Ajuste no auth.avilaops.com/admin."
+          : "Não foi possível criar a conta de acesso.",
       },
-      body: JSON.stringify({
-        nome: req.nome,
-        email: req.email,
-        cpfCnpj: req.cpfCnpj,
-        tipoDocumento: req.tipoDocumento,
-        telefone: req.telefone ?? undefined,
-        empresa: req.empresa ?? undefined,
-      }),
-    }
-  );
-
-  if (!provisionRes.ok) {
-    const body = await provisionRes.text().catch(() => "");
-    console.error(
-      `[approve] provision-client falhou HTTP ${provisionRes.status}: ${body.slice(0, 300)}`
-    );
-    return NextResponse.json(
-      { error: "Falha ao provisionar o cliente no portal." },
-      { status: 502 }
+      { status: 409 },
     );
   }
 
-  // ─── Marcar como aprovada ─────────────────────────────────────────────────────
+  // 2. Organização na carteira
+  const documento = solicitacao.cpfCnpj.replace(/\D/g, "");
+  let organizacao = documento
+    ? await prisma.organization.findUnique({ where: { cpfCnpj: documento }, select: { id: true, name: true } })
+    : null;
+  let organizacaoCriada = false;
+
+  if (!organizacao) {
+    const nome = solicitacao.empresa?.trim() || solicitacao.nome.trim();
+    const slug = await slugLivreDeOrganizacao(nome);
+    organizacao = await prisma.organization.create({
+      data: {
+        name: nome,
+        slug,
+        cpfCnpj: documento || null,
+        status: "ONBOARDING",
+        brands: { create: { name: nome, slug: "principal" } },
+        contacts: {
+          create: {
+            type: "OWNER",
+            name: solicitacao.nome.trim(),
+            email: solicitacao.email.trim().toLowerCase(),
+            phone: solicitacao.telefone ?? null,
+            isPrimary: true,
+          },
+        },
+      },
+      select: { id: true, name: true },
+    });
+    organizacaoCriada = true;
+  }
+
+  // 3. E-mail + tarefa pelo n8n
+  let emailEnviado = false;
+  let tarefa: string | null = null;
+  let avisoN8n: string | null = null;
+  if (acesso.senha) {
+    try {
+      const resultado = await chamarN8n<{ ok?: boolean; emailEnviado?: boolean; tarefa?: string | null }>(
+        "avila-os-cliente-aprovado",
+        {
+          nome: solicitacao.nome,
+          email: acesso.email,
+          senha: acesso.senha,
+          empresa: organizacao.name,
+          telefone: solicitacao.telefone ?? "",
+          loginUrl: urlDeLogin(),
+          organizationId: organizacao.id,
+          autor: admin.email ?? admin.nome,
+        },
+        { timeoutMs: 60_000 },
+      );
+      emailEnviado = Boolean(resultado.emailEnviado);
+      tarefa = resultado.tarefa ?? null;
+    } catch (erro) {
+      avisoN8n = erro instanceof N8nIndisponivel ? erro.message : "Falha ao acionar o n8n.";
+    }
+  }
+
   await prisma.clientRegistrationRequest.update({
     where: { id },
-    data: {
-      status: "APPROVED",
-      revisadoPorId: admin.id,
-      revisadoEm: new Date(),
-    },
+    data: { status: "APPROVED", revisadoPorId: admin.id, revisadoEm: new Date() },
   });
 
   await prisma.operationsAuditEvent.create({
@@ -98,8 +129,30 @@ export async function POST(
       entityType: "ClientRegistrationRequest",
       entityId: id,
       actorId: admin.id,
+      organizationId: organizacao.id,
+      metadata: {
+        contaCriada: acesso.criado,
+        organizacaoCriada,
+        emailEnviado,
+        tarefa,
+        avisoN8n,
+      },
     },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    organizationId: organizacao.id,
+    contaCriada: acesso.criado,
+    organizacaoCriada,
+    emailEnviado,
+    tarefa,
+    aviso: avisoN8n
+      ? `Conta criada, mas o e-mail não saiu (${avisoN8n}).`
+      : !acesso.criado
+        ? "A conta já existia; nenhum e-mail foi enviado. Use \"Reenviar acesso\" na ficha do cliente."
+        : null,
+    // Só aparece quando o e-mail não foi — o admin repassa por outro canal.
+    senhaProvisoria: acesso.senha && !emailEnviado ? acesso.senha : null,
+  });
 }

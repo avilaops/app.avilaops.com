@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import ClientDossierForm from "@/components/ClientDossierForm";
+import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
+import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -28,6 +30,10 @@ export default async function ClientDossierPage({
         onboardingSteps: { orderBy: [{ sortOrder: "asc" }, { label: "asc" }] },
         organizationIntegrations: true,
         serviceOpportunities: true,
+        domains: {
+          orderBy: { createdAt: "asc" },
+          select: { id: true, fqdn: true, cloudflareStatus: true, cloudflareZoneId: true },
+        },
       },
     }),
     prisma.servicePlan.findMany({
@@ -37,6 +43,10 @@ export default async function ClientDossierPage({
   ]);
 
   if (!organization) notFound();
+
+  const contatoPrincipal = organization.contacts[0] ?? null;
+  const contatoEmail = contatoPrincipal?.email?.trim().toLowerCase() ?? "";
+  const acessoExiste = contatoEmail ? Boolean(await buscarContaPorEmail(contatoEmail)) : false;
 
   return (
     <AppShell adminName={admin.nome} section="clients">
@@ -54,6 +64,31 @@ export default async function ClientDossierPage({
       <ClientDossierForm
         organization={JSON.parse(JSON.stringify(organization))}
         plans={JSON.parse(JSON.stringify(plans))}
+      />
+
+      <ProvisionamentoPanel
+        organizationId={organization.id}
+        nome={organization.name}
+        slug={organization.slug}
+        contato={
+          contatoPrincipal
+            ? {
+                nome: contatoPrincipal.name,
+                email: contatoPrincipal.email ?? null,
+                telefone: contatoPrincipal.phone ?? contatoPrincipal.whatsapp ?? null,
+              }
+            : null
+        }
+        acessoExiste={acessoExiste}
+        dominios={organization.domains}
+        integracoes={organization.organizationIntegrations.map((item) => ({
+          provider: item.provider,
+          publicId: item.publicId,
+          accountName: item.accountName,
+          url: item.url,
+          status: item.status,
+          notes: item.notes,
+        }))}
       />
     </AppShell>
   );

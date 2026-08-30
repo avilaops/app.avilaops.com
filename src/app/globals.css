@@ -5553,3 +5553,153 @@ tbody tr:last-child td {
     gap: 8px 0;
   }
 }
+
+/* Provisionamento na ficha do cliente ------------------------------------- */
+.prov-section {
+  margin-top: 28px;
+}
+
+.prov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.prov-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.prov-card-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.prov-card-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.prov-card .ios-list {
+  background: var(--surface-raised);
+}
+
+:root[data-theme="light"] .prov-card .ios-list {
+  background: var(--surface);
+}
+
+.ios-row-static {
+  cursor: default;
+}
+
+.ios-row-static:hover,
+.ios-row-static:active {
+  background: transparent;
+  transform: none;
+}
+
+.prov-row-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+}
+
+.prov-row-main strong,
+.prov-row-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prov-row-main strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.prov-row-main small {
+  color: var(--subtle-text);
+  font-size: 0.8125rem;
+}
+
+.prov-empty {
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.prov-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.prov-actions > * {
+  flex: 1 1 auto;
+}
+
+.prov-result {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--blue-line);
+  border-radius: var(--radius);
+  background: var(--blue-soft);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.prov-result strong {
+  font-size: 0.875rem;
+}
+
+.prov-result code {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+.prov-result ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.prov-result-erro {
+  border-color: var(--red-line);
+  background: transparent;
+  color: var(--red);
+}
+
+.prov-secret {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
+.input-sufixo > i {
+  right: 12px;
+  left: auto;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-sufixo input {
+  padding-right: 45%;
+  padding-left: 12px;
+}

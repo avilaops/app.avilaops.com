@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import jwt from "jsonwebtoken";
 import { NextRequest } from "next/server";
 
@@ -17,4 +18,21 @@ export function verifyServiceJwt(request: NextRequest): { iss: string } | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Chamada de serviço: JWT de serviço **ou** o header `x-service-key` com o
+ * segredo inteiro (é o que o n8n manda — credencial "Ávila OS Service Key").
+ * Comparação em tempo constante; sem segredo configurado, nada passa.
+ */
+export function isServiceCall(request: NextRequest): boolean {
+  if (verifyServiceJwt(request)) return true;
+
+  const secret = process.env.SERVICE_JWT_SECRET;
+  const key = request.headers.get("x-service-key") ?? "";
+  if (!secret || !key) return false;
+
+  const a = Buffer.from(key);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
