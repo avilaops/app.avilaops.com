@@ -84,10 +84,15 @@ vira pago.
 2. **`MP_WEBHOOK_TOKEN`** (opcional) no `.env.production`, e o mesmo valor como
    `?token=` na URL do webhook. Vazio aceita sem token, que é o comportamento
    de hoje; a confirmação pela API é o que de fato protege o dinheiro.
-3. **O formulário de cartão** precisa mandar `paymentMethodId` e `issuerId`
-   junto do token (o SDK do Mercado Pago devolve os três). Sem eles, cartão de
-   bandeira menos comum é recusado com "payment_method_id inválido". A rota já
-   aceita os dois campos.
+3. **O cartão é um caminho morto, e já era antes desta migração.**
+   `criarCobrancaDaFatura` aceita `CARD`, a rota de billing aceita, e
+   `mercadopago-cobranca.ts` sabe cobrar — mas **nenhuma tela oferece cartão**.
+   A única que cobra hoje é `/admin/plano` do Comandeiro, e ela só mostra PIX e
+   boleto; `server/billing/client.ts` nem manda `paymentToken`. Quando o
+   formulário existir, ele precisa mandar `paymentMethodId` e `issuerId` junto
+   do token (o SDK do Mercado Pago devolve os três), senão cartão de bandeira
+   menos comum é recusado com "payment_method_id inválido". A rota já aceita os
+   dois campos.
 
 `lib/parcelamento.ts` não mudou: o juros do parcelamento continua sendo conta
 nossa, não do gateway, para o cliente ver o mesmo número na simulação e na
