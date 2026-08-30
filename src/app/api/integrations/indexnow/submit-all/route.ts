@@ -3,15 +3,18 @@ import { getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { submitIndexNowForAllDomains } from "@/lib/indexnow";
-import { verifyServiceJwt } from "@/lib/service-auth";
+import { isServiceCall, verifyServiceJwt } from "@/lib/service-auth";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const admin = await getAdmin();
   const service = verifyServiceJwt(request);
+  // O cron do n8n ("Rodada Diária") entra pelo x-service-key, como as outras
+  // rotas de auditoria; o JWT continua valendo para quem já o usa.
+  const servico = Boolean(service) || isServiceCall(request);
 
-  if (!admin && !service) {
+  if (!admin && !servico) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
   if (admin && !sameOrigin(request)) {
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
         successful: result.successful,
         failed: result.failed,
         results: result.results,
-        triggeredBy: admin ? "admin" : `service:${service?.iss ?? "unknown"}`,
+        triggeredBy: admin ? "admin" : `service:${service?.iss ?? "n8n"}`,
       },
     },
   });
