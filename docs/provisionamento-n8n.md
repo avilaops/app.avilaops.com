@@ -35,13 +35,15 @@ ficam **só no cofre do n8n**. O app tem dois segredos: o token de saída
 | Ávila OS — Google do cliente | `DWHYVm4Z4jzaJIvL` | `POST /webhook/avila-os-google` | `{ empresa, dominio, donoEmail?, pixelId?, sitemap?, indexar?, myBusiness?, organizationId, callbackUrl }` | `202 { aceito }`; depois callback com `{ organizationId, dominio, status, ga4PropertyId, ga4MeasurementId, gtmContainerId, gtmPublicId, searchConsole, indexacao, myBusiness, pendencias }` |
 | Ávila OS — Criar loja | `a1nRmYum4BviiUEY` | `POST /webhook/avila-os-loja` | `{ slug, nome, plano?, dominioPrincipal?, emailContato?, whatsapp?, telefone?, razaoSocial?, cnpj?, provisionar? }` | `{ ok, status, slug, url, situacao, provisionamento, erro }` |
 | Ávila OS — Sincronizar Éfi (diário) | `cB0Ue6wkYK2gHAIZ` | 06:20 todo dia | — | chama `POST /api/integrations/efi/sync` `{ days: 7 }` com `x-service-key` |
+| Ávila OS — Criar restaurante | `7P1HG3yLSsTT4uJc` | `POST /webhook/avila-os-restaurante` | `{ nome, cnpj, donoNome, donoEmail, slug?, plano?, razaoSocial?, segmento?, whatsapp?, cidade?, uf?, cep?, endereco?, organizationId?, autor? }` | `{ ok, criado, tenantId, slug, nome, situacao, url, entrada, senhaEmpresa, acessos[], aviso, erro }` — cria a casa no Comandeiro. CNPJ repetido volta `criado: false`, sem erro |
 
 O Google reaproveita o sub-workflow **"Google — onboarding de cliente"**
 (`jHHVsAgF3YttgTZ4`, Execute Workflow Trigger) e lê o resultado na Data
 table `google_clientes` — o sub-workflow grava lá.
 
 Credenciais no n8n usadas: `Cloudflare Global Key (DNS)` (dndkbaHfLcpcLOuX),
-`Avila Mail API` (gmz9uYKN7VZn98pj), `Lojas Admin Token` (3YejOYHMV6DLOJG2),
+`Avila Mail API` (gmz9uYKN7VZn98pj), `Lojas Admin Token` (3YejOYHMV6DLOJG2), `Comandeiro Admin Token`
+(T6NmIzS6BJNXLH9l — header `x-admin-token`, criada em 30/08 pela API REST),
 `SMTP mail.avilaops.com (n8n@avilaops.com)` (tSZlEjwt75qo2MwC), `Todoist
 OAuth2 (app da casa)` (HjSrKt2tqWYpxU8I — a antiga `Todoist account` por API
 key morreu em 26/08 e não deve mais ser usada), `Auth Webhook Auth (criar caixa)`
@@ -59,6 +61,7 @@ key morreu em 26/08 e não deve mais ser usada), `Auth Webhook Auth (criar caixa
 | Criar caixa | `POST /api/organizations/[id]/caixa` `{ dominio, usuario, nome?, senha? }` | `OrganizationIntegration mailbox:<endereço>`; senha gerada aparece uma vez |
 | Configurar Google | `POST /api/organizations/[id]/google` | `google_onboarding = PENDING`; o callback grava `google_analytics_4`, `google_tag_manager`, `google_search_console` e fecha `google_onboarding` (ACTIVE / ATTENTION / FAILED) |
 | Criar loja | `POST /api/organizations/[id]/loja` | `OrganizationIntegration lojas_avilaops` (slug, URL) |
+| Criar restaurante | `POST /api/organizations/[id]/restaurante` | `OrganizationIntegration comandeiro` (slug, URL); etapa `RESTAURANT`. Senha da empresa e senhas de setor voltam na resposta e **não** são gravadas nem auditadas — aparecem uma vez na tela |
 
 Tudo entra em `OperationsAuditEvent` com o admin que clicou.
 
@@ -100,10 +103,52 @@ painel "Cobrança e cadastro" (`src/components/OperacaoPanel.tsx`):
 Scripts aposentados por isso: `scripts/criar-assinatura.ts` e
 `scripts/sync-openai-project.ts` (ficam no repo por histórico; não usar).
 
-**Decisão pendente do conselho que a tela não resolve:** a assinatura cobra
-pela **Éfi** (é o que `lib/assinaturas.ts` faz); as lojas cobram pelo Mercado
-Pago. Dois gateways recorrentes continuam sendo o que o levantamento de 18/08
-quis evitar — a tela só expõe o que já existia.
+~~**Decisão pendente do conselho**~~ — **resolvida em 30/08/2026**: cobrança
+recorrente só pelo **Mercado Pago**. "Esquece do banco Éfi por enquanto." O que
+já roda na Éfi não foi migrado nem desligado; ela só deixou de ser o caminho
+padrão, e produto novo entrando no pipeline (o Comandeiro, entre eles) nasce no
+Mercado Pago. `lib/assinaturas.ts` ainda emite pela Éfi — trocar isso é a
+próxima obra, não foi feita aqui.
+
+## 5c. Comandeiro no pipeline — 30/08, terceira rodada
+
+O Comandeiro já era multi-tenant por dentro (`provisionTenant` +
+`registerRestaurant` atendem o autosserviço em `/acesso/criar` e o painel em
+`/platform/onboarding`). O que faltava era a porta HTTP. Ela nasceu como
+**terceira porta para a mesma função** — nenhuma regra de cadastro foi
+duplicada, pelo motivo de sempre: a cópia que envelheceria seria justamente a
+que ninguém abre no navegador para conferir.
+
+```
+ficha do cliente → POST /api/organizations/[id]/restaurante
+   → n8n "Ávila OS — Criar restaurante" (7P1HG3yLSsTT4uJc)
+   → POST https://app.comandeiro.com.br/api/admin/tenants   (x-admin-token)
+   → registerRestaurant()  →  tenant + senha da empresa + 3 senhas de setor
+```
+
+Três coisas que este fluxo faz diferente dos outros:
+
+1. **A resposta carrega segredo.** A senha da empresa e as três senhas de setor
+   existem em claro só no instante em que a casa nasce. Vão para a tela e
+   morrem ali: não entram em `OrganizationIntegration`, não entram em
+   `OperationsAuditEvent`. O que a auditoria registra é que a casa nasceu, não
+   como entrar nela. Reemissão é pela recuperação de senha do próprio
+   Comandeiro, com o e-mail do responsável.
+2. **Idempotência é do Comandeiro, não do n8n.** CNPJ que já tem casa devolve
+   `200 { criado: false }` com o vínculo, e não erro — o CNPJ é a identidade da
+   casa na entrada, então "já existe" é uma resposta, não uma falha. Clicar
+   duas vezes na ficha não abre tarefa P1 no Todoist.
+3. **CNPJ é obrigatório na ficha.** A rota recusa em 422 antes de gastar
+   chamada ao n8n: sem CNPJ de 14 dígitos não há restaurante para criar,
+   porque é ele que o garçom digita para entrar.
+
+O `Montar resposta` do workflow traduz 401, 404 e 503 do Comandeiro em frases
+que dizem o que fazer (token, deploy, variável de ambiente) — o operador da
+ficha não deve receber "HTTP 404" e abrir chamado.
+
+**Variável nova no Comandeiro** (`/opt/minas-espetinhos/.env`):
+`PLATFORM_ADMIN_TOKEN`, o mesmo valor da credencial `Comandeiro Admin Token`
+do n8n. Vazio desliga a rota (503).
 
 ## 6. O que ficou de fora e por quê
 
