@@ -34,7 +34,7 @@ export default async function ClientDossierPage({
         serviceOpportunities: true,
         domains: {
           orderBy: { createdAt: "asc" },
-          select: { id: true, fqdn: true, cloudflareStatus: true, cloudflareZoneId: true },
+          select: { id: true, fqdn: true, status: true, cloudflareStatus: true, cloudflareZoneId: true },
         },
         brands: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, slug: true, siteUrl: true, status: true } },
         integrationConnections: { orderBy: { provider: "asc" } },

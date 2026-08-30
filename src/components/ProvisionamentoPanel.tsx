@@ -10,6 +10,7 @@ import Sheet from "@/components/ui/Sheet";
 export type DominioDaFicha = {
   id: string;
   fqdn: string;
+  status: string;
   cloudflareStatus: string | null;
   cloudflareZoneId: string | null;
 };
@@ -61,6 +62,7 @@ export default function ProvisionamentoPanel({
   }, [aviso]);
 
   const base = `/api/organizations/${organizationId}`;
+  const dominiosAtivos = dominios.filter((d) => d.status !== "ARCHIVED");
   const caixas = integracoes.filter((i) => i.provider.startsWith("mailbox:"));
   const mailDominios = integracoes.filter((i) => i.provider.startsWith("mail_domain:"));
   const google = {
@@ -177,8 +179,20 @@ export default function ProvisionamentoPanel({
     );
   }
 
+  async function arquivarDominio(fqdn: string, acao: "arquivar" | "reativar") {
+    if (acao === "arquivar" && !window.confirm(`Arquivar ${fqdn}? Ele sai das auditorias e da renovação; nada é apagado.`)) return;
+    await executar(
+      "dominio",
+      async () => {
+        const r = await chamar<{ fqdn: string; status: string }>(`${base}/dominio`, { fqdn, acao }, "PATCH");
+        return { tipo: "ok", conteudo: <strong>{r.fqdn} {r.status === "ARCHIVED" ? "arquivado" : "reativado"}.</strong> };
+      },
+      acao === "arquivar" ? "Domínio arquivado." : "Domínio reativado.",
+    );
+  }
+
   /* ---------- Caixa ---------- */
-  const [formCaixa, setFormCaixa] = useState({ dominio: dominios[0]?.fqdn ?? "", usuario: "contato", nome: "", senha: "" });
+  const [formCaixa, setFormCaixa] = useState({ dominio: dominiosAtivos[0]?.fqdn ?? "", usuario: "contato", nome: "", senha: "" });
   async function enviarCaixa(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     await executar(
@@ -334,13 +348,17 @@ export default function ProvisionamentoPanel({
             ) : (
               dominios.map((d) => {
                 const mail = mailDominios.find((m) => m.publicId === d.fqdn);
+                const arquivado = d.status === "ARCHIVED";
                 return (
                   <div className="ios-row ios-row-static" key={d.id}>
                     <div className="prov-row-main">
                       <strong>{d.fqdn}</strong>
-                      <small>{mail ? (mail.status === "ACTIVE" ? "E-mail verificado" : mail.notes ?? "E-mail pendente") : "Sem e-mail configurado"}</small>
+                      <small>{arquivado ? "Arquivado — fora das auditorias e da renovação" : mail ? (mail.status === "ACTIVE" ? "E-mail verificado" : mail.notes ?? "E-mail pendente") : "Sem e-mail configurado"}</small>
                     </div>
-                    <Pill status={d.cloudflareStatus} />
+                    <Pill status={arquivado ? "ARCHIVED" : d.cloudflareStatus} />
+                    <button type="button" className={arquivado ? "text-button" : "text-button prov-perigo"} disabled={ocupado === "dominio"} onClick={() => arquivarDominio(d.fqdn, arquivado ? "reativar" : "arquivar")}>
+                      {arquivado ? "Reativar" : "Arquivar"}
+                    </button>
                   </div>
                 );
               })

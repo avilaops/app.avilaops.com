@@ -179,3 +179,41 @@ export async function POST(
 
   return NextResponse.json({ ...resultado, ok: true, assetId: asset.id, mailVerificado });
 }
+
+/**
+ * Arquivar (ou reativar) um domínio da ficha. Arquivado sai das auditorias
+ * diárias, da renovação e do IndexNow — é o caso do domínio comprado por
+ * engano ou devolvido ao cliente. Nunca apaga: histórico de DNS e auditoria
+ * continuam pendurados nele.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const admin = await getAdmin();
+  if (!admin) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  if (!sameOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
+
+  const { id } = await params;
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const fqdn = cleanText(body?.fqdn, 253).toLowerCase();
+  const acao = cleanText(body?.acao, 12) === "reativar" ? "reativar" : "arquivar";
+
+  const asset = await prisma.domainAsset.findFirst({ where: { fqdn, organizationId: id }, select: { id: true, status: true } });
+  if (!asset) return NextResponse.json({ error: "Domínio não encontrado neste cliente." }, { status: 404 });
+
+  const status = acao === "arquivar" ? "ARCHIVED" : "ACTIVE";
+  await prisma.domainAsset.update({ where: { id: asset.id }, data: { status } });
+  await prisma.operationsAuditEvent.create({
+    data: {
+      action: acao === "arquivar" ? "DOMAIN_ARCHIVED" : "DOMAIN_REACTIVATED",
+      entityType: "DomainAsset",
+      entityId: asset.id,
+      organizationId: id,
+      actorId: admin.id,
+      metadata: { fqdn, de: asset.status, para: status, motivo: cleanText(body?.motivo, 200) || null },
+    },
+  });
+
+  return NextResponse.json({ ok: true, fqdn, status });
+}

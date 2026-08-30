@@ -19,6 +19,7 @@ export const classeStatus: Record<string, string> = {
   BLOCKED: "status-paused",
   FAILED: "status-ignored",
   CANCELLED: "status-ignored",
+  ARCHIVED: "status-ignored",
   active: "status-active",
   pending: "status-pending",
 };
@@ -36,6 +37,7 @@ export const rotuloStatus: Record<string, string> = {
   BLOCKED: "Bloqueada",
   FAILED: "Falhou",
   CANCELLED: "Cancelada",
+  ARCHIVED: "Arquivado",
   active: "Ativa",
   pending: "Aguardando NS",
   initializing: "Iniciando",
