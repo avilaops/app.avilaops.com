@@ -29,9 +29,15 @@ model AdminIdentity {
   /// OWNER | ADMIN | CLIENT
   role                String
   /// Empresa que esta conta representa. Só CLIENT usa: é o que faz a área do
-  /// cliente saber o que é dele. Sem relação declarada de propósito —
+  /// cliente saber o que é dele. Sem relação declarada de propósito:
   /// `organizations` vive no schema `operations` e o vínculo é por id.
   organizationId      String?   @map("organization_id")
+  /// Conta desligada não entra em lugar nenhum e continua no histórico.
+  /// Desligar é sempre melhor que apagar: a linha tem pedido e auditoria atrás.
+  ativo               Boolean   @default(true)
+  atualizadoEm        DateTime? @map("atualizado_em")
+  /// Gravado pelo login. Serve para achar conta esquecida e para auditoria.
+  ultimoAcessoEm      DateTime? @map("ultimo_acesso_em")
   resetTokenHash      String?   @map("reset_token_hash")
   resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
 

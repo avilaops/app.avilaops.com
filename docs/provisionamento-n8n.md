@@ -163,7 +163,7 @@ que dizem o que fazer (token, deploy, variável de ambiente) — o operador da
 ficha não deve receber "HTTP 404" e abrir chamado.
 
 **Variável nova no Comandeiro** (`/opt/minas-espetinhos/.env`):
-`PLATFORM_ADMIN_TOKEN`, o mesmo valor da credencial `Comandeiro Admin Token`
+`COMANDEIRO_ADMIN_TOKEN`, o mesmo valor da credencial `Comandeiro Admin Token`
 do n8n. Vazio desliga a rota (503).
 
 ## 6. O que ficou de fora e por quê

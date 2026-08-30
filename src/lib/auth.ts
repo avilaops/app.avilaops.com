@@ -10,20 +10,29 @@ const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 /**
- * OWNER é o dono da operação: pode tudo que ADMIN pode e mais o que mexe em
- * permissão. ADMIN é a equipe (inclusive as contas de automação). CLIENT é
- * quem contrata — vê só a própria empresa.
+ * Três pessoas diferentes, não três níveis da mesma:
  *
- * Toda checagem de "é da casa?" usa `ehDaCasa()`, nunca `role === "ADMIN"`
- * solto: foi assim que OWNER pôde ser introduzido sem revisar 70 rotas.
+ * - `OWNER`  → a **plataforma** (Avila Ops). Uma conta. Este app inteiro é dela.
+ * - `ADMIN`  → o **dono do negócio** que contrata: restaurante, loja, oficina.
+ *   Manda na própria empresa e na equipe dela, em mais nada.
+ * - `CLIENT` → a **equipe** desse dono. Usa o produto; não administra.
+ *
+ * `app.avilaops.com` é o painel da plataforma, então quem entra aqui é OWNER.
+ * ADMIN e CLIENT vivem em `/portal` (a empresa deles) e no painel do produto
+ * que assinam.
  */
 export type PapelPortal = "OWNER" | "ADMIN" | "CLIENT";
 
-const PAPEIS_DA_CASA: readonly string[] = ["OWNER", "ADMIN"];
+const PAPEIS_DA_CASA: readonly string[] = ["OWNER"];
 
-/** Equipe (OWNER ou ADMIN). É o que as áreas administrativas exigem. */
+/** A plataforma. É o que este painel exige em toda página e rota. */
 export function ehDaCasa(role: string | null | undefined): boolean {
   return typeof role === "string" && PAPEIS_DA_CASA.includes(role);
+}
+
+/** Dono do negócio cliente: manda na própria empresa. */
+export function ehDonoDoNegocio(role: string | null | undefined): boolean {
+  return role === "ADMIN";
 }
 
 /**
@@ -203,6 +212,13 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
  */
 export function destinoPorPapel(role: string): string {
   return ehDaCasa(role) ? "/operacao" : "/portal";
+}
+
+/** Papel legível, para tela e auditoria. */
+export function rotuloDoPapel(role: string): string {
+  if (role === "OWNER") return "Plataforma";
+  if (role === "ADMIN") return "Dono do negócio";
+  return "Equipe do cliente";
 }
 
 async function getAdminLocal(): Promise<AdminAtual | null> {

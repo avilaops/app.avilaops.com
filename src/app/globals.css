@@ -5768,3 +5768,18 @@ tbody tr:last-child td {
 .portal-list em { color: var(--muted); font-size: 13px; font-style: normal; text-align: right; }
 .portal-list a { color: var(--link-soft); text-decoration: none; }
 .portal-list a:hover { text-decoration: underline; }
+
+/* Equipe da empresa, dentro da área do cliente. */
+.portal-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.portal-card-topo h2 { margin: 0; }
+.portal-erro { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: rgba(236,111,124,.12); color: var(--red); font-size: 13px; }
+.portal-senha { display: grid; gap: 8px; margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--green-line); border-radius: 12px; background: rgba(79,189,139,.08); }
+.portal-senha code { padding: 8px 10px; border-radius: 8px; background: var(--surface-raised); font-size: 17px; letter-spacing: .1em; }
+.portal-senha p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.portal-form { display: grid; gap: 12px; margin-bottom: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.portal-form label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.portal-form input, .portal-form select { min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface); font-size: 14px; }
+.portal-list li span small { display: block; margin-top: 3px; color: var(--subtle-text); font-size: 12px; }
+.portal-tag { margin-left: 8px; padding: 2px 7px; border-radius: 999px; background: var(--surface-raised); color: var(--muted); font-size: 10px; font-style: normal; }
+.portal-acoes { display: flex; gap: 12px; flex: none; }
+.portal-acoes .text-button { font-size: 12px; }

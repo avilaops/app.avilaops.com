@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSessaoPortal, ehDaCasa } from "@/lib/auth";
+import EquipeDoCliente from "@/components/EquipeDoCliente";
+import { getSessaoPortal, ehDaCasa, ehDonoDoNegocio } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { carregarPainelDoCliente } from "@/lib/portal-cliente";
+import { listarUsuariosDaEmpresa } from "@/lib/usuarios-do-cliente";
 
 export const metadata = { title: "Sua conta — Ávila Ops" };
 
@@ -42,6 +44,8 @@ export default async function PortalDoCliente() {
   if (ehDaCasa(sessao.role)) redirect("/operacao");
 
   const painel = sessao.organizationId ? await carregarPainelDoCliente(sessao.organizationId) : null;
+  // Só o dono do negócio administra gente; a equipe usa o produto e não vê esta parte.
+  const equipe = painel && ehDonoDoNegocio(sessao.role) ? await listarUsuariosDaEmpresa(sessao.organizationId!) : null;
   const primeiroNome = sessao.nome.split(" ")[0];
 
   if (!painel) {
@@ -180,6 +184,21 @@ export default async function PortalDoCliente() {
           </ul>
         )}
       </section>
+
+      {equipe && (
+        <EquipeDoCliente
+          iniciais={equipe.map((u) => ({
+            id: u.id,
+            nome: u.nome,
+            email: u.email,
+            telefone: u.telefone,
+            papel: u.papel,
+            ativo: u.ativo,
+            senhaProvisoria: u.senhaProvisoria,
+            ultimoAcessoEm: u.ultimoAcessoEm?.toISOString() ?? null,
+          }))}
+        />
+      )}
 
       <section className="portal-card">
         <h2>Seus dados</h2>

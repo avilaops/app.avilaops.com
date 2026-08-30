@@ -155,14 +155,35 @@ publica o app nem altera o banco de produção.
 O `cliente.avilaops.com` não será construído: a área do cliente vive aqui, em
 `/portal`.
 
-| Papel | Quem | Onde cai | O que pode |
+| Papel | Quem é | Onde cai | O que pode |
 |---|---|---|---|
-| `OWNER` | nicolas@avilaops.com | `/operacao` | tudo |
-| `ADMIN` | equipe e contas de automação | `/operacao` | a operação inteira, menos dinheiro, segredo e acesso |
-| `CLIENT` | quem contrata | `/portal` | só a própria empresa |
+| `OWNER` | a **plataforma**: Avila Ops (nicolas@avilaops.com) | `/operacao` | tudo, em todas as empresas |
+| `ADMIN` | o **dono do negócio** que contrata: restaurante, loja, oficina | `/portal` | a própria empresa e a equipe dela |
+| `CLIENT` | a **equipe** desse dono | `/portal` | usa o produto; não administra gente |
 
-Os três vivem na mesma tabela (`public.portal_clients`) e entram pela mesma
-porta: o papel não decide *se* entra, decide *para onde vai* e o que alcança.
+São três pessoas diferentes, não três níveis da mesma. Todas vivem na mesma
+tabela (`public.portal_clients`) e entram pela mesma porta: o papel não decide
+*se* entra, decide *para onde vai* e o que alcança.
+
+`app.avilaops.com` é o painel da plataforma, então **só OWNER** passa de
+`/operacao` para dentro. O dono do negócio e a equipe dele vivem em `/portal` e
+no painel do produto que assinam (Lojas, Comandeiro).
+
+### Quem administra quem
+
+- **OWNER** administra qualquer conta pelo painel do `auth.avilaops.com/admin`:
+  cria, troca papel, liga a empresa, desliga, redefine senha.
+- **ADMIN** administra a equipe da **própria** empresa, no cartão "Quem tem
+  acesso" do `/portal`: cadastra, dá nova senha provisória, desliga e religa.
+  A empresa vem sempre do `organizationId` da sessão, nunca da tela: é o que
+  impede o dono de um negócio mexer na equipe de outro. Ele também não desliga
+  o próprio acesso, senão a empresa fica sem quem religue.
+- **CLIENT** não administra ninguém.
+
+Conta desligada (`ativo = false`) é recusada no login com a mesma resposta de
+senha errada, e o histórico dela continua de pé. Desligar é sempre melhor que
+apagar: a tabela tem pedido, domínio e auditoria apontando para cá, e o banco
+recusa o delete quando há vínculo.
 
 ### A linha entre OWNER e ADMIN
 
