@@ -42,6 +42,12 @@ export async function POST(
       metodo,
       parcelas,
       paymentToken: typeof body?.paymentToken === "string" ? body.paymentToken : undefined,
+      // O formulário de cartão do Mercado Pago devolve os três juntos. Sem o
+      // método e o emissor, um cartão de bandeira menos comum é recusado com
+      // "payment_method_id inválido" em vez de ser cobrado.
+      paymentMethodId:
+        typeof body?.paymentMethodId === "string" ? body.paymentMethodId : undefined,
+      issuerId: typeof body?.issuerId === "string" ? body.issuerId : undefined,
     });
 
     return NextResponse.json({
@@ -59,8 +65,8 @@ export async function POST(
       },
     });
   } catch (erro) {
-    // Falta de dado do cliente e recusa da Efí são 400 com a mensagem que o
-    // produto pode mostrar. Só o inesperado vira 500.
+    // Falta de dado do cliente e recusa do gateway são 400 com a mensagem que
+    // o produto pode mostrar. Só o inesperado vira 500.
     if (erro instanceof CobrancaIndisponivelError) {
       return NextResponse.json({ error: erro.message }, { status: 400 });
     }

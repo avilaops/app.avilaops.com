@@ -46,13 +46,31 @@ export function mercadoPagoConfigurado(): boolean {
   return Boolean(credencial().token);
 }
 
-async function chamar<T>(caminho: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+/**
+ * Uma porta só para a API do Mercado Pago.
+ *
+ * Exportada (como `chamarMercadoPago`) desde que a mensalidade passou a ser
+ * cobrada aqui: `mercadopago-cobranca.ts` precisa da mesma credencial, do
+ * mesmo tratamento de erro e do mesmo timeout. Duas cópias divergiriam
+ * justamente no tratamento de erro, que é o que ninguém testa.
+ *
+ * `idempotencia` existe por causa do `POST /v1/payments`: sem a chave, um
+ * retry de rede depois do timeout cria a segunda cobrança para a mesma fatura.
+ */
+async function chamar<T>(
+  caminho: string,
+  init: { method?: string; body?: unknown; idempotencia?: string } = {},
+): Promise<T> {
   const { token } = credencial();
   if (!token) throw new MercadoPagoIndisponivel("Mercado Pago não configurado (MP_ACCESS_TOKEN).");
 
   const r = await fetch(BASE + caminho, {
     method: init.method ?? "GET",
-    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      ...(init.idempotencia ? { "X-Idempotency-Key": init.idempotencia } : {}),
+    },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
     signal: AbortSignal.timeout(30_000),
     cache: "no-store",
@@ -74,6 +92,8 @@ async function chamar<T>(caminho: string, init: { method?: string; body?: unknow
   }
   return dados as T;
 }
+
+export { chamar as chamarMercadoPago };
 
 /* ── tipos ───────────────────────────────────────────────────────────────── */
 

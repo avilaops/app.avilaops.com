@@ -14,16 +14,19 @@ import { prisma } from "@/lib/prisma";
  * O que se testa aqui não é a matemática (isso é `tests/unit/parcelamento`) —
  * é o que só o banco decide: a restrição que impede faturar duas vezes, a
  * corrida entre dois processos gerando a mesma competência, e a baixa que
- * precisa aguentar a Efí reenviando o mesmo evento fora de ordem.
+ * precisa aguentar o gateway reenviando o mesmo evento fora de ordem.
  *
- * Nenhum teste daqui chama a Efí. Os caminhos que chamariam são exercitados
- * até o ponto em que ainda dá para recusar sem rede.
+ * Nenhum teste daqui chama o gateway. Os caminhos que chamariam são
+ * exercitados até o ponto em que ainda dá para recusar sem rede — e desde a
+ * troca para o Mercado Pago (30/08/2026) esse ponto inclui o endereço, que o
+ * boleto de lá exige e o da Efí não exigia.
  */
 
 const PRODUTO = "produto-de-teste";
 
 let organizationId = "";
 let subscriptionId = "";
+let productTenantId = "";
 
 async function limpar() {
   await prisma.subscription.deleteMany({ where: { productKey: PRODUTO } });
@@ -56,6 +59,7 @@ async function criarAssinatura(overrides: { billingDay?: number; amount?: number
 
   organizationId = organizacao.id;
   subscriptionId = assinatura.id;
+  productTenantId = assinatura.productTenantId ?? "";
 
   return { organizacao, assinatura };
 }
@@ -233,15 +237,66 @@ describe("emissão de cobrança", () => {
     ).rejects.toBeInstanceOf(CobrancaIndisponivelError);
   });
 
-  it("recusa boleto quando falta o CPF do responsável", async () => {
+  it("recusa boleto quando falta o documento e o e-mail", async () => {
     const fatura = await garantirFatura({ subscriptionId, competencia: "2026-08" });
 
-    // A Efí exige titular pessoa física mesmo quando quem paga é CNPJ. Sem o
-    // dado, a recusa precisa vir daqui, com texto que o cliente entenda — e
-    // não como erro 400 do provedor.
+    // Sem documento não há pagador para declarar. A recusa precisa vir daqui,
+    // com texto que o cliente entenda, e não como erro 400 do provedor.
     await expect(
       criarCobrancaDaFatura({ invoiceId: fatura!.id, metodo: "BOLETO" }),
-    ).rejects.toThrow(/CPF e o e-mail/i);
+    ).rejects.toThrow(/CNPJ \(ou o CPF de quem responde\) e o e-mail/i);
+  });
+
+  /*
+    Exigência que nasceu com o Mercado Pago (30/08/2026): o boleto pede
+    endereço, a Efí não pedia. Mandar sem ele devolve 400 sem dizer qual campo
+    faltou, então a recusa tem que ser nossa — e só do boleto, porque PIX e
+    cartão continuam passando.
+  */
+  it("recusa boleto sem endereço, mas o PIX segue disponível", async () => {
+    await prisma.organizationProfile.create({
+      data: {
+        organizationId,
+        email: "dono@exemplo.com",
+        responsibleCpf: "39053344705",
+      },
+    });
+
+    const fatura = await garantirFatura({ subscriptionId, competencia: "2026-08" });
+
+    await expect(
+      criarCobrancaDaFatura({ invoiceId: fatura!.id, metodo: "BOLETO" }),
+    ).rejects.toThrow(/endereço completo/i);
+
+    const resumo = await assinaturaDoProduto({
+      productKey: PRODUTO,
+      productTenantId,
+    });
+
+    expect(resumo?.bloqueioPagamento).toMatch(/endereço completo/i);
+  });
+
+  it("com endereço completo, nada bloqueia o boleto", async () => {
+    await prisma.organizationProfile.create({
+      data: {
+        organizationId,
+        email: "dono@exemplo.com",
+        responsibleCpf: "39053344705",
+        postalCode: "14020-000",
+        street: "Rua Sete de Setembro",
+        number: "1200",
+        district: "Centro",
+        city: "Ribeirão Preto",
+        state: "SP",
+      },
+    });
+
+    const resumo = await assinaturaDoProduto({
+      productKey: PRODUTO,
+      productTenantId,
+    });
+
+    expect(resumo?.bloqueioPagamento).toBeNull();
   });
 });
 

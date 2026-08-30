@@ -3,12 +3,17 @@ import {
   createBoletoCharge,
   createCardCharge,
   createPixCharge,
-  type EfiPayer,
-} from "@/lib/efi-cobranca";
+  type Pagador,
+} from "@/lib/mercadopago-cobranca";
 import { opcaoParcelamento, simularParcelamento } from "@/lib/parcelamento";
 
 /**
  * Mensalidade dos clientes da Avila Ops.
+ *
+ * **Gateway: Mercado Pago** (decisão de 30/08/2026, "esquece do banco Efí por
+ * enquanto"). Cobrança nova nasce lá; as que já estavam abertas na Efí seguem
+ * sendo baixadas pelo webhook dela, e por isso os dois convivem no
+ * `baixarCobrancaPorIdExterno` até a última fechar.
  *
  * A cobrança mora aqui, e não dentro de cada produto: um produto que cobra a
  * si mesmo vira dois lugares para acertar preço, dois para suspender
@@ -141,7 +146,12 @@ export async function assinaturaDoProduto(params: {
     valorCents,
     diaVencimento: assinatura.billingDay,
     status: assinatura.status,
-    bloqueioPagamento: faltaParaCobrar(assinatura.organization),
+    /*
+      O bloqueio mostrado ao cliente é o do BOLETO, o mais exigente dos três.
+      Se ele passa, cartão e PIX passam — então uma frase só cobre a tela
+      inteira, que é o que o produto desenha.
+    */
+    bloqueioPagamento: faltaParaCobrar(assinatura.organization, "BOLETO"),
     parcelamento: simularParcelamento(valorCents).map((opcao) => ({
       parcelas: opcao.parcelas,
       valorParcelaCents: opcao.valorParcelaCents,
@@ -156,29 +166,78 @@ type OrganizacaoComDados = {
   name: string;
   legalName: string | null;
   cpfCnpj: string | null;
-  profile: { ownerName: string | null; email: string | null; responsibleCpf: string | null } | null;
+  profile: {
+    ownerName: string | null;
+    email: string | null;
+    responsibleCpf: string | null;
+    // Endereço: exigência nova do boleto do Mercado Pago (30/08/2026).
+    postalCode: string | null;
+    street: string | null;
+    number: string | null;
+    district: string | null;
+    city: string | null;
+    state: string | null;
+  } | null;
   contacts: { name: string; email: string | null }[];
 };
 
 /**
- * PIX não precisa de nada — nem nome. Boleto e cartão precisam de titular
- * pessoa física, e é aí que falta dado com frequência.
+ * PIX não precisa de nada além do e-mail. Boleto e cartão precisam de
+ * documento, e o boleto precisa também de endereço — é aí que falta dado com
+ * frequência.
  *
  * A mensagem é a que vai aparecer para o cliente do cliente, então diz o que
  * fazer, não o nome do campo no banco.
  */
-function faltaParaCobrar(organizacao: OrganizacaoComDados): string | null {
+/**
+ * O que impede boleto e cartão.
+ *
+ * O PIX passa só com e-mail; boleto e cartão pedem documento. O boleto do
+ * Mercado Pago pede ENDEREÇO por cima disso — a Efí não pedia, e é a única
+ * exigência que a migração de 30/08/2026 acrescentou. Sem o endereço a API
+ * devolve 400 sem dizer qual campo faltou, então a checagem é aqui, com a
+ * frase que o cliente entende.
+ */
+function faltaParaCobrar(
+  organizacao: OrganizacaoComDados,
+  metodo: MetodoCobranca,
+): string | null {
+  const documento = organizacao.cpfCnpj?.replace(/\D/g, "") ?? "";
   const cpf = organizacao.profile?.responsibleCpf?.replace(/\D/g, "") ?? "";
   const email = organizacao.profile?.email ?? organizacao.contacts[0]?.email ?? "";
 
-  if (cpf.length !== 11 || !email) {
-    return "Boleto e cartão pedem o CPF e o e-mail de quem responde pela empresa. Fale com a Avila Ops para completar o cadastro — o PIX funciona sem isso.";
+  // CNPJ da empresa OU CPF do responsável: no Mercado Pago o par
+  // (tipo, número) é um só, e qualquer um dos dois serve.
+  if ((documento.length !== 14 && cpf.length !== 11) || !email) {
+    return "Boleto e cartão pedem o CNPJ (ou o CPF de quem responde) e o e-mail da empresa. Fale com a Avila Ops para completar o cadastro — o PIX funciona sem isso.";
+  }
+
+  if (metodo === "BOLETO" && !enderecoDoPagador(organizacao)) {
+    return "O boleto pede o endereço completo da empresa: CEP, rua, número, bairro, cidade e UF. Fale com a Avila Ops para completar o cadastro — o PIX e o cartão funcionam sem isso.";
   }
 
   return null;
 }
 
-function pagador(organizacao: OrganizacaoComDados): EfiPayer {
+function enderecoDoPagador(organizacao: OrganizacaoComDados) {
+  const p = organizacao.profile;
+  const cep = p?.postalCode?.replace(/\D/g, "") ?? "";
+
+  if (!p || cep.length !== 8 || !p.street || !p.number || !p.district || !p.city || !p.state) {
+    return undefined;
+  }
+
+  return {
+    cep,
+    rua: p.street,
+    numero: p.number,
+    bairro: p.district,
+    cidade: p.city,
+    uf: p.state.toUpperCase().slice(0, 2),
+  };
+}
+
+function pagador(organizacao: OrganizacaoComDados): Pagador {
   const documento = organizacao.cpfCnpj?.replace(/\D/g, "") ?? "";
   const cpf = organizacao.profile?.responsibleCpf?.replace(/\D/g, "") ?? "";
 
@@ -192,6 +251,7 @@ function pagador(organizacao: OrganizacaoComDados): EfiPayer {
       documento.length === 14
         ? { cnpj: documento, corporateName: organizacao.legalName ?? organizacao.name }
         : undefined,
+    endereco: enderecoDoPagador(organizacao),
   };
 }
 
@@ -209,6 +269,9 @@ export async function criarCobrancaDaFatura(params: {
   metodo: MetodoCobranca;
   parcelas?: number;
   paymentToken?: string;
+  /** Vem do formulário de cartão do Mercado Pago, junto do token. */
+  paymentMethodId?: string;
+  issuerId?: string;
 }) {
   const fatura = await prisma.subscriptionInvoice.findUnique({
     where: { id: params.invoiceId },
@@ -231,6 +294,17 @@ export async function criarCobrancaDaFatura(params: {
   const valorCents = centavos(fatura.amount);
   const descricao = `${fatura.subscription.description} · ${fatura.competence}`;
 
+  /*
+    Chave de idempotência do gateway: fatura + método + minuto.
+
+    O minuto entra de propósito. Amarrar só à fatura impediria o cliente de
+    gerar um PIX novo depois de o primeiro vencer — o Mercado Pago devolveria
+    a cobrança antiga, já expirada. Amarrar a nada devolveria cobrança dupla
+    quando a rede cai depois do POST e o app tenta de novo. O minuto é a
+    janela em que "de novo" é retry, e não segunda tentativa do cliente.
+  */
+  const chaveIdempotencia = `${fatura.id}:${params.metodo}:${Math.floor(Date.now() / 60_000)}`;
+
   if (params.metodo === "PIX") {
     const cobranca = await createPixCharge({
       amount: valorCents / 100,
@@ -238,6 +312,8 @@ export async function criarCobrancaDaFatura(params: {
       // 24 horas: PIX de mensalidade não é compra de impulso, e uma hora
       // obrigaria a gerar de novo quem abriu a tela e foi almoçar.
       expiresInSeconds: 86_400,
+      payer: pagador(organizacao),
+      idempotencyKey: chaveIdempotencia,
     });
 
     return prisma.subscriptionCharge.create({
@@ -254,7 +330,7 @@ export async function criarCobrancaDaFatura(params: {
     });
   }
 
-  const bloqueio = faltaParaCobrar(organizacao);
+  const bloqueio = faltaParaCobrar(organizacao, params.metodo);
   if (bloqueio) throw new CobrancaIndisponivelError(bloqueio);
 
   if (params.metodo === "BOLETO") {
@@ -263,6 +339,7 @@ export async function criarCobrancaDaFatura(params: {
       description: descricao,
       expireInDays: 3,
       payer: pagador(organizacao),
+      idempotencyKey: chaveIdempotencia,
     });
 
     return prisma.subscriptionCharge.create({
@@ -294,6 +371,9 @@ export async function criarCobrancaDaFatura(params: {
     installments: parcelas,
     paymentToken: params.paymentToken,
     payer: pagador(organizacao),
+    paymentMethodId: params.paymentMethodId,
+    issuerId: params.issuerId,
+    idempotencyKey: chaveIdempotencia,
   });
 
   return prisma.subscriptionCharge.create({
@@ -357,7 +437,7 @@ export async function garantirFatura(params: {
 }
 
 /**
- * Baixa a fatura quando a Efí confirma o pagamento.
+ * Baixa a fatura quando o gateway confirma o pagamento.
  *
  * Marca a COBRANÇA e a FATURA. As outras tentativas da mesma fatura continuam
  * como estão — um boleto não pago de uma fatura quitada por PIX não vira
@@ -371,20 +451,29 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
 
   if (!cobranca) return null;
 
-  const pago = ["PAID", "paid", "CONFIRMED", "settled"].includes(status);
+  /*
+    Os nomes de "pagou" de dois gateways ao mesmo tempo.
+
+    "approved" é do Mercado Pago, que passou a ser o caminho padrão em
+    30/08/2026; o resto é do Efí, e continua valendo porque as cobranças
+    abertas nele ainda vão ser pagas. A lista só encolhe quando a última
+    cobrança do Efí fechar.
+  */
+  const pago = ["PAID", "paid", "CONFIRMED", "settled", "approved"].includes(status);
   const jaEstavaPago = cobranca.status === "PAID";
   const agora = new Date();
 
   await prisma.subscriptionCharge.update({
     where: { id: cobranca.id },
     data: {
-      // Cobrança paga não volta atrás. A Efí reenvia notificação e a ordem de
-      // chegada não é garantida: um "pendente" atrasado, processado depois do
-      // "pago", deixaria a cobrança aberta com o dinheiro na conta.
+      // Cobrança paga não volta atrás. Os dois gateways reenviam notificação
+      // e a ordem de chegada não é garantida: um "pendente" atrasado,
+      // processado depois do "pago", deixaria a cobrança aberta com o
+      // dinheiro na conta.
       status: jaEstavaPago ? "PAID" : status,
       // `paidAt` é o instante do pagamento, não o do reprocessamento. Sem esta
       // guarda, reenviar o mesmo evento amanhã moveria a data de hoje para
-      // amanhã — e a conciliação bancária deixaria de bater.
+      // amanhã, e a conciliação bancária deixaria de bater.
       paidAt: cobranca.paidAt ?? (pago ? agora : null),
     },
   });
