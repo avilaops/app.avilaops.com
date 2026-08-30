@@ -1,5 +1,10 @@
 # O que falta para integrar um projeto novo 100% pela interface (30/08/2026)
 
+> **Atualização 30/08, fim do dia:** dos dez itens da seção 3, nove estão no
+> ar (commits `97a88ef`, `c7895db`); o único que ficou é o registro do
+> domínio no registrador (sem chave de API do Porkbun). Como foi feito:
+> [`provisionamento-n8n.md`](provisionamento-n8n.md).
+
 > Regra da casa: "tudo tem que ser cadastrado via interface" (Nicolas,
 > 18/08/2026). API sem tela é funcionalidade inexistente. Este levantamento
 > pega a jornada de um cliente novo — do cadastro ao primeiro boleto — e diz,

@@ -84,15 +84,34 @@ N8N_WEBHOOK_BASE=https://n8n.avilaops.com/webhook
 N8N_AVILA_OS_TOKEN=<mesmo valor de N8N_CAIXA_WEBHOOK_TOKEN do auth>
 ```
 
+## 5b. O que é dado do app (sem n8n) — 30/08, segunda rodada
+
+Os quatro itens restantes do levantamento entraram na ficha como cartões do
+painel "Cobrança e cadastro" (`src/components/OperacaoPanel.tsx`):
+
+| Ação | Rota | Grava |
+|---|---|---|
+| Nova assinatura | `POST /api/organizations/[id]/assinatura` `{ descricao, valor, dia, inicio?, implantacao?, produto?, tenant? }` | `Subscription` + primeira `SubscriptionInvoice` MONTHLY (+ SETUP em 7 dias); etapa BILLING |
+| Pausar / retomar / cancelar / ajustar / fatura do mês / cobrar | `PATCH /api/organizations/[id]/assinatura/[subId]` `{ acao, … }` | status da assinatura; `garantirFatura`; `criarCobrancaDaFatura` (PIX/boleto Éfi) devolve copia-e-cola ou link |
+| Guardar / listar / remover credencial | `GET/POST /api/organizations/[id]/cofre`, `DELETE …/cofre/[provider]` | `OrganizationIntegrationConnection` com `tokenCiphertext` AES-256-GCM (formato do ai-core; chave `AI_CORE_TOKEN_ENCRYPTION_KEY`, criada no servidor em 30/08) |
+| Nova marca | `POST /api/organizations/[id]/marcas` | `Brand` com slug único por cliente |
+| Etapas automáticas | `src/lib/onboarding-etapas.ts` → `marcarEtapa()` chamado por acesso, domínio, caixa, Google (callback), loja e assinatura | `OrganizationOnboardingStep` DONE; primeira marcação semeia as 12 etapas |
+
+Scripts aposentados por isso: `scripts/criar-assinatura.ts` e
+`scripts/sync-openai-project.ts` (ficam no repo por histórico; não usar).
+
+**Decisão pendente do conselho que a tela não resolve:** a assinatura cobra
+pela **Éfi** (é o que `lib/assinaturas.ts` faz); as lojas cobram pelo Mercado
+Pago. Dois gateways recorrentes continuam sendo o que o levantamento de 18/08
+quis evitar — a tela só expõe o que já existia.
+
 ## 6. O que ficou de fora e por quê
 
 - **Registro do domínio no Porkbun/Registro.br** — não há chave de API do
   registrador em `tokens.env`. O fluxo pede o domínio já registrado e devolve
   os nameservers da Cloudflare para apontar. Quando houver chave, entra como
   passo 0 do mesmo workflow.
-- **Assinatura, cofre de credenciais, marcas, etapas do onboarding** —
-  são dado do app, não integração; continuam na proposta ao conselho
-  (`levantamento-integracao-via-ui.md`, itens 2, 6, 7 e 9).
+- ~~Assinatura, cofre, marcas, etapas~~ — feitos em 30/08 (seção 5b).
 - **Meta/WhatsApp por cliente** — exige multi-tenant da conta da Meta.
 
 ## 7. Verificado em 30/08/2026
