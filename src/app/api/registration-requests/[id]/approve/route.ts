@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { garantirAcessoCliente, slugLivreDeOrganizacao, urlDeLogin } from "@/lib/acesso-cliente";
+import { garantirAcessoCliente, slugLivreDeOrganizacao, urlDeLogin, vincularContaAOrganizacao } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
@@ -91,6 +91,10 @@ export async function POST(
     organizacaoCriada = true;
   }
 
+  // 2b. Vínculo conta → empresa. É o que a área do cliente (/portal) lê para
+  // saber o que mostrar; sem ele a pessoa entra e não vê nada que seja dela.
+  const vinculada = await vincularContaAOrganizacao(acesso.id, organizacao.id);
+
   // 3. E-mail + tarefa pelo n8n
   let emailEnviado = false;
   let tarefa: string | null = null;
@@ -133,6 +137,7 @@ export async function POST(
       metadata: {
         contaCriada: acesso.criado,
         organizacaoCriada,
+        contaVinculada: vinculada,
         emailEnviado,
         tarefa,
         avisoN8n,

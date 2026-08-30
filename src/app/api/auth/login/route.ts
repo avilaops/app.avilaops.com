@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { autenticarPortal, createAdminSession, destinoPorPapel } from "@/lib/auth";
+import { autenticarPortal, createAdminSession, destinoPorPapel, ehDaCasa, type PapelPortal } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -49,13 +49,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const papel = identidade.role === "ADMIN" ? "ADMIN" : "CLIENT";
+    // O papel vem do banco e é preservado como está: comparar com "ADMIN" solto
+    // rebaixaria o OWNER a cliente e trancaria o dono para fora do painel.
+    const papel: PapelPortal = ehDaCasa(identidade.role) ? (identidade.role as PapelPortal) : "CLIENT";
 
     await createAdminSession(identidade.id, papel);
     await prisma.financeAuditEvent.create({
       data: {
         actorId: identidade.id,
-        action: papel === "ADMIN" ? "ADMIN_LOGIN" : "CLIENT_LOGIN",
+        action: `${papel}_LOGIN`,
         entityType: "Session",
       },
     });

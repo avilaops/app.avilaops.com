@@ -12,6 +12,9 @@ datasource db {
   schemas  = ["public", "finance", "operations", "partnerships", "ai_core"]
 }
 
+/// Conta de acesso do portal. Guarda equipe e cliente lado a lado — o papel
+/// (`role`) diz para onde a pessoa vai, não se ela entra: OWNER e ADMIN caem na
+/// operação, CLIENT cai na própria área.
 model AdminIdentity {
   id                  String    @id
   nome                String
@@ -19,7 +22,12 @@ model AdminIdentity {
   email               String
   senhaHash           String    @map("senha_hash")
   senhaProvisoria     Boolean   @map("senha_provisoria")
+  /// OWNER | ADMIN | CLIENT
   role                String
+  /// Empresa que esta conta representa. Só CLIENT usa: é o que faz a área do
+  /// cliente saber o que é dele. Sem relação declarada de propósito —
+  /// `organizations` vive no schema `operations` e o vínculo é por id.
+  organizationId      String?   @map("organization_id")
   resetTokenHash      String?   @map("reset_token_hash")
   resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
 

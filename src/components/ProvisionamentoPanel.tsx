@@ -51,7 +51,9 @@ export default function ProvisionamentoPanel({
   const router = useRouter();
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
-  const [folha, setFolha] = useState<"dominio" | "caixa" | "google" | "loja" | null>(null);
+  const [folha, setFolha] = useState<
+    "dominio" | "caixa" | "google" | "loja" | "restaurante" | null
+  >(null);
   const [resultados, setResultados] = useState<Record<string, Resultado | null>>({});
   const fecharFolha = useCallback(() => setFolha(null), []);
 
@@ -72,6 +74,7 @@ export default function ProvisionamentoPanel({
     onboarding: integracoes.find((i) => i.provider === "google_onboarding") ?? null,
   };
   const loja = integracoes.find((i) => i.provider === "lojas_avilaops") ?? null;
+  const restaurante = integracoes.find((i) => i.provider === "comandeiro") ?? null;
 
   function registrar(chave: string, resultado: Resultado | null) {
     setResultados((atual) => ({ ...atual, [chave]: resultado }));
@@ -282,6 +285,93 @@ export default function ProvisionamentoPanel({
     );
   }
 
+  /* ---------- Restaurante (Comandeiro) ---------- */
+  const [formRestaurante, setFormRestaurante] = useState({
+    slug,
+    nome,
+    plano: "essencial" as "essencial" | "profissional" | "premium",
+    donoNome: contato?.nome ?? "",
+    donoEmail: contato?.email ?? "",
+    cidade: "",
+    uf: "",
+  });
+
+  /*
+    O resultado traz segredo, e é a única ação do painel em que isso acontece
+    fora do "criar acesso": a senha da empresa e as três senhas de setor
+    existem em claro só neste instante. Ficam na tela até o operador fechar,
+    não vão para o banco nem para a auditoria — o mesmo trato da senha
+    provisória do acesso.
+  */
+  async function enviarRestaurante(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    await executar(
+      "restaurante",
+      async () => {
+        const r = await chamar<{
+          slug: string;
+          url: string | null;
+          entrada: string | null;
+          situacao: string | null;
+          criado: boolean;
+          senhaEmpresa: string | null;
+          acessos: { usuario: string; papel: string; senha: string }[];
+          aviso: string | null;
+        }>(`${base}/restaurante`, formRestaurante);
+
+        if (!r.criado) {
+          return {
+            tipo: "ok",
+            conteudo: (
+              <>
+                <strong>Restaurante {r.slug} já existia — nada foi criado.</strong>
+                <span>{r.aviso ?? "O vínculo com a ficha foi atualizado."}</span>
+              </>
+            ),
+          } as Resultado;
+        }
+
+        return {
+          tipo: "ok",
+          conteudo: (
+            <>
+              <strong>
+                Restaurante {r.slug} criado{r.situacao ? ` (${r.situacao})` : ""}.
+              </strong>
+              {r.url ? (
+                <span>
+                  Endereço: <code>{r.url}</code>
+                </span>
+              ) : null}
+              {r.entrada ? (
+                <span>
+                  Entrada da equipe: <code>{r.entrada}</code>
+                </span>
+              ) : null}
+              {r.senhaEmpresa ? (
+                <span>
+                  Senha da empresa (aparece uma vez):{" "}
+                  <span className="prov-secret">{r.senhaEmpresa}</span>
+                </span>
+              ) : null}
+              {r.acessos?.length ? (
+                <span>
+                  Senhas de setor (aparecem uma vez):{" "}
+                  {r.acessos.map((a) => (
+                    <span key={a.usuario}>
+                      {a.papel} <span className="prov-secret">{a.senha}</span>{" "}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
+            </>
+          ),
+        } as Resultado;
+      },
+      "Restaurante criado.",
+    );
+  }
+
   const rodape = (form: string, texto: string, chave: string) => (
     <>
       <button type="submit" form={form} className="primary-button" disabled={ocupado === chave}>
@@ -458,6 +548,43 @@ export default function ProvisionamentoPanel({
               </div>
             ) : (
               <p className="prov-empty">Nenhuma loja vinculada.</p>
+            )}
+          </div>
+        </Cartao>
+
+        <Cartao
+          titulo="Restaurante (Comandeiro)"
+          descricao="Estabelecimento no Comandeiro: cardápio, mesas, comanda e cozinha, com as senhas de estreia."
+          resultado={resultados.restaurante ?? null}
+          acoes={
+            restaurante ? (
+              <a
+                className="secondary-button"
+                href={restaurante.url ?? "https://app.comandeiro.com.br/acesso"}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir restaurante
+              </a>
+            ) : (
+              <button type="button" className="primary-button" onClick={() => setFolha("restaurante")}>
+                <Icone nome="adicionar" tamanho={18} />
+                Criar restaurante
+              </button>
+            )
+          }
+        >
+          <div className="ios-list">
+            {restaurante ? (
+              <div className="ios-row ios-row-static">
+                <div className="prov-row-main">
+                  <strong>{restaurante.publicId}</strong>
+                  <small>{restaurante.url ?? restaurante.notes ?? "Restaurante vinculado"}</small>
+                </div>
+                <Pill status={restaurante.status} />
+              </div>
+            ) : (
+              <p className="prov-empty">Nenhum restaurante vinculado.</p>
             )}
           </div>
         </Cartao>
@@ -669,6 +796,106 @@ export default function ProvisionamentoPanel({
             </label>
             {resultados.loja?.tipo === "erro" ? (
               <p className="inline-feedback feedback-error" role="alert">{resultados.loja.conteudo}</p>
+            ) : null}
+          </form>
+        </Sheet>
+      ) : null}
+
+      {folha === "restaurante" ? (
+        <Sheet
+          titulo="Criar restaurante"
+          aoFechar={fecharFolha}
+          rodape={rodape("form-restaurante", "Criar restaurante", "restaurante")}
+        >
+          <form id="form-restaurante" className="form-stack" onSubmit={enviarRestaurante}>
+            <p className="field-help">
+              O CNPJ da ficha vira a identidade da casa — é ele que a equipe digita para entrar.
+              As senhas da empresa e dos setores aparecem uma única vez, aqui, quando a casa nascer.
+            </p>
+            <label className="field">
+              <span>Nome do restaurante</span>
+              <input
+                value={formRestaurante.nome}
+                onChange={(e) => setFormRestaurante((f) => ({ ...f, nome: e.target.value }))}
+                required
+                autoFocus
+              />
+            </label>
+            <label className="field">
+              <span>Slug</span>
+              <input
+                value={formRestaurante.slug}
+                onChange={(e) => setFormRestaurante((f) => ({ ...f, slug: e.target.value }))}
+                autoCapitalize="none"
+                autoComplete="off"
+                className="mono"
+                required
+              />
+              <small className="field-help">
+                Vira {formRestaurante.slug || "slug"}.comandeiro.com.br.
+              </small>
+            </label>
+            <div className="field">
+              <span>Plano</span>
+              <Segmented
+                opcoes={[
+                  ["essencial", "Essencial"],
+                  ["profissional", "Profissional"],
+                  ["premium", "Premium"],
+                ]}
+                valor={formRestaurante.plano}
+                aoMudar={(v) =>
+                  setFormRestaurante((f) => ({
+                    ...f,
+                    plano: v as "essencial" | "profissional" | "premium",
+                  }))
+                }
+                rotulo="Plano do restaurante"
+              />
+            </div>
+            <label className="field">
+              <span>Responsável</span>
+              <input
+                value={formRestaurante.donoNome}
+                onChange={(e) => setFormRestaurante((f) => ({ ...f, donoNome: e.target.value }))}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>E-mail do responsável</span>
+              <input
+                type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoComplete="off"
+                value={formRestaurante.donoEmail}
+                onChange={(e) => setFormRestaurante((f) => ({ ...f, donoEmail: e.target.value }))}
+                required
+              />
+              <small className="field-help">É para onde vai a recuperação da senha da empresa.</small>
+            </label>
+            <label className="field">
+              <span>Cidade</span>
+              <input
+                value={formRestaurante.cidade}
+                onChange={(e) => setFormRestaurante((f) => ({ ...f, cidade: e.target.value }))}
+              />
+            </label>
+            <label className="field">
+              <span>UF</span>
+              <input
+                maxLength={2}
+                className="mono"
+                value={formRestaurante.uf}
+                onChange={(e) =>
+                  setFormRestaurante((f) => ({ ...f, uf: e.target.value.toUpperCase() }))
+                }
+              />
+            </label>
+            {resultados.restaurante?.tipo === "erro" ? (
+              <p className="inline-feedback feedback-error" role="alert">
+                {resultados.restaurante.conteudo}
+              </p>
             ) : null}
           </form>
         </Sheet>

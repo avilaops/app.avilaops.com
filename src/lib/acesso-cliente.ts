@@ -65,6 +65,22 @@ export async function garantirAcessoCliente(dados: NovaContaCliente): Promise<Re
   return { id, email, criado: true, senha };
 }
 
+/**
+ * Liga a conta à empresa que ela representa.
+ *
+ * É o que faz a área do cliente saber o que é dele: sem o vínculo, `CLIENT` é
+ * só um papel solto. Idempotente e nunca sobrescreve um vínculo existente —
+ * mudar de empresa é ação de admin, não efeito colateral de aprovação.
+ */
+export async function vincularContaAOrganizacao(contaId: string, organizationId: string): Promise<boolean> {
+  const afetadas = await prisma.$executeRaw`
+    update public.portal_clients
+       set organization_id = ${organizationId}
+     where id = ${contaId} and organization_id is null
+  `;
+  return afetadas > 0;
+}
+
 /** Gera uma provisória nova (para reenviar o acesso). */
 export async function redefinirSenhaProvisoria(id: string): Promise<string> {
   const senha = gerarSenhaProvisoria();

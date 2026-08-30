@@ -9,7 +9,27 @@ const SESSION_COOKIE = "avila_ops_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
-export type PapelPortal = "ADMIN" | "CLIENT";
+/**
+ * OWNER é o dono da operação: pode tudo que ADMIN pode e mais o que mexe em
+ * permissão. ADMIN é a equipe (inclusive as contas de automação). CLIENT é
+ * quem contrata — vê só a própria empresa.
+ *
+ * Toda checagem de "é da casa?" usa `ehDaCasa()`, nunca `role === "ADMIN"`
+ * solto: foi assim que OWNER pôde ser introduzido sem revisar 70 rotas.
+ */
+export type PapelPortal = "OWNER" | "ADMIN" | "CLIENT";
+
+const PAPEIS_DA_CASA: readonly string[] = ["OWNER", "ADMIN"];
+
+/** Equipe (OWNER ou ADMIN). É o que as áreas administrativas exigem. */
+export function ehDaCasa(role: string | null | undefined): boolean {
+  return typeof role === "string" && PAPEIS_DA_CASA.includes(role);
+}
+
+/** Só o dono. Reservado para o que muda permissão e papel de outra conta. */
+export function ehDono(role: string | null | undefined): boolean {
+  return role === "OWNER";
+}
 
 type AdminToken = {
   sub: string;
@@ -92,6 +112,8 @@ export type AdminAtual = {
   nome: string;
   email: string;
   role: string;
+  /** Empresa que a conta representa. Preenchido para CLIENT; nulo na equipe. */
+  organizationId?: string | null;
 };
 
 /**
@@ -128,7 +150,7 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
       if (payload.sub) {
         const identidade = await prisma.adminIdentity.findFirst({
           where: { id: payload.sub },
-          select: { id: true, nome: true, email: true, role: true },
+          select: { id: true, nome: true, email: true, role: true, organizationId: true },
         });
         // O papel vem do banco, não do token: se alguém deixar de ser ADMIN,
         // o cookie antigo não pode continuar valendo como tal.
@@ -140,9 +162,21 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
   }
 
   // Cliente que entrou pelo Google chega com o cookie de `.avilaops.com`.
+  // Cliente que entrou pelo Google chega sem id local: a organização vem da
+  // conta de mesmo e-mail em portal_clients, que é onde o vínculo mora.
   const sso = await lerSessaoCliente();
   if (sso) {
-    return { id: `sso:${sso.sub}`, nome: sso.nome, email: sso.email, role: "CLIENT" };
+    const conta = await prisma.adminIdentity.findFirst({
+      where: { email: { equals: sso.email, mode: "insensitive" } },
+      select: { id: true, organizationId: true },
+    });
+    return {
+      id: conta?.id ?? `sso:${sso.sub}`,
+      nome: sso.nome,
+      email: sso.email,
+      role: "CLIENT",
+      organizationId: conta?.organizationId ?? null,
+    };
   }
 
   return getAdminSSO();
@@ -151,23 +185,17 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
 /**
  * Para onde mandar cada papel depois do login.
  *
- * A área do cliente ainda vive em `cliente.avilaops.com` — por isso o destino
- * dele é absoluto. Funciona porque a sessão está num cookie de `.avilaops.com`,
- * que atravessa os subdomínios: a pessoa chega lá já autenticada.
+ * A área do cliente vive **aqui dentro**, em `/portal`, desde 30/08/2026:
+ * decisão do Nicolas de não construir o `cliente.avilaops.com`. Antes disso o
+ * destino do cliente era um host apagado — quem entrava com papel CLIENT caía
+ * em `/`, que exige equipe, e voltava para o login sem nunca chegar a lugar
+ * nenhum.
  *
- * Quando as páginas do portal forem migradas para cá, basta apontar
- * `PORTAL_CLIENTE_URL` para vazio e trocar por `/dashboard` — nenhum outro
- * ponto do código precisa mudar.
- *
- * O padrão é o destino do **cliente**, não o da equipe: qualquer papel que não
- * seja exatamente ADMIN cai na área restrita, nunca no painel administrativo.
+ * O padrão é o destino do **cliente**: qualquer papel que não seja da casa cai
+ * na área restrita, nunca no painel administrativo.
  */
 export function destinoPorPapel(role: string): string {
-  if (role === "ADMIN") return "/operacao";
-  // O portal do cliente (cliente.avilaops.com) ainda vai ser construído; até lá
-  // o cliente fica na raiz deste app.
-  const portal = process.env.PORTAL_CLIENTE_URL;
-  return portal ? `${portal.replace(/\/$/, "")}/dashboard` : "/";
+  return ehDaCasa(role) ? "/operacao" : "/portal";
 }
 
 async function getAdminLocal(): Promise<AdminAtual | null> {
@@ -177,10 +205,12 @@ async function getAdminLocal(): Promise<AdminAtual | null> {
 
   try {
     const payload = jwt.verify(token, sessionSecret()) as AdminToken;
-    if (payload.role !== "ADMIN" || !payload.sub) return null;
+    if (!ehDaCasa(payload.role) || !payload.sub) return null;
 
+    // O papel vem do banco, não do token: quem deixou de ser da casa perde o
+    // acesso mesmo com o cookie antigo na mão.
     return prisma.adminIdentity.findFirst({
-      where: { id: payload.sub, role: "ADMIN" },
+      where: { id: payload.sub, role: { in: [...PAPEIS_DA_CASA] } },
       select: { id: true, nome: true, email: true, role: true },
     });
   } catch {
@@ -195,7 +225,18 @@ async function getAdminSSO(): Promise<AdminAtual | null> {
   // O cookie do SSO vale para TODOS os subdomínios: tê-lo só significa que a
   // pessoa logou em algum sistema Avila Ops. Este app é restrito, então o papel
   // é conferido aqui também — não basta o bloqueio feito no auth server.
-  if (sessao.papel !== "ADMIN") return null;
+  if (!ehDaCasa(sessao.papel)) return null;
+
+  // O papel mora em `portal_clients`, não no token: o auth só sabe dizer
+  // ADMIN/CLIENTE, e é aqui que OWNER existe. Sem esta consulta, o dono entrando
+  // pelo SSO viraria um ADMIN comum e perderia o que é exclusivo dele.
+  const conta = sessao.email
+    ? await prisma.adminIdentity.findFirst({
+        where: { email: { equals: sessao.email, mode: "insensitive" } },
+        select: { id: true, nome: true, email: true, role: true },
+      })
+    : null;
+  if (conta && ehDaCasa(conta.role)) return conta;
 
   return {
     // Prefixo `sso:` para a auditoria distinguir a origem e nunca colidir com um
@@ -204,7 +245,7 @@ async function getAdminSSO(): Promise<AdminAtual | null> {
     id: `sso:${sessao.sub}`,
     nome: sessao.nome,
     email: sessao.email,
-    role: "ADMIN",
+    role: sessao.papel,
   };
 }
 

@@ -25,8 +25,8 @@ export async function GET(req: NextRequest) {
   // caso aquele serviço mude no futuro.
   const destino = destinoPorPapel(sessao.papel === "ADMIN" ? "ADMIN" : "CLIENT");
 
-  // `destinoPorPapel` devolve caminho relativo para a equipe e URL absoluta
-  // para o cliente, enquanto a área dele estiver noutro subdomínio.
+  // Desde 30/08/2026 os dois destinos são deste app (/operacao e /portal); a
+  // checagem de URL absoluta fica porque não custa e cobre configuração antiga.
   return NextResponse.redirect(
     destino.startsWith("http") ? destino : new URL(destino, req.url).toString(),
   );

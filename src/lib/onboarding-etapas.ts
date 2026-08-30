@@ -21,6 +21,7 @@ export const ETAPAS = [
   ["EMAIL", "E-mail profissional"],
   ["GOOGLE", "Google (GA4, GTM, Search Console)"],
   ["STORE", "Loja virtual"],
+  ["RESTAURANT", "Comandeiro (restaurante)"],
   ["BILLING", "Cobrança recorrente"],
 ] as const;
 
