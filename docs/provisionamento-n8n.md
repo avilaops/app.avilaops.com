@@ -99,6 +99,18 @@ N8N_AVILA_OS_TOKEN=<mesmo valor de N8N_CAIXA_WEBHOOK_TOKEN do auth>
 - Deploy `97a88ef` no ar; `x-service-key` recusa sem chave (401) e aceita
   com chave (400 sem organização, JSON no sync do Éfi: `runId 11, SUCCESS`).
 - Webhook `avila-os-loja` com o token responde (não 401/403).
-- **Não testado com cliente real**: adicionar domínio (cria zona na
-  Cloudflare de verdade), criar loja e o onboarding do Google. Primeiro uso
-  real deve ser acompanhado com a execução aberta no n8n.
+- **Cliente aprovado** de ponta a ponta: e-mail entregue (claude@ e
+  nicolas@) e tarefa aberta no Todoist — depois que o Nicolas trocou a
+  credencial Todoist para OAuth2 (a de API key estava morta desde 26/08, e
+  com ela o Handler de Erro Central; os 22 nós Todoist de 14 workflows
+  foram migrados na madrugada de 30/08).
+- **Onboarding de domínio** rodado a seco contra `avilaops.com` (`site:
+  nenhum`): zona achada, mail devolveu o domínio já provisionado, os 4
+  registros (MX, SPF, DKIM, DMARC) reconhecidos como existentes e **nada
+  foi criado** — inclusive SPF e DMARC com conteúdo divergente, que voltam
+  marcados `divergente: true` em vez de virar segundo TXT. Verificação do
+  mail: `active`, `ready: true`. O contrato real do mail para os registros é
+  `dns_records[{ type, host, value, priority? }]`.
+- **Não testado com cliente real**: criar loja e o onboarding do Google
+  (criam coisas de verdade). Primeiro uso deve ser acompanhado com a
+  execução aberta no n8n.
