@@ -18,7 +18,11 @@ datasource db {
 model AdminIdentity {
   id                  String    @id
   nome                String
-  cpf                 String    @unique
+  /// A coluna sempre aceitou nulo (cliente PJ entra por CNPJ, cliente sem
+  /// documento entra sem nada) e o modelo dizia o contrário: qualquer consulta
+  /// que trouxesse `cpf` estourava para essas contas — na prática, cliente sem
+  /// documento nunca conseguia logar. Corrigido em 30/08/2026.
+  cpf                 String?   @unique
   email               String
   senhaHash           String    @map("senha_hash")
   senhaProvisoria     Boolean   @map("senha_provisoria")

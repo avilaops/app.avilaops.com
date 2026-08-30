@@ -36,6 +36,7 @@ ficam **só no cofre do n8n**. O app tem dois segredos: o token de saída
 | Ávila OS — Criar loja | `a1nRmYum4BviiUEY` | `POST /webhook/avila-os-loja` | `{ slug, nome, plano?, dominioPrincipal?, emailContato?, whatsapp?, telefone?, razaoSocial?, cnpj?, provisionar? }` | `{ ok, status, slug, url, situacao, provisionamento, erro }` |
 | Ávila OS — Sincronizar Éfi (diário) | `cB0Ue6wkYK2gHAIZ` | 06:20 todo dia | — | chama `POST /api/integrations/efi/sync` `{ days: 7 }` com `x-service-key` |
 | Ávila OS — Criar restaurante | `7P1HG3yLSsTT4uJc` | `POST /webhook/avila-os-restaurante` | `{ nome, cnpj, donoNome, donoEmail, slug?, plano?, razaoSocial?, segmento?, whatsapp?, cidade?, uf?, cep?, endereco?, organizationId?, autor? }` | `{ ok, criado, tenantId, slug, nome, situacao, url, entrada, senhaEmpresa, acessos[], aviso, erro }` — cria a casa no Comandeiro. CNPJ repetido volta `criado: false`, sem erro |
+| Ávila OS — Cobrança (Mercado Pago) | `dnogHqXQKSfZRbMF` | `POST /webhook/avila-os-cobranca` | `{ titulo, centavos, referencia?, email?, organizationId?, autor? }` — `centavos` inteiro, mínimo 100 | `{ ok, status, id, link, titulo, valorCentavos, referencia, criadoEm, erro }` — cria preferência de checkout; pedido inválido volta 400 sem falhar a execução |
 
 O Google reaproveita o sub-workflow **"Google — onboarding de cliente"**
 (`jHHVsAgF3YttgTZ4`, Execute Workflow Trigger) e lê o resultado na Data
@@ -44,7 +45,9 @@ table `google_clientes` — o sub-workflow grava lá.
 Credenciais no n8n usadas: `Cloudflare Global Key (DNS)` (dndkbaHfLcpcLOuX),
 `Avila Mail API` (gmz9uYKN7VZn98pj), `Lojas Admin Token` (3YejOYHMV6DLOJG2), `Comandeiro Admin Token`
 (T6NmIzS6BJNXLH9l — header `x-admin-token`, criada em 30/08 pela API REST),
-`SMTP mail.avilaops.com (n8n@avilaops.com)` (tSZlEjwt75qo2MwC), `Todoist
+`SMTP mail.avilaops.com (n8n@avilaops.com)` (tSZlEjwt75qo2MwC), `Mercado Pago —
+conta Avila Ops (produção)` (E97yJucYaoBNUY4l — header `Authorization: Bearer`,
+criada em 30/08 pela API REST, conferida contra `/users/me` antes de guardar), `Todoist
 OAuth2 (app da casa)` (HjSrKt2tqWYpxU8I — a antiga `Todoist account` por API
 key morreu em 26/08 e não deve mais ser usada), `Auth Webhook Auth (criar caixa)`
 (ERbhX2hnqN9kRYSC, header de entrada) e **`Ávila OS Service Key`**
@@ -109,6 +112,19 @@ já roda na Éfi não foi migrado nem desligado; ela só deixou de ser o caminho
 padrão, e produto novo entrando no pipeline (o Comandeiro, entre eles) nasce no
 Mercado Pago. `lib/assinaturas.ts` ainda emite pela Éfi — trocar isso é a
 próxima obra, não foi feita aqui.
+
+**Primeiro passo dado em 30/08/2026:** existe o workflow **Ávila OS — Cobrança
+(Mercado Pago)** (`dnogHqXQKSfZRbMF`), com o token no cofre do n8n e não no app,
+como manda a regra 4. Testado ponta a ponta: pedido inválido devolveu 400
+(`{"ok":false,…}`) e uma cobrança real de R$ 1,00 voltou `201` com link
+(`2944732714-827e0457-4fd6-4692-9294-a8e4acc926ae`), conferida depois direto na
+conta do Mercado Pago. Preferência é só link de pagamento: criar não cobra
+ninguém e não gera lançamento.
+
+O que **não** foi feito, de propósito: o app continua chamando a Éfi. Trocar
+`lib/assinaturas.ts` para este webhook mexe em cobrança de cliente e é decisão
+de corte, não de implementação — o workflow está pronto e provado, esperando a
+sua ordem.
 
 ## 5c. Comandeiro no pipeline — 30/08, terceira rodada
 

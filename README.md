@@ -149,3 +149,42 @@ npm run start
 O agendamento da sincronização deve chamar a API ou o script por um scheduler
 confiável, com bloqueio para impedir execuções concorrentes. Esta entrega não
 publica o app nem altera o banco de produção.
+
+## Papéis e área do cliente (30/08/2026)
+
+O `cliente.avilaops.com` não será construído: a área do cliente vive aqui, em
+`/portal`.
+
+| Papel | Quem | Onde cai depois do login |
+|---|---|---|
+| `OWNER` | nicolas@avilaops.com | `/operacao` |
+| `ADMIN` | equipe e contas de automação | `/operacao` |
+| `CLIENT` | quem contrata | `/portal` |
+
+Os três vivem na mesma tabela (`public.portal_clients`) e entram pela mesma
+porta: o papel não decide *se* entra, decide *para onde vai*.
+
+**Regra de ouro:** nunca compare `role === "ADMIN"`. Use `ehDaCasa(role)` de
+`src/lib/auth.ts` (OWNER ou ADMIN) e `ehDono(role)` para o que só o dono pode.
+Foi essa indireção que permitiu introduzir OWNER sem revisar as 70 rotas que
+chamam `getAdmin()` — e a única comparação literal que restava (no login)
+rebaixaria o dono a cliente se não tivesse sido corrigida antes da promoção.
+
+**Ordem obrigatória ao mexer em papel:** primeiro o código aceita o papel novo
+em produção, depois a conta é promovida no banco. O contrário tranca o acesso.
+
+### Vínculo conta → empresa
+
+`portal_clients.organization_id` diz qual empresa a conta representa. Sem ele,
+`CLIENT` era um papel solto e a área do cliente não teria o que mostrar. Quem
+grava:
+
+- a aprovação de solicitação (`/api/registration-requests/[id]/approve`), logo
+  depois de criar ou achar a organização;
+- `scripts/vincular-contas-organizacoes.ts` para o que já existia — modo seco
+  por padrão, `--aplicar` para gravar. Casa por e-mail do contato, CPF/CNPJ e
+  domínio do e-mail contra o slug da organização, e **deixa de fora** o que não
+  tiver candidato único: vincular no chute daria a um cliente a empresa de outro.
+
+`/portal` filtra sempre pelo id da conta autenticada, nunca por parâmetro de
+URL — não existe caminho para pedir a empresa de outro.
