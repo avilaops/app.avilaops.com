@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState, type FormEvent } from "react";
+import { Icone } from "@/components/ui/Icones";
+import Sheet from "@/components/ui/Sheet";
 
 type Props = {
   transactionId: string;
@@ -11,6 +13,11 @@ type Props = {
   note?: string | null;
 };
 
+/**
+ * Revisão de uma movimentação numa folha: estado, vínculo e nota. Antes era
+ * um popover absoluto ao lado da linha, que no celular vazava para fora da
+ * tela e no desktop fechava sem avisar ao rolar.
+ */
 export default function ReconciliationControl({
   transactionId,
   currentStatus,
@@ -27,7 +34,12 @@ export default function ReconciliationControl({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  async function save() {
+  const fechar = useCallback(() => setOpen(false), []);
+  const formId = `conciliacao-${transactionId}`;
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
     setSaving(true);
     setError("");
     try {
@@ -67,51 +79,81 @@ export default function ReconciliationControl({
   }
 
   return (
-    <div className="reconciliation-editor">
-      <label>
-        Estado
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="PENDING">Pendente</option>
-          <option value="REVIEW">Em revisão</option>
-          <option value="MATCHED">Conciliado</option>
-          <option value="IGNORED">Ignorado</option>
-        </select>
-      </label>
-      <label>
-        Referência
-        <div className="reference-fields">
-          <select value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="ORDER">Pedido</option>
-            <option value="INVOICE">Fatura</option>
-            <option value="EXPENSE">Despesa</option>
-            <option value="MANUAL">Manual</option>
+    <Sheet
+      titulo="Revisar movimentação"
+      aoFechar={fechar}
+      rodape={
+        <>
+          <button
+            type="submit"
+            form={formId}
+            className="primary-button"
+            disabled={saving}
+          >
+            {saving ? "Salvando…" : "Salvar"}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={fechar}
+            disabled={saving}
+          >
+            Cancelar
+          </button>
+        </>
+      }
+    >
+      <form id={formId} className="form-stack" onSubmit={save}>
+        <label className="field field-select">
+          <span>Estado</span>
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="PENDING">Pendente</option>
+            <option value="REVIEW">Em revisão</option>
+            <option value="MATCHED">Conciliado</option>
+            <option value="IGNORED">Ignorado</option>
           </select>
-          <input
-            value={reference}
-            onChange={(event) => setReference(event.target.value)}
-            placeholder="ID ou número"
-            maxLength={120}
-          />
+          <Icone nome="chevron" tamanho={16} className="chevron" />
+        </label>
+
+        <div className="field-grid">
+          <label className="field field-select">
+            <span>Tipo de vínculo</span>
+            <select value={type} onChange={(event) => setType(event.target.value)}>
+              <option value="ORDER">Pedido</option>
+              <option value="INVOICE">Fatura</option>
+              <option value="EXPENSE">Despesa</option>
+              <option value="MANUAL">Manual</option>
+            </select>
+            <Icone nome="chevron" tamanho={16} className="chevron" />
+          </label>
+          <label className="field">
+            <span>Referência</span>
+            <input
+              value={reference}
+              onChange={(event) => setReference(event.target.value)}
+              placeholder="ID ou número"
+              maxLength={120}
+              autoComplete="off"
+            />
+          </label>
         </div>
-      </label>
-      <label>
-        Nota interna
-        <input
-          value={comment}
-          onChange={(event) => setComment(event.target.value)}
-          placeholder="Motivo ou evidência"
-          maxLength={300}
-        />
-      </label>
-      {error ? <span className="form-error">{error}</span> : null}
-      <div className="editor-actions">
-        <button type="button" className="small-primary" onClick={save} disabled={saving}>
-          {saving ? "Salvando…" : "Salvar"}
-        </button>
-        <button type="button" className="text-button" onClick={() => setOpen(false)}>
-          Cancelar
-        </button>
-      </div>
-    </div>
+
+        <label className="field">
+          <span>Nota interna</span>
+          <input
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            placeholder="Motivo ou evidência"
+            maxLength={300}
+          />
+        </label>
+
+        {error ? (
+          <p className="inline-feedback feedback-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </form>
+    </Sheet>
   );
 }

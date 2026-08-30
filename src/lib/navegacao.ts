@@ -100,14 +100,16 @@ export const navegacao: GrupoNavegacao[] = [
 ];
 
 /**
- * As abas do celular. São os quatro destinos de todo dia; o resto mora na
- * folha "Mais". `secoes` diz quais seções acendem a aba — Financeiro acende
- * em qualquer tela do financeiro, não só na visão geral.
+ * As abas do celular: os três destinos de todo dia mais "Mais". Quatro abas
+ * dão 94px cada num iPhone de 375px — rótulo legível e polegar sem mira.
+ * Entregas (projetos) fica na folha: o dia a dia de prazo mora no Todoist.
+ * `secoes` diz quais seções acendem a aba — Financeiro acende em qualquer
+ * tela do financeiro, não só na visão geral.
  */
 export type AbaCelular = {
   href: string;
   label: string;
-  icone: "inicio" | "clientes" | "financeiro" | "entregas";
+  icone: "inicio" | "clientes" | "financeiro";
   secoes: SecaoApp[];
 };
 
@@ -133,5 +135,4 @@ export const abasCelular: AbaCelular[] = [
       "reports",
     ],
   },
-  { href: "/projetos", label: "Entregas", icone: "entregas", secoes: ["projects"] },
 ];

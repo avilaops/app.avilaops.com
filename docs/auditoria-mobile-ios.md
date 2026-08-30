@@ -41,7 +41,7 @@ reduzindo colunas — o que espreme, não reorganiza.
 | Tabela de 8 colunas com rolagem horizontal — valor e ação sumiam | `TransactionList`: grade que é tabela no desktop e **cartão de três andares** no celular (o quê + valor / quem + quando / escopo + estado + ação). DOM único, sem duplicar |
 | Quatro botões de ação de tamanhos diferentes | "Sincronizar agora" (primário) em largura total; os três secundários em grade 2 colunas |
 | Filtros em três linhas (5 estados × 4 escopos) | Chips roláveis na horizontal, 36 px de altura, sem barra de rolagem |
-| Editor de conciliação abria em `position:absolute` e vazava para fora da tela | No celular vira folha fixa acima da barra de abas |
+| Editor de conciliação abria em `position:absolute` e vazava para fora da tela | "Revisar" abre uma `Sheet` com campos de 48 px (celular) / janela centrada (desktop) |
 | "Novo lançamento" abria janela centralizada com borda quadrada | Vira folha que sobe do rodapé, com `safe-area` |
 
 ### 1.4 Lista de clientes
@@ -55,7 +55,7 @@ reduzindo colunas — o que espreme, não reorganiza.
 
 | Problema | Solução |
 |---|---|
-| Barra "Ávila Ops + Menu ☰ + ☾ + Sair" de 4 blocos, 20 destinos atrás de um botão | **Barra superior** só com marca e tema (52 px + safe-area, fundo translúcido com blur). **Barra de abas** fixa no rodapé com Início, Clientes, Financeiro, Entregas e "Mais". A folha "Mais" traz o sistema inteiro agrupado, quem está logado e "Sair" |
+| Barra "Ávila Ops + Menu ☰ + ☾ + Sair" de 4 blocos, 20 destinos atrás de um botão | **Barra superior** só com marca e tema (52 px + safe-area, fundo translúcido com blur). **Barra de abas** fixa no rodapé com Início, Clientes, Financeiro e "Mais". A folha "Mais" traz o sistema inteiro agrupado, quem está logado e "Sair" |
 | Conteúdo colado no indicador de início do iPhone | `viewport-fit=cover` + `env(safe-area-inset-bottom)` na barra de abas e no padding do conteúdo |
 | Campos com fonte < 16 px faziam o Safari dar zoom ao focar | `input, select, textarea { font-size: 16px }` abaixo de 820 px |
 
@@ -69,9 +69,11 @@ reduzindo colunas — o que espreme, não reorganiza.
 
 **Barra de abas, não sidebar colapsável.** Motivos:
 
-1. A operação diária cabe em quatro destinos (Início, Clientes, Financeiro,
-   Entregas); os outros dezesseis são eventuais. Abas colocam os quatro a um
-   toque, sem abrir nada.
+1. A operação diária cabe em três destinos (Início, Clientes, Financeiro);
+   os outros dezessete são eventuais. Abas colocam os três a um toque, sem
+   abrir nada. Com "Mais" são quatro abas — 94 px cada em 375 px, rótulo
+   legível sem mirar. Entregas (projetos) foi para a folha em 30/08: o dia a
+   dia de prazo mora no Todoist, não no app.
 2. "Mais" como folha (não como hambúrguer no topo) fica na zona do polegar.
 3. O desktop mantém a coluna à esquerda — o mapa de destinos é um só
    (`src/lib/navegacao.ts`) e alimenta as duas formas.
@@ -109,8 +111,8 @@ Estados ativos: a aba Financeiro acende em qualquer tela do financeiro
 │ Clientes recentes  Ver todos  │
 │ [AB] Nome do cliente  Ativo › │  linha-link 60px
 ├───────────────────────────────┤
-│  ⌂      👥      💳     📦   ⋯ │  barra de abas 56px
-│ Início Clientes Financ. Entr. Mais
+│   ⌂        👥        💳       ⋯  │  barra de abas 56px
+│ Início   Clientes  Financeiro  Mais
 └───────────────────────────────┘  safe-area-bottom
 ```
 
@@ -165,10 +167,13 @@ Estados ativos: a aba Financeiro acende em qualquer tela do financeiro
 | `AppShell` | `src/components/AppShell.tsx` | Moldura: sidebar (desktop) + `MobileNav` (celular) |
 | `MobileNav` | `src/components/MobileNav.tsx` | Barra superior, barra de abas, folha "Mais" com usuário e "Sair" |
 | `SideNav` | `src/components/SideNav.tsx` | Coluna do desktop (sem estado; lê `lib/navegacao.ts`) |
-| `Sheet` | `src/components/ui/Sheet.tsx` | Folha (bottom sheet ≤ 820 px, janela centrada acima). Escape fecha, trava o scroll do corpo, rodapé fixo |
+| `Sheet` | `src/components/ui/Sheet.tsx` | Folha (bottom sheet ≤ 820 px, janela centrada acima). Escape fecha, Tab fica preso dentro e o foco volta para quem abriu, arrastar a alça para baixo fecha (120 px ou puxão rápido), ancora na `visualViewport` para o rodapé não ficar atrás do teclado do iPhone |
+| `Segmented` | `src/components/ui/Segmented.tsx` | Controle segmentado (2–3 opções): toque escolhe, setas/Home/End andam, tabindex circulante |
+| `ReconciliationControl` | `src/components/ReconciliationControl.tsx` | "Revisar" abre folha com estado, vínculo e nota (era popover absoluto) |
+| `NewLedgerEntryButton` | `src/components/NewLedgerEntryButton.tsx` | "Novo lançamento" em folha, campos `.field`, tipo e escopo em `Segmented` |
 | `Icone` | `src/components/ui/Icones.tsx` | Oito ícones de traço (sem biblioteca) |
 | `PlanEditForm` | `src/components/PlanEditForm.tsx` | Formulário do plano dentro de `Sheet`; slug automático; segmented de status; `inputMode="decimal"` no preço |
-| `ServicePlansManager` | `src/components/ServicePlansManager.tsx` | Lista agrupada por tipo, linha por plano (`PlanCard`), toast |
+| `ServicePlansManager` | `src/components/ServicePlansManager.tsx` | Lista agrupada por tipo, linha por plano (`PlanCard`), toast; atualização otimista com o plano que a API devolveu, `router.refresh()` confirma por trás |
 | `TransactionList` | `src/components/TransactionList.tsx` | Movimentações: grade-tabela no desktop, cartões no celular |
 | `BalanceCard` | existente | Saldo com ocultar |
 | Botões | `.primary-button` / `.secondary-button` / `.row-action` | 38 px desktop, 50 / 40 px celular, `:active` com escala 0,985 |
@@ -189,6 +194,11 @@ Variáveis novas: `--radius-lg`, `--tab-bar-h`, `--topbar-h`, `--bar-bg`.
 
 ## 6. Checklist de QA iOS
 
+> **Situação (30/08/2026): pendente de QA em aparelho.** O que foi verificado
+> até aqui: tipos (`tsc`), lint, build de produção e testes unitários
+> (`slug`, mapa de navegação, `TransactionList`). Nenhuma tela foi vista num
+> iPhone real — quem abrir primeiro é o Nicolas, com esta lista na mão.
+
 Rodar no Safari do iPhone (375 × 812 e 430 × 932), claro e escuro, e no
 modo "Adicionar à Tela de Início":
 
@@ -198,14 +208,27 @@ modo "Adicionar à Tela de Início":
 - [ ] Todo alvo de toque ≥ 44 × 44 px (abas, chips, "Revisar", chevrons de linha).
 - [ ] Com "Texto maior" em Acessibilidade (Dynamic Type), nada sobrepõe: métricas, abas, cartão de movimentação.
 - [ ] Contraste ≥ 4,5:1 em texto e ≥ 3:1 em bordas/ícones nos dois temas.
-- [ ] Folha de edição: rola por dentro, "Salvar" sempre visível, teclado não cobre o botão.
-- [ ] Escape / toque fora / ⓧ fecham a folha; Voltar do navegador não fica preso.
+- [ ] Folha de edição: rola por dentro, "Salvar" sempre visível, **teclado aberto não cobre o botão** (a folha encolhe com a `visualViewport`).
+- [ ] Arrastar a alça para baixo fecha a folha; um puxão curto volta ao lugar.
+- [ ] Escape / toque fora / ⓧ fecham a folha; Tab não escapa para a página atrás; ao fechar, o foco volta ao botão que abriu.
+- [ ] Segmented (status, tipo, escopo): setas trocam a opção com o teclado externo / VoiceOver.
+- [ ] "Revisar" e "Novo lançamento" abrem folha com campos de 48 px, não o popover antigo.
+- [ ] iPhone antigo (iOS < 15.4): barras opacas e folha limitada por `vh` — sem blur, mas sem quebra.
 - [ ] Filtros do financeiro rolam na horizontal sem barra visível.
 - [ ] Cartão de movimentação: valor à direita, "Revisar" abre folha acima da barra de abas.
 - [ ] Rotação para paisagem mantém as abas e não corta o conteúdo.
 - [ ] Desktop (≥ 821 px) inalterado: coluna à esquerda, tabela de movimentações, janela centrada.
 
-## 7. O que ficou de fora (próximas telas)
+## 7. Testes automatizados
+
+`tests/unit/slug.test.ts` (regra única de slug, usada pela tela e pela API),
+`tests/unit/navegacao.test.ts` (seções sem duplicata, abas apontando para
+destinos reais, no máximo quatro abas) e
+`tests/unit/transaction-list.test.tsx` (uma tabela acessível, um DOM só,
+sinais e classes das áreas do celular). Rodar com `npm run test:unit`.
+Render de componente usa `react-dom/server` — sem jsdom, sem biblioteca extra.
+
+## 8. O que ficou de fora (próximas telas)
 
 Mesmo padrão, ainda não aplicado: `financeiro/contas`, `financeiro/mercadopago`,
 `clientes/[id]` (dossiê com abas), `projetos`, `vagas`, `operacao/seo`,

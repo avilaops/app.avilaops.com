@@ -18,11 +18,17 @@ const classeStatus: Record<string, string> = {
 };
 
 function agrupar(planos: PlanoServico[]) {
-  return planos.reduce<Record<string, PlanoServico[]>>((grupos, plano) => {
-    grupos[plano.serviceType] = grupos[plano.serviceType] ?? [];
-    grupos[plano.serviceType].push(plano);
-    return grupos;
+  const grupos = planos.reduce<Record<string, PlanoServico[]>>((acc, plano) => {
+    acc[plano.serviceType] = acc[plano.serviceType] ?? [];
+    acc[plano.serviceType].push(plano);
+    return acc;
   }, {});
+  for (const lista of Object.values(grupos)) {
+    lista.sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt-BR"),
+    );
+  }
+  return grupos;
 }
 
 type Edicao = { plano: PlanoServico | null; tipo: string };
@@ -31,12 +37,24 @@ type Edicao = { plano: PlanoServico | null; tipo: string };
  * Catálogo como lista agrupada (uma seção por tipo de serviço, uma linha por
  * plano) e edição numa folha. A lista mostra só o que se lê de relance —
  * nome, ciclo, status, preço — e o formulário só abre para quem toca.
+ *
+ * A lista é otimista: ao salvar, a linha muda na hora com o que a API
+ * devolveu, e o `router.refresh()` confirma por trás sem piscar a tela.
  */
 export default function ServicePlansManager({ plans }: { plans: PlanoServico[] }) {
   const router = useRouter();
+  const [lista, setLista] = useState(plans);
+  const [origem, setOrigem] = useState(plans);
   const [edicao, setEdicao] = useState<Edicao | null>(null);
   const [aviso, setAviso] = useState("");
-  const grupos = useMemo(() => agrupar(plans), [plans]);
+  const grupos = useMemo(() => agrupar(lista), [lista]);
+
+  // O servidor mandou a lista de novo (refresh): ela passa a valer. Ajuste
+  // durante a renderização, não em efeito — evita o quadro intermediário.
+  if (origem !== plans) {
+    setOrigem(plans);
+    setLista(plans);
+  }
 
   useEffect(() => {
     if (!aviso) return;
@@ -44,7 +62,13 @@ export default function ServicePlansManager({ plans }: { plans: PlanoServico[] }
     return () => window.clearTimeout(timer);
   }, [aviso]);
 
-  function salvo(mensagem: string) {
+  function salvo(mensagem: string, plano: PlanoServico) {
+    setLista((atual) => {
+      const existe = atual.some((item) => item.id === plano.id);
+      return existe
+        ? atual.map((item) => (item.id === plano.id ? plano : item))
+        : [...atual, plano];
+    });
     setEdicao(null);
     setAviso(mensagem);
     router.refresh();
@@ -54,7 +78,7 @@ export default function ServicePlansManager({ plans }: { plans: PlanoServico[] }
     <div className="service-plans-manager">
       <div className="plans-toolbar">
         <p>
-          {plans.length} {plans.length === 1 ? "plano" : "planos"} em{" "}
+          {lista.length} {lista.length === 1 ? "plano" : "planos"} em{" "}
           {tiposServico.length} tipos de serviço. Toque num plano para editar.
         </p>
         <button

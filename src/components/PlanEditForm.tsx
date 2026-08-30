@@ -2,7 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { Icone } from "@/components/ui/Icones";
+import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
+import { slugify } from "@/lib/slug";
 
 export type PlanoServico = {
   id: string;
@@ -41,6 +43,8 @@ export const statusPlano = [
   ["ARCHIVED", "Arquivado"],
 ] as const;
 
+type StatusPlano = (typeof statusPlano)[number][0];
+
 export function rotuloCiclo(valor: string | null) {
   return ciclos.find(([codigo]) => codigo === valor)?.[1] ?? "Pagamento único";
 }
@@ -57,17 +61,6 @@ export function dinheiro(cents: number | null) {
   }).format(cents / 100);
 }
 
-/* Mesma regra da API: o que a tela sugere é o que o servidor vai gravar. */
-function slugDe(texto: string) {
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
-
 function precoTexto(cents: number | null) {
   return cents === null ? "" : (cents / 100).toFixed(2).replace(".", ",");
 }
@@ -78,7 +71,7 @@ type Campos = {
   slug: string;
   price: string;
   billingCycle: string;
-  status: string;
+  status: StatusPlano;
   sortOrder: string;
   description: string;
 };
@@ -88,7 +81,8 @@ type Props = {
   plano: PlanoServico | null;
   tipoInicial: string;
   aoFechar: () => void;
-  aoSalvar: (mensagem: string) => void;
+  /** Recebe o plano como a API gravou, para a lista atualizar sem esperar o servidor. */
+  aoSalvar: (mensagem: string, plano: PlanoServico) => void;
 };
 
 /**
@@ -103,7 +97,9 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
     slug: plano?.slug ?? "",
     price: precoTexto(plano?.priceCents ?? null),
     billingCycle: plano?.billingCycle ?? "ONE_TIME",
-    status: plano?.status ?? "ACTIVE",
+    status: (statusPlano.some(([codigo]) => codigo === plano?.status)
+      ? plano?.status
+      : "ACTIVE") as StatusPlano,
     sortOrder: String(plano?.sortOrder ?? 100),
     description: plano?.description ?? "",
   }));
@@ -130,15 +126,18 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             ...campos,
-            slug: campos.slug || slugDe(campos.name),
+            slug: campos.slug || slugify(campos.name),
           }),
         },
       );
-      const resultado = (await resposta.json()) as { error?: string };
-      if (!resposta.ok) {
+      const resultado = (await resposta.json()) as {
+        error?: string;
+        plan?: PlanoServico;
+      };
+      if (!resposta.ok || !resultado.plan) {
         throw new Error(resultado.error ?? "Não foi possível salvar o plano.");
       }
-      aoSalvar(plano ? "Plano atualizado." : "Plano criado.");
+      aoSalvar(plano ? "Plano atualizado." : "Plano criado.", resultado.plan);
     } catch (falha) {
       setErro(
         falha instanceof Error ? falha.message : "Não foi possível salvar o plano.",
@@ -196,7 +195,7 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
             value={campos.name}
             onChange={(evento) => {
               mudar("name", evento.target.value);
-              if (!slugManual) mudar("slug", slugDe(evento.target.value));
+              if (!slugManual) mudar("slug", slugify(evento.target.value));
             }}
             placeholder="Ex.: Identidade Visual Essencial"
             required
@@ -212,7 +211,7 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
             value={campos.slug}
             onChange={(evento) => {
               setSlugManual(true);
-              mudar("slug", slugDe(evento.target.value));
+              mudar("slug", slugify(evento.target.value));
             }}
             placeholder="gerado-a-partir-do-nome"
             autoComplete="off"
@@ -259,19 +258,12 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
 
         <div className="field">
           <span>Status</span>
-          <div className="segmented" role="radiogroup" aria-label="Status do plano">
-            {statusPlano.map(([codigo, rotulo]) => (
-              <button
-                type="button"
-                key={codigo}
-                role="radio"
-                aria-checked={campos.status === codigo}
-                onClick={() => mudar("status", codigo)}
-              >
-                {rotulo}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            opcoes={statusPlano}
+            valor={campos.status}
+            aoMudar={(valor) => mudar("status", valor)}
+            rotulo="Status do plano"
+          />
         </div>
 
         <label className="field">
