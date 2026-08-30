@@ -28,7 +28,7 @@ export default async function ImplantacaoPage() {
   );
 
   return (
-    <AppShell adminName={admin.nome} section="partner-network">
+    <AppShell adminName={admin.nome} papel={admin.role} section="partner-network">
       <header className="page-header">
         <div>
           <h1>Implantação OpenAI</h1>

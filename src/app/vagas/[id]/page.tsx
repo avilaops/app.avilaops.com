@@ -38,7 +38,7 @@ export default async function JobPostingDetailPage({
   const estagios = Object.entries(posting.stageCounts);
 
   return (
-    <AppShell adminName={admin.nome} section="jobs">
+    <AppShell adminName={admin.nome} papel={admin.role} section="jobs">
       <header className="page-header">
         <div>
           <span className="eyebrow">

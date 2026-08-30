@@ -18,7 +18,7 @@ export default async function DominiosPage() {
   });
 
   return (
-    <AppShell adminName={admin.nome} section="seo">
+    <AppShell adminName={admin.nome} papel={admin.role} section="seo">
       <header className="page-header operations-header">
         <div>
           <h1>Domínios</h1>

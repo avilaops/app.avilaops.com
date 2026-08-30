@@ -115,7 +115,7 @@ export default async function OsbDashboardPage() {
   });
 
   return (
-    <AppShell adminName={admin.nome} section="operations">
+    <AppShell adminName={admin.nome} papel={admin.role} section="operations">
       <header className="page-header operations-header">
         <div>
           <h1>Observabilidade</h1>

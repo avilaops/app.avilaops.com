@@ -1,10 +1,12 @@
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { criarLinkPagamento } from "@/lib/mercadopago";
 
 /** Cria um link de cobrança avulsa na conta da Avila Ops. */
 export async function POST(request: Request) {
   const admin = await getAdmin();
   if (!admin) return Response.json({ erro: "não autorizado" }, { status: 401 });
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return Response.json({ erro: "Só o dono da conta pode isto." }, { status: 403 });
 
   const corpo = (await request.json().catch(() => null)) as
     | { titulo?: string; centavos?: number; referencia?: string; email?: string }

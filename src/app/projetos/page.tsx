@@ -42,7 +42,7 @@ export default async function ProjectsPage({
   };
 
   return (
-    <AppShell adminName={admin.nome} section="projects">
+    <AppShell adminName={admin.nome} papel={admin.role} section="projects">
       <header className="page-header">
         <div>
           <h1>Entregas</h1>

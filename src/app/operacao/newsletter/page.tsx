@@ -15,7 +15,7 @@ export default async function NewsletterPage() {
   const readiness = deliveryReadiness();
 
   return (
-    <AppShell adminName={admin.nome} section="newsletter">
+    <AppShell adminName={admin.nome} papel={admin.role} section="newsletter">
       <header className="page-header">
         <div>
           <h1>Newsletter</h1>

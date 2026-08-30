@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RegistrationRequestReview from "@/components/RegistrationRequestReview";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { getPendingRegistrationRequests } from "@/lib/client-registration-requests";
 
 function formatCpfCnpj(digits: string, tipo: string) {
@@ -17,10 +17,12 @@ function formatCpfCnpj(digits: string, tipo: string) {
 export default async function RegistrationRequestsPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
   const requests = await getPendingRegistrationRequests();
 
   return (
-    <AppShell adminName={admin.nome} section="client-requests">
+    <AppShell adminName={admin.nome} papel={admin.role} section="client-requests">
       <header className="page-header">
         <div>
           <h1>Solicitações de cadastro</h1>

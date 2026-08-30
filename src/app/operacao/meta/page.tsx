@@ -27,7 +27,7 @@ export default async function MetaOperationsPage({
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
 
   return (
-    <AppShell adminName={admin.nome} section="meta">
+    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
       <header className="page-header operations-header">
         <div>
           <h1>Meta Business</h1>

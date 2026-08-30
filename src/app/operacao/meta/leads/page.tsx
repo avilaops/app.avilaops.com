@@ -49,7 +49,7 @@ export default async function MetaLeadsPage({
   const convertedLeads = leads.filter((lead) => Boolean(lead.leadId)).length;
 
   return (
-    <AppShell adminName={admin.nome} section="meta">
+    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
       <header className="page-header operations-header">
         <div>
           <h1>Leads da Meta</h1>

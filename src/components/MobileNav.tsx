@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Icone } from "@/components/ui/Icones";
 import Sheet from "@/components/ui/Sheet";
-import { abasCelular, navegacao, type SecaoApp } from "@/lib/navegacao";
+import { abasDoPapel, navegacaoDoPapel, type SecaoApp } from "@/lib/navegacao";
 
 /**
  * Navegação do celular, no padrão de app do iPhone: barra superior enxuta
@@ -18,14 +18,18 @@ import { abasCelular, navegacao, type SecaoApp } from "@/lib/navegacao";
 export default function MobileNav({
   section,
   adminName,
+  papel,
 }: {
   section: SecaoApp;
   adminName: string;
+  papel: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const fechar = useCallback(() => setAberto(false), []);
 
-  const abaAtiva = abasCelular.find((aba) => aba.secoes.includes(section));
+  const abas = abasDoPapel(papel);
+  const grupos = navegacaoDoPapel(papel);
+  const abaAtiva = abas.find((aba) => aba.secoes.includes(section));
   const maisAtivo = aberto || !abaAtiva;
   const iniciais = adminName
     .split(" ")
@@ -45,7 +49,7 @@ export default function MobileNav({
       </header>
 
       <nav className="tab-bar" aria-label="Abas principais">
-        {abasCelular.map((aba) => {
+        {abas.map((aba) => {
           const ativo = abaAtiva?.href === aba.href;
           return (
             <Link
@@ -88,7 +92,7 @@ export default function MobileNav({
             </form>
           </div>
 
-          {navegacao.map((grupo) => (
+          {grupos.map((grupo) => (
             <section className="sheet-group" key={grupo.label}>
               <h3 className="sheet-group-title">{grupo.label}</h3>
               <div className="ios-list">

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import NovaCobrancaForm from "@/components/NovaCobrancaForm";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { listarLinksPagamento } from "@/lib/mercadopago";
 
@@ -11,11 +11,13 @@ export const dynamic = "force-dynamic";
 export default async function CobrarPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
 
   const links = await listarLinksPagamento(20).catch(() => []);
 
   return (
-    <AppShell adminName={admin.nome} section="mercadopago">
+    <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
       <header className="page-header">
         <div>
           <span className="eyebrow">

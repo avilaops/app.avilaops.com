@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import LedgerRowActions from "@/components/LedgerRowActions";
 import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import {
   LEDGER_DIRECTIONS,
   LEDGER_STATUSES,
@@ -49,6 +49,8 @@ export default async function ContasPage({
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
 
   const params = await searchParams;
   const direction = (LEDGER_DIRECTIONS as readonly string[]).includes(
@@ -77,7 +79,7 @@ export default async function ContasPage({
   };
 
   return (
-    <AppShell adminName={admin.nome} section="ledger">
+    <AppShell adminName={admin.nome} papel={admin.role} section="ledger">
       <header className="page-header">
         <div>
           <h1>Contas a pagar e receber</h1>

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AcoesAssinatura from "@/components/AcoesAssinatura";
 import VarreduraCobrancaButton from "@/components/VarreduraCobrancaButton";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { linkDoPagamento } from "@/lib/mercadopago";
 import { montarPainel, WEBHOOK_ESPERADO, type Gravidade } from "@/lib/mercadopago-painel";
@@ -43,6 +43,8 @@ const classePorGravidade: Record<Gravidade, string> = {
 export default async function MercadoPagoPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
 
   const painel = await montarPainel();
   const comProblema = painel.linhas.filter((l) => l.divergencias.some((d) => d.gravidade === "erro"));
@@ -50,7 +52,7 @@ export default async function MercadoPagoPage() {
   const aguardandoCartao = painel.linhas.filter((l) => l.mp?.status === "pending").length;
 
   return (
-    <AppShell adminName={admin.nome} section="mercadopago">
+    <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
       <header className="page-header">
         <div>
           <h1>Mercado Pago</h1>

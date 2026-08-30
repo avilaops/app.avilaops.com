@@ -5,7 +5,7 @@ import {
   redefinirSenhaProvisoria,
   urlDeLogin,
 } from "@/lib/acesso-cliente";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
 import { marcarEtapa } from "@/lib/onboarding-etapas";
@@ -23,6 +23,8 @@ export async function POST(
 ) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
 
   const { id } = await params;

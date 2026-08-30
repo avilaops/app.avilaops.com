@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import WiseImportPanel from "@/components/WiseImportPanel";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export default async function ImportarPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
 
   const accounts = await prisma.bankAccount.findMany({
     where: { provider: "wise" },
@@ -18,7 +20,7 @@ export default async function ImportarPage() {
   });
 
   return (
-    <AppShell adminName={admin.nome} section="import">
+    <AppShell adminName={admin.nome} papel={admin.role} section="import">
       <header className="page-header">
         <div>
           <h1>Importar extrato</h1>

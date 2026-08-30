@@ -155,14 +155,36 @@ publica o app nem altera o banco de produção.
 O `cliente.avilaops.com` não será construído: a área do cliente vive aqui, em
 `/portal`.
 
-| Papel | Quem | Onde cai depois do login |
-|---|---|---|
-| `OWNER` | nicolas@avilaops.com | `/operacao` |
-| `ADMIN` | equipe e contas de automação | `/operacao` |
-| `CLIENT` | quem contrata | `/portal` |
+| Papel | Quem | Onde cai | O que pode |
+|---|---|---|---|
+| `OWNER` | nicolas@avilaops.com | `/operacao` | tudo |
+| `ADMIN` | equipe e contas de automação | `/operacao` | a operação inteira, menos dinheiro, segredo e acesso |
+| `CLIENT` | quem contrata | `/portal` | só a própria empresa |
 
 Os três vivem na mesma tabela (`public.portal_clients`) e entram pela mesma
-porta: o papel não decide *se* entra, decide *para onde vai*.
+porta: o papel não decide *se* entra, decide *para onde vai* e o que alcança.
+
+### A linha entre OWNER e ADMIN
+
+São papéis diferentes, não graus do mesmo. **Do dono é o que não se delega:**
+
+| Área | Rotas e telas |
+|---|---|
+| Dinheiro | `/financeiro/*`, `/relatorios`, `/api/ledger-entries`, `/api/bank-transactions`, `/api/reconciliations`, `/api/reports`, `/api/mercadopago/*`, `/api/organizations/[id]/assinatura`, `/api/service-plans`, `/api/integrations/wise/import` |
+| Segredo | `/api/organizations/[id]/cofre*` |
+| Acesso | `/clientes/solicitacoes`, `/api/registration-requests/[id]/approve` e `/reject`, `/api/organizations/[id]/acesso` |
+| Gasto de IA | `/api/internal/ai-core/approvals/[id]` |
+
+**Da equipe é a operação:** clientes e fichas, projetos, tarefas, entregas,
+domínios, provisionamento (caixa, domínio, Google, loja, restaurante, marcas),
+SEO, Meta, WhatsApp, newsletter, vagas, relatórios técnicos. Uma automação
+sincroniza o Éfi (`/api/integrations/efi/sync` aceita `x-service-key`), mas não
+cobra ninguém nem abre o cofre.
+
+O menu já sai filtrado (`navegacaoDoPapel`), mas esconder não é proteger: cada
+página do dono chama `ehDono(admin.role)` e redireciona para `/operacao`, e cada
+rota responde `403`. A conta de automação que tentar cobrar recebe 403, não uma
+tela vazia.
 
 **Regra de ouro:** nunca compare `role === "ADMIN"`. Use `ehDaCasa(role)` de
 `src/lib/auth.ts` (OWNER ou ADMIN) e `ehDono(role)` para o que só o dono pode.

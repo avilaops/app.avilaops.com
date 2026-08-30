@@ -98,7 +98,7 @@ export default async function ClientDossierPage({
   void _subscriptions;
 
   return (
-    <AppShell adminName={admin.nome} section="clients">
+    <AppShell adminName={admin.nome} papel={admin.role} section="clients">
       <header className="page-header">
         <div>
           <span className="eyebrow">Operação · Ficha do cliente</span>

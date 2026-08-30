@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 function csvCell(value: unknown) {
@@ -12,6 +12,8 @@ export async function GET(request: Request) {
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
 
   const url = new URL(request.url);
   const requestedRange = Number.parseInt(url.searchParams.get("range") ?? "30", 10);

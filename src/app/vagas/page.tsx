@@ -59,7 +59,7 @@ export default async function JobPostingsPage({
   };
 
   return (
-    <AppShell adminName={admin.nome} section="jobs">
+    <AppShell adminName={admin.nome} papel={admin.role} section="jobs">
       <header className="page-header">
         <div>
           <h1>Vagas</h1>

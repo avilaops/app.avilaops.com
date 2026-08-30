@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { getFinanceDashboard } from "@/lib/dashboard";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 
 export default async function ReportsPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
   const data = await getFinanceDashboard(30, "ALL");
 
   return (
-    <AppShell adminName={admin.nome} section="reports">
+    <AppShell adminName={admin.nome} papel={admin.role} section="reports">
       <header className="page-header">
         <div>
           <h1>Relatórios</h1>

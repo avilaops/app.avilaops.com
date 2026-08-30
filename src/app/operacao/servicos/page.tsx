@@ -13,7 +13,7 @@ export default async function ServicePlansPage() {
   });
 
   return (
-    <AppShell adminName={admin.nome} section="services">
+    <AppShell adminName={admin.nome} papel={admin.role} section="services">
       <header className="page-header">
         <div>
           <h1>Catálogo de serviços</h1>

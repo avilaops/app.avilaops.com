@@ -9,6 +9,8 @@ type AppShellProps = {
   adminName: string;
   section: SecaoApp;
   children: ReactNode;
+  /** OWNER ou ADMIN. Decide o que o menu oferece — a página confere de novo. */
+  papel?: string;
 };
 
 /**
@@ -20,6 +22,7 @@ export default function AppShell({
   adminName,
   section,
   children,
+  papel = "ADMIN",
 }: AppShellProps) {
   return (
     <div className="app-frame">
@@ -29,13 +32,13 @@ export default function AppShell({
           <strong>Ávila Ops</strong>
         </Link>
         <ThemeToggle />
-        <SideNav section={section} />
+        <SideNav section={section} papel={papel} />
 
         <div className="sidebar-footer">
           <span className="status-dot" aria-hidden="true" />
           <div>
             <strong>{adminName.split(" ")[0]}</strong>
-            <small>Administrador</small>
+            <small>{papel === "OWNER" ? "Dono" : "Administrador"}</small>
           </div>
           <form action="/api/auth/logout" method="post">
             <button type="submit" className="text-button">
@@ -45,7 +48,7 @@ export default function AppShell({
         </div>
       </aside>
 
-      <MobileNav section={section} adminName={adminName} />
+      <MobileNav section={section} adminName={adminName} papel={papel} />
 
       <main className="main-canvas">{children}</main>
     </div>

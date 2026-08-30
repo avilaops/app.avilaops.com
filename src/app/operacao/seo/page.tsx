@@ -124,7 +124,7 @@ export default async function SeoIntegrationsPage({
   ).length;
 
   return (
-    <AppShell adminName={admin.nome} section="seo">
+    <AppShell adminName={admin.nome} papel={admin.role} section="seo">
       <header className="page-header operations-header">
         <div>
           <h1>SEO</h1>

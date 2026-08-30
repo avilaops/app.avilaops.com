@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AcoesAssinatura from "@/components/AcoesAssinatura";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { buscarAssinatura, listarCobrancas } from "@/lib/mercadopago";
 import { listarLojas } from "@/lib/lojas-plataforma";
@@ -27,6 +27,8 @@ const STATUS_COBRANCA: Record<string, string> = {
 export default async function AssinaturaPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
   const { id } = await params;
 
   const assinatura = await buscarAssinatura(id).catch(() => null);
@@ -40,7 +42,7 @@ export default async function AssinaturaPage({ params }: { params: Promise<{ id:
   const loja = lojas.find((l) => l.slug === assinatura.loja) ?? null;
 
   return (
-    <AppShell adminName={admin.nome} section="mercadopago">
+    <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
       <header className="page-header">
         <div>
           <span className="eyebrow">

@@ -15,7 +15,7 @@ export default async function WhatsappOperationsPage() {
   const legacyFlowUrl = `${appUrl}/flow-endpoint`;
 
   return (
-    <AppShell adminName={admin.nome} section="whatsapp">
+    <AppShell adminName={admin.nome} papel={admin.role} section="whatsapp">
       <header className="page-header operations-header">
         <div>
           <h1>WhatsApp Business</h1>

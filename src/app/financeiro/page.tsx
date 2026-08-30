@@ -9,7 +9,7 @@ import SyncButton from "@/components/SyncButton";
 import TransactionList, {
   type LinhaMovimentacao,
 } from "@/components/TransactionList";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import {
   getFinanceDashboard,
   ReconciliationFilter,
@@ -45,6 +45,8 @@ export default async function FinancePage({
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
+  // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
+  if (!ehDono(admin.role)) redirect("/operacao");
 
   const params = await searchParams;
   const range = Number.parseInt(params.range ?? "30", 10);
@@ -99,7 +101,7 @@ export default async function FinancePage({
   }));
 
   return (
-    <AppShell adminName={admin.nome} section={activeSection}>
+    <AppShell adminName={admin.nome} papel={admin.role} section={activeSection}>
       <header className="page-header">
         <div>
           <h1>Financeiro</h1>

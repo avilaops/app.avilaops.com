@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { navegacao, type SecaoApp } from "@/lib/navegacao";
+import { navegacaoDoPapel, type SecaoApp } from "@/lib/navegacao";
 
 export type { SecaoApp };
 
@@ -8,10 +8,11 @@ export type { SecaoApp };
  * o `MobileNav` (barra de abas + folha "Mais"); os dois leem o mesmo mapa em
  * `lib/navegacao.ts`.
  */
-export default function SideNav({ section }: { section: SecaoApp }) {
+export default function SideNav({ section, papel }: { section: SecaoApp; papel: string }) {
+  const grupos = navegacaoDoPapel(papel);
   return (
     <nav className="side-nav" aria-label="Navegação principal">
-      {navegacao.map((group) => (
+      {grupos.map((group) => (
         <div className="nav-group" key={group.label}>
           <span className="nav-eyebrow">{group.label}</span>
           {group.items.map((item) => {

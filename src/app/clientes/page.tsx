@@ -19,7 +19,7 @@ export default async function ClientsPage() {
   const organizations = await getOrganizations();
 
   return (
-    <AppShell adminName={admin.nome} section="clients">
+    <AppShell adminName={admin.nome} papel={admin.role} section="clients">
       <header className="page-header">
         <div>
           <h1>Clientes</h1>

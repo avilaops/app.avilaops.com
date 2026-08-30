@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import {
   LEDGER_DIRECTIONS,
   LEDGER_STATUSES,
@@ -32,6 +32,8 @@ export async function GET(request: Request) {
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
 
   const url = new URL(request.url);
   const direction = url.searchParams.get("direction") ?? "ALL";
@@ -70,6 +72,8 @@ export async function POST(request: Request) {
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
 
   const body = (await request.json().catch(() => ({}))) as {
     direction?: unknown;

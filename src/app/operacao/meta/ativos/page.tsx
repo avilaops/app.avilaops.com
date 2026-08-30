@@ -47,7 +47,7 @@ export default async function MetaAssetsPage({
     : [[], [], [], []];
 
   return (
-    <AppShell adminName={admin.nome} section="meta">
+    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
       <header className="page-header operations-header">
         <div>
           <h1>Ativos da Meta</h1>

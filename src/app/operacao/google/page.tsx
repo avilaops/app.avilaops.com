@@ -20,7 +20,7 @@ export default async function GoogleCommandCenterPage() {
   ).toFixed(2);
 
   return (
-    <AppShell adminName={admin.nome} section="google-suite">
+    <AppShell adminName={admin.nome} papel={admin.role} section="google-suite">
       <header className="page-header">
         <div>
           <h1>Google</h1>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { garantirAcessoCliente, slugLivreDeOrganizacao, urlDeLogin, vincularContaAOrganizacao } from "@/lib/acesso-cliente";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
 import { prisma } from "@/lib/prisma";
@@ -25,6 +25,8 @@ export async function POST(
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
   if (!sameOrigin(request)) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   }

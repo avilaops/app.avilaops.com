@@ -25,9 +25,36 @@ export type SecaoApp =
   | "partner-network"
   | "google-suite";
 
-export type ItemNavegacao = { href: string; label: string; section: SecaoApp };
+export type ItemNavegacao = {
+  href: string;
+  label: string;
+  section: SecaoApp;
+  /** Só o dono vê. Dinheiro, segredo e quem entra são dele. */
+  somenteDono?: true;
+};
 
-export type GrupoNavegacao = { label: string; items: ItemNavegacao[] };
+export type GrupoNavegacao = { label: string; items: ItemNavegacao[]; somenteDono?: true };
+
+/**
+ * O menu que este papel enxerga.
+ *
+ * Esconder não é proteger — cada página e cada rota confere o papel por conta
+ * própria. Isto existe para o menu não oferecer porta fechada: a equipe não
+ * precisa ver um "Financeiro" que vai recusá-la.
+ */
+export function navegacaoDoPapel(role: string): GrupoNavegacao[] {
+  const dono = role === "OWNER";
+  if (dono) return navegacao;
+  return navegacao
+    .filter((grupo) => !grupo.somenteDono)
+    .map((grupo) => ({ ...grupo, items: grupo.items.filter((item) => !item.somenteDono) }))
+    .filter((grupo) => grupo.items.length > 0);
+}
+
+/** Abas do celular deste papel — mesma regra do menu. */
+export function abasDoPapel(role: string): AbaCelular[] {
+  return role === "OWNER" ? abasCelular : abasCelular.filter((aba) => !aba.somenteDono);
+}
 
 export const navegacao: GrupoNavegacao[] = [
   {
@@ -39,6 +66,7 @@ export const navegacao: GrupoNavegacao[] = [
         href: "/clientes/solicitacoes",
         label: "Solicitações",
         section: "client-requests",
+        somenteDono: true,
       },
       { href: "/projetos", label: "Entregas", section: "projects" },
       { href: "/operacao/seo", label: "SEO", section: "seo" },
@@ -57,6 +85,7 @@ export const navegacao: GrupoNavegacao[] = [
   },
   {
     label: "Financeiro",
+    somenteDono: true,
     items: [
       { href: "/financeiro", label: "Visão geral", section: "overview" },
       {
@@ -111,6 +140,7 @@ export type AbaCelular = {
   label: string;
   icone: "inicio" | "clientes" | "financeiro";
   secoes: SecaoApp[];
+  somenteDono?: true;
 };
 
 export const abasCelular: AbaCelular[] = [
@@ -125,6 +155,7 @@ export const abasCelular: AbaCelular[] = [
     href: "/financeiro",
     label: "Financeiro",
     icone: "financeiro",
+    somenteDono: true,
     secoes: [
       "overview",
       "reconciliation",

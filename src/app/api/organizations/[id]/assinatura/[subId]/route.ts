@@ -6,7 +6,7 @@ import {
   garantirFatura,
   type MetodoCobranca,
 } from "@/lib/assinaturas";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
@@ -26,6 +26,8 @@ export async function PATCH(
 ) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
 
   const { id, subId } = await params;

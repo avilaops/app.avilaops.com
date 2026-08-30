@@ -1,4 +1,4 @@
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { agirNaAssinatura, type AcaoAssinatura } from "@/lib/lojas-plataforma";
 
 /**
@@ -11,6 +11,8 @@ import { agirNaAssinatura, type AcaoAssinatura } from "@/lib/lojas-plataforma";
 export async function POST(request: Request) {
   const admin = await getAdmin();
   if (!admin) return Response.json({ erro: "não autorizado" }, { status: 401 });
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return Response.json({ erro: "Só o dono da conta pode isto." }, { status: 403 });
 
   const corpo = (await request.json().catch(() => null)) as
     | { slug?: string; acao?: string; centavos?: number }

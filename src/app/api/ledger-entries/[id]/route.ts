@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -28,6 +28,8 @@ export async function PATCH(
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
 
   const { id } = await params;
   if (!/^\d+$/.test(id)) {
@@ -178,6 +180,8 @@ export async function DELETE(
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
+  // Dinheiro, segredo e acesso são do dono; a equipe para aqui.
+  if (!ehDono(admin.role)) return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
 
   const { id } = await params;
   if (!/^\d+$/.test(id)) {

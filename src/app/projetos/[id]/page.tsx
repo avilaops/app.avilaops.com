@@ -49,7 +49,7 @@ export default async function ProjectDetailPage({
   const deliverables = await getDeliverablesForProject(project.id);
 
   return (
-    <AppShell adminName={admin.nome} section="projects">
+    <AppShell adminName={admin.nome} papel={admin.role} section="projects">
       <header className="page-header">
         <div>
           <span className="eyebrow">

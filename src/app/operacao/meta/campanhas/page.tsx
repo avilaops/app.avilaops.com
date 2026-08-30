@@ -50,7 +50,7 @@ export default async function MetaCampaignsPage({
   const leads = snapshots.reduce((total, snapshot) => total + (snapshot.leads ?? 0), 0);
 
   return (
-    <AppShell adminName={admin.nome} section="meta">
+    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
       <header className="page-header operations-header">
         <div>
           <h1>Campanhas da Meta</h1>

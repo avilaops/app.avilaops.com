@@ -74,7 +74,7 @@ export default async function OperationsPage() {
   ];
 
   return (
-    <AppShell adminName={admin.nome} section="operations">
+    <AppShell adminName={admin.nome} papel={admin.role} section="operations">
       <header className="page-header operations-header">
         <div>
           <h1>Visão central</h1>

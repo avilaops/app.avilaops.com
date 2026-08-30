@@ -26,7 +26,14 @@ export function ehDaCasa(role: string | null | undefined): boolean {
   return typeof role === "string" && PAPEIS_DA_CASA.includes(role);
 }
 
-/** Só o dono. Reservado para o que muda permissão e papel de outra conta. */
+/**
+ * Só o dono.
+ *
+ * O que fica atrás disto é o que não se delega: dinheiro (conta, extrato,
+ * conciliação, cobrança, preço), segredo (cofre de credenciais), acesso (quem
+ * vira cliente, quem recebe senha) e o que é irreversível. A equipe — inclusive
+ * as contas de automação — opera todo o resto sem pedir licença.
+ */
 export function ehDono(role: string | null | undefined): boolean {
   return role === "OWNER";
 }
