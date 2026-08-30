@@ -43,7 +43,8 @@ table `google_clientes` — o sub-workflow grava lá.
 Credenciais no n8n usadas: `Cloudflare Global Key (DNS)` (dndkbaHfLcpcLOuX),
 `Avila Mail API` (gmz9uYKN7VZn98pj), `Lojas Admin Token` (3YejOYHMV6DLOJG2),
 `SMTP mail.avilaops.com (n8n@avilaops.com)` (tSZlEjwt75qo2MwC), `Todoist
-account` (C7xqqFDFDlihAQLG), `Auth Webhook Auth (criar caixa)`
+OAuth2 (app da casa)` (HjSrKt2tqWYpxU8I — a antiga `Todoist account` por API
+key morreu em 26/08 e não deve mais ser usada), `Auth Webhook Auth (criar caixa)`
 (ERbhX2hnqN9kRYSC, header de entrada) e **`Ávila OS Service Key`**
 (vlxByGSlMgxGdmST, criada em 30/08 pela API REST do n8n com o
 `SERVICE_JWT_SECRET` do app).
