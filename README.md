@@ -70,10 +70,26 @@ Rotas relevantes:
 - `POST /api/integrations/efi/sync`: sincronização autenticada;
 - `PATCH /api/reconciliations/:id`: decisão de conciliação autenticada.
 
+## Provisionamento pela ficha (via n8n)
+
+A ficha do cliente (`/clientes/[id]`) tem dois painéis abaixo do dossiê:
+
+- **Provisionamento** — acesso ao SSO, domínio na Cloudflare + DNS padrão +
+  domínio no mail, caixa de e-mail, Google (GA4/GTM/Search Console) e loja.
+  Cada botão chama uma rota `POST /api/organizations/[id]/<ação>` que fala
+  com um workflow "Ávila OS — *" do n8n e grava o resultado.
+- **Cobrança e cadastro** — assinatura a partir do catálogo (PIX/boleto pela
+  Éfi), etapas do onboarding, marcas e cofre de credenciais.
+
+Contrato completo, IDs dos workflows e variáveis de ambiente:
+[`docs/provisionamento-n8n.md`](docs/provisionamento-n8n.md). Os scripts
+`criar-assinatura.ts` e `sync-openai-project.ts` foram substituídos por essas
+telas e ficam só por histórico.
+
 ## Vagas e recrutamento
 
 As vagas de `jobs.avilaops.com` vivem em `operations.job_postings` e vão para o
-site no build — o site continua sendo export estático, porque o JSON-LD
+site no build, o site continua sendo export estático, porque o JSON-LD
 `JobPosting` precisa estar no HTML servido para o Google Jobs indexar.
 
 Rotas relevantes:
