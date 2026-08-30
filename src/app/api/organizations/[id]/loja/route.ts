@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
+import { marcarEtapa } from "@/lib/onboarding-etapas";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 
@@ -104,6 +105,8 @@ export async function POST(
     },
     update: { publicId: resultado.slug, url: resultado.url, status: "ACTIVE" },
   });
+
+  await marcarEtapa(organizacao.id, "STORE", `Loja ${resultado.slug}${resultado.url ? ` · ${resultado.url}` : ""}`);
 
   await prisma.operationsAuditEvent.create({
     data: {

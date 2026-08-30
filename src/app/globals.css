@@ -5703,3 +5703,37 @@ tbody tr:last-child td {
   padding-right: 45%;
   padding-left: 12px;
 }
+
+.prov-fatura {
+  padding-left: 28px;
+}
+
+.prov-fatura-acoes {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.prov-assinatura-acoes {
+  min-height: 44px;
+  gap: 16px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.prov-perigo {
+  color: var(--red);
+}
+
+.prov-copia {
+  display: block;
+  max-height: 96px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+  user-select: all;
+}

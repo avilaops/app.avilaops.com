@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
+import { marcarEtapa } from "@/lib/onboarding-etapas";
 import { prisma } from "@/lib/prisma";
 
 type RegistroCriado = {
@@ -154,6 +155,8 @@ export async function POST(
       notes: mailVerificado ? "DNS verificado pelo mail.avilaops.com" : "Aguardando o DNS propagar (nameservers na Cloudflare)",
     },
   });
+
+  await marcarEtapa(organizacao.id, "DOMAIN", `${dominio} · zona ${resultado.zoneStatus}${mailVerificado ? " · e-mail verificado" : ""}`);
 
   await prisma.operationsAuditEvent.create({
     data: {

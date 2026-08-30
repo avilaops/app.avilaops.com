@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanText } from "@/lib/http";
+import { marcarEtapa } from "@/lib/onboarding-etapas";
 import { prisma } from "@/lib/prisma";
 import { isServiceCall } from "@/lib/service-auth";
 
@@ -84,6 +85,10 @@ export async function POST(request: NextRequest) {
     }),
   );
   await Promise.all(gravacoes);
+
+  if (status !== "falhou") {
+    await marcarEtapa(organizationId, "GOOGLE", [ga4MeasurementId && `GA4 ${ga4MeasurementId}`, gtmPublicId && `GTM ${gtmPublicId}`, searchConsole].filter(Boolean).join(" · "));
+  }
 
   await prisma.operationsAuditEvent.create({
     data: {

@@ -3,6 +3,7 @@ import { buscarContaPorEmail, gerarSenhaProvisoria } from "@/lib/acesso-cliente"
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
+import { marcarEtapa } from "@/lib/onboarding-etapas";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -95,6 +96,8 @@ export async function POST(
     },
     update: { status: "ACTIVE", accountName: nome || null, url: resultado.webmail ?? undefined },
   });
+
+  await marcarEtapa(organizacao.id, "EMAIL", `Caixa ${address}`);
 
   await prisma.operationsAuditEvent.create({
     data: {

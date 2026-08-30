@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Cartao, chamar, Pill, rotuloStatus, type Resultado } from "@/components/provisionamento/comum";
 import { Icone } from "@/components/ui/Icones";
 import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
@@ -31,80 +32,6 @@ type Props = {
   dominios: DominioDaFicha[];
   integracoes: IntegracaoDaFicha[];
 };
-
-type Resultado = { tipo: "ok" | "erro"; conteudo: ReactNode };
-
-const classeStatus: Record<string, string> = {
-  ACTIVE: "status-active",
-  PENDING: "status-pending",
-  ATTENTION: "status-paused",
-  FAILED: "status-ignored",
-  active: "status-active",
-  pending: "status-pending",
-};
-
-const rotuloStatus: Record<string, string> = {
-  ACTIVE: "Ativo",
-  PENDING: "Pendente",
-  ATTENTION: "Com pendências",
-  FAILED: "Falhou",
-  active: "Ativa",
-  pending: "Aguardando NS",
-  initializing: "Iniciando",
-  moved: "Movida",
-};
-
-async function chamar<T = Record<string, unknown>>(url: string, body: Record<string, unknown>): Promise<T> {
-  const resposta = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const dados = (await resposta.json().catch(() => ({}))) as T & { error?: string };
-  if (!resposta.ok) throw new Error(dados.error ?? `Falhou (HTTP ${resposta.status}).`);
-  return dados;
-}
-
-function Pill({ status }: { status: string | null }) {
-  if (!status) return null;
-  return (
-    <span className={`status-pill ${classeStatus[status] ?? ""}`}>
-      {rotuloStatus[status] ?? status}
-    </span>
-  );
-}
-
-function Cartao({
-  titulo,
-  descricao,
-  children,
-  acoes,
-  resultado,
-}: {
-  titulo: string;
-  descricao: string;
-  children: ReactNode;
-  acoes: ReactNode;
-  resultado: Resultado | null;
-}) {
-  return (
-    <article className="operations-panel prov-card">
-      <div className="prov-card-head">
-        <div>
-          <h3>{titulo}</h3>
-          <p>{descricao}</p>
-        </div>
-      </div>
-      {children}
-      {resultado ? (
-        <div className={resultado.tipo === "erro" ? "prov-result prov-result-erro" : "prov-result"} role="status">
-          {resultado.conteudo}
-        </div>
-      ) : null}
-      <div className="prov-actions">{acoes}</div>
-    </article>
-  );
-}
 
 /**
  * Provisionamento pela ficha: acesso, domínio, e-mail, Google e loja. Cada

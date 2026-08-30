@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import ClientDossierForm from "@/components/ClientDossierForm";
+import OperacaoPanel from "@/components/OperacaoPanel";
 import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
+import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
 import { prisma } from "@/lib/prisma";
 
 export default async function ClientDossierPage({
@@ -34,6 +36,18 @@ export default async function ClientDossierPage({
           orderBy: { createdAt: "asc" },
           select: { id: true, fqdn: true, cloudflareStatus: true, cloudflareZoneId: true },
         },
+        brands: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, slug: true, siteUrl: true, status: true } },
+        integrationConnections: { orderBy: { provider: "asc" } },
+        subscriptions: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            invoices: {
+              orderBy: [{ dueDate: "desc" }],
+              take: 12,
+              include: { charges: { orderBy: { createdAt: "desc" }, take: 1 } },
+            },
+          },
+        },
       },
     }),
     prisma.servicePlan.findMany({
@@ -47,6 +61,41 @@ export default async function ClientDossierPage({
   const contatoPrincipal = organization.contacts[0] ?? null;
   const contatoEmail = contatoPrincipal?.email?.trim().toLowerCase() ?? "";
   const acessoExiste = contatoEmail ? Boolean(await buscarContaPorEmail(contatoEmail)) : false;
+
+  const cents = (valor: { toString(): string }) => Math.round(Number(valor.toString()) * 100);
+  const assinaturas = organization.subscriptions.map((a) => ({
+    id: a.id,
+    description: a.description,
+    amountCents: cents(a.amount),
+    billingDay: a.billingDay,
+    status: a.status,
+    startedAt: a.startedAt.toISOString(),
+    productKey: a.productKey,
+    productTenantId: a.productTenantId,
+    invoices: a.invoices.map((f) => ({
+      id: f.id,
+      competence: f.competence,
+      kind: f.kind,
+      amountCents: cents(f.amount),
+      dueDate: f.dueDate.toISOString(),
+      status: f.status,
+      paidAt: f.paidAt?.toISOString() ?? null,
+      cobranca: f.charges[0]
+        ? {
+            method: f.charges[0].method,
+            status: f.charges[0].status,
+            pixCopyPaste: f.charges[0].pixCopyPaste,
+            boletoUrl: f.charges[0].boletoUrl,
+            boletoBarcode: f.charges[0].boletoBarcode,
+            expiresAt: f.charges[0].expiresAt?.toISOString() ?? null,
+          }
+        : null,
+    })),
+  }));
+  // A ficha (ClientDossierForm) não precisa das assinaturas nem das conexões
+  // cifradas; tirar daqui evita mandar ciphertext ao navegador.
+  const { subscriptions: _subscriptions, integrationConnections, ...organizacaoParaFicha } = organization;
+  void _subscriptions;
 
   return (
     <AppShell adminName={admin.nome} section="clients">
@@ -62,7 +111,7 @@ export default async function ClientDossierPage({
       </header>
 
       <ClientDossierForm
-        organization={JSON.parse(JSON.stringify(organization))}
+        organization={JSON.parse(JSON.stringify(organizacaoParaFicha))}
         plans={JSON.parse(JSON.stringify(plans))}
       />
 
@@ -89,6 +138,23 @@ export default async function ClientDossierPage({
           status: item.status,
           notes: item.notes,
         }))}
+      />
+
+      <OperacaoPanel
+        organizationId={organization.id}
+        nomeCliente={organization.name}
+        assinaturas={assinaturas}
+        planos={plans.map((p) => ({ id: p.id, name: p.name, serviceType: p.serviceType, priceCents: p.priceCents, billingCycle: p.billingCycle }))}
+        marcas={organization.brands}
+        credenciais={integrationConnections.map(resumirCredencial)}
+        etapas={organization.onboardingSteps.map((e) => ({
+          stepKey: e.stepKey,
+          label: e.label,
+          status: e.status,
+          completedAt: e.completedAt?.toISOString() ?? null,
+          notes: e.notes,
+        }))}
+        cofreDisponivel={cofreDisponivel()}
       />
     </AppShell>
   );

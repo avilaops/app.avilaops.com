@@ -8,6 +8,7 @@ import {
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
+import { marcarEtapa } from "@/lib/onboarding-etapas";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -113,6 +114,8 @@ export async function POST(
   } catch (erro) {
     aviso = erro instanceof N8nIndisponivel ? erro.message : "Falha ao acionar o n8n.";
   }
+
+  await marcarEtapa(organizacao.id, "ACCESS", `Conta ${email}${emailEnviado ? " · e-mail enviado" : ""}`);
 
   await prisma.operationsAuditEvent.create({
     data: {
