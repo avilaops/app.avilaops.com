@@ -36,6 +36,22 @@ RUN set -eu; \
     done; \
     test -e "$(grep -rhos '@prisma/client-[0-9a-f]\{8,\}' /app/.next/server | head -1 | sed 's|@prisma/||')"
 
+# O mesmo apelido com hash acontece com qualquer pacote de escopo que o
+# Turbopack externaliza: o @aws-sdk/client-s3 (upload de documento no cadastro)
+# derrubou a tela de solicitações com "Cannot find module
+# @aws-sdk/client-s3-<hash>", e o erro só aparecia em produção. A varredura
+# abaixo é genérica: para todo `@escopo/pacote-<hash>` citado no bundle, cria o
+# apelido apontando para o pacote real, quando ele existir.
+RUN set -eu; \
+    grep -rhos "@[a-z0-9-]\{2,\}/[a-z0-9._-]\{2,\}-[0-9a-f]\{8,\}" /app/.next/server /app/server.js \
+    | sort -u | while read -r ref; do \
+        escopo="${ref%%/*}"; resto="${ref#*/}"; real="${resto%-*}"; \
+        if [ -d "/app/node_modules/$escopo/$real" ] && [ ! -e "/app/node_modules/$escopo/$resto" ]; then \
+            ln -sfn "$real" "/app/node_modules/$escopo/$resto"; \
+            echo "symlink $escopo/$resto -> $real"; \
+        fi; \
+    done
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
