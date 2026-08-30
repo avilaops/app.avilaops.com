@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { getOperationsDashboard } from "@/lib/operations";
@@ -213,7 +214,11 @@ export default async function OperationsPage() {
         ) : (
           <div className="organization-preview-list">
             {data.recentOrganizations.map((organization) => (
-              <div className="organization-preview-row" key={organization.id}>
+              <Link
+                className="organization-preview-row"
+                href={`/clientes/${organization.id}`}
+                key={organization.id}
+              >
                 <span>{organization.name.slice(0, 2).toUpperCase()}</span>
                 <div>
                   <strong>{organization.name}</strong>
@@ -229,7 +234,8 @@ export default async function OperationsPage() {
                   {organization._count.projects} projetos ·{" "}
                   {organization._count.domains} domínios
                 </small>
-              </div>
+                <Icone nome="chevron" tamanho={16} className="chevron" />
+              </Link>
             ))}
           </div>
         )}

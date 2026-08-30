@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import OrganizationForm from "@/components/OrganizationForm";
+import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
 import { getOrganizations } from "@/lib/operations";
 
@@ -110,6 +111,7 @@ export default async function ClientsPage() {
                 <span className={`status-pill status-${organization.status.toLowerCase()}`}>
                   {statusLabels[organization.status] ?? organization.status}
                 </span>
+                <Icone nome="chevron" tamanho={16} className="chevron" />
               </article>
             ))}
           </div>

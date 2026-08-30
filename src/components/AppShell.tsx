@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import SideNav, { type SecaoApp } from "@/components/SideNav";
+import MobileNav from "@/components/MobileNav";
+import SideNav from "@/components/SideNav";
 import ThemeToggle from "@/components/ThemeToggle";
+import type { SecaoApp } from "@/lib/navegacao";
 
 type AppShellProps = {
   adminName: string;
@@ -9,6 +11,11 @@ type AppShellProps = {
   children: ReactNode;
 };
 
+/**
+ * Moldura de toda tela logada. Desktop: coluna fixa à esquerda. Celular:
+ * barra superior + barra de abas (`MobileNav`). Os dois existem no DOM e o
+ * CSS mostra um de cada vez — assim a troca de largura não recarrega nada.
+ */
 export default function AppShell({
   adminName,
   section,
@@ -37,6 +44,9 @@ export default function AppShell({
           </form>
         </div>
       </aside>
+
+      <MobileNav section={section} adminName={adminName} />
+
       <main className="main-canvas">{children}</main>
     </div>
   );

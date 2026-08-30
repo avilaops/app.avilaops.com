@@ -7,6 +7,10 @@ import BotaoTema from "@/lib/tema-noturno/react";
  * quem não quer o automático agora: a escolha vale até a próxima virada, e
  * Alt+clique devolve o controle ao horário.
  */
-export default function ThemeToggle() {
-  return <BotaoTema className="theme-toggle" />;
+export default function ThemeToggle({
+  className = "theme-toggle",
+}: {
+  className?: string;
+}) {
+  return <BotaoTema className={className} />;
 }

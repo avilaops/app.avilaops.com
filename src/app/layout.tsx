@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { scriptInicial } from "@/lib/tema-noturno";
 import "./globals.css";
 
@@ -6,7 +6,28 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.avilaops.com";
 const description =
   "Clientes, entregas, oportunidades, domínios, automações e financeiro em uma única operação.";
 
+/*
+ * `viewportFit: cover` é o que libera o `env(safe-area-inset-*)` no iPhone:
+ * sem ele a barra de abas fica atrás do indicador de início e o topo cola no
+ * recorte da câmera. `themeColor` pinta a barra de status da mesma cor do
+ * fundo, por tema.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f8fa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0d10" },
+  ],
+};
+
 export const metadata: Metadata = {
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Ávila Ops",
+  },
   metadataBase: new URL(siteUrl),
   title: "Ávila OS — operação digital",
   description,

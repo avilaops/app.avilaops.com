@@ -5,9 +5,10 @@ import AutoReconcileButton from "@/components/AutoReconcileButton";
 import BalanceCard from "@/components/BalanceCard";
 import CashFlowChart from "@/components/CashFlowChart";
 import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
-import ReconciliationControl from "@/components/ReconciliationControl";
-import ScopePicker from "@/components/ScopePicker";
 import SyncButton from "@/components/SyncButton";
+import TransactionList, {
+  type LinhaMovimentacao,
+} from "@/components/TransactionList";
 import { getAdmin } from "@/lib/auth";
 import {
   getFinanceDashboard,
@@ -31,17 +32,6 @@ const filters: Array<{ value: ReconciliationFilter; label: string }> = [
   { value: "MATCHED", label: "Conciliadas" },
   { value: "IGNORED", label: "Ignoradas" },
 ];
-
-function statusLabel(status: string) {
-  return (
-    {
-      PENDING: "Pendente",
-      REVIEW: "Em revisão",
-      MATCHED: "Conciliado",
-      IGNORED: "Ignorado",
-    }[status] ?? status
-  );
-}
 
 export default async function FinancePage({
   searchParams,
@@ -85,6 +75,28 @@ export default async function FinancePage({
       : data.days === 90
         ? "transactions"
         : "overview";
+
+  // Decimal e BigInt não atravessam a fronteira do componente: viram texto aqui.
+  const linhas: LinhaMovimentacao[] = data.transactions.map((transaction) => ({
+    id: transaction.id.toString(),
+    occurredAt: transaction.occurredAt.toISOString(),
+    description: transaction.description,
+    transactionType: transaction.transactionType,
+    counterpartyName: transaction.counterpartyName ?? null,
+    direction: transaction.direction,
+    amount: transaction.amount.toString(),
+    currency: transaction.currency,
+    scope: transaction.scope,
+    scopeSource: transaction.scopeSource ?? null,
+    reconciliation: transaction.reconciliation
+      ? {
+          status: transaction.reconciliation.status,
+          referenceType: transaction.reconciliation.referenceType ?? null,
+          referenceId: transaction.reconciliation.referenceId ?? null,
+          note: transaction.reconciliation.note ?? null,
+        }
+      : null,
+  }));
 
   return (
     <AppShell adminName={admin.nome} section={activeSection}>
@@ -302,7 +314,7 @@ export default async function FinancePage({
           </div>
         </div>
 
-        {data.transactions.length === 0 ? (
+        {linhas.length === 0 ? (
           <div className="table-empty">
             <strong>Nenhuma movimentação neste recorte.</strong>
             <span>
@@ -310,119 +322,7 @@ export default async function FinancePage({
             </span>
           </div>
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Movimentação</th>
-                  <th>Origem / destino</th>
-                  <th>Valor</th>
-                  <th>Escopo</th>
-                  <th>Vínculo</th>
-                  <th>Estado</th>
-                  <th aria-label="Ações" />
-                </tr>
-              </thead>
-              <tbody>
-                {data.transactions.map((transaction) => {
-                  const reconciliation = transaction.reconciliation;
-                  const status = reconciliation?.status ?? "PENDING";
-                  return (
-                    <tr key={transaction.id.toString()}>
-                      <td>
-                        <time dateTime={transaction.occurredAt.toISOString()}>
-                          {formatDateTime(transaction.occurredAt)}
-                        </time>
-                      </td>
-                      <td>
-                        <div className="transaction-kind">
-                          <span
-                            className={
-                              transaction.direction === "CREDIT"
-                                ? "direction direction-credit"
-                                : "direction direction-debit"
-                            }
-                          >
-                            {transaction.direction === "CREDIT" ? "↙" : "↗"}
-                          </span>
-                          <span>
-                            <strong>{transaction.description}</strong>
-                            <small>{transaction.transactionType}</small>
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        {transaction.counterpartyName ?? (
-                          <span
-                            className="muted"
-                            title={
-                              transaction.direction === "CREDIT"
-                                ? "O Éfi não identifica o pagador em Pix recebido fora de cobrança — a resposta da API não traz esse campo."
-                                : "O Éfi não devolveu o favorecido nesta movimentação."
-                            }
-                          >
-                            Não informado
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className={
-                          transaction.direction === "CREDIT"
-                            ? "money positive"
-                            : "money"
-                        }
-                      >
-                        {transaction.direction === "CREDIT" ? "+" : "−"}{" "}
-                        {formatCurrency(
-                          transaction.amount.toString(),
-                          transaction.currency,
-                        )}
-                      </td>
-                      <td>
-                        <ScopePicker
-                          transactionId={transaction.id.toString()}
-                          scope={transaction.scope}
-                          source={transaction.scopeSource}
-                        />
-                      </td>
-                      <td>
-                        {reconciliation?.referenceId ? (
-                          <span className="reference">
-                            {reconciliation.referenceType === "LEDGER" ? (
-                              <Link
-                                href={`/financeiro/contas?status=ALL&scope=ALL`}
-                              >
-                                Conta #{reconciliation.referenceId}
-                              </Link>
-                            ) : (
-                              `${reconciliation.referenceType} · ${reconciliation.referenceId}`
-                            )}
-                          </span>
-                        ) : (
-                          <span className="muted">Sem vínculo</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`status-pill status-${status.toLowerCase()}`}>
-                          {statusLabel(status)}
-                        </span>
-                      </td>
-                      <td>
-                        <ReconciliationControl
-                          transactionId={transaction.id.toString()}
-                          currentStatus={status}
-                          referenceType={reconciliation?.referenceType}
-                          referenceId={reconciliation?.referenceId}
-                          note={reconciliation?.note}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <TransactionList transactions={linhas} />
         )}
       </section>
     </AppShell>
