@@ -52,6 +52,22 @@ RUN set -eu; \
         fi; \
     done
 
+# ---------------------------------------------------------------------------
+# Qual commit está rodando.
+#
+# Mesma correção feita no Comandeiro em 31/08/2026, e pelo mesmo motivo: sem
+# isto nada no sistema sabe responder essa pergunta, e a árvore do servidor
+# diverge do repositório sem ninguém perceber. Aqui a divergência já existia —
+# o `/opt` estava 57 arquivos atrás da `main`.
+#
+# Fica no fim do arquivo de propósito: mais acima, mudar o SHA a cada commit
+# invalidaria o cache do build e cada deploy recompilaria tudo.
+# ---------------------------------------------------------------------------
+ARG GIT_SHA=desconhecido
+ARG BUILT_AT=desconhecido
+ENV GIT_SHA=$GIT_SHA
+ENV BUILT_AT=$BUILT_AT
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

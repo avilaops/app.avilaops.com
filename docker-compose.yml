@@ -1,6 +1,13 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      # Carimbo de versão: vem do ambiente de quem roda o build. O padrão é
+      # "desconhecido" — build feito à mão diz que não sabe, em vez de mentir
+      # o commit anterior.
+      args:
+        GIT_SHA: ${GIT_SHA:-desconhecido}
+        BUILT_AT: ${BUILT_AT:-desconhecido}
     restart: unless-stopped
     env_file:
       - .env.production
