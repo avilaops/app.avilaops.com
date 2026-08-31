@@ -83,7 +83,7 @@ Tudo entra em `OperationsAuditEvent` com o admin que clicou.
 5. **Ação longa responde 202 e devolve por callback** em
    `/api/webhooks/n8n/<ação>` com `x-service-key`.
 
-## 5. Variáveis de ambiente novas (`/opt/app-avila-inc/.env.production`)
+## 5. Variáveis de ambiente novas (`/opt/app-avilaops/.env.production`)
 
 ```
 N8N_WEBHOOK_BASE=https://n8n.avilaops.com/webhook
@@ -209,3 +209,28 @@ do n8n. Vazio desliga a rota (503).
 - **Não testado com cliente real**: criar loja e o onboarding do Google
   (criam coisas de verdade). Primeiro uso deve ser acompanhado com a
   execução aberta no n8n.
+
+## 8. Onde o app mora no servidor (padrão, 31/08/2026)
+
+| O quê | Nome |
+|---|---|
+| Domínio e repositório | `app.avilaops.com` |
+| Pasta no Hetzner | `/opt/app-avilaops` |
+| Projeto e container do Docker | `app-avilaops`, `app-avilaops-app-1` |
+| Porta local (Caddy aponta para ela) | `127.0.0.1:3004` |
+
+O nome antigo era `app-avila-inc`, herdado de quando o domínio principal era
+`avila.inc`. A renomeação é de 31/08/2026, por decisão do Nicolas, para o
+servidor falar o mesmo nome que o repositório.
+
+Antes de qualquer deploy, confirme para onde o container em pé aponta, em vez
+de assumir o caminho:
+
+```bash
+docker inspect app-avilaops-app-1 \
+  --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}'
+```
+
+Isso não é preciosismo: em 31/08/2026 um envio caiu na pasta antiga no exato
+minuto da renomeação e subiu um container que brigou pela porta 3004 com o que
+já estava servindo.

@@ -129,14 +129,14 @@ META_APP_ID
 META_APP_SECRET
 META_TOKEN_ENCRYPTION_KEY
 META_WEBHOOK_VERIFY_TOKEN
-APP_URL=https://app.avila.inc
+APP_URL=https://app.avilaops.com
 ```
 
 No painel da Meta, use:
 
 ```text
-OAuth Redirect URI: https://app.avila.inc/api/integrations/meta/oauth/callback
-Webhook Callback URL: https://app.avila.inc/api/webhooks/meta
+OAuth Redirect URI: https://app.avilaops.com/api/integrations/meta/oauth/callback
+Webhook Callback URL: https://app.avilaops.com/api/webhooks/meta
 ```
 
 ## Produção
