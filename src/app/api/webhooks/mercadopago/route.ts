@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { baixarCobrancaPorIdExterno } from "@/lib/assinaturas";
+import { markDeliverablePaidAndNotify } from "@/lib/deliverables";
 import { getPagamentoStatus } from "@/lib/mercadopago-cobranca";
 import { prisma } from "@/lib/prisma";
 
@@ -88,14 +89,30 @@ export async function POST(request: NextRequest) {
   // que nunca vai ser nosso.
   if (!pagamentoId) return NextResponse.json({ ok: true, ignorado: true });
 
-  // Id que não bate com cobrança nossa não vira consulta à API — senão o
-  // endpoint vira ferramenta de varredura de ids válidos.
-  const cobranca = await prisma.subscriptionCharge.findFirst({
-    where: { externalId: pagamentoId },
-    select: { id: true, status: true },
-  });
+  /*
+    Id que não bate com cobrança nossa não vira consulta à API — senão o
+    endpoint vira ferramenta de varredura de ids válidos.
 
-  if (!cobranca) return NextResponse.json({ ok: true, desconhecido: true });
+    Duas famílias de cobrança usam o mesmo gateway e o mesmo webhook: a
+    MENSALIDADE (`SubscriptionCharge`) e o ENTREGÁVEL avulso
+    (`DeliverableCharge`). O id do Mercado Pago é único entre as duas, então
+    procurar nas duas é seguro; deixar de procurar numa delas é que faria a
+    cobrança nascer e nunca fechar.
+  */
+  const [mensalidade, entregavel] = await Promise.all([
+    prisma.subscriptionCharge.findFirst({
+      where: { externalId: pagamentoId },
+      select: { id: true },
+    }),
+    prisma.deliverableCharge.findFirst({
+      where: { externalId: pagamentoId },
+      select: { id: true, deliverableId: true, status: true },
+    }),
+  ]);
+
+  if (!mensalidade && !entregavel) {
+    return NextResponse.json({ ok: true, desconhecido: true });
+  }
 
   let situacao: string;
   try {
@@ -107,10 +124,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Falha ao confirmar o pagamento." }, { status: 500 });
   }
 
-  // `rejected`, `cancelled` e `in_process` também são registrados: o cliente
-  // precisa ver na tela que o cartão foi recusado, senão ele fica esperando um
-  // "pendente" que nunca vai virar pago.
-  await baixarCobrancaPorIdExterno(pagamentoId, situacao === PAGO ? "approved" : situacao);
+  if (mensalidade) {
+    // `rejected`, `cancelled` e `in_process` também são registrados: o cliente
+    // precisa ver na tela que o cartão foi recusado, senão ele fica esperando
+    // um "pendente" que nunca vai virar pago.
+    await baixarCobrancaPorIdExterno(pagamentoId, situacao === PAGO ? "approved" : situacao);
+  }
+
+  if (entregavel && situacao === PAGO && entregavel.status !== "PAID") {
+    await prisma.deliverableCharge.update({
+      where: { id: entregavel.id },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+    // Libera o arquivo e avisa quem comprou. Idempotente: sai fora sozinho se
+    // o entregável já estiver pago.
+    await markDeliverablePaidAndNotify(entregavel.deliverableId);
+  }
 
   return NextResponse.json({ ok: true, status: situacao });
 }

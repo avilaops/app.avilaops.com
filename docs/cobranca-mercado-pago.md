@@ -24,9 +24,7 @@ telas do produto não souberam da troca.
   `/api/webhooks/efi` segue no ar para dar baixa. `baixarCobrancaPorIdExterno`
   aceita os nomes de "pagou" dos dois gateways ao mesmo tempo. Essa lista só
   encolhe quando a última cobrança da Éfi fechar.
-- **Os entregáveis** (`DeliverableCharge`, o serviço avulso). Não foram
-  migrados: é outro fluxo, com outra tela, e misturar as duas migrações
-  dobrava o risco sem dobrar o ganho. Ficam para uma próxima.
+- ~~Os entregáveis~~ — **migrados em 31/08/2026**. Ver §8.
 
 Não há coluna de gateway em `SubscriptionCharge`, e a baixa procura por
 `externalId`. Não há colisão possível porque o id do Mercado Pago é numérico e
@@ -97,6 +95,32 @@ vira pago.
 `lib/parcelamento.ts` não mudou: o juros do parcelamento continua sendo conta
 nossa, não do gateway, para o cliente ver o mesmo número na simulação e na
 fatura do cartão.
+
+## 7b. Entregáveis, migrados em 31/08/2026
+
+O serviço avulso (`DeliverableCharge`) era o último fluxo na Efí. Migrou com
+uma diferença que a mensalidade não tem: **quem paga não é cliente cadastrado**.
+É alguém que recebeu um link com token, e tudo o que se sabe dele é o que o
+entregável guardou (`recipientName`, `recipientEmail`) mais o que ele digitar.
+
+Por isso o pagador é montado em camadas, do mais específico para o mais
+genérico: o que veio no formulário ganha do que está no entregável, que ganha
+do cadastro da empresa emissora. Sem isso o PIX passaria a pedir um e-mail que
+a tela nunca pediu — o Mercado Pago exige e-mail em qualquer pagamento, e a
+Efí não exigia.
+
+O **endereço do boleto sai da empresa emissora**, não de quem paga: é a empresa
+que a gente conhece. Quando falta, a recusa diz exatamente isso, porque "informe
+o endereço" faria o comprador procurar um campo que não existe na tela dele.
+
+O webhook passou a atender as **duas famílias** de cobrança. O id do Mercado
+Pago é único entre elas, então procurar nas duas é seguro; deixar de procurar
+numa delas faria a cobrança nascer e nunca fechar. Entregável pago libera o
+arquivo e avisa o comprador (`markDeliverablePaidAndNotify`), que já era
+idempotente.
+
+Com isto, **nenhuma cobrança nova nasce na Efí**. O `/api/webhooks/efi`
+continua no ar só para as que já estavam abertas.
 
 ## 7. Verificado em 30/08/2026
 
