@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requestPasswordReset } from "@/lib/auth";
-import { sendEmail } from "@/lib/resend";
+import { enviarEmail } from "@/lib/email";
 
 function genericResponse() {
   return NextResponse.json({
@@ -27,9 +27,9 @@ export async function POST(request: Request) {
     if (rawToken) {
       const baseUrl = process.env.APP_BASE_URL ?? "https://app.avilaops.com";
       const resetUrl = `${baseUrl}/redefinir-senha?token=${rawToken}`;
-      await sendEmail({
+      await enviarEmail({
         to: email,
-        subject: "Redefinição de senha — Ávila OS",
+        subject: "Redefinição de senha no Ávila OS",
         html: `
           <p>Recebemos um pedido para redefinir a senha da sua conta no Ávila OS.</p>
           <p><a href="${resetUrl}">Clique aqui para criar uma nova senha</a>. O link expira em 1 hora.</p>

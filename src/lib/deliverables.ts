@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/resend";
+import { enviarEmail } from "@/lib/email";
 
 export function generateAccessToken(): string {
   return randomBytes(24).toString("hex");
@@ -67,7 +67,7 @@ export async function markDeliverablePaidAndNotify(deliverableId: string) {
   const downloadPageUrl = `${baseUrl}/entrega/${deliverable.accessToken}`;
 
   try {
-    await sendEmail({
+    await enviarEmail({
       to: deliverable.recipientEmail,
       subject: `Pagamento confirmado: ${deliverable.title}`,
       html: `

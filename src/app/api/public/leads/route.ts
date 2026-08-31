@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cleanText } from "@/lib/http";
 import { verifyServiceJwt } from "@/lib/service-auth";
+import { avisarPorEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -59,5 +60,34 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  // Lead que ninguém vê é lead perdido. Até 31/08/2026 o aviso saía do Worker
+  // de captura pelo Resend, cuja chave está inválida: o formulário do site
+  // gravava a linha e não avisava ninguém. Agora sai daqui, pelo servidor da
+  // casa, e nunca derruba a gravação do lead.
+  const destino = process.env.LEAD_NOTIFY_TO?.trim() || "nicolas@avilaops.com";
+  const numero = whatsapp.replace(/[^0-9]/g, "");
+  const linhas = [
+    `<p><strong>${escapar(name)}</strong>, de ${escapar(company)}</p>`,
+    numero ? `<p>WhatsApp: <a href="https://wa.me/${numero}">${escapar(whatsapp)}</a></p>` : "",
+    moment ? `<p>Momento da empresa: ${escapar(moment)}</p>` : "",
+    `<p>O que a pessoa escreveu:</p><p>${escapar(challenge).split("\n").join("<br/>")}</p>`,
+    `<p>Origem: ${escapar(source)}. Abrir no painel: <a href="https://app.avilaops.com/operacao">app.avilaops.com/operacao</a></p>`,
+  ].filter(Boolean);
+
+  await avisarPorEmail({
+    to: destino,
+    subject: `Lead novo: ${company} (${name})`,
+    html: linhas.join(""),
+  });
+
   return NextResponse.json({ ok: true, id: lead.id, created_at: lead.createdAt });
+}
+
+/** O lead vem de formulário público: nada dele entra cru no HTML do aviso. */
+function escapar(valor: string): string {
+  return valor
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
