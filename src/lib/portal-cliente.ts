@@ -25,6 +25,24 @@ export type PainelDoCliente = {
   contatos: Array<{ nome: string; email: string | null; telefone: string | null; principal: boolean }>;
   dominios: Array<{ fqdn: string; status: string; expiraEm: Date | null; renovacaoAutomatica: boolean }>;
   assinaturas: Array<{ id: string; descricao: string; valor: number; moeda: string; diaDaCobranca: number; status: string; desde: Date }>;
+  /**
+   * Faturas do cliente, abertas primeiro.
+   *
+   * Até 31/08/2026 o portal mostrava o plano e escondia a conta: quem quisesse
+   * pagar tinha que pedir o Pix por WhatsApp. Aqui vem a fatura com a cobrança
+   * que já existe, quando existe, para não gerar um Pix novo a cada visita.
+   */
+  faturas: Array<{
+    id: string;
+    descricao: string;
+    competencia: string;
+    tipo: string;
+    valor: number;
+    vencimento: Date;
+    status: string;
+    pagaEm: Date | null;
+    cobranca: { metodo: string; pixCopiaECola: string | null; boletoUrl: string | null; expiraEm: Date | null } | null;
+  }>;
   entregas: Array<{ id: string; titulo: string; status: string; valor: number; criadoEm: Date; token: string }>;
   etapas: Array<{ rotulo: string; status: string; concluidaEm: Date | null; prazo: Date | null }>;
 };
@@ -51,7 +69,34 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
       },
       subscriptions: {
         orderBy: [{ status: "asc" }, { startedAt: "desc" }],
-        select: { id: true, description: true, amount: true, currency: true, billingDay: true, status: true, startedAt: true },
+        select: {
+          id: true,
+          description: true,
+          amount: true,
+          currency: true,
+          billingDay: true,
+          status: true,
+          startedAt: true,
+          invoices: {
+            orderBy: [{ dueDate: "desc" }],
+            take: 12,
+            select: {
+              id: true,
+              competence: true,
+              kind: true,
+              amount: true,
+              dueDate: true,
+              status: true,
+              paidAt: true,
+              charges: {
+                where: { status: { in: ["CREATED", "PENDING", "WAITING"] } },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: { method: true, pixCopyPaste: true, boletoUrl: true, expiresAt: true },
+              },
+            },
+          },
+        },
       },
       deliverables: {
         orderBy: { createdAt: "desc" },
@@ -98,6 +143,36 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
       status: s.status,
       desde: s.startedAt,
     })),
+    faturas: empresa.subscriptions
+      .flatMap((s) =>
+        s.invoices.map((f) => {
+          const cobranca = f.charges[0] ?? null;
+          return {
+            id: f.id,
+            descricao: s.description,
+            competencia: f.competence,
+            tipo: f.kind,
+            valor: Number(f.amount),
+            vencimento: f.dueDate,
+            status: f.status,
+            pagaEm: f.paidAt,
+            cobranca: cobranca
+              ? {
+                  metodo: cobranca.method,
+                  pixCopiaECola: cobranca.pixCopyPaste,
+                  boletoUrl: cobranca.boletoUrl,
+                  expiraEm: cobranca.expiresAt,
+                }
+              : null,
+          };
+        }),
+      )
+      // Aberta e vencida primeiro: é o que o cliente entrou para resolver.
+      .sort((a, b) => {
+        const aberta = (f: { status: string }) => (f.status === "OPEN" || f.status === "OVERDUE" ? 0 : 1);
+        return aberta(a) - aberta(b) || b.vencimento.getTime() - a.vencimento.getTime();
+      })
+      .slice(0, 12),
     entregas: empresa.deliverables.map((d) => ({
       id: d.id,
       titulo: d.title,

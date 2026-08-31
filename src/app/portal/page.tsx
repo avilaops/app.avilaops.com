@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import EquipeDoCliente from "@/components/EquipeDoCliente";
+import FaturasDoCliente from "@/components/FaturasDoCliente";
 import { getSessaoPortal, ehDaCasa, ehDonoDoNegocio } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { carregarPainelDoCliente } from "@/lib/portal-cliente";
@@ -73,9 +74,13 @@ export default async function PortalDoCliente() {
     );
   }
 
-  const { empresa, contatos, dominios, assinaturas, entregas, etapas } = painel;
+  const { empresa, contatos, dominios, assinaturas, faturas, entregas, etapas } = painel;
   const etapasConcluidas = etapas.filter((e) => e.status === "DONE").length;
   const mensal = assinaturas.filter((a) => a.status === "ACTIVE").reduce((soma, a) => soma + a.valor, 0);
+  // O que o cliente deve agora é o número que ele veio ver.
+  const emAberto = faturas
+    .filter((f) => f.status === "OPEN" || f.status === "OVERDUE")
+    .reduce((soma, f) => soma + f.valor, 0);
 
   return (
     <main className="portal-frame">
@@ -95,11 +100,11 @@ export default async function PortalDoCliente() {
       <section className="portal-metrics">
         <div className="portal-metric">
           <small>Mensalidade ativa</small>
-          <strong>{mensal > 0 ? formatCurrency(mensal) : "—"}</strong>
+          <strong>{mensal > 0 ? formatCurrency(mensal) : "nenhuma"}</strong>
         </div>
         <div className="portal-metric">
-          <small>Domínios</small>
-          <strong>{dominios.length}</strong>
+          <small>Em aberto</small>
+          <strong>{emAberto > 0 ? formatCurrency(emAberto) : "nada"}</strong>
         </div>
         <div className="portal-metric">
           <small>Entregas</small>
@@ -107,7 +112,7 @@ export default async function PortalDoCliente() {
         </div>
         <div className="portal-metric">
           <small>Implantação</small>
-          <strong>{etapas.length ? `${etapasConcluidas}/${etapas.length}` : "—"}</strong>
+          <strong>{etapas.length ? `${etapasConcluidas}/${etapas.length}` : "a começar"}</strong>
         </div>
       </section>
 
@@ -145,6 +150,27 @@ export default async function PortalDoCliente() {
           </ul>
         )}
       </section>
+
+      <FaturasDoCliente
+        iniciais={faturas.map((f) => ({
+          id: f.id,
+          descricao: f.descricao,
+          competencia: f.competencia,
+          tipo: f.tipo,
+          valor: f.valor,
+          vencimento: f.vencimento.toISOString(),
+          status: f.status,
+          pagaEm: f.pagaEm?.toISOString() ?? null,
+          cobranca: f.cobranca
+            ? {
+                metodo: f.cobranca.metodo,
+                pixCopiaECola: f.cobranca.pixCopiaECola,
+                boletoUrl: f.cobranca.boletoUrl,
+                expiraEm: f.cobranca.expiraEm?.toISOString() ?? null,
+              }
+            : null,
+        }))}
+      />
 
       <section className="portal-card">
         <h2>Seus domínios</h2>

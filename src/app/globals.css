@@ -5783,3 +5783,19 @@ tbody tr:last-child td {
 .portal-tag { margin-left: 8px; padding: 2px 7px; border-radius: 999px; background: var(--surface-raised); color: var(--muted); font-size: 10px; font-style: normal; }
 .portal-acoes { display: flex; gap: 12px; flex: none; }
 .portal-acoes .text-button { font-size: 12px; }
+
+/* Faturas na área do cliente: o Pix fica na mão de quem paga. */
+.portal-faturas li { align-items: flex-start; }
+.portal-acoes { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; margin-top: 10px; }
+.portal-acoes button, .portal-acoes a {
+  min-height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 10px;
+  background: var(--blue); color: #fff; font-size: 13px; font-weight: 650;
+  display: inline-flex; align-items: center; text-decoration: none; cursor: pointer;
+}
+.portal-acoes button:disabled { opacity: .6; cursor: progress; }
+.portal-acoes .secundario { border-color: var(--line); background: transparent; color: var(--text); }
+.portal-pix { display: grid; gap: 8px; width: 100%; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+/* Código longo não pode empurrar a tela no celular: quebra e rola dentro do bloco. */
+.portal-pix code { overflow-wrap: anywhere; padding: 10px; border-radius: 8px; background: var(--surface-raised); color: var(--text); font-size: 12px; line-height: 1.5; }
+.portal-pix button { min-height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 650; cursor: pointer; }
+.portal-pix small { color: var(--subtle-text); font-size: 12px; }
