@@ -594,7 +594,7 @@ export default function ProvisionamentoPanel({
         <Sheet titulo="Adicionar domínio" aoFechar={fecharFolha} rodape={rodape("form-dominio", "Configurar domínio", "dominio")}>
           <form id="form-dominio" className="form-stack" onSubmit={enviarDominio}>
             <p className="field-help">
-              O domínio precisa estar registrado (Registro.br, Porkbun…). Se a zona não existir na Cloudflare, ela é criada e você recebe os nameservers para apontar.
+              O domínio precisa estar registrado no nome do cliente: .com.br e .br no Registro.br, genéricos na Cloudflare Registrar. Se a zona não existir na Cloudflare, ela é criada e você recebe os nameservers para apontar.
             </p>
             <label className="field">
               <span>Domínio</span>

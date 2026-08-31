@@ -17,7 +17,8 @@ const METODOS: MetodoCobranca[] = ["PIX", "BOLETO"];
  * - `pausar` / `retomar` / `cancelar` (cancelar fecha `endedAt`);
  * - `ajustar` `{ valor?, dia? }` — vale a partir da próxima fatura;
  * - `gerar-fatura` `{ competencia? }` — mensalidade do mês (idempotente);
- * - `cobrar` `{ invoiceId, metodo: PIX | BOLETO }` — emite a cobrança na Éfi
+ * - `cobrar` `{ invoiceId, metodo: PIX | BOLETO }` — emite a cobrança no
+ *   Mercado Pago, único meio da casa desde 31/08/2026
  *   e devolve o copia-e-cola / link do boleto para mandar ao cliente.
  */
 export async function PATCH(
@@ -120,7 +121,7 @@ export async function PATCH(
       if (erro instanceof CobrancaIndisponivelError) {
         return NextResponse.json({ error: erro.message }, { status: 400 });
       }
-      return NextResponse.json({ error: erro instanceof Error ? erro.message : "A Éfi recusou a cobrança." }, { status: 502 });
+      return NextResponse.json({ error: erro instanceof Error ? erro.message : "O Mercado Pago recusou a cobrança." }, { status: 502 });
     }
   }
 

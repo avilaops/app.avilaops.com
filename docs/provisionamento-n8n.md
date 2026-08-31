@@ -168,10 +168,24 @@ do n8n. Vazio desliga a rota (503).
 
 ## 6. O que ficou de fora e por quê
 
-- **Registro do domínio no Porkbun/Registro.br** — não há chave de API do
-  registrador em `tokens.env`. O fluxo pede o domínio já registrado e devolve
-  os nameservers da Cloudflare para apontar. Quando houver chave, entra como
-  passo 0 do mesmo workflow.
+- **Registro do domínio** — o fluxo pede o domínio já registrado e devolve os
+  nameservers da Cloudflare para apontar. A compra em si continua manual, e
+  por decisão de 31/08/2026 ela tem endereço fixo:
+
+  | Extensão | Onde registrar | Por quê |
+  |---|---|---|
+  | `.com`, `.app`, `.dev` e demais genéricos | **Cloudflare Registrar** | é onde o DNS já mora, vende a preço de custo e não empurra serviço |
+  | `.com.br` e `.br` | **Registro.br**, direto | não existe intermediário que valha a pena, e o CNPJ do cliente é exigido de qualquer jeito |
+
+  O domínio é registrado **no nome do cliente**, com a Ávila Ops como contato
+  técnico (decisão de 30/08). Os dois registradores suportam esse arranjo.
+  O Porkbun sai de cena: era mais um lugar para guardar senha, sem ganho.
+
+  **A Ávila Ops não vira revendedora de domínio.** Revenda exige
+  credenciamento, margem própria, suporte e responsabilidade sobre a renovação
+  de terceiro; é um produto inteiro, não um atalho. Se um dia valer a pena,
+  entra como decisão própria, com preço e contrato, não como consequência
+  disto aqui.
 - ~~Assinatura, cofre, marcas, etapas~~ — feitos em 30/08 (seção 5b).
 - **Meta/WhatsApp por cliente** — exige multi-tenant da conta da Meta.
 

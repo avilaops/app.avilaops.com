@@ -87,7 +87,7 @@ const rotuloCiclo: Record<string, string> = {
   FOUR_YEARS: "4 anos",
 };
 
-const provedoresSugeridos = ["openai", "cloudflare", "google", "meta", "mercadopago", "efi", "resend", "twilio", "hostinger", "porkbun"];
+const provedoresSugeridos = ["openai", "cloudflare", "google", "meta", "mercadopago", "resend", "twilio", "hostinger", "registrobr"];
 
 function precoTexto(cents: number | null) {
   return cents === null ? "" : (cents / 100).toFixed(2).replace(".", ",");
@@ -314,7 +314,7 @@ export default function OperacaoPanel({
       <div className="prov-grid">
         <Cartao
           titulo="Cobrança recorrente"
-          descricao="Mensalidade e implantação; PIX e boleto pela Éfi, baixa pelo webhook."
+          descricao="Mensalidade e implantação; PIX e boleto pelo Mercado Pago, baixa pelo webhook."
           resultado={resultados.cobranca ?? null}
           acoes={
             <button type="button" className="primary-button" onClick={() => setFolha("assinatura")}>
