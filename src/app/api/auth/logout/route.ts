@@ -31,5 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.redirect(urlLoginSSO(), 303);
   }
 
-  return NextResponse.redirect(new URL("/login", request.url), 303);
+  // Caminho relativo: montar a URL a partir de `request.url` devolvia o host
+  // interno do container (0.0.0.0:3000) e o "Sair" levava a um endereço morto.
+  return new NextResponse(null, { status: 303, headers: { location: "/login" } });
 }
