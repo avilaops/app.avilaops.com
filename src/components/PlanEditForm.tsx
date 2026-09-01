@@ -71,7 +71,7 @@ export function dinheiro(cents: number | null, moeda = "BRL") {
 
 /** Só o símbolo, para o prefixo do campo de preço. */
 export function simboloDaMoeda(moeda: string) {
-  const mapa: Record<string, string> = { BRL: "R$", USD: "US$", CAD: "C$", EUR: "€", GBP: "£", AUD: "A$" };
+  const mapa: Record<string, string> = { BRL: "R$", USD: "US$", CAD: "C$", EUR: "€", GBP: "£", AUD: "A$", MXN: "MX$" };
   return mapa[moeda] ?? moeda;
 }
 
@@ -83,6 +83,7 @@ export const moedas = [
   ["EUR", "Euro (€)"],
   ["GBP", "Libra (£)"],
   ["AUD", "Dólar australiano (A$)"],
+  ["MXN", "Peso mexicano (MX$)"],
 ] as const;
 
 function precoTexto(cents: number | null) {

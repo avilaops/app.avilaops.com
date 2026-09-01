@@ -10,7 +10,7 @@ import { slugify } from "@/lib/slug";
  * Fechada porque preço em moeda que a casa não sabe receber é promessa que
  * não se cumpre. Valor desconhecido cai em BRL, que é o padrão do banco.
  */
-const MOEDAS = new Set(["BRL", "USD", "CAD", "EUR", "GBP", "AUD"]);
+const MOEDAS = new Set(["BRL", "USD", "CAD", "EUR", "GBP", "AUD", "MXN"]);
 
 function moedaValida(valor: unknown) {
   const texto = cleanText(valor, 3).toUpperCase();
