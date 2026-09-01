@@ -43,6 +43,8 @@ export type PlanoDaFicha = {
   name: string;
   serviceType: string;
   priceCents: number | null;
+  /** Sem isto a ficha mostrava plano em dólar com cifrão de real. */
+  currency: string;
   billingCycle: string | null;
 };
 
@@ -490,7 +492,7 @@ export default function OperacaoPanel({
                 <option value="">Escolher (preenche descrição e valor)</option>
                 {planosRecorrentes.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — {p.priceCents !== null ? dinheiro(p.priceCents) : "a definir"} ({rotuloCiclo[p.billingCycle ?? ""] ?? p.billingCycle})
+                    {p.name} — {p.priceCents !== null ? dinheiro(p.priceCents, p.currency) : "a definir"} ({rotuloCiclo[p.billingCycle ?? ""] ?? p.billingCycle})
                   </option>
                 ))}
               </select>
@@ -525,7 +527,7 @@ export default function OperacaoPanel({
                   <option value="">Sem plano</option>
                   {planosUnicos.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {p.priceCents !== null ? dinheiro(p.priceCents) : "a definir"}
+                      {p.name} — {p.priceCents !== null ? dinheiro(p.priceCents, p.currency) : "a definir"}
                     </option>
                   ))}
                 </select>

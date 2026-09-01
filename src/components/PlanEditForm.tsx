@@ -53,13 +53,37 @@ export function rotuloStatus(valor: string) {
   return statusPlano.find(([codigo]) => codigo === valor)?.[1] ?? valor;
 }
 
-export function dinheiro(cents: number | null) {
+/**
+ * Preço na moeda do plano.
+ *
+ * Era fixo em real, e isso não é detalhe: um plano em dólar aparecia na tela
+ * como "R$ 79,00", que é preço errado escrito com confiança. Desde 31/08/2026
+ * a casa vende em cinco moedas (BRL, USD, CAD, EUR, GBP, AUD), cada mercado no
+ * preço local, então quem exibe preço precisa dizer de qual moeda se trata.
+ */
+export function dinheiro(cents: number | null, moeda = "BRL") {
   if (cents === null) return "A definir";
-  return new Intl.NumberFormat("pt-BR", {
+  return new Intl.NumberFormat(moeda === "BRL" ? "pt-BR" : "en-US", {
     style: "currency",
-    currency: "BRL",
+    currency: moeda,
   }).format(cents / 100);
 }
+
+/** Só o símbolo, para o prefixo do campo de preço. */
+export function simboloDaMoeda(moeda: string) {
+  const mapa: Record<string, string> = { BRL: "R$", USD: "US$", CAD: "C$", EUR: "€", GBP: "£", AUD: "A$" };
+  return mapa[moeda] ?? moeda;
+}
+
+/** Moedas em que a casa vende. Fechada de propósito: moeda inventada vira preço que ninguém sabe cobrar. */
+export const moedas = [
+  ["BRL", "Real (R$)"],
+  ["USD", "Dólar (US$)"],
+  ["CAD", "Dólar canadense (C$)"],
+  ["EUR", "Euro (€)"],
+  ["GBP", "Libra (£)"],
+  ["AUD", "Dólar australiano (A$)"],
+] as const;
 
 function precoTexto(cents: number | null) {
   return cents === null ? "" : (cents / 100).toFixed(2).replace(".", ",");
@@ -70,6 +94,7 @@ type Campos = {
   name: string;
   slug: string;
   price: string;
+  currency: string;
   billingCycle: string;
   status: StatusPlano;
   sortOrder: string;
@@ -96,6 +121,7 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
     name: plano?.name ?? "",
     slug: plano?.slug ?? "",
     price: precoTexto(plano?.priceCents ?? null),
+    currency: plano?.currency ?? "BRL",
     billingCycle: plano?.billingCycle ?? "ONE_TIME",
     status: (statusPlano.some(([codigo]) => codigo === plano?.status)
       ? plano?.status
@@ -228,7 +254,7 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
           <label className="field">
             <span>Preço</span>
             <span className="input-prefix">
-              <i aria-hidden="true">R$</i>
+              <i aria-hidden="true">{simboloDaMoeda(campos.currency)}</i>
               <input
                 value={campos.price}
                 onChange={(evento) => mudar("price", evento.target.value)}
@@ -238,6 +264,21 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
               />
             </span>
             <small className="field-help">Vazio fica como “a definir”.</small>
+          </label>
+
+          <label className="field field-select">
+            <span>Moeda</span>
+            <select
+              value={campos.currency}
+              onChange={(evento) => mudar("currency", evento.target.value)}
+            >
+              {moedas.map(([codigo, rotulo]) => (
+                <option key={codigo} value={codigo}>
+                  {rotulo}
+                </option>
+              ))}
+            </select>
+            <Icone nome="chevron" tamanho={16} className="chevron" />
           </label>
 
           <label className="field field-select">

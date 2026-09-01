@@ -144,7 +144,7 @@ export default async function ClientDossierPage({
         organizationId={organization.id}
         nomeCliente={organization.name}
         assinaturas={assinaturas}
-        planos={plans.map((p) => ({ id: p.id, name: p.name, serviceType: p.serviceType, priceCents: p.priceCents, billingCycle: p.billingCycle }))}
+        planos={plans.map((p) => ({ id: p.id, name: p.name, serviceType: p.serviceType, priceCents: p.priceCents, currency: p.currency, billingCycle: p.billingCycle }))}
         marcas={organization.brands}
         credenciais={integrationConnections.map(resumirCredencial)}
         etapas={organization.onboardingSteps.map((e) => ({

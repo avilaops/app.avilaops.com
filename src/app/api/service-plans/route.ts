@@ -4,6 +4,19 @@ import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 
+/**
+ * Moeda do plano, de uma lista fechada.
+ *
+ * Fechada porque preço em moeda que a casa não sabe receber é promessa que
+ * não se cumpre. Valor desconhecido cai em BRL, que é o padrão do banco.
+ */
+const MOEDAS = new Set(["BRL", "USD", "CAD", "EUR", "GBP", "AUD"]);
+
+function moedaValida(valor: unknown) {
+  const texto = cleanText(valor, 3).toUpperCase();
+  return MOEDAS.has(texto) ? texto : "BRL";
+}
+
 function priceToCents(value: unknown) {
   const text = cleanText(value, 30).replace(/\./g, "").replace(",", ".");
   if (!text) return null;
@@ -35,6 +48,7 @@ export async function POST(request: NextRequest) {
       name,
       description: cleanText(body?.description, 1000) || null,
       priceCents: priceToCents(body?.price),
+      currency: moedaValida(body?.currency),
       billingCycle: cleanText(body?.billingCycle, 40) || "ONE_TIME",
       status: cleanText(body?.status, 40) || "ACTIVE",
       sortOrder: Number(cleanText(body?.sortOrder, 12)) || 100,
