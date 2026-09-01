@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Cliente da API do Mercado Pago da Avila Ops — a conta que **cobra**, não a
@@ -22,10 +23,19 @@ function credencial(): { token: string; clientId: string } {
   const clientIdAmbiente = process.env.MP_CLIENT_ID ?? "";
   if (doAmbiente) return { token: doAmbiente, clientId: clientIdAmbiente };
 
-  // Em desenvolvimento o arquivo da raiz do monorepo é a fonte; em produção
-  // as variáveis vêm do ambiente e este bloco nem roda.
+  // Em desenvolvimento o arquivo do monorepo é a fonte; em produção as
+  // variáveis vêm do ambiente e este bloco nem roda.
+  //
+  // O caminho é montado em tempo de execução, e não como especificador
+  // estático: antes era `new URL("../../../.env.production", import.meta.url)`,
+  // que o Turbopack tenta **resolver durante o build**. Quando o arquivo saiu
+  // da raiz para `docs/` (29/08/2026), o build inteiro do app passou a falhar
+  // com "Module not found" — um atalho de conveniência de desenvolvimento
+  // derrubando a compilação de produção. Assim ele volta a ser o que sempre
+  // deveria ter sido: uma tentativa, protegida pelo `catch`.
   try {
-    const bruto = readFileSync(new URL("../../../.env.production", import.meta.url), "utf8");
+    const caminho = join(process.cwd(), "..", "docs", ".env.production");
+    const bruto = readFileSync(caminho, "utf8");
     const env = Object.fromEntries(
       bruto
         .split(/\r?\n/)
