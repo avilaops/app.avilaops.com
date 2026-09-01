@@ -5799,3 +5799,34 @@ tbody tr:last-child td {
 .portal-pix code { overflow-wrap: anywhere; padding: 10px; border-radius: 8px; background: var(--surface-raised); color: var(--text); font-size: 12px; line-height: 1.5; }
 .portal-pix button { min-height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 650; cursor: pointer; }
 .portal-pix small { color: var(--subtle-text); font-size: 12px; }
+
+/* Autoatendimento de e-mail (/email) — página pública, aberta no celular na
+   maioria das vezes: tudo em coluna única, com alvo de toque grande. */
+.autoatendimento { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; display: grid; gap: 24px; }
+.autoatendimento h1 { font-size: 26px; line-height: 1.25; margin: 0 0 8px; }
+.autoatendimento h2 { font-size: 17px; margin: 0 0 8px; }
+.autoatendimento-sub { color: var(--subtle-text); font-size: 14px; line-height: 1.6; margin: 0; }
+.autoatendimento-form { display: grid; gap: 8px; }
+.autoatendimento-form label { font-size: 13px; font-weight: 650; }
+.autoatendimento-linha { display: flex; flex-wrap: wrap; gap: 8px; }
+.autoatendimento-linha input { flex: 1 1 220px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 15px; }
+.autoatendimento-linha button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 650; cursor: pointer; }
+.autoatendimento-linha button:disabled { opacity: .5; cursor: default; }
+.autoatendimento-erro { color: var(--danger, #d33); font-size: 14px; margin: 0; }
+.autoatendimento-registros ul { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 12px; }
+.autoatendimento-registros li { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); display: grid; gap: 6px; }
+.autoatendimento-registro-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.autoatendimento-tipo { font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 6px; background: var(--surface-raised); }
+.autoatendimento-registro-topo button { margin-left: auto; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer; }
+/* O valor do DKIM é uma chave longa: quebra dentro do bloco em vez de esticar a página. */
+.autoatendimento-valor { display: block; overflow-wrap: anywhere; padding: 10px; border-radius: 8px; background: var(--surface-raised); font-size: 12px; line-height: 1.5; }
+.autoatendimento-nota { color: var(--subtle-text); font-size: 12px; margin: 0; }
+.autoatendimento-conferir { margin-top: 16px; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 650; cursor: pointer; }
+.autoatendimento-ok, .autoatendimento-pendente { padding: 16px; border-radius: 12px; border: 1px solid var(--line); display: grid; gap: 10px; }
+.autoatendimento-ok { border-color: #2c7; background: rgba(34, 204, 119, .07); }
+.autoatendimento-pendente { border-color: #d93; background: rgba(221, 153, 51, .07); }
+.autoatendimento-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.autoatendimento-checks li { display: flex; gap: 8px; align-items: center; }
+.autoatendimento-checks .ok { color: var(--text); }
+.autoatendimento-checks .falta { color: var(--subtle-text); }
+.autoatendimento-whatsapp { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 18px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 650; text-align: center; text-decoration: none; }
