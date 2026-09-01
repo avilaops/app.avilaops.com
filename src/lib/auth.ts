@@ -248,7 +248,12 @@ async function getAdminSSO(): Promise<AdminAtual | null> {
   // O cookie do SSO vale para TODOS os subdomínios: tê-lo só significa que a
   // pessoa logou em algum sistema Avila Ops. Este app é restrito, então o papel
   // é conferido aqui também — não basta o bloqueio feito no auth server.
-  if (!ehDaCasa(sessao.papel)) return null;
+  //
+  // O que o token sabe dizer é grosso: equipe ou cliente. Exigir `OWNER` aqui
+  // não filtrava ninguém, **fechava tudo** — nenhum token pode dizer OWNER, e
+  // por isso todo login por SSO neste app caía fora, o do dono inclusive
+  // (01/09/2026). Quem decide de verdade é a consulta logo abaixo.
+  if (sessao.papel !== "ADMIN") return null;
 
   // O papel mora em `portal_clients`, não no token: o auth só sabe dizer
   // ADMIN/CLIENTE, e é aqui que OWNER existe. Sem esta consulta, o dono entrando
@@ -261,15 +266,12 @@ async function getAdminSSO(): Promise<AdminAtual | null> {
     : null;
   if (conta && ehDaCasa(conta.role)) return conta;
 
-  return {
-    // Prefixo `sso:` para a auditoria distinguir a origem e nunca colidir com um
-    // id real de `portal_clients`. `actorId`/`createdBy` são colunas de texto
-    // sem FK, então um id sintético aqui não quebra integridade referencial.
-    id: `sso:${sessao.sub}`,
-    nome: sessao.nome,
-    email: sessao.email,
-    role: sessao.papel,
-  };
+  // Sem conta da casa no banco, não entra. A identidade sintética que existia
+  // aqui carregava o papel do token, que nunca é da casa: ou virava sessão
+  // recusada mais adiante, ou seria brecha se alguém confiasse nela. Este é o
+  // painel da plataforma — quem não tem linha OWNER em `portal_clients` não
+  // tem o que fazer aqui.
+  return null;
 }
 
 function hashResetToken(rawToken: string): string {
