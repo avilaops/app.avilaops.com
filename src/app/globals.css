@@ -1631,15 +1631,64 @@ tbody tr:last-child td {
   font-weight: 600;
 }
 
+/* Lista agrupada, no padrão de Ajustes do iOS: um cartão só, uma linha por
+   número. Eram seis cartões de 16px de padding com o valor em 1.5rem — para
+   seis números quase todos zerados, isso ocupava a tela inteira antes do que
+   importa. */
 .operations-metrics {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.operations-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 10px 14px;
+}
+
+.operations-metric + .operations-metric {
+  border-top: 1px solid var(--line-soft);
+}
+
+.operations-metric-label {
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.operations-metric > strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-family: var(--mono);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.operations-metric > small {
+  grid-column: 1;
+  color: var(--subtle-text);
+  font-size: 0.75rem;
+}
+
+/* As telas do Meta (ativos, campanhas, leads) seguem em cartões: lá são três
+   ou quatro números que valem a comparação lado a lado, não uma lista. */
+.metric-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 10px;
 }
 
-.operations-metric {
+.metric-cards .operations-metric {
   display: grid;
+  grid-template-columns: none;
   align-content: start;
   gap: 6px;
   padding: 16px;
@@ -1648,22 +1697,19 @@ tbody tr:last-child td {
   background: var(--surface);
 }
 
-.operations-metric > span {
+.metric-cards .operations-metric + .operations-metric {
+  border-top: 1px solid var(--line);
+}
+
+.metric-cards .operations-metric > span {
   color: var(--muted);
   font-size: 0.8125rem;
 }
 
-.operations-metric > strong {
-  font-family: var(--mono);
+.metric-cards .operations-metric > strong {
+  grid-row: auto;
+  grid-column: auto;
   font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.operations-metric > small {
-  color: var(--subtle-text);
-  font-size: 0.75rem;
 }
 
 .operations-metric-primary {
@@ -5471,15 +5517,19 @@ tbody tr:last-child td {
   }
 
   /* Lista de clientes: identidade + estado na primeira linha, números embaixo. */
+  /* Uma linha por cliente. Antes eram duas faixas — identidade em cima, os
+     quatro contadores numa grade embaixo — e cada cliente ocupava quase 3 cm:
+     numa lista de 22, rolar era o único jeito de ver quem existe. Os rótulos
+     ("Marcas", "Projetos"...) se repetiam em toda linha sem dizer nada de
+     novo, então saem daqui e ficam só os números. */
   .client-row {
     position: relative;
-    min-height: 72px;
-    grid-template-columns: minmax(0, 1fr) auto 16px;
-    grid-template-areas:
-      "identity pill chevron"
-      "signals signals signals";
+    min-height: 56px;
+    grid-template-columns: minmax(0, 1fr) auto auto 16px;
+    grid-template-areas: "identity signals pill chevron";
+    align-items: center;
     gap: 10px;
-    padding: 12px 0;
+    padding: 10px 0;
   }
 
   .client-index {
@@ -5513,6 +5563,10 @@ tbody tr:last-child td {
   .client-row > .status-pill {
     grid-area: pill;
     width: max-content;
+    /* Quem cede espaço é o nome (que já tem reticências), não a pílula: uma
+       pílula quebrada em duas linhas devolve a linha alta que saiu daqui. */
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .client-row > .chevron {
@@ -5520,19 +5574,80 @@ tbody tr:last-child td {
     color: var(--subtle-text);
   }
 
+  /* Os contadores viram uma tira de números com a inicial do rótulo lida por
+     leitor de tela (o dt continua no HTML, só não ocupa espaço). */
   .client-signals {
     grid-area: signals;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
+    display: flex;
+    gap: 8px;
   }
 
   .client-signals div {
-    padding: 0 8px 0 0;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    padding: 0;
     border-left: 0;
   }
 
-  .client-signals dt {
+  .client-signals div::before {
+    color: var(--subtle-text);
+    content: attr(data-sigla);
     font-size: 0.6875rem;
+  }
+
+  .client-signals dt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .client-signals dd {
+    min-width: 18px;
+    color: var(--subtle-text);
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+
+  /* Projetos não entra na tira: os valores lá são nome e data, não números de
+     um dígito, e sem o rótulo "Prazo" a data não se explica. */
+  .client-row.project-row {
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+    grid-template-areas:
+      "identity pill chevron"
+      "signals signals signals";
+    align-items: start;
+  }
+
+  .client-signals.project-signals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .project-signals div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .project-signals div::before {
+    content: none;
+  }
+
+  .project-signals dt {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    font-size: 0.6875rem;
+  }
+
+  .project-signals dd {
+    min-width: 0;
+    text-align: left;
   }
 }
 

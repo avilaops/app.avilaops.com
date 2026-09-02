@@ -132,7 +132,7 @@ export default async function SeoIntegrationsPage({
         </div>
       </header>
 
-      <section className="operations-metrics">
+      <section className="operations-metrics metric-cards">
         <article className="operations-metric operations-metric-primary">
           <span>Empresas</span>
           <strong>{new Set(domains.map((domain) => domain.organization.name)).size}</strong>

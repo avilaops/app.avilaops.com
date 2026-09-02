@@ -82,20 +82,23 @@ export default async function ClientsPage() {
                     ) : null}
                   </div>
                 </div>
+                {/* `data-sigla` é a marca visual do celular, onde o rótulo por
+                    extenso não cabe; o <dt> continua aqui para o leitor de tela
+                    e volta a aparecer no desktop. */}
                 <dl className="client-signals">
-                  <div>
+                  <div data-sigla="M">
                     <dt>Marcas</dt>
                     <dd>{organization._count.brands}</dd>
                   </div>
-                  <div>
+                  <div data-sigla="P">
                     <dt>Projetos</dt>
                     <dd>{organization._count.projects}</dd>
                   </div>
-                  <div>
+                  <div data-sigla="T">
                     <dt>Tarefas</dt>
                     <dd>{organization._count.tasks}</dd>
                   </div>
-                  <div>
+                  <div data-sigla="D">
                     <dt>Domínios</dt>
                     <dd>{organization._count.domains}</dd>
                   </div>

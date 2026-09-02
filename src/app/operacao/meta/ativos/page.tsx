@@ -62,7 +62,7 @@ export default async function MetaAssetsPage({
         action="/operacao/meta/ativos"
       />
 
-      <section className="operations-metrics">
+      <section className="operations-metrics metric-cards">
         <article className="operations-metric operations-metric-primary">
           <span>Business Managers</span>
           <strong>{businesses.length}</strong>

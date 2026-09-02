@@ -106,15 +106,16 @@ export default async function OperationsPage() {
         </span>
       </section>
 
+      {/* Lista, não seis cartões: quase todos os números são zero, e cartão
+          grande para zero enche a tela sem dizer nada. Uma linha por número
+          cabe de uma vez no celular. */}
       <section className="operations-metrics" aria-label="Resumo operacional">
         {metrics.map((metric) => (
-          <article className="operations-metric" key={metric.label}>
-            <span>{metric.label}</span>
+          <div className="operations-metric" key={metric.label}>
+            <span className="operations-metric-label">{metric.label}</span>
+            <small className={metric.alerta ? "negative" : ""}>{metric.detail}</small>
             <strong>{metric.value}</strong>
-            <small className={metric.alerta ? "negative" : ""}>
-              {metric.detail}
-            </small>
-          </article>
+          </div>
         ))}
       </section>
 

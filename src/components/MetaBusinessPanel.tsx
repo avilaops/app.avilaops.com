@@ -203,7 +203,7 @@ export default function MetaBusinessPanel({
           </div>
           <small>Contadores reais das tabelas `operations`.</small>
         </div>
-        <div className="operations-metrics">
+        <div className="operations-metrics metric-cards">
           <article className="operations-metric">
             <span>Business Managers</span>
             <strong>{status.counts.businesses}</strong>

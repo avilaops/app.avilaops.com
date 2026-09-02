@@ -23,7 +23,7 @@ export default async function WhatsappOperationsPage() {
         </div>
       </header>
 
-      <section className="operations-metrics">
+      <section className="operations-metrics metric-cards">
         <article className="operations-metric operations-metric-primary">
           <span>Configuração</span>
           <strong>{status.configured ? "Ativa" : "Pendente"}</strong>

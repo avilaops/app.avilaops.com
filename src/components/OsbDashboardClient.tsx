@@ -118,7 +118,7 @@ export default function OsbDashboardClient({
 
   return (
     <div className="osb-dashboard">
-      <section className="operations-metrics" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+      <section className="operations-metrics metric-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
         <article className="operations-metric" style={{ background: "var(--surface-color, #1a1a1a)", padding: "1.2rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
           <span style={{ fontSize: "0.8rem", color: "#888", textTransform: "uppercase" }}>Total de Domínios</span>
           <strong style={{ fontSize: "2rem", display: "block", marginTop: "0.2rem" }}>{rows.length}</strong>

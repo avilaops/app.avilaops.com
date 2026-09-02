@@ -68,7 +68,7 @@ export default async function MetaCampaignsPage({
         action="/operacao/meta/campanhas"
       />
 
-      <section className="operations-metrics">
+      <section className="operations-metrics metric-cards">
         <article className="operations-metric operations-metric-primary">
           <span>Investimento</span>
           <strong>{formatCurrency(spend)}</strong>

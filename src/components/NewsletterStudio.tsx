@@ -290,7 +290,7 @@ export default function NewsletterStudio({
 
   return (
     <div className="newsletter-studio">
-      <section className="operations-metrics">
+      <section className="operations-metrics metric-cards">
         <article className="operations-metric operations-metric-primary">
           <span>Inscritos</span>
           <strong>{overview.metrics.subscribed}</strong>
