@@ -99,14 +99,12 @@ export default async function ClientDossierPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="clients">
+      {/* O título é o nome do cliente: é a informação que falta a quem abre a
+          ficha. O que a tela contém as abas logo abaixo já mostram. */}
       <header className="page-header">
         <div>
-          <span className="eyebrow">Operação · Ficha do cliente</span>
-          <h1>Cadastro completo e oportunidades.</h1>
-          <p>
-            Dados institucionais, presença digital, SEO, identidade, integrações
-            e ofertas comerciais em uma única ficha operacional.
-          </p>
+          <span className="eyebrow">Ficha do cliente</span>
+          <h1>{organization.name}</h1>
         </div>
       </header>
 

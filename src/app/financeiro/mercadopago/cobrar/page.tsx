@@ -23,11 +23,8 @@ export default async function CobrarPage() {
           <span className="eyebrow">
             <Link href="/financeiro/mercadopago">Mercado Pago</Link> · Cobrança avulsa
           </span>
-          <h1>Cobrar fora do plano.</h1>
-          <p>
-            O setup de R$ 497, um serviço combinado, uma diária extra. Cobrança única — quem paga
-            escolhe PIX, cartão ou boleto na página do Mercado Pago.
-          </p>
+          <h1>Cobrança avulsa</h1>
+          <p>Cobrança única. Quem paga escolhe PIX, cartão ou boleto.</p>
         </div>
       </header>
 

@@ -147,7 +147,7 @@ export default async function ImplantacaoPage() {
       <section className="section-panel transactions-panel">
         <div className="section-heading table-heading">
           <div>
-            <h2>Núcleo técnico concluído — integração e validação em andamento.</h2>
+            <h2>Documentos e validação</h2>
           </div>
           <AiCoreValidateButton />
         </div>

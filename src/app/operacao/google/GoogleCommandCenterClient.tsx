@@ -143,7 +143,7 @@ export default function GoogleCommandCenterClient({
       {activeTab === "locations" && (
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2>Frota de Perfis no Google Meu Negócio</h2>
+            <h2>Perfis no Google Meu Negócio</h2>
             <span style={{ fontSize: "0.875rem", opacity: 0.8 }}>Sincronizado via Google Business Profile API</span>
           </div>
 
@@ -213,7 +213,7 @@ export default function GoogleCommandCenterClient({
       {/* ABA 2: Respostas com IA */}
       {activeTab === "reviews" && (
         <section style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <h2>Simulador de Resposta Automática por Tom de Voz</h2>
+          <h2>Resposta automática a avaliações</h2>
           <p style={{ opacity: 0.8 }}>
             Selecione uma das 10 empresas e teste como o robô de IA responde a avaliações ajustando automaticamente o tom de voz para aquela marca.
           </p>
@@ -231,7 +231,7 @@ export default function GoogleCommandCenterClient({
           >
             {/* Formulário de Teste */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <h3>1. Seleção & Dados da Avaliação</h3>
+              <h3>Avaliação</h3>
 
               <div>
                 <label style={{ display: "block", fontSize: "0.85rem", fontWeight: "bold", marginBottom: "0.25rem" }}>
@@ -306,7 +306,7 @@ export default function GoogleCommandCenterClient({
 
             {/* Resultado Gerado */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", backgroundColor: "var(--nested-bg, #f9fafb)", padding: "1.25rem", borderRadius: "0.5rem" }}>
-              <h3>2. Resposta Gerada pela IA</h3>
+              <h3>Resposta gerada</h3>
 
               <div style={{ fontSize: "0.85rem" }}>
                 <strong>Tom de Voz Ativo:</strong>{" "}
@@ -354,7 +354,7 @@ export default function GoogleCommandCenterClient({
       {activeTab === "ga4" && (
         <section style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2>Métricas de Tráfego - Google Analytics 4 (GA4)</h2>
+            <h2>Tráfego (GA4)</h2>
             <span style={{ fontSize: "0.85rem", color: "#10B981", fontWeight: "bold" }}>
               🟢 {initialGa4.realtimeActiveUsers} usuários navegando em tempo real
             </span>
@@ -391,7 +391,7 @@ export default function GoogleCommandCenterClient({
           </div>
 
           <div style={{ border: "1px solid #e5e7eb", padding: "1.25rem", borderRadius: "0.75rem", backgroundColor: "#fff" }}>
-            <h3>Origens de Tráfego por Canal</h3>
+            <h3>Origem do tráfego</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
               {initialGa4.topChannels.map((ch) => (
                 <div key={ch.channel} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
@@ -412,7 +412,7 @@ export default function GoogleCommandCenterClient({
       {/* ABA 4: Ecossistema Completo */}
       {activeTab === "ecosystem" && (
         <section style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <h2>Mapa do Ecossistema Google & Próximas Fases</h2>
+          <h2>Integrações do Google</h2>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
             <div style={{ border: "1px solid #e5e7eb", padding: "1.25rem", borderRadius: "0.75rem", backgroundColor: "#fff" }}>

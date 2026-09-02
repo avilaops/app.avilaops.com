@@ -327,7 +327,7 @@ export default function EmailAutoatendimento() {
 
       {conferencia?.pronto && (
         <section className="autoatendimento-ok">
-          <h2>DNS pronto. Agora é escolher o endereço.</h2>
+          <h2>DNS pronto</h2>
           <ul className="autoatendimento-checks">
             {Object.entries(conferencia.checks).map(([nome, ok]) => (
               <li key={nome} className={ok ? "ok" : "falta"}>

@@ -622,16 +622,13 @@ export default function ClientDossierForm({
 
   return (
     <form className="client-dossier" onSubmit={save}>
+      {/* Só o quanto falta. O nome e a razão social já são o título da página e
+          os dois primeiros campos da aba; a régua das seis etapas se repetia em
+          toda ficha sem dizer em qual delas o cliente está. */}
       <section className="operations-panel dossier-hero-panel">
-        <div>
-          <span className="eyebrow">Dossiê operacional</span>
-          <h2>{organization.name}</h2>
-          <p>{organization.legalName ?? "Razão social ainda não preenchida"}</p>
-        </div>
         <div className="dossier-progress">
-          <span>{onboardingProgress || progress}%</span>
+          <span>{onboardingProgress || progress}% preenchido</span>
           <div><i style={{ width: `${onboardingProgress || progress}%` }} /></div>
-          <small>Cadastro básico → Dados completos → Identidade → Site → Integrações → Publicação</small>
         </div>
       </section>
 
