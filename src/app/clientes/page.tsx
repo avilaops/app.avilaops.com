@@ -57,18 +57,12 @@ export default async function ClientsPage() {
           <div>
             <h2>Organizações cadastradas</h2>
           </div>
-          <small>Sem dados de demonstração</small>
         </div>
 
         {organizations.length === 0 ? (
           <div className="operations-empty clients-empty">
             <span className="empty-index">00</span>
             <strong>Nenhum cliente cadastrado.</strong>
-            <p>
-              Use “Adicionar cliente” para criar a primeira organização. O
-              cadastro começa com dados mínimos e abre espaço para um onboarding
-              controlado.
-            </p>
           </div>
         ) : (
           <div className="clients-list">
@@ -83,11 +77,9 @@ export default async function ClientsPage() {
                     <Link className="client-name-link" href={`/clientes/${organization.id}`}>
                       {organization.name}
                     </Link>
-                    <small>
-                      {organization.legalName ??
-                        organization.segment ??
-                        "Contexto a completar"}
-                    </small>
+                    {(organization.legalName ?? organization.segment) ? (
+                      <small>{organization.legalName ?? organization.segment}</small>
+                    ) : null}
                   </div>
                 </div>
                 <dl className="client-signals">

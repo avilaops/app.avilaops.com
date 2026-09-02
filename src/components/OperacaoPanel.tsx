@@ -316,7 +316,6 @@ export default function OperacaoPanel({
       <div className="prov-grid">
         <Cartao
           titulo="Cobrança recorrente"
-          descricao="Mensalidade e implantação; PIX e boleto pelo Mercado Pago, baixa pelo webhook."
           resultado={resultados.cobranca ?? null}
           acoes={
             <button type="button" className="primary-button" onClick={() => setFolha("assinatura")}>
@@ -398,9 +397,8 @@ export default function OperacaoPanel({
 
         <Cartao
           titulo="Etapas do onboarding"
-          descricao="Fecham sozinhas conforme o provisionamento acontece; as demais, pela ficha."
           resultado={null}
-          acoes={<span className="field-help">Editar à mão: aba “Visão geral” da ficha.</span>}
+          acoes={null}
         >
           <div className="ios-list">
             {etapas.length === 0 ? (
@@ -421,7 +419,6 @@ export default function OperacaoPanel({
 
         <Cartao
           titulo="Marcas"
-          descricao="Projetos e domínios se penduram numa marca; cliente pode ter mais de uma."
           resultado={resultados.marcas ?? null}
           acoes={
             <button type="button" className="secondary-button" onClick={() => setFolha("marca")}>
@@ -449,7 +446,6 @@ export default function OperacaoPanel({
 
         <Cartao
           titulo="Cofre de credenciais"
-          descricao="Chaves e tokens do cliente, cifrados. O segredo entra uma vez e não volta."
           resultado={resultados.cofre ?? null}
           acoes={
             <button type="button" className="secondary-button" disabled={!cofreDisponivel} onClick={() => setFolha("credencial")}>

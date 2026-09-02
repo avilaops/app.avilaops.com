@@ -83,17 +83,12 @@ export default async function ProjectsPage({
           <div>
             <h2>Projetos cadastrados</h2>
           </div>
-          <small>Sem dados de demonstração</small>
         </div>
 
         {projects.length === 0 ? (
           <div className="operations-empty clients-empty">
             <span className="empty-index">00</span>
             <strong>Nenhum projeto encontrado.</strong>
-            <p>
-              Use “Novo projeto” para abrir a primeira entrega vinculada a um
-              cliente já cadastrado.
-            </p>
           </div>
         ) : (
           <div className="clients-list">

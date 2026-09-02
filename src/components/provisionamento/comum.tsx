@@ -76,7 +76,8 @@ export function Cartao({
   resultado,
 }: {
   titulo: string;
-  descricao: string;
+  /** Só quando o título não basta. Card não é lugar de manual. */
+  descricao?: string;
   children: ReactNode;
   acoes: ReactNode;
   resultado: Resultado | null;
@@ -86,7 +87,7 @@ export function Cartao({
       <div className="prov-card-head">
         <div>
           <h3>{titulo}</h3>
-          <p>{descricao}</p>
+          {descricao ? <p>{descricao}</p> : null}
         </div>
       </div>
       {children}

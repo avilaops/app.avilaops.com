@@ -395,7 +395,6 @@ export default function ProvisionamentoPanel({
       <div className="prov-grid">
         <Cartao
           titulo="Acesso ao painel"
-          descricao="Conta do cliente no auth.avilaops.com, com senha provisória por e-mail."
           resultado={resultados.acesso ?? null}
           acoes={
             <>
@@ -423,7 +422,6 @@ export default function ProvisionamentoPanel({
 
         <Cartao
           titulo="Domínios"
-          descricao="Zona na Cloudflare com o DNS padrão da casa e o e-mail preparado."
           resultado={resultados.dominio ?? null}
           acoes={
             <button type="button" className="primary-button" onClick={() => setFolha("dominio")}>
@@ -458,7 +456,6 @@ export default function ProvisionamentoPanel({
 
         <Cartao
           titulo="E-mail profissional"
-          descricao="Caixas no mail.avilaops.com, com aviso ao contato do cliente."
           resultado={resultados.caixa ?? null}
           acoes={
             <button type="button" className="primary-button" disabled={dominios.length === 0} onClick={() => setFolha("caixa")}>

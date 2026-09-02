@@ -4319,11 +4319,6 @@ tbody tr:last-child td {
   font-size: 0.875rem;
 }
 
-.import-legend dd {
-  max-width: 46ch;
-  line-height: 1.5;
-}
-
 /* ── Mercado Pago (Financeiro) ─────────────────────────────────────────────
    O valor desta tela é a divergência entre o Mercado Pago e a plataforma de
    lojas, então o desenho existe para o olho cair primeiro no que está errado. */
