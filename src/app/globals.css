@@ -5141,6 +5141,15 @@ tbody tr:last-child td {
       transform 120ms ease;
   }
 
+  /* Cinco abas dão 75px num iPhone de 375px: o rótulo fica numa linha só e
+     encolhe se precisar, em vez de quebrar e desalinhar a barra. */
+  .tab-item > span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .tab-item-active {
     color: var(--accent);
     font-weight: 600;

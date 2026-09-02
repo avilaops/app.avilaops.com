@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { abasCelular, navegacao, type SecaoApp } from "@/lib/navegacao";
+import { abasDoPapel, abasCelular, navegacao, navegacaoDoPapel, type SecaoApp } from "@/lib/navegacao";
 
 const secoes = navegacao.flatMap((grupo) => grupo.items.map((item) => item.section));
 
@@ -34,7 +34,32 @@ describe("mapa de navegação", () => {
     }
   });
 
-  it("cabe no polegar: no máximo quatro abas mais o 'Mais'", () => {
-    expect(abasCelular.length).toBeLessThanOrEqual(4);
+  // A barra desenha as abas do papel MAIS o botão "Mais". Cinco células num
+  // iPhone de 375px dão 75px cada, acima dos 44px que a Apple pede; seis
+  // dariam 62px com o rótulo ilegível.
+  it.each(["OWNER", "ADMIN"])("cabe no polegar para %s: até cinco células na barra", (papel) => {
+    expect(abasDoPapel(papel).length + 1).toBeLessThanOrEqual(5);
+  });
+
+  it("todo item que o papel vê no menu tem grupo com título", () => {
+    for (const papel of ["OWNER", "ADMIN"]) {
+      for (const grupo of navegacaoDoPapel(papel)) {
+        expect(grupo.label.trim()).not.toBe("");
+        expect(grupo.items.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  // Grupo comprido obriga a rolar a coluna do desktop e a folha "Mais".
+  it("nenhum grupo passa de sete itens", () => {
+    for (const grupo of navegacao) {
+      expect(grupo.items.length).toBeLessThanOrEqual(7);
+    }
+  });
+
+  it("a equipe não enxerga nada marcado como do dono", () => {
+    const items = navegacaoDoPapel("ADMIN").flatMap((grupo) => grupo.items);
+    expect(items.some((item) => item.somenteDono)).toBe(false);
+    expect(abasDoPapel("ADMIN").some((aba) => aba.somenteDono)).toBe(false);
   });
 });

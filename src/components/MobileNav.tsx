@@ -30,7 +30,9 @@ export default function MobileNav({
   const abas = abasDoPapel(papel);
   const grupos = navegacaoDoPapel(papel);
   const abaAtiva = abas.find((aba) => aba.secoes.includes(section));
-  const maisAtivo = aberto || !abaAtiva;
+  // A tela atual saiu da folha (SEO, Meta, Vagas...): o "Mais" fica aceso
+  // porque é ali que ela mora. Aceso é "você está aqui", não "há um menu".
+  const maisAtivo = !abaAtiva;
   const iniciais = adminName
     .split(" ")
     .filter(Boolean)
@@ -83,7 +85,8 @@ export default function MobileNav({
             </span>
             <div>
               <strong>{adminName}</strong>
-              <small>Administrador</small>
+              {/* O mesmo rótulo da coluna do desktop: o dono não é "Administrador". */}
+              <small>{papel === "OWNER" ? "Dono" : "Administrador"}</small>
             </div>
             <form action="/api/auth/logout" method="post">
               <button type="submit" className="secondary-button">

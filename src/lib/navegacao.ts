@@ -23,6 +23,7 @@ export type SecaoApp =
   | "newsletter"
   | "jobs"
   | "partner-network"
+  | "domains"
   | "google-suite";
 
 export type ItemNavegacao = {
@@ -69,18 +70,31 @@ export const navegacao: GrupoNavegacao[] = [
         somenteDono: true,
       },
       { href: "/projetos", label: "Entregas", section: "projects" },
+      { href: "/operacao/servicos", label: "Serviços", section: "services" },
+      { href: "/vagas", label: "Vagas", section: "jobs" },
+      {
+        href: "/implantacao",
+        label: "Implantação OpenAI",
+        section: "partner-network",
+      },
+    ],
+  },
+  {
+    // Onde o cliente é encontrado e falado com. Estava tudo dentro de
+    // "Operação", que virou uma lista de 12 e obrigava a rolar.
+    label: "Canais",
+    items: [
       { href: "/operacao/seo", label: "SEO", section: "seo" },
+      { href: "/operacao/dominios", label: "Domínios", section: "domains" },
       { href: "/operacao/google", label: "Google", section: "google-suite" },
-      { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
       { href: "/operacao/meta", label: "Meta", section: "meta" },
       { href: "/operacao/whatsapp", label: "WhatsApp", section: "whatsapp" },
-      { href: "/operacao/servicos", label: "Serviços", section: "services" },
       {
         href: "/operacao/newsletter",
         label: "Newsletter",
         section: "newsletter",
       },
-      { href: "/vagas", label: "Vagas", section: "jobs" },
+      { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
     ],
   },
   {
@@ -116,29 +130,21 @@ export const navegacao: GrupoNavegacao[] = [
       { href: "/relatorios", label: "Relatórios", section: "reports" },
     ],
   },
-  {
-    label: "Estratégia",
-    items: [
-      {
-        href: "/implantacao",
-        label: "Implantação OpenAI",
-        section: "partner-network",
-      },
-    ],
-  },
 ];
 
 /**
- * As abas do celular: os três destinos de todo dia mais "Mais". Quatro abas
- * dão 94px cada num iPhone de 375px — rótulo legível e polegar sem mira.
- * Entregas (projetos) fica na folha: o dia a dia de prazo mora no Todoist.
+ * As abas do celular: os destinos de todo dia mais "Mais". Quatro abas dão
+ * 94px cada num iPhone de 375px — rótulo legível e polegar sem mira; cinco
+ * dão 75px, que ainda passa do mínimo de 44px da Apple.
+ *
  * `secoes` diz quais seções acendem a aba — Financeiro acende em qualquer
- * tela do financeiro, não só na visão geral.
+ * tela do financeiro, não só na visão geral. Seção que não está em nenhuma
+ * aba acende o "Mais", que é onde ela foi aberta.
  */
 export type AbaCelular = {
   href: string;
   label: string;
-  icone: "inicio" | "clientes" | "financeiro";
+  icone: "inicio" | "clientes" | "entregas" | "financeiro";
   secoes: SecaoApp[];
   somenteDono?: true;
 };
@@ -150,6 +156,12 @@ export const abasCelular: AbaCelular[] = [
     label: "Clientes",
     icone: "clientes",
     secoes: ["clients", "client-requests"],
+  },
+  {
+    href: "/projetos",
+    label: "Entregas",
+    icone: "entregas",
+    secoes: ["projects"],
   },
   {
     href: "/financeiro",
