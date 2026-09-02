@@ -5830,3 +5830,15 @@ tbody tr:last-child td {
 .autoatendimento-checks .ok { color: var(--text); }
 .autoatendimento-checks .falta { color: var(--subtle-text); }
 .autoatendimento-whatsapp { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 18px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 650; text-align: center; text-decoration: none; }
+
+/* Compra dentro do autoatendimento: o formulário que aparece com o DNS pronto. */
+.autoatendimento-ok .autoatendimento-form { margin-top: 6px; }
+/* Campo do endereço: o "@dominio" fica colado no input, para a pessoa ler o
+   endereço inteiro enquanto digita. Em tela estreita ele cai para a linha de
+   baixo em vez de espremer o campo. */
+.autoatendimento-endereco { align-items: center; }
+.autoatendimento-arroba { font-size: 15px; color: var(--subtle-text); overflow-wrap: anywhere; }
+.autoatendimento-form select { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 15px; }
+.autoatendimento-form > input { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 15px; }
+.autoatendimento-form > button { min-height: 48px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+.autoatendimento-form > button:disabled { opacity: .5; cursor: default; }
