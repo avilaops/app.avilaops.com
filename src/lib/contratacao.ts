@@ -35,6 +35,12 @@ export type PedidoDeContratacao = {
   empresa: string;
   responsavel: string;
   email: string;
+  /**
+   * Endereço pessoal de quem contrata, fora dos domínios que a casa hospeda.
+   * É por ele que a pessoa recupera o acesso: o e-mail de login costuma ser a
+   * caixa profissional que nós mesmos entregamos.
+   */
+  emailRecuperacao: string;
   telefone?: string | null;
   cpfCnpj?: string | null;
 };
@@ -122,6 +128,7 @@ export async function contratar(pedido: PedidoDeContratacao): Promise<ResultadoC
     email,
     cpfCnpj: documento || null,
     telefone: pedido.telefone ?? null,
+    emailRecuperacao: pedido.emailRecuperacao,
   });
   await vincularContaAOrganizacao(acesso.id, organizationId);
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyServiceJwt, isServiceCall } from "@/lib/service-auth";
 import { cleanText } from "@/lib/http";
 import { contratar, ContratacaoInvalida } from "@/lib/contratacao";
+import { EmailRecuperacaoInvalido } from "@/lib/email-recuperacao";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,11 @@ export const runtime = "nodejs";
  * Devolve senha provisória apenas quando a conta nasceu nesta chamada, para o
  * produto mostrar ao cliente na hora. Ela não é guardada nem reenviada: quem
  * perder usa "esqueci minha senha".
+ *
+ * `emailRecuperacao` é obrigatório e precisa estar fora dos domínios que a
+ * casa hospeda. É o que faz o "esqueci minha senha" acima funcionar de fato:
+ * sem ele o link chega na caixa profissional que a pessoa não abre. Produto
+ * que não envia recebe 400 com o motivo, para a tela dele pedir o campo.
  */
 export async function POST(request: NextRequest) {
   const porJwt = verifyServiceJwt(request);
@@ -39,13 +45,14 @@ export async function POST(request: NextRequest) {
       empresa: cleanText(corpo.empresa, 200),
       responsavel: cleanText(corpo.responsavel, 200),
       email: cleanText(corpo.email, 200),
+      emailRecuperacao: cleanText(corpo.emailRecuperacao, 200),
       telefone: cleanText(corpo.telefone, 40) || null,
       cpfCnpj: cleanText(corpo.cpfCnpj, 20) || null,
     });
 
     return NextResponse.json({ ok: true, ...resultado });
   } catch (erro) {
-    if (erro instanceof ContratacaoInvalida) {
+    if (erro instanceof ContratacaoInvalida || erro instanceof EmailRecuperacaoInvalido) {
       return NextResponse.json({ ok: false, erro: erro.message }, { status: 400 });
     }
     console.error("[contratar] falhou", erro);

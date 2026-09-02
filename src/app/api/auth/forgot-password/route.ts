@@ -23,12 +23,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const rawToken = await requestPasswordReset(email);
-    if (rawToken) {
+    const pedido = await requestPasswordReset(email);
+    if (pedido) {
       const baseUrl = process.env.APP_BASE_URL ?? "https://app.avilaops.com";
-      const resetUrl = `${baseUrl}/redefinir-senha?token=${rawToken}`;
+      const resetUrl = `${baseUrl}/redefinir-senha?token=${pedido.token}`;
+      // Nunca para o endereço digitado: vai para o de recuperação da conta,
+      // senão quem perdeu a senha da caixa profissional recebe o link nela.
       await enviarEmail({
-        to: email,
+        to: pedido.enviarPara,
         subject: "Redefinição de senha no Ávila OS",
         html: `
           <p>Recebemos um pedido para redefinir a senha da sua conta no Ávila OS.</p>

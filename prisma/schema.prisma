@@ -40,6 +40,11 @@ model AdminIdentity {
   ultimoAcessoEm      DateTime? @map("ultimo_acesso_em")
   resetTokenHash      String?   @map("reset_token_hash")
   resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
+  /// Endereço pessoal de quem usa a conta, fora dos domínios que hospedamos.
+  /// Sem ele a recuperação de senha é circular: o link para voltar a entrar
+  /// chega na caixa que a pessoa não consegue abrir. Obrigatório em conta
+  /// nova; as antigas ficam nulas até o dono preencher.
+  emailRecuperacao    String?   @map("email_recuperacao")
 
   @@map("portal_clients")
   @@schema("public")
@@ -1378,6 +1383,9 @@ model ClientRegistrationRequest {
   cpfCnpj        String    @map("cpf_cnpj")
   tipoDocumento  String    @map("tipo_documento") // CPF | CNPJ
   empresa        String?
+  /// Endereço pessoal de quem pede o cadastro, fora dos domínios que a casa
+  /// hospeda. Vira o `email_recuperacao` da conta na aprovação.
+  emailRecuperacao String? @map("email_recuperacao")
   status         String    @default("PENDING") // PENDING, APPROVED, REJECTED
   documentos     Json      @default("[]") // [{ key, fileName, mimeType, sizeBytes }]
   motivoRejeicao String?   @map("motivo_rejeicao")

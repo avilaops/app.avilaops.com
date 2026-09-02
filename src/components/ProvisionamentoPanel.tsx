@@ -52,7 +52,7 @@ export default function ProvisionamentoPanel({
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [folha, setFolha] = useState<
-    "dominio" | "caixa" | "google" | "loja" | "restaurante" | null
+    "acesso" | "dominio" | "caixa" | "google" | "loja" | "restaurante" | null
   >(null);
   const [resultados, setResultados] = useState<Record<string, Resultado | null>>({});
   const fecharFolha = useCallback(() => setFolha(null), []);
@@ -97,13 +97,13 @@ export default function ProvisionamentoPanel({
   }
 
   /* ---------- Acesso ---------- */
-  async function acesso(acao: "criar" | "reenviar") {
+  async function acesso(acao: "criar" | "reenviar", emailRecuperacao?: string) {
     await executar(
       "acesso",
       async () => {
         const r = await chamar<{ email: string; emailEnviado: boolean; senhaProvisoria: string | null; aviso: string | null; tarefa: string | null }>(
           `${base}/acesso`,
-          { acao },
+          { acao, emailRecuperacao },
         );
         return {
           tipo: "ok",
@@ -192,6 +192,12 @@ export default function ProvisionamentoPanel({
       },
       acao === "arquivar" ? "Domínio arquivado." : "Domínio reativado.",
     );
+  }
+
+  const [formAcesso, setFormAcesso] = useState({ emailRecuperacao: "" });
+  async function enviarAcesso(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    await acesso("criar", formAcesso.emailRecuperacao);
   }
 
   /* ---------- Caixa ---------- */
@@ -399,7 +405,7 @@ export default function ProvisionamentoPanel({
           acoes={
             <>
               {!acessoExiste ? (
-                <button type="button" className="primary-button" disabled={ocupado === "acesso" || !contato?.email} onClick={() => acesso("criar")}>
+                <button type="button" className="primary-button" disabled={ocupado === "acesso" || !contato?.email} onClick={() => setFolha("acesso")}>
                   {ocupado === "acesso" ? "Criando…" : "Criar acesso"}
                 </button>
               ) : null}
@@ -621,6 +627,40 @@ export default function ProvisionamentoPanel({
             </div>
             {resultados.dominio?.tipo === "erro" ? (
               <p className="inline-feedback feedback-error" role="alert">{resultados.dominio.conteudo}</p>
+            ) : null}
+          </form>
+        </Sheet>
+      ) : null}
+
+      {folha === "acesso" ? (
+        <Sheet titulo="Criar acesso ao painel" aoFechar={fecharFolha} rodape={rodape("form-acesso", "Criar acesso", "acesso")}>
+          <form id="form-acesso" className="form-stack" onSubmit={enviarAcesso}>
+            <div className="ios-list">
+              <div className="ios-row ios-row-static">
+                <div className="prov-row-main">
+                  <strong>{contato?.email}</strong>
+                  <small>Entra por este e-mail</small>
+                </div>
+              </div>
+            </div>
+            <label className="field">
+              <span>E-mail de recuperação</span>
+              <input
+                type="email"
+                value={formAcesso.emailRecuperacao}
+                onChange={(e) => setFormAcesso({ emailRecuperacao: e.target.value })}
+                placeholder="pessoal@gmail.com"
+                autoCapitalize="none"
+                autoCorrect="off"
+                required
+                autoFocus
+              />
+              <small className="field-help">
+                Pessoal, fora dos domínios que hospedamos: é por onde a pessoa volta se perder a senha da caixa.
+              </small>
+            </label>
+            {resultados.acesso?.tipo === "erro" ? (
+              <p className="inline-feedback feedback-error" role="alert">{resultados.acesso.conteudo}</p>
             ) : null}
           </form>
         </Sheet>

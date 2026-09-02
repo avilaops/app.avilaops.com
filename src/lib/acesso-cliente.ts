@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { randomInt, randomUUID } from "crypto";
+import { validarEmailRecuperacao } from "@/lib/email-recuperacao";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
 
@@ -27,6 +28,12 @@ type NovaContaCliente = {
   email: string;
   cpfCnpj?: string | null;
   telefone?: string | null;
+  /**
+   * Endereço pessoal, fora dos domínios que hospedamos. Obrigatório em conta
+   * nova: sem ele, quem perde a senha do e-mail profissional não tem por onde
+   * voltar — o link de recuperação chega na caixa trancada.
+   */
+  emailRecuperacao: string;
 };
 
 export type ResultadoAcesso = {
@@ -51,6 +58,10 @@ export async function garantirAcessoCliente(dados: NovaContaCliente): Promise<Re
   const existente = await buscarContaPorEmail(email);
   if (existente) return { id: existente.id, email, criado: false, senha: null };
 
+  // Antes de criar: conta sem endereço de recuperação nasce trancada no dia
+  // em que a senha se perder. Lança e a tela mostra o motivo.
+  const recuperacao = await validarEmailRecuperacao(dados.emailRecuperacao, email);
+
   const senha = gerarSenhaProvisoria();
   const id = randomUUID();
   const documento = dados.cpfCnpj?.replace(/\D/g, "") || null;
@@ -58,8 +69,8 @@ export async function garantirAcessoCliente(dados: NovaContaCliente): Promise<Re
   const hash = await bcrypt.hash(senha, 10);
 
   await prisma.$executeRaw`
-    insert into public.portal_clients (id, nome, email, cpf, telefone, role, senha_hash, senha_provisoria)
-    values (${id}, ${dados.nome.trim()}, ${email}, ${documento}, ${telefone}, 'CLIENT', ${hash}, true)
+    insert into public.portal_clients (id, nome, email, cpf, telefone, role, senha_hash, senha_provisoria, email_recuperacao)
+    values (${id}, ${dados.nome.trim()}, ${email}, ${documento}, ${telefone}, 'CLIENT', ${hash}, true, ${recuperacao})
   `;
 
   return { id, email, criado: true, senha };

@@ -6,6 +6,7 @@ import {
   urlDeLogin,
 } from "@/lib/acesso-cliente";
 import { ehDono, getAdmin } from "@/lib/auth";
+import { EmailRecuperacaoInvalido } from "@/lib/email-recuperacao";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
 import { marcarEtapa } from "@/lib/onboarding-etapas";
@@ -68,6 +69,7 @@ export async function POST(
         email,
         cpfCnpj: organizacao.cpfCnpj,
         telefone: contato?.phone ?? contato?.whatsapp ?? null,
+        emailRecuperacao: cleanText(body?.emailRecuperacao, 160),
       });
       contaId = acesso.id;
       senha = acesso.senha;
@@ -82,6 +84,11 @@ export async function POST(
       }
     }
   } catch (erro) {
+    // O motivo do e-mail de recuperação vai inteiro para a tela: quem cadastra
+    // precisa saber por que o endereço foi recusado, senão tenta o mesmo de novo.
+    if (erro instanceof EmailRecuperacaoInvalido) {
+      return NextResponse.json({ error: erro.message }, { status: 400 });
+    }
     const mensagem = erro instanceof Error ? erro.message : "";
     return NextResponse.json(
       {

@@ -279,16 +279,31 @@ function hashResetToken(rawToken: string): string {
 }
 
 /**
- * Gera um token de redefinição para o e-mail informado, se houver um admin
+ * Gera um token de redefinição para o e-mail informado, se houver conta
  * correspondente. Retorna sempre `null` quando não há match, para o chamador
  * responder de forma genérica e não permitir enumeração de e-mails.
+ *
+ * Casa tanto pelo e-mail de login quanto pelo de recuperação: quem perdeu a
+ * senha da caixa profissional não consegue abrir o link enviado para ela.
+ *
+ * O filtro aqui era `role: "ADMIN"`, o que deixava OWNER e CLIENT sem
+ * recuperação nenhuma — inclusive a conta do dono. Conta desligada continua
+ * de fora: quem não entra também não redefine.
  */
-export async function requestPasswordReset(email: string): Promise<string | null> {
+export async function requestPasswordReset(
+  email: string,
+): Promise<{ token: string; enviarPara: string } | null> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) return null;
 
   const identity = await prisma.adminIdentity.findFirst({
-    where: { role: "ADMIN", email: { equals: normalizedEmail, mode: "insensitive" } },
+    where: {
+      ativo: true,
+      OR: [
+        { email: { equals: normalizedEmail, mode: "insensitive" } },
+        { emailRecuperacao: { equals: normalizedEmail, mode: "insensitive" } },
+      ],
+    },
   });
   if (!identity) return null;
 
@@ -302,7 +317,9 @@ export async function requestPasswordReset(email: string): Promise<string | null
     },
   });
 
-  return rawToken;
+  // O link vai para o endereço de recuperação quando ele existe: é o único
+  // que a pessoa alcança quando perdeu a senha do e-mail profissional.
+  return { token: rawToken, enviarPara: identity.emailRecuperacao ?? identity.email };
 }
 
 export async function resetPasswordWithToken(rawToken: string, newPassword: string): Promise<boolean> {
@@ -310,7 +327,7 @@ export async function resetPasswordWithToken(rawToken: string, newPassword: stri
 
   const identity = await prisma.adminIdentity.findFirst({
     where: {
-      role: "ADMIN",
+      ativo: true,
       resetTokenHash: tokenHash,
       resetTokenExpiresAt: { gt: new Date() },
     },

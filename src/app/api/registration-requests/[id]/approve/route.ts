@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { garantirAcessoCliente, slugLivreDeOrganizacao, urlDeLogin, vincularContaAOrganizacao } from "@/lib/acesso-cliente";
 import { ehDono, getAdmin } from "@/lib/auth";
+import { EmailRecuperacaoInvalido } from "@/lib/email-recuperacao";
 import { sameOrigin } from "@/lib/http";
 import { chamarN8n, N8nIndisponivel } from "@/lib/n8n";
 import { prisma } from "@/lib/prisma";
@@ -48,8 +49,14 @@ export async function POST(
       email: solicitacao.email,
       cpfCnpj: solicitacao.cpfCnpj,
       telefone: solicitacao.telefone,
+      emailRecuperacao: solicitacao.emailRecuperacao ?? "",
     });
   } catch (erro) {
+    // Pedido antigo, feito antes do campo existir: quem aprova completa o
+    // endereço em vez de receber um 500 sem explicação.
+    if (erro instanceof EmailRecuperacaoInvalido) {
+      return NextResponse.json({ error: erro.message }, { status: 400 });
+    }
     const mensagem = erro instanceof Error ? erro.message : "";
     return NextResponse.json(
       {
