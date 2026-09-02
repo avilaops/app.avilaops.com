@@ -247,6 +247,48 @@ export async function listarPagamentos(limite = 30): Promise<PagamentoRecebido[]
 }
 
 /**
+ * Todos os pagamentos do período, paginando até o fim.
+ *
+ * `listarPagamentos` acima existe para a tela (as últimas N linhas); esta é
+ * para o extrato, onde faltar uma linha é dinheiro que some do fluxo de caixa.
+ * O limite por página do Mercado Pago é 50.
+ */
+export async function listarPagamentosDoPeriodo(desde: Date): Promise<PagamentoRecebido[]> {
+  const porPagina = 50;
+  const inicio = desde.toISOString();
+  const todos: PagamentoRecebido[] = [];
+
+  for (let offset = 0; ; offset += porPagina) {
+    const d = await chamar<{ results?: Array<Record<string, unknown>>; paging?: { total?: number } }>(
+      `/v1/payments/search?limit=${porPagina}&offset=${offset}` +
+        `&sort=date_created&criteria=desc&range=date_created&begin_date=${encodeURIComponent(inicio)}&end_date=NOW`,
+    );
+    const pagina = d.results ?? [];
+    for (const p of pagina) {
+      const pagador = p.payer as { email?: string; first_name?: string; last_name?: string } | undefined;
+      todos.push({
+        id: Number(p.id ?? 0),
+        status: String(p.status ?? ""),
+        detalhe: (p.status_detail as string) || null,
+        valorCentavos: centavos(p.transaction_amount),
+        liquidoCentavos: typeof p.net_received_amount === "number" ? centavos(p.net_received_amount) : null,
+        meio: (p.payment_type_id as string) || null,
+        descricao: (p.description as string) || null,
+        email: pagador?.email ?? null,
+        data: String(p.date_created ?? ""),
+      });
+    }
+    // Página incompleta é a última; o `total` do Mercado Pago nem sempre vem.
+    if (pagina.length < porPagina) break;
+    // Trava de segurança: 40 páginas são 2.000 pagamentos, muito acima do
+    // volume da casa. Se estourar, é laço, não movimento.
+    if (offset >= porPagina * 40) break;
+  }
+
+  return todos;
+}
+
+/**
  * Configuração de notificação da aplicação. Não existe API para **alterar**
  * isso — só o painel do Mercado Pago —, então aqui é diagnóstico: a tela avisa
  * quando a URL aponta para o lugar errado, que foi exatamente o que aconteceu
