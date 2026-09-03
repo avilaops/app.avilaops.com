@@ -290,13 +290,44 @@ function hashResetToken(rawToken: string): string {
  * recuperação nenhuma — inclusive a conta do dono. Conta desligada continua
  * de fora: quem não entra também não redefine.
  */
+const PESO_DO_PAPEL: Record<string, number> = { OWNER: 0, ADMIN: 1, CLIENT: 2 };
+
+/**
+ * Qual conta recebe o link, quando o endereço digitado casa com mais de uma.
+ *
+ * Um e-mail de recuperação pode responder por várias contas (o pessoal do
+ * Nicolas responde por três). Quem digita o **próprio** endereço recupera
+ * aquela conta, sempre; quem digita o de recuperação chega na de papel mais
+ * alto, e o e-mail desempata para a escolha nunca depender da ordem que o
+ * banco devolveu.
+ */
+export function escolherParaRecuperacao<T extends { email: string; role: string }>(
+  candidatas: readonly T[],
+  emailDigitado: string,
+): T | null {
+  if (candidatas.length === 0) return null;
+  const exata = candidatas.find((c) => c.email.toLowerCase() === emailDigitado.toLowerCase());
+  if (exata) return exata;
+  return [...candidatas].sort(
+    (a, b) =>
+      (PESO_DO_PAPEL[a.role] ?? 3) - (PESO_DO_PAPEL[b.role] ?? 3) ||
+      a.email.localeCompare(b.email),
+  )[0];
+}
+
 export async function requestPasswordReset(
   email: string,
 ): Promise<{ token: string; enviarPara: string } | null> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) return null;
 
-  const identity = await prisma.adminIdentity.findFirst({
+  // Quem digita o próprio endereço recupera aquela conta, sempre. O endereço
+  // de recuperação pode servir a várias (o pessoal do Nicolas responde por
+  // três), e aí `findFirst` sem ordem devolvia qualquer uma delas: o link
+  // chegava para uma conta que a pessoa não pediu, e o `findFirst` só não
+  // errava por sorte do plano de consulta. A ordem agora é explícita: o
+  // e-mail exato ganha, depois o papel mais alto, e o e-mail desempata.
+  const candidatas = await prisma.adminIdentity.findMany({
     where: {
       ativo: true,
       OR: [
@@ -304,7 +335,11 @@ export async function requestPasswordReset(
         { emailRecuperacao: { equals: normalizedEmail, mode: "insensitive" } },
       ],
     },
+    orderBy: { email: "asc" },
   });
+  if (candidatas.length === 0) return null;
+
+  const identity = escolherParaRecuperacao(candidatas, normalizedEmail);
   if (!identity) return null;
 
   const rawToken = crypto.randomBytes(32).toString("hex");
