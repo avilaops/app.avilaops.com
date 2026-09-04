@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
-    "scripts/seed-job-postings.ts"
+    "scripts/seed-job-postings.ts",
+    "estudio-worker"
   ]
 }
