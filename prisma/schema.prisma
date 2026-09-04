@@ -1679,3 +1679,60 @@ model NewsletterDelivery {
   @@map("newsletter_deliveries")
   @@schema("operations")
 }
+
+/// Estúdio: peça de conteúdo (vídeo ou imagem) montada a partir de um template
+/// de src/lib/estudio/templates.ts. Os valores dos campos ficam em JSON porque
+/// cada template tem os seus.
+model StudioPiece {
+  id         String   @id @default(cuid())
+  title      String
+  templateId String   @map("template_id")
+  /// 9:16 | 1:1 | 4:5
+  format     String   @default("9:16")
+  values     Json
+  /// segundos; só vídeo
+  duration   Float?
+  narration  Boolean  @default(true)
+  voice      String   @default("pm_nicolas")
+  /// { bpm, semente, db } ou nulo = sem trilha
+  soundtrack Json?
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  renders StudioRender[]
+
+  @@index([updatedAt])
+  @@map("studio_pieces")
+  @@schema("operations")
+}
+
+/// Uma renderização pedida ao worker (estudio-worker/). O snapshot congela o
+/// pedido: mudar a peça depois não muda o que está na fila.
+model StudioRender {
+  id         String    @id @default(cuid())
+  pieceId    String    @map("piece_id")
+  /// video | image
+  kind       String
+  /// PENDING | RUNNING | DONE | FAILED
+  status     String    @default("PENDING")
+  width      Int
+  height     Int
+  fps        Int       @default(24)
+  duration   Float?
+  snapshot   Json
+  fileName   String?   @map("file_name")
+  mimeType   String?   @map("mime_type")
+  sizeBytes  Int?      @map("size_bytes")
+  log        String?
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  piece StudioPiece @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([pieceId, createdAt])
+  @@map("studio_renders")
+  @@schema("operations")
+}

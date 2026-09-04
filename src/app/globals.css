@@ -5961,3 +5961,46 @@ tbody tr:last-child td {
 .autoatendimento-form > input { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 15px; }
 .autoatendimento-form > button { min-height: 48px; padding: 0 18px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
 .autoatendimento-form > button:disabled { opacity: .5; cursor: default; }
+
+/* ===== Estúdio (/operacao/estudio) ===== */
+.estudio-acoes { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.estudio-vazio { color: var(--subtle-text); padding: 16px 0; }
+.estudio-erro { color: #b42318; background: #fee4e2; border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 15px; }
+.estudio-ajuda { display: block; color: var(--subtle-text); font-size: 13px; margin-top: 4px; }
+.estudio-templates { display: grid; gap: 10px; margin-bottom: 16px; }
+.estudio-template-card { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); cursor: pointer; }
+.estudio-template-card.ativo { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.estudio-template-card input { position: absolute; opacity: 0; pointer-events: none; }
+.estudio-template-card small { color: var(--subtle-text); font-size: 13px; line-height: 1.35; }
+.estudio-tipo { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 700; }
+.estudio-cabecalho { align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.estudio-voltar { display: inline-block; font-size: 15px; color: var(--accent); margin-bottom: 6px; text-decoration: none; }
+.estudio-titulo { display: block; width: 100%; max-width: 520px; font-size: 1.5rem; font-weight: 800; border: 0; border-bottom: 1px dashed var(--line); background: transparent; color: var(--text); padding: 2px 0 4px; }
+.estudio-titulo:focus { outline: none; border-bottom-color: var(--accent); }
+.estudio-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.estudio-colunas { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.estudio-preview { position: relative; width: 100%; overflow: hidden; border-radius: 16px; background: #e9edf3; box-shadow: 0 10px 30px rgba(16, 40, 64, .12); }
+.estudio-preview iframe { position: absolute; left: 0; top: 0; border: 0; pointer-events: none; }
+.estudio-player { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.estudio-player input[type="range"] { flex: 1; min-height: 44px; }
+.estudio-tempo { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--subtle-text); white-space: nowrap; }
+.estudio-campos { display: grid; gap: 14px; }
+.estudio-campos textarea { min-height: 96px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 16px; resize: vertical; }
+.estudio-check { flex-direction: row; align-items: center; gap: 10px; }
+.estudio-check input { width: 22px; height: 22px; }
+.estudio-cor, .estudio-imagem { display: flex; gap: 8px; align-items: center; }
+.estudio-cor input[type="color"] { width: 48px; height: 48px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: transparent; }
+.estudio-cor input[type="text"], .estudio-cor input:not([type]), .estudio-imagem input:not([type]) { flex: 1; min-width: 0; }
+.estudio-trilha { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.estudio-renders { margin-top: 28px; }
+.estudio-renders h2 { font-size: 1.1rem; margin-bottom: 10px; }
+.estudio-render-row { display: grid; }
+.estudio-render-acoes { display: flex; gap: 6px; }
+.estudio-status.done { color: #067647; } .estudio-status.failed { color: #b42318; } .estudio-status.running, .estudio-status.pending { color: var(--accent); }
+.estudio-resultado { padding: 0 16px 14px; }
+.estudio-resultado video, .estudio-resultado img { display: block; max-width: 320px; width: 100%; border-radius: 12px; background: #000; }
+.estudio-log { margin: 0 16px 14px; padding: 12px; background: #0b1020; color: #d7e0ea; border-radius: 12px; font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; }
+@media (max-width: 820px) {
+  .estudio-colunas { grid-template-columns: minmax(0, 1fr); }
+  .estudio-trilha { grid-template-columns: 1fr; }
+}

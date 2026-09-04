@@ -25,7 +25,8 @@ export type SecaoApp =
   | "partner-network"
   | "domains"
   | "google-suite"
-  | "fiscal";
+  | "fiscal"
+  | "estudio";
 
 export type ItemNavegacao = {
   href: string;
@@ -100,6 +101,12 @@ export const navegacao: GrupoNavegacao[] = [
       },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
     ],
+  },
+  {
+    // O que a casa produz para as redes e o mural: o grupo "Canais" já está no
+    // limite de sete itens, e conteúdo não é canal, é o que vai neles.
+    label: "Conteúdo",
+    items: [{ href: "/operacao/estudio", label: "Estúdio", section: "estudio" }],
   },
   {
     label: "Fiscal",

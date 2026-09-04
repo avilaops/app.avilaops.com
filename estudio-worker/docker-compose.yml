@@ -1,0 +1,18 @@
+# Orquestrador (23.88.60.193): /opt/estudio-worker
+# Sobe com: docker compose up -d --build
+services:
+  worker:
+    build: .
+    image: estudio-worker:local
+    container_name: estudio-worker
+    restart: unless-stopped
+    env_file: .env            # ESTUDIO_APP_URL, ESTUDIO_WORKER_TOKEN
+    environment:
+      ESTUDIO_INTERVALO_MS: "5000"
+    # Kokoro (torch) + Chromium cabem em ~1,5 GB; o limite evita derrubar o n8n se algo vazar.
+    mem_limit: 2200m
+    shm_size: 512m
+    init: true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
