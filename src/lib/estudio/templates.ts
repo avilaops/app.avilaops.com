@@ -252,7 +252,95 @@ body{background:${escuro ? `linear-gradient(160deg,${marca.corPrimaria} 0%,#0b1c
   },
 };
 
-export const TEMPLATES: Template[] = [cenaPersonagem, cartaoChamada, postFrase];
+/* ------------------------------------------------------------------ */
+/* 4. Anúncio de serviço em quatro tempos (vídeo, fundo escuro)         */
+/* ------------------------------------------------------------------ */
+const anuncioServico: Template = {
+  id: "anuncio-servico",
+  nome: "Anúncio de serviço",
+  descricao: "Quatro frases em sequência sobre fundo escuro com estrada em movimento, etiquetas e fecho com logo, chamada e telefone. Serve para transportadora, loja, serviço local.",
+  tipo: "video",
+  duracaoPadrao: 13,
+  campos: [
+    { chave: "t1", rotulo: "Tempo 1 (pergunta)", tipo: "textoLongo", padrao: "Precisa transportar\n**mercadorias?**" },
+    { chave: "t2", rotulo: "Tempo 2 (o que fazemos)", tipo: "textoLongo", padrao: "Coletas e entregas em\n**São José do Rio Preto**\ne região." },
+    { chave: "t3", rotulo: "Tempo 3 (como)", tipo: "textoLongo", padrao: "Rotas planejadas.\nAtendimento próximo,\n**pelo WhatsApp.**" },
+    { chave: "tags", rotulo: "Etiquetas (separe por vírgula)", tipo: "texto", padrao: "Até 24h, Até 48h, Cotação pelo WhatsApp", ajuda: "só o que está confirmado no site do cliente" },
+    { chave: "cta", rotulo: "Chamada final", tipo: "texto", padrao: "Peça sua cotação" },
+    { chave: "telefone", rotulo: "Telefone / WhatsApp", tipo: "texto", padrao: "(17) 99714-9702" },
+    { chave: "narracao", rotulo: "Narração", tipo: "textoLongo", padrao: "Precisa transportar mercadorias?\nA Mello Transportes faz coletas e entregas em São José do Rio Preto e região.\nRotas planejadas e atendimento próximo, pelo WhatsApp.\nPeça sua cotação.", ajuda: "uma frase por tempo; a quarta cai no fecho" },
+    { chave: "estrada", rotulo: "Estrada em movimento", tipo: "opcao", padrao: "sim", opcoes: [{ valor: "sim", rotulo: "Sim" }, { valor: "nao", rotulo: "Não" }] },
+  ],
+  narracao: (v, duracao) => {
+    const linhas = (v.narracao ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+    const fecho = duracao - 3.2;
+    const inicios = [0.3, fecho * 0.34, fecho * 0.67, fecho + 0.3];
+    return linhas.slice(0, 4).map((texto, i) => ({ texto, inicio: inicios[i] ?? fecho }));
+  },
+  html: (v, formato, marca, duracao) => {
+    const { altura } = DIMENSOES[formato];
+    const alto = altura >= 1600;
+    const tags = (v.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+    const fecho = duracao - 3.2;
+    const tempos = [
+      [0.2, fecho * 0.34],
+      [fecho * 0.34, fecho * 0.67],
+      [fecho * 0.67, fecho],
+    ];
+    const css = `
+body{background:radial-gradient(circle at 78% 12%,${marca.corDestaque}55 0%,transparent 42%),linear-gradient(180deg,#121214 0%,#1b1b1e 100%);color:#fff}
+.sol{position:absolute;right:-140px;top:-140px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,${marca.corDestaque} 0%,${marca.corDestaque}00 62%);opacity:.55}
+.estrada{position:absolute;left:0;right:0;bottom:0;height:${alto ? 46 : 38}%}
+.horizonte{position:absolute;left:0;right:0;bottom:${alto ? 46 : 38}%;height:160px;background:linear-gradient(180deg,transparent,${marca.corDestaque}22 70%,${marca.corDestaque}33)}
+.marca-topo{position:absolute;left:70px;top:${alto ? 90 : 50}px;display:flex;align-items:center;gap:16px;font-weight:800;font-size:28px;letter-spacing:1px}
+.marca-topo img{height:${alto ? 84 : 64}px;width:auto}
+.tempo{position:absolute;left:70px;right:70px;top:${alto ? 420 : 200}px;font-size:${alto ? 84 : 62}px;line-height:1.1;font-weight:300;opacity:0;letter-spacing:-1px}
+.tempo b{font-weight:800;color:${marca.corDestaque}}
+.tags{position:absolute;left:70px;top:${alto ? 980 : 560}px;display:flex;gap:14px;flex-wrap:wrap}
+.tag{padding:16px 26px;border-radius:999px;border:2px solid ${marca.corDestaque};color:#fff;font-size:${alto ? 30 : 24}px;font-weight:600;opacity:0}
+.fecho{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:${alto ? 36 : 22}px;text-align:center;opacity:0}
+.fecho img{width:${alto ? 520 : 380}px;height:auto}
+.botao{background:${marca.corDestaque};color:#111;font-size:${alto ? 40 : 32}px;font-weight:800;padding:26px 54px;border-radius:18px}
+.fone{font-size:${alto ? 44 : 34}px;font-weight:700;letter-spacing:1px}
+.site{font-size:${alto ? 28 : 22}px;opacity:.75}
+#faixa{stroke:${marca.corDestaque};stroke-width:10;stroke-dasharray:70 60;stroke-linecap:round;fill:none}`;
+    const estrada = v.estrada !== "nao" ? `
+<svg class="estrada" viewBox="0 0 1080 900" preserveAspectRatio="none" aria-hidden="true">
+ <defs><linearGradient id="asf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1b1e" stop-opacity="0"/><stop offset=".35" stop-color="#26262a"/><stop offset="1" stop-color="#2f2f34"/></linearGradient></defs>
+ <path d="M 470 0 L 610 0 L 1180 900 L -100 900 Z" fill="url(#asf)"/>
+ <path id="faixa" d="M 540 0 L 540 900" pathLength="900" vector-effect="non-scaling-stroke"/>
+</svg>` : "";
+    const corpo = `
+<div class="sol"></div>
+${estrada ? '<div class="horizonte"></div>' : ""}
+${estrada}
+<div class="marca-topo"><img src="${esc(marca.logoUrl)}" alt=""></div>
+<div class="tempo" id="t1">${rico(v.t1)}</div>
+<div class="tempo" id="t2">${rico(v.t2)}</div>
+<div class="tempo" id="t3">${rico(v.t3)}</div>
+<div class="tags">${tags.map((t, i) => `<span class="tag" id="tag${i}">${esc(t)}</span>`).join("")}</div>
+<div class="fecho" id="fecho">
+ <img src="${esc(marca.logoUrl)}" alt="">
+ <div class="botao">${esc(v.cta)}</div>
+ <div class="fone">${esc(v.telefone)}</div>
+ <div class="site">${esc(marca.site)}</div>
+</div>`;
+    const script = `
+const TEMPOS=${JSON.stringify(tempos)};const FECHO=${fecho.toFixed(3)};const NTAGS=${tags.length};
+function entraSai(e,t,ini,fim){const a=clamp((t-ini)/0.45,0,1),s=clamp((fim-t)/0.35,0,1);const p=Math.min(easeOut(a),s);e.style.opacity=p;e.style.transform=\`translateY(\${(1-easeOut(a))*40}px)\`}
+window.render=function(t){
+ const faixa=el("faixa");if(faixa)faixa.setAttribute("stroke-dashoffset",String(-(t*260)%130));
+ TEMPOS.forEach(([ini,fim],i)=>{const e=el("t"+(i+1));if(e)entraSai(e,t,ini,fim)});
+ for(let i=0;i<NTAGS;i++){const e=el("tag"+i);if(!e)continue;const ini=TEMPOS[1][0]+0.5+i*0.25;const a=clamp((t-ini)/0.4,0,1),s=clamp((FECHO-t)/0.35,0,1);e.style.opacity=Math.min(a,s);e.style.transform=\`translateX(\${(1-easeBack(a))*60}px)\`}
+ anima("fecho",FECHO,0.6,t,(e,p)=>{e.style.opacity=p;e.style.transform=\`scale(\${0.94+0.06*easeOut(p)})\`});
+ const topo=document.querySelector(".marca-topo");if(topo)topo.style.opacity=t<FECHO?1:clamp((FECHO+0.4-t)/0.4,0,1);
+ const estrada=document.querySelector(".estrada");if(estrada)estrada.style.opacity=t<FECHO?1:1-0.65*clamp((t-FECHO)/0.6,0,1);
+};`;
+    return base(formato, marca, css, corpo, script);
+  },
+};
+
+export const TEMPLATES: Template[] = [cenaPersonagem, cartaoChamada, postFrase, anuncioServico];
 
 export const templatePorId = (id: string) => TEMPLATES.find((t) => t.id === id);
 
