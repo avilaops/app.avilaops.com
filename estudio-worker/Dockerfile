@@ -25,5 +25,6 @@ COPY narrar.py trilha.py ./
 COPY vozes ./vozes
 COPY src ./src
 
-ENV ESTUDIO_PYTHON=/opt/venv/bin/python ESTUDIO_INTERVALO_MS=5000 NODE_ENV=production
+# modelo já está na imagem: não consultar o Hugging Face em produção
+ENV ESTUDIO_PYTHON=/opt/venv/bin/python ESTUDIO_INTERVALO_MS=5000 NODE_ENV=production HF_HUB_OFFLINE=1
 CMD ["node", "src/worker.ts"]

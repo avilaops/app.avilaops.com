@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const form = await request.formData();
   const status = form.get("status") === "concluido" ? "DONE" : "FAILED";
-  const log = typeof form.get("log") === "string" ? (form.get("log") as string).slice(-20000) : null;
+  const log = typeof form.get("log") === "string" ? (form.get("log") as string).replace(/\r/g, "").slice(-20000) : null;
   const arquivo = form.get("arquivo");
 
   if (status === "DONE") {
