@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { isServiceCall } from "@/lib/service-auth";
 import { runEfiSync } from "@/lib/sync";
 
@@ -14,6 +14,11 @@ export async function POST(request: NextRequest) {
   const admin = await getAdmin();
   if (!admin && !isServiceCall(request)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+  // Puxa extrato bancário: é dinheiro, então só o dono. O cron do n8n continua
+  // entrando pela chave de serviço, que não tem sessão nem papel.
+  if (admin && !ehDono(admin.role)) {
+    return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
   }
 
   let days = 90;

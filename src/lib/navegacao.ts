@@ -24,7 +24,8 @@ export type SecaoApp =
   | "jobs"
   | "partner-network"
   | "domains"
-  | "google-suite";
+  | "google-suite"
+  | "fiscal";
 
 export type ItemNavegacao = {
   href: string;
@@ -44,8 +45,11 @@ export type GrupoNavegacao = { label: string; items: ItemNavegacao[]; somenteDon
  * precisa ver um "Financeiro" que vai recusá-la.
  */
 export function navegacaoDoPapel(role: string): GrupoNavegacao[] {
-  const dono = role === "OWNER";
-  if (dono) return navegacao;
+  // Só OWNER, de propósito: o sócio entra no painel mas não no caixa, então o
+  // menu dele não mostra o que `ehDono()` vai recusar. A comparação é com a
+  // string e não com `ehDono()` para este módulo continuar sem importar auth,
+  // que puxa prisma e cookies e não roda no cliente.
+  if (role === "OWNER") return navegacao;
   return navegacao
     .filter((grupo) => !grupo.somenteDono)
     .map((grupo) => ({ ...grupo, items: grupo.items.filter((item) => !item.somenteDono) }))
@@ -95,6 +99,18 @@ export const navegacao: GrupoNavegacao[] = [
         section: "newsletter",
       },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
+    ],
+  },
+  {
+    label: "Fiscal",
+    somenteDono: true,
+    items: [
+      {
+        href: "/operacao/fiscal",
+        label: "Notas & SEFAZ",
+        section: "fiscal",
+        somenteDono: true,
+      },
     ],
   },
   {

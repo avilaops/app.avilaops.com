@@ -10,22 +10,30 @@ const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 /**
- * Três pessoas diferentes, não três níveis da mesma:
+ * Quatro pessoas diferentes, não quatro níveis da mesma:
  *
  * - `OWNER`  → a **plataforma** (Avila Ops). Uma conta. Este app inteiro é dela.
+ * - `SOCIO`  → quem toca a operação junto com o dono, sem mexer no caixa.
+ *   Entra no painel e opera tudo, menos o que `ehDono()` guarda.
  * - `ADMIN`  → o **dono do negócio** que contrata: restaurante, loja, oficina.
  *   Manda na própria empresa e na equipe dela, em mais nada.
  * - `CLIENT` → a **equipe** desse dono. Usa o produto; não administra.
  *
- * `app.avilaops.com` é o painel da plataforma, então quem entra aqui é OWNER.
- * ADMIN e CLIENT vivem em `/portal` (a empresa deles) e no painel do produto
- * que assinam.
+ * `app.avilaops.com` é o painel da plataforma, então quem entra aqui é OWNER
+ * ou SOCIO. ADMIN e CLIENT vivem em `/portal` (a empresa deles) e no painel do
+ * produto que assinam.
  */
-export type PapelPortal = "OWNER" | "ADMIN" | "CLIENT";
+export type PapelPortal = "OWNER" | "SOCIO" | "ADMIN" | "CLIENT";
 
-const PAPEIS_DA_CASA: readonly string[] = ["OWNER"];
+const PAPEIS_DA_CASA: readonly string[] = ["OWNER", "SOCIO"];
 
-/** A plataforma. É o que este painel exige em toda página e rota. */
+/**
+ * Gente da casa: a plataforma. É o que este painel exige em toda página e rota.
+ *
+ * Passar aqui abre o painel, **não** o caixa: dinheiro, cofre e concessão de
+ * acesso continuam atrás de `ehDono()`. Quem for acrescentar papel novo aqui
+ * precisa conferir se cada rota sensível usa `ehDono()` e não só `getAdmin()`.
+ */
 export function ehDaCasa(role: string | null | undefined): boolean {
   return typeof role === "string" && PAPEIS_DA_CASA.includes(role);
 }
@@ -36,12 +44,16 @@ export function ehDonoDoNegocio(role: string | null | undefined): boolean {
 }
 
 /**
- * Só o dono.
+ * Só o dono. Nem o sócio passa aqui.
  *
  * O que fica atrás disto é o que não se delega: dinheiro (conta, extrato,
  * conciliação, cobrança, preço), segredo (cofre de credenciais), acesso (quem
  * vira cliente, quem recebe senha) e o que é irreversível. A equipe — inclusive
  * as contas de automação — opera todo o resto sem pedir licença.
+ *
+ * É esta função, e não `ehDaCasa()`, que separa SOCIO de OWNER. Rota nova que
+ * mexa em dinheiro tem que chamar esta aqui: só `getAdmin()` deixa o sócio
+ * entrar.
  */
 export function ehDono(role: string | null | undefined): boolean {
   return role === "OWNER";
@@ -217,6 +229,7 @@ export function destinoPorPapel(role: string): string {
 /** Papel legível, para tela e auditoria. */
 export function rotuloDoPapel(role: string): string {
   if (role === "OWNER") return "Plataforma";
+  if (role === "SOCIO") return "Sócio";
   if (role === "ADMIN") return "Dono do negócio";
   return "Equipe do cliente";
 }
