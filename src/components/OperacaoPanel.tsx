@@ -31,6 +31,8 @@ export type AssinaturaDaFicha = {
   description: string;
   amountCents: number;
   billingDay: number;
+  /** MONTHLY | YEARLY. */
+  billingCycle: string;
   status: string;
   startedAt: string;
   productKey: string | null;
@@ -150,6 +152,8 @@ export default function OperacaoPanel({
     planoId: "",
     descricao: "",
     valor: "",
+    /** MONTHLY | YEARLY. Serviço pago por ano não cabe no valor mensal. */
+    ciclo: "MONTHLY",
     dia: "10",
     inicio: new Date().toISOString().slice(0, 10),
     implantacaoPlanoId: "",
@@ -158,6 +162,8 @@ export default function OperacaoPanel({
     tenant: "",
   });
 
+  const anual = formAssinatura.ciclo === "YEARLY";
+
   function escolherPlano(planoId: string) {
     const plano = planosRecorrentes.find((p) => p.id === planoId);
     setFormAssinatura((f) => ({
@@ -165,6 +171,9 @@ export default function OperacaoPanel({
       planoId,
       descricao: plano ? plano.name : f.descricao,
       valor: plano && plano.priceCents !== null ? precoTexto(plano.priceCents) : f.valor,
+      // O ciclo do catálogo manda: plano anual escolhido não pode virar
+      // mensalidade por esquecimento de trocar o seletor.
+      ciclo: plano?.billingCycle === "YEARLY" ? "YEARLY" : plano ? "MONTHLY" : f.ciclo,
     }));
   }
 
@@ -193,7 +202,7 @@ export default function OperacaoPanel({
               <strong>Assinatura criada.</strong>
               <span>
                 Faturas abertas:{" "}
-                {r.faturas.map((f) => `${f.tipo === "SETUP" ? "implantação" : "mensalidade " + f.competencia} ${dinheiro(f.valorCents)} (vence ${dataCurta(f.vencimento)})`).join("; ")}.
+                {r.faturas.map((f) => `${f.tipo === "SETUP" ? "implantação" : (f.tipo === "YEARLY" ? "anuidade " : "mensalidade ") + f.competencia} ${dinheiro(f.valorCents)} (vence ${dataCurta(f.vencimento)})`).join("; ")}.
                 Gere o PIX ou o boleto na lista.
               </span>
             </>
@@ -212,7 +221,7 @@ export default function OperacaoPanel({
         await chamar(`${base}/assinatura/${assinaturaId}`, { acao }, "PATCH");
         return null;
       },
-      acao === "gerar-fatura" ? "Fatura do mês garantida." : `Assinatura: ${acao === "pausar" ? "pausada" : acao === "retomar" ? "retomada" : "cancelada"}.`,
+      acao === "gerar-fatura" ? "Próxima fatura garantida." : `Assinatura: ${acao === "pausar" ? "pausada" : acao === "retomar" ? "retomada" : "cancelada"}.`,
     );
   }
 
@@ -335,7 +344,7 @@ export default function OperacaoPanel({
                   <div className="prov-row-main">
                     <strong>{a.description}</strong>
                     <small>
-                      {dinheiro(a.amountCents)}/mês · vence dia {a.billingDay} · desde {dataCurta(a.startedAt)}
+                      {dinheiro(a.amountCents)}/{a.billingCycle === "YEARLY" ? "ano" : "mês"} · vence dia {a.billingDay} · desde {dataCurta(a.startedAt)}
                       {a.productKey ? ` · ${a.productKey}` : ""}
                     </small>
                   </div>
@@ -499,17 +508,31 @@ export default function OperacaoPanel({
               <input value={formAssinatura.descricao} onChange={(e) => setFormAssinatura((f) => ({ ...f, descricao: e.target.value }))} placeholder={`Plataforma Ávila Ops — ${nomeCliente}`} required autoFocus />
             </label>
             <div className="field-grid">
+              <label className="field field-select">
+                <span>Cobrança</span>
+                <select
+                  value={formAssinatura.ciclo}
+                  onChange={(e) => setFormAssinatura((f) => ({ ...f, ciclo: e.target.value }))}
+                >
+                  <option value="MONTHLY">Mensal</option>
+                  <option value="YEARLY">Anual</option>
+                </select>
+              </label>
               <label className="field">
-                <span>Valor mensal</span>
+                <span>{anual ? "Valor anual" : "Valor mensal"}</span>
                 <span className="input-prefix">
                   <i aria-hidden="true">R$</i>
                   <input value={formAssinatura.valor} onChange={(e) => setFormAssinatura((f) => ({ ...f, valor: e.target.value }))} placeholder="0,00" inputMode="decimal" required />
                 </span>
               </label>
+            </div>
+            <div className="field-grid">
               <label className="field">
                 <span>Dia do vencimento</span>
                 <input type="number" min={1} max={28} value={formAssinatura.dia} onChange={(e) => setFormAssinatura((f) => ({ ...f, dia: e.target.value }))} inputMode="numeric" required />
-                <small className="field-help">1 a 28.</small>
+                <small className="field-help">
+                  {anual ? "1 a 28, no mês de aniversário." : "1 a 28."}
+                </small>
               </label>
             </div>
             <label className="field">

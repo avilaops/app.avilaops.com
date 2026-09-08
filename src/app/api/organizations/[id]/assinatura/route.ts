@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { garantirFatura } from "@/lib/assinaturas";
+import { garantirFatura, recorrenteDe } from "@/lib/assinaturas";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { marcarEtapa } from "@/lib/onboarding-etapas";
@@ -18,10 +18,11 @@ function competenciaDe(data: Date) {
 }
 
 /**
- * Nova assinatura (mensalidade) do cliente, pela ficha. Substitui o
- * `scripts/criar-assinatura.ts`. Já nasce com a primeira fatura mensal e,
- * se houver implantação, com a fatura SETUP vencendo em 7 dias — para ter o
- * que cobrar no mesmo dia em que o contrato fecha.
+ * Nova assinatura do cliente, pela ficha. Substitui o
+ * `scripts/criar-assinatura.ts`. Já nasce com a primeira fatura da recorrência
+ * — mensal ou anual, conforme o ciclo — e, se houver implantação, com a fatura
+ * SETUP vencendo em 7 dias, para ter o que cobrar no mesmo dia em que o
+ * contrato fecha.
  */
 export async function POST(
   request: NextRequest,
@@ -42,9 +43,18 @@ export async function POST(
   const implantacaoCents = centsDeTexto(body?.implantacao);
   const produto = cleanText(body?.produto, 40) || null;
   const tenant = cleanText(body?.tenant, 80) || null;
+  const ciclo = cleanText(body?.ciclo, 10).toUpperCase() || "MONTHLY";
 
   if (!descricao) return NextResponse.json({ error: "Informe a descrição da assinatura." }, { status: 400 });
-  if (!valorCents) return NextResponse.json({ error: "Informe um valor mensal maior que zero." }, { status: 400 });
+  if (ciclo !== "MONTHLY" && ciclo !== "YEARLY") {
+    return NextResponse.json({ error: "Ciclo inválido: use mensal ou anual." }, { status: 400 });
+  }
+  if (!valorCents) {
+    return NextResponse.json(
+      { error: `Informe um valor ${ciclo === "YEARLY" ? "anual" : "mensal"} maior que zero.` },
+      { status: 400 },
+    );
+  }
   if (!Number.isInteger(dia) || dia < 1 || dia > 28) {
     return NextResponse.json({ error: "Dia de vencimento entre 1 e 28 — 29, 30 e 31 não existem em todo mês." }, { status: 400 });
   }
@@ -75,6 +85,7 @@ export async function POST(
       description: descricao,
       amount: valorCents / 100,
       billingDay: dia,
+      billingCycle: ciclo,
       startedAt: inicio,
       status: "ACTIVE",
       productKey: produto,
@@ -82,8 +93,9 @@ export async function POST(
     },
   });
 
-  // Primeira mensalidade: vence no dia escolhido do mês de início; se esse dia
-  // já passou, em 7 dias — nunca com vencimento no passado.
+  // Primeira fatura da recorrência: vence no dia escolhido do mês de início; se
+  // esse dia já passou, em 7 dias — nunca com vencimento no passado. No ciclo
+  // anual é a mesma conta: a próxima só volta doze meses depois.
   const competencia = competenciaDe(inicio);
   const [ano, mes] = competencia.split("-").map(Number);
   const vencimentoNoMes = new Date(Date.UTC(ano, mes - 1, dia));
@@ -91,7 +103,7 @@ export async function POST(
   const mensal = await garantirFatura({
     subscriptionId: assinatura.id,
     competencia,
-    tipo: "MONTHLY",
+    tipo: recorrenteDe(ciclo),
     vencimento: vencimentoNoMes < new Date() ? emSeteDias : vencimentoNoMes,
   });
 
@@ -105,7 +117,11 @@ export async function POST(
       })
     : null;
 
-  await marcarEtapa(id, "BILLING", `${descricao}: R$ ${(valorCents / 100).toFixed(2).replace(".", ",")}/mês, dia ${dia}`);
+  await marcarEtapa(
+    id,
+    "BILLING",
+    `${descricao}: R$ ${(valorCents / 100).toFixed(2).replace(".", ",")}/${ciclo === "YEARLY" ? "ano" : "mês"}, dia ${dia}`,
+  );
 
   await prisma.operationsAuditEvent.create({
     data: {
@@ -114,7 +130,7 @@ export async function POST(
       entityId: assinatura.id,
       organizationId: id,
       actorId: admin.id,
-      metadata: { descricao, valorCents, dia, inicio: inicio.toISOString().slice(0, 10), implantacaoCents, produto, tenant, faturaMensal: mensal?.id ?? null, faturaSetup: setup?.id ?? null },
+      metadata: { descricao, valorCents, dia, ciclo, inicio: inicio.toISOString().slice(0, 10), implantacaoCents, produto, tenant, faturaMensal: mensal?.id ?? null, faturaSetup: setup?.id ?? null },
     },
   });
 

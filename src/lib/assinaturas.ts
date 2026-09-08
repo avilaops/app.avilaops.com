@@ -395,11 +395,35 @@ export async function criarCobrancaDaFatura(params: {
  * Idempotente pelo índice único (assinatura, competência): rodar duas vezes no
  * mesmo mês devolve a mesma fatura em vez de cobrar duas.
  */
+/** O tipo da fatura recorrente de cada ciclo. */
+export function recorrenteDe(ciclo: string): "MONTHLY" | "YEARLY" {
+  return ciclo === "YEARLY" ? "YEARLY" : "MONTHLY";
+}
+
+/**
+ * Competência da próxima cobrança, no formato AAAA-MM.
+ *
+ * No anual o passo é de doze meses: a assinatura que começou em 2026-09 volta
+ * a cobrar em 2027-09, e não todo mês. O formato continua AAAA-MM de propósito
+ * — a chave única (assinatura, competência, tipo) já garante uma por ano, e
+ * mudar o formato quebraria as faturas que existem.
+ */
+export function competenciaSeguinte(competencia: string, ciclo: string): string {
+  const [ano, mes] = competencia.split("-").map(Number);
+  const passo = ciclo === "YEARLY" ? 12 : 1;
+  const total = (ano * 12 + (mes - 1)) + passo;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
 export async function garantirFatura(params: {
   subscriptionId: string;
   competencia: string;
-  /** MONTHLY (padrão) ou SETUP, a implantação — que tem valor próprio. */
-  tipo?: "MONTHLY" | "SETUP";
+  /**
+   * SETUP é a implantação, que tem valor próprio. Omitido, a recorrente segue
+   * o ciclo da assinatura: MONTHLY ou YEARLY. Não assumir mensal aqui evita
+   * que uma assinatura anual ganhe doze faturas por ano.
+   */
+  tipo?: "MONTHLY" | "YEARLY" | "SETUP";
   valorCents?: number;
   vencimento?: Date;
 }) {
@@ -409,7 +433,7 @@ export async function garantirFatura(params: {
 
   if (!assinatura || assinatura.status !== "ACTIVE") return null;
 
-  const tipo = params.tipo ?? "MONTHLY";
+  const tipo = params.tipo ?? recorrenteDe(assinatura.billingCycle);
   const [ano, mes] = params.competencia.split("-").map(Number);
   const vencimento =
     params.vencimento ?? new Date(Date.UTC(ano, mes - 1, assinatura.billingDay));

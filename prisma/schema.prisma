@@ -1204,6 +1204,11 @@ model Subscription {
   /// Dia do vencimento, 1–28. Os dias 29, 30 e 31 não existem em todo mês, e
   /// mensalidade que some em fevereiro é conversa desagradável.
   billingDay     Int       @map("billing_day")
+  /// MONTHLY | YEARLY. O anual cobra uma vez por ano, na competência do mês de
+  /// aniversário, usando o mesmo `billingDay` para o vencimento. Serviço pago
+  /// adiantado por ano (e-mail, domínio) não cabia no modelo mensal: gravar o
+  /// valor do ano num campo lido como mensal mentiria o MRR e a tela.
+  billingCycle   String    @default("MONTHLY") @map("billing_cycle")
   /// ACTIVE | PAUSED | CANCELLED
   status         String    @default("ACTIVE")
   startedAt      DateTime  @map("started_at")
@@ -1231,10 +1236,11 @@ model SubscriptionInvoice {
   subscriptionId String    @map("subscription_id")
   /// AAAA-MM. Competência, não data de emissão.
   competence     String
-  /// MONTHLY | SETUP. A implantação é cobrada uma vez, no começo, e não é
-  /// mensalidade — mas é fatura do mesmo cliente, aparece na mesma tela e é
-  /// paga pelos mesmos meios. Separar em outra tabela renderia duas telas e
-  /// dois webhooks para a mesma coisa.
+  /// MONTHLY | YEARLY | SETUP. A implantação é cobrada uma vez, no começo, e
+  /// não é mensalidade — mas é fatura do mesmo cliente, aparece na mesma tela e
+  /// é paga pelos mesmos meios. Separar em outra tabela renderia duas telas e
+  /// dois webhooks para a mesma coisa. YEARLY é a recorrente da assinatura
+  /// anual: uma por ano, na competência do mês de aniversário.
   kind           String    @default("MONTHLY")
   amount         Decimal   @db.Decimal(10, 2)
   dueDate        DateTime  @map("due_date") @db.Date

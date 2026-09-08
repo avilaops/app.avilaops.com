@@ -68,6 +68,7 @@ export default async function ClientDossierPage({
     description: a.description,
     amountCents: cents(a.amount),
     billingDay: a.billingDay,
+    billingCycle: a.billingCycle,
     status: a.status,
     startedAt: a.startedAt.toISOString(),
     productKey: a.productKey,

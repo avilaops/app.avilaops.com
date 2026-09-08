@@ -2,8 +2,10 @@ import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CobrancaIndisponivelError,
+  competenciaSeguinte,
   criarCobrancaDaFatura,
   garantirFatura,
+  recorrenteDe,
   type MetodoCobranca,
 } from "@/lib/assinaturas";
 import { ehDono, getAdmin } from "@/lib/auth";
@@ -83,11 +85,23 @@ export async function PATCH(
       return NextResponse.json({ error: "A assinatura não está ativa." }, { status: 409 });
     }
     const agora = new Date();
-    const competencia =
-      /^\d{4}-\d{2}$/.test(cleanText(body?.competencia, 7))
-        ? cleanText(body?.competencia, 7)
+    // No anual a competência do mês corrente quase nunca é a certa: a cobrança
+    // cai no mês de aniversário. Sem competência informada, avança um ciclo a
+    // partir da última fatura da recorrência — assim o botão não abre uma
+    // segunda fatura anual no mesmo ano.
+    const tipo = recorrenteDe(assinatura.billingCycle);
+    const ultima = await prisma.subscriptionInvoice.findFirst({
+      where: { subscriptionId: subId, kind: tipo },
+      orderBy: { competence: "desc" },
+      select: { competence: true },
+    });
+    const informada = cleanText(body?.competencia, 7);
+    const competencia = /^\d{4}-\d{2}$/.test(informada)
+      ? informada
+      : ultima
+        ? competenciaSeguinte(ultima.competence, assinatura.billingCycle)
         : `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, "0")}`;
-    const fatura = await garantirFatura({ subscriptionId: subId, competencia, tipo: "MONTHLY" });
+    const fatura = await garantirFatura({ subscriptionId: subId, competencia, tipo });
     await auditar("SUBSCRIPTION_INVOICE_ENSURED", { competencia, faturaId: fatura?.id ?? null });
     return NextResponse.json({ ok: true, faturaId: fatura?.id ?? null, competencia });
   }
