@@ -6024,3 +6024,358 @@ tbody tr:last-child td {
   .estudio-colunas { grid-template-columns: minmax(0, 1fr); }
   .estudio-trilha { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Ficha do cliente no celular
+   Recomposição, não encolhimento. A ficha nasceu para desktop: grids de 2 e 3
+   colunas sem nenhuma media query, o que espremia três campos em 390px e
+   fazia a razão social do PK VEDACOES quebrar em dez linhas. Aqui a mesma
+   marcação vira uma coluna, com alvo de toque de 44px e fonte de 16px nos
+   campos (abaixo disso o Safari do iPhone dá zoom sozinho ao focar).
+   ========================================================================== */
+@media (max-width: 820px) {
+  /* Uma coluna. O `span-2`/`span-3` do desktop deixaria buraco na grade. */
+  .dossier-grid.two,
+  .dossier-grid.three,
+  .dossier-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .span-2,
+  .span-3 {
+    grid-column: span 1;
+  }
+
+  /* 16px é o piso: com menos, focar o campo dá zoom e a pessoa perde o
+     contexto da tela inteira. */
+  .dossier-grid input,
+  .dossier-grid select,
+  .dossier-grid textarea,
+  .client-dossier input,
+  .client-dossier select,
+  .client-dossier textarea {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .dossier-grid textarea,
+  .client-dossier textarea {
+    min-height: 96px;
+    padding: 12px;
+    line-height: 1.5;
+  }
+
+  .dossier-grid label,
+  .client-dossier .full-field {
+    gap: 8px;
+    font-size: 0.875rem;
+  }
+
+  /* O botão do CEP mora na grade e virava um campo órfão sem rótulo. */
+  .cep-button {
+    min-height: 48px;
+    margin-top: 4px;
+  }
+
+  /* Um cartão de upload por linha: dois lado a lado em 390px deixam o
+     "Escolher arquivo" cortado, como na tela do "Logo principal". */
+  .asset-upload-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .asset-upload-card {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .asset-upload-card input,
+  .asset-upload-card button {
+    min-height: 48px;
+  }
+
+  .asset-type-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Navegação: no lugar de sete abas espremidas e cortadas nas bordas, a
+     seção atual com um seletor. O componente monta o botão; aqui só somem
+     as abas antigas. */
+  .dossier-tabs {
+    display: none;
+  }
+
+  .seletor-secao {
+    position: sticky;
+    top: calc(var(--topbar-h, 52px) + env(safe-area-inset-top));
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    margin: 0 0 18px;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card, #fff);
+    color: var(--text);
+    text-align: left;
+  }
+
+  .seletor-secao strong {
+    display: block;
+    font-size: 1rem;
+    font-weight: 650;
+  }
+
+  .seletor-secao small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .seletor-secao .chevron {
+    flex: 0 0 auto;
+    color: var(--muted);
+  }
+
+  /* Lista de seções dentro da folha, no padrão de lista agrupada do iOS. */
+  .lista-secoes {
+    display: grid;
+    gap: 2px;
+  }
+
+  .lista-secoes button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text);
+    font-size: 1rem;
+    text-align: left;
+  }
+
+  .lista-secoes button[aria-current="true"] {
+    background: var(--input-bg);
+    font-weight: 650;
+  }
+
+  /* Barra de ação: aparece só quando há o que salvar, e mora acima da barra
+     de abas para não ficar embaixo dela. */
+  .barra-acao {
+    position: fixed;
+    right: 0;
+    bottom: calc(var(--tabbar-h, 56px) + env(safe-area-inset-bottom));
+    left: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--card, #fff);
+  }
+
+  .barra-acao span {
+    flex: 1 1 auto;
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+
+  .barra-acao button {
+    min-height: 48px;
+    padding: 0 20px;
+  }
+
+  /* Com a barra de ação no ar, o fim do formulário precisa de espaço para
+     não ficar escondido atrás dela. */
+  .client-dossier.tem-alteracao {
+    padding-bottom: 104px;
+  }
+
+  /* O cabeçalho é uma linha flex com gap de 28px: a identidade e a barra de
+     progresso lado a lado somavam 628px dentro de uma tela de 390px, e era
+     ele que empurrava a ficha inteira para fora da janela. Vira coluna. */
+  .dossier-hero-panel {
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .dossier-hero-panel > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Cabeçalho compacto: o cartão de progresso ocupava um terço da tela só
+     para mostrar uma porcentagem. */
+  .dossier-progress {
+    width: 100%;
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 14px;
+  }
+
+  .dossier-progress span {
+    font-size: 0.875rem;
+  }
+
+  .lista-keywords button,
+  .botao-adicionar {
+    min-height: 52px;
+  }
+
+  .editor-keyword input,
+  .editor-keyword select {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .acoes-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .acoes-editor button {
+    min-height: 48px;
+  }
+}
+
+/* Nada na página deve rolar para o lado: o scroll horizontal é sempre de um
+   componente que pediu por ele, nunca do documento. */
+@media (max-width: 820px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* ==========================================================================
+   Estruturas novas da ficha: grupos temáticos, cartões de serviço e a lista
+   de palavras-chave. Valem em qualquer largura, não só no celular: agrupar
+   por assunto e mostrar a lista antes do editor melhora a leitura também no
+   desktop, onde a "Presença digital" era uma parede de 21 campos iguais.
+   ========================================================================== */
+.grupo-campos + .grupo-campos {
+  margin-top: 28px;
+}
+
+.grupo-campos > h3 {
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Cada serviço é uma unidade: a situação de hoje e a oferta lado a lado,
+   nunca dois selects soltos sem dizer a que serviço pertencem. */
+.lista-servicos {
+  display: grid;
+  gap: 14px;
+}
+
+.cartao-servico {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--input-bg);
+}
+
+.cartao-servico > h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+.aviso-servico {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+/* Lista de palavras-chave: uma linha por termo, com o que identifica o item.
+   O detalhe inteiro (sete campos) só aparece na folha ao tocar. */
+.botao-adicionar {
+  justify-self: start;
+  margin-bottom: 16px;
+}
+
+.lista-keywords {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-keywords button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.lista-keywords button:hover {
+  background: var(--active-bg);
+}
+
+.lista-keywords strong {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.lista-keywords small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.lista-keywords .chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.editor-keyword {
+  display: grid;
+  gap: 16px;
+}
+
+.editor-keyword label {
+  display: grid;
+  gap: 7px;
+  color: var(--table-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.acoes-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}

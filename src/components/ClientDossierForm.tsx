@@ -1,8 +1,10 @@
 "use client";
 
-import { FormEvent, MouseEvent, useMemo, useState } from "react";
+import { FormEvent, MouseEvent, ReactNode, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Sheet from "@/components/ui/Sheet";
+import { Icone } from "@/components/ui/Icones";
 
 type Plan = {
   id: string;
@@ -13,6 +15,29 @@ type Plan = {
   priceCents: number | null;
   billingCycle: string | null;
 };
+
+/**
+ * Bloco temático dentro de uma seção. A "Presença digital" tinha 21 campos
+ * seguidos numa grade só: no celular vira uma coluna de 21 caixas iguais, sem
+ * nada dizendo onde termina o site e começam as redes. O grupo dá o título que
+ * a pessoa usa para se localizar, e no desktop continua sendo a mesma grade.
+ */
+function Grupo({
+  titulo,
+  colunas = "three",
+  children,
+}: {
+  titulo: string;
+  colunas?: "two" | "three";
+  children: ReactNode;
+}) {
+  return (
+    <div className="grupo-campos">
+      <h3>{titulo}</h3>
+      <div className={`dossier-grid ${colunas}`}>{children}</div>
+    </div>
+  );
+}
 
 type Keyword = {
   id: string;
@@ -167,6 +192,28 @@ function boolValue(value: unknown) {
   return "";
 }
 
+const PRIORIDADES: Record<string, string> = {
+  HIGH: "Alta",
+  MEDIUM: "Média",
+  LOW: "Baixa",
+};
+
+const STATUS_KEYWORD: Record<string, string> = {
+  RECOMMENDED: "Recomendada",
+  PLANNED: "Planejada",
+  IN_PRODUCTION: "Em produção",
+  PUBLISHED: "Publicada",
+  PAUSED: "Pausada",
+};
+
+function rotuloPrioridade(valor: string) {
+  return PRIORIDADES[valor] ?? valor;
+}
+
+function rotuloStatus(valor: string) {
+  return STATUS_KEYWORD[valor] ?? valor;
+}
+
 function cents(plan: Plan) {
   if (plan.priceCents === null) return "A definir";
   return new Intl.NumberFormat("pt-BR", {
@@ -192,8 +239,14 @@ export default function ClientDossierForm({
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>("overview");
+  const [secoesAbertas, setSecoesAbertas] = useState(false);
+  // A barra de "salvar" só existe quando há o que salvar: barra fixa
+  // permanente rouba altura útil de uma tela que já é pequena.
+  const [temAlteracao, setTemAlteracao] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingKeyword, setSavingKeyword] = useState("");
+  // "" = folha fechada, "new" = cadastrando, id = editando aquela palavra.
+  const [editandoKeyword, setEditandoKeyword] = useState("");
   const [uploadingAsset, setUploadingAsset] = useState("");
   const [loadingCep, setLoadingCep] = useState(false);
   const [checkingDomain, setCheckingDomain] = useState(false);
@@ -202,6 +255,7 @@ export default function ClientDossierForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const planGroups = useMemo(() => groupedPlans(plans), [plans]);
+  const keywordEmEdicao = organization.seoKeywords.find((item) => item.id === editandoKeyword);
   const primaryContact = organization.contacts.find((item) => item.isPrimary) ?? organization.contacts[0];
   const primaryAddress = organization.addresses.find((item) => item.isPrimary) ?? organization.addresses[0];
   const socialByPlatform = useMemo(
@@ -251,6 +305,8 @@ export default function ClientDossierForm({
     organization.webPresence?.googleBusinessProfileUrl,
   ].filter(Boolean).length;
   const progress = Math.round((completed / 7) * 100);
+  const indiceTabAtual = tabs.findIndex(([id]) => id === activeTab);
+  const tabAtual = tabs[indiceTabAtual];
   const onboardingProgress = Math.round(
     (onboardingItems.filter((item) => item.status === "DONE").length / onboardingItems.length) * 100,
   );
@@ -395,6 +451,8 @@ export default function ClientDossierForm({
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Não foi possível salvar.");
       setMessage("Ficha salva com sucesso.");
+      // Salvou: a barra de "alterações não salvas" some, senão ela mente.
+      setTemAlteracao(false);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.");
@@ -621,7 +679,13 @@ export default function ClientDossierForm({
   }
 
   return (
-    <form className="client-dossier" onSubmit={save}>
+    <form
+      className={temAlteracao ? "client-dossier tem-alteracao" : "client-dossier"}
+      onSubmit={save}
+      onChange={() => {
+        if (!temAlteracao) setTemAlteracao(true);
+      }}
+    >
       {/* Só o quanto falta. O nome e a razão social já são o título da página e
           os dois primeiros campos da aba; a régua das seis etapas se repetia em
           toda ficha sem dizer em qual delas o cliente está. */}
@@ -631,6 +695,46 @@ export default function ClientDossierForm({
           <div><i style={{ width: `${onboardingProgress || progress}%` }} /></div>
         </div>
       </section>
+
+      {/* No celular, sete abas lado a lado ficavam cortadas nas duas bordas e
+          não davam para ler nem alcançar. No lugar delas, a seção atual com um
+          seletor: a pessoa sempre sabe onde está e quantas seções existem. O
+          desktop segue com as abas, que ali cabem. */}
+      <button
+        className="seletor-secao"
+        type="button"
+        onClick={() => setSecoesAbertas(true)}
+        aria-haspopup="dialog"
+      >
+        <span>
+          <strong>{tabAtual?.[1]}</strong>
+          <small>
+            {indiceTabAtual + 1} de {tabs.length} · trocar seção
+          </small>
+        </span>
+        <Icone nome="chevron" tamanho={18} className="chevron" />
+      </button>
+
+      {secoesAbertas ? (
+        <Sheet titulo="Seções da ficha" aoFechar={() => setSecoesAbertas(false)}>
+          <div className="lista-secoes">
+            {tabs.map(([id, label], indice) => (
+              <button
+                aria-current={activeTab === id}
+                key={id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(id);
+                  setSecoesAbertas(false);
+                }}
+              >
+                <span>{label}</span>
+                <small>{indice + 1}</small>
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      ) : null}
 
       <nav className="dossier-tabs" aria-label="Abas da ficha do cliente">
         {tabs.map(([id, label]) => (
@@ -774,21 +878,27 @@ export default function ClientDossierForm({
       </section>
 
       <section className={activeTab === "presence" ? "dossier-tab active" : "dossier-tab"}>
-        <div className="dossier-grid three">
+        <Grupo titulo="Site atual">
           <label>Possui site?<select name="hasCurrentSite" defaultValue={boolValue(organization.webPresence?.hasCurrentSite)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option></select></label>
           <label>URL atual<input name="currentSiteUrl" defaultValue={valueOf(organization.webPresence?.currentSiteUrl)} /></label>
+          <label>Provedor atual<input name="currentProvider" defaultValue={valueOf(organization.webPresence?.currentProvider)} /></label>
+          <label>Acesso disponível<input name="accessStatus" defaultValue={valueOf(organization.webPresence?.accessStatus)} /></label>
+        </Grupo>
+
+        <Grupo titulo="Domínio">
           <label>Possui domínio?<select name="hasDomain" defaultValue={boolValue(organization.webPresence?.hasDomain)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option></select></label>
-          <label>Subdomínio interno<input name="internalSubdomain" defaultValue={valueOf(organization.webPresence?.internalSubdomain)} placeholder="engreaco" /></label>
-          <label>Endereço interno<input readOnly value={valueOf(organization.webPresence?.internalUrl)} placeholder="Gerado a partir do subdomínio ao salvar" /></label>
-          <label>Plano de domínio<select name="selectedDomainPlanSlug" defaultValue={valueOf(organization.webPresence?.selectedDomainPlanSlug)}><option value="">Nenhum</option>{(planGroups.DOMAIN ?? []).map((plan) => <option key={plan.slug} value={plan.slug}>{plan.name} · {cents(plan)}</option>)}</select></label>
           <label>Domínio desejado<input name="desiredDomain" defaultValue={valueOf(organization.webPresence?.desiredDomain)} /></label>
+          <label>Extensão preferida<input name="preferredExtension" defaultValue={valueOf(organization.webPresence?.preferredExtension)} /></label>
+          <label>Status disponibilidade<select name="domainAvailabilityStatus" defaultValue={valueOf(organization.webPresence?.domainAvailabilityStatus) || "NOT_CHECKED"}><option value="NOT_CHECKED">Não verificado</option><option value="AVAILABLE">Disponível</option><option value="UNAVAILABLE">Indisponível</option></select></label>
+          <label>Plano de domínio<select name="selectedDomainPlanSlug" defaultValue={valueOf(organization.webPresence?.selectedDomainPlanSlug)}><option value="">Nenhum</option>{(planGroups.DOMAIN ?? []).map((plan) => <option key={plan.slug} value={plan.slug}>{plan.name} · {cents(plan)}</option>)}</select></label>
           <button className="secondary-button cep-button" type="button" onClick={checkDomain} disabled={checkingDomain}>
             {checkingDomain ? "Verificando..." : "Verificar domínio"}
           </button>
-          <label>Extensão preferida<input name="preferredExtension" defaultValue={valueOf(organization.webPresence?.preferredExtension)} /></label>
-          <label>Status disponibilidade<select name="domainAvailabilityStatus" defaultValue={valueOf(organization.webPresence?.domainAvailabilityStatus) || "NOT_CHECKED"}><option value="NOT_CHECKED">Não verificado</option><option value="AVAILABLE">Disponível</option><option value="UNAVAILABLE">Indisponível</option></select></label>
-          <label>Provedor atual<input name="currentProvider" defaultValue={valueOf(organization.webPresence?.currentProvider)} /></label>
-          <label>Acesso disponível<input name="accessStatus" defaultValue={valueOf(organization.webPresence?.accessStatus)} /></label>
+          <label>Subdomínio interno<input name="internalSubdomain" defaultValue={valueOf(organization.webPresence?.internalSubdomain)} placeholder="engreaco" /></label>
+          <label>Endereço interno<input readOnly value={valueOf(organization.webPresence?.internalUrl)} placeholder="Gerado a partir do subdomínio ao salvar" /></label>
+        </Grupo>
+
+        <Grupo titulo="Redes sociais">
           <label>Facebook página<input name="facebookPageName" defaultValue={socialByPlatform.facebook?.identifier ?? valueOf(organization.webPresence?.facebookPageName)} /></label>
           <label>Facebook URL<input name="facebookUrl" defaultValue={socialByPlatform.facebook?.url ?? valueOf(organization.webPresence?.facebookUrl)} /></label>
           <label>Instagram usuário<input name="instagramHandle" defaultValue={socialByPlatform.instagram?.identifier ?? valueOf(organization.webPresence?.instagramHandle)} /></label>
@@ -798,7 +908,7 @@ export default function ClientDossierForm({
           <label>YouTube<input name="youtubeUrl" defaultValue={socialByPlatform.youtube?.url ?? valueOf(organization.webPresence?.youtubeUrl)} /></label>
           <label>Perfil Google<input name="googleBusinessProfileUrl" defaultValue={socialByPlatform.google_business_profile?.url ?? valueOf(organization.webPresence?.googleBusinessProfileUrl)} /></label>
           <label className="span-3">Outras redes<textarea name="otherSocialProfiles" rows={3} defaultValue={valueOf(organization.webPresence?.otherSocialProfiles)} /></label>
-        </div>
+        </Grupo>
         {domainCheck ? <p className="inline-feedback feedback-success">{domainCheck}</p> : null}
       </section>
 
@@ -811,39 +921,13 @@ export default function ClientDossierForm({
             <small>{organization.seoKeywords.length} itens cadastrados</small>
           </div>
 
-          <div className="seo-keyword-form" data-seo-keyword>
-            <input name="keyword" required placeholder="palavra-chave" />
-            <select name="intent" defaultValue="COMMERCIAL">
-              <option value="INFORMATIONAL">Informacional</option>
-              <option value="COMMERCIAL">Comercial</option>
-              <option value="TRANSACTIONAL">Transacional</option>
-              <option value="LOCAL">Local</option>
-              <option value="NAVIGATIONAL">Navegacional</option>
-            </select>
-            <input name="locality" placeholder="localidade" />
-            <select name="priority" defaultValue="MEDIUM">
-              <option value="HIGH">Alta</option>
-              <option value="MEDIUM">Média</option>
-              <option value="LOW">Baixa</option>
-            </select>
-            <input name="estimatedVolume" placeholder="volume estimado" />
-            <input name="recommendedPage" placeholder="página recomendada" />
-            <select name="status" defaultValue="RECOMMENDED">
-              <option value="RECOMMENDED">Recomendada</option>
-              <option value="PLANNED">Planejada</option>
-              <option value="IN_PRODUCTION">Em produção</option>
-              <option value="PUBLISHED">Publicada</option>
-              <option value="PAUSED">Pausada</option>
-            </select>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={savingKeyword === "new"}
-              onClick={(event) => saveKeyword(event)}
-            >
-              {savingKeyword === "new" ? "Adicionando..." : "Adicionar"}
-            </button>
-          </div>
+          {/* Lista primeiro, editor sob demanda. Sete campos por linha viravam
+              sete caixas empilhadas por palavra-chave: com dez palavras a tela
+              tinha setenta campos e nenhuma visão do conjunto. Agora a linha
+              mostra o que identifica o termo, e editar abre a folha. */}
+          <button className="secondary-button botao-adicionar" type="button" onClick={() => setEditandoKeyword("new")}>
+            Adicionar palavra-chave
+          </button>
 
           {organization.seoKeywords.length === 0 ? (
             <div className="operations-empty compact-empty">
@@ -851,65 +935,104 @@ export default function ClientDossierForm({
               <p>Cadastre termos de busca com intenção, localidade, prioridade e página recomendada.</p>
             </div>
           ) : (
-            <div className="seo-keyword-list">
+            <ul className="lista-keywords">
               {organization.seoKeywords.map((item) => (
-                <div
-                  className="seo-keyword-row"
-                  data-seo-keyword
-                  key={item.id}
-                >
-                  <input name="keyword" required defaultValue={item.keyword} />
-                  <select name="intent" defaultValue={item.intent ?? "COMMERCIAL"}>
-                    <option value="INFORMATIONAL">Informacional</option>
-                    <option value="COMMERCIAL">Comercial</option>
-                    <option value="TRANSACTIONAL">Transacional</option>
-                    <option value="LOCAL">Local</option>
-                    <option value="NAVIGATIONAL">Navegacional</option>
-                  </select>
-                  <input name="locality" defaultValue={item.locality ?? ""} placeholder="localidade" />
-                  <select name="priority" defaultValue={item.priority}>
-                    <option value="HIGH">Alta</option>
-                    <option value="MEDIUM">Média</option>
-                    <option value="LOW">Baixa</option>
-                  </select>
-                  <input
-                    name="estimatedVolume"
-                    defaultValue={item.estimatedVolume ?? ""}
-                    placeholder="volume"
-                  />
-                  <input
-                    name="recommendedPage"
-                    defaultValue={item.recommendedPage ?? ""}
-                    placeholder="página"
-                  />
-                  <select name="status" defaultValue={item.status}>
-                    <option value="RECOMMENDED">Recomendada</option>
-                    <option value="PLANNED">Planejada</option>
-                    <option value="IN_PRODUCTION">Em produção</option>
-                    <option value="PUBLISHED">Publicada</option>
-                    <option value="PAUSED">Pausada</option>
-                  </select>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    disabled={savingKeyword === item.id}
-                    onClick={(event) => saveKeyword(event, item.id)}
-                  >
-                    Salvar
+                <li key={item.id}>
+                  <button type="button" onClick={() => setEditandoKeyword(item.id)}>
+                    <span>
+                      <strong>{item.keyword}</strong>
+                      <small>
+                        {rotuloPrioridade(item.priority)} · {rotuloStatus(item.status)}
+                        {item.locality ? ` · ${item.locality}` : ""}
+                      </small>
+                    </span>
+                    <Icone nome="chevron" />
                   </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {editandoKeyword ? (
+          <Sheet
+            titulo={editandoKeyword === "new" ? "Nova palavra-chave" : "Editar palavra-chave"}
+            aoFechar={() => setEditandoKeyword("")}
+          >
+            <div className="editor-keyword" data-seo-keyword>
+              <label>
+                Palavra-chave
+                <input name="keyword" required defaultValue={keywordEmEdicao?.keyword ?? ""} placeholder="palavra-chave" />
+              </label>
+              <label>
+                Intenção
+                <select name="intent" defaultValue={keywordEmEdicao?.intent ?? "COMMERCIAL"}>
+                  <option value="INFORMATIONAL">Informacional</option>
+                  <option value="COMMERCIAL">Comercial</option>
+                  <option value="TRANSACTIONAL">Transacional</option>
+                  <option value="LOCAL">Local</option>
+                  <option value="NAVIGATIONAL">Navegacional</option>
+                </select>
+              </label>
+              <label>
+                Localidade
+                <input name="locality" defaultValue={keywordEmEdicao?.locality ?? ""} placeholder="localidade" />
+              </label>
+              <label>
+                Prioridade
+                <select name="priority" defaultValue={keywordEmEdicao?.priority ?? "MEDIUM"}>
+                  <option value="HIGH">Alta</option>
+                  <option value="MEDIUM">Média</option>
+                  <option value="LOW">Baixa</option>
+                </select>
+              </label>
+              <label>
+                Volume estimado
+                <input name="estimatedVolume" defaultValue={keywordEmEdicao?.estimatedVolume ?? ""} placeholder="volume estimado" />
+              </label>
+              <label>
+                Página recomendada
+                <input name="recommendedPage" defaultValue={keywordEmEdicao?.recommendedPage ?? ""} placeholder="página recomendada" />
+              </label>
+              <label>
+                Status
+                <select name="status" defaultValue={keywordEmEdicao?.status ?? "RECOMMENDED"}>
+                  <option value="RECOMMENDED">Recomendada</option>
+                  <option value="PLANNED">Planejada</option>
+                  <option value="IN_PRODUCTION">Em produção</option>
+                  <option value="PUBLISHED">Publicada</option>
+                  <option value="PAUSED">Pausada</option>
+                </select>
+              </label>
+
+              <div className="acoes-editor">
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={savingKeyword !== ""}
+                  onClick={(event) => {
+                    const id = editandoKeyword === "new" ? undefined : editandoKeyword;
+                    void saveKeyword(event, id).then(() => setEditandoKeyword(""));
+                  }}
+                >
+                  {savingKeyword !== "" ? "Salvando..." : "Salvar"}
+                </button>
+                {editandoKeyword !== "new" ? (
                   <button
                     className="secondary-button danger-button"
                     type="button"
-                    disabled={savingKeyword === item.id}
-                    onClick={() => deleteKeyword(item.id)}
+                    disabled={savingKeyword !== ""}
+                    onClick={() => {
+                      void deleteKeyword(editandoKeyword).then(() => setEditandoKeyword(""));
+                    }}
                   >
                     Remover
                   </button>
-                </div>
-              ))}
+                ) : null}
+              </div>
             </div>
-          )}
-        </div>
+          </Sheet>
+        ) : null}
       </section>
 
       <section className={activeTab === "assets" ? "dossier-tab active" : "dossier-tab"}>
@@ -977,32 +1100,72 @@ export default function ClientDossierForm({
       </section>
 
       <section className={activeTab === "integrations" ? "dossier-tab active" : "dossier-tab"}>
-        <div className="dossier-grid three">
+        <Grupo titulo="Google">
           <label>GA4 Measurement ID<input name="ga4" placeholder="G-XXXXXXXXXX" defaultValue={integrationByProvider.google_analytics_4?.publicId ?? ""} /></label>
           <label>Google Tag Manager<input name="gtm" placeholder="GTM-XXXXXXX" defaultValue={integrationByProvider.google_tag_manager?.publicId ?? ""} /></label>
           <label>Search Console<input name="searchConsole" defaultValue={integrationByProvider.google_search_console?.publicId ?? ""} /></label>
+          <label>Google Ads ID<input name="googleAds" defaultValue={integrationByProvider.google_ads?.publicId ?? ""} /></label>
+        </Grupo>
+
+        <Grupo titulo="Meta" colunas="two">
           <label>Meta Pixel ID<input name="metaPixel" defaultValue={integrationByProvider.meta_pixel?.publicId ?? ""} /></label>
           <label>Meta Business ID<input name="metaBusiness" defaultValue={integrationByProvider.meta_business?.publicId ?? ""} /></label>
-          <label>Google Ads ID<input name="googleAds" defaultValue={integrationByProvider.google_ads?.publicId ?? ""} /></label>
+        </Grupo>
+
+        <Grupo titulo="Mensageria" colunas="two">
           <label>WhatsApp Business<input name="whatsappBusiness" defaultValue={integrationByProvider.whatsapp_business?.publicId ?? ""} /></label>
           <label>E-mail transacional<input name="transactionalEmail" defaultValue={integrationByProvider.transactional_email?.publicId ?? ""} /></label>
-        </div>
+        </Grupo>
         <p className="inline-feedback">Não salve senhas ou tokens aqui. Credenciais sensíveis devem usar o cofre de integrações.</p>
       </section>
 
       <section className={activeTab === "opportunities" ? "dossier-tab active" : "dossier-tab"}>
-        <div className="dossier-grid two">
-          <label>Catálogo PDF<select name="hasPdfCatalog" defaultValue={valueOf(organization.webPresence?.hasPdfCatalog)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option><option value="IN_DEVELOPMENT">Em desenvolvimento</option><option value="NOT_APPLICABLE">Não se aplica</option></select></label>
-          <label>Oferecer plano de catálogo<select name="catalogOpportunityPlan" defaultValue=""><option value="">Não oferecer agora</option>{(planGroups.PDF_CATALOG ?? []).map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
-          <label>Responsável pelas redes<select name="socialMediaOwnerStatus" defaultValue={valueOf(organization.webPresence?.socialMediaOwnerStatus)}><option value="">Não avaliado</option><option value="INTERNAL_TEAM">Sim, equipe interna</option><option value="OUTSOURCED">Sim, terceirizado</option><option value="NO">Não</option><option value="OWNER">Proprietário administra</option></select></label>
-          <label>Oferecer redes sociais<select name="socialOpportunityPlan" defaultValue=""><option value="">Não oferecer agora</option>{(planGroups.SOCIAL_MEDIA ?? []).map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
-          <label>E-mail profissional<select name="hasProfessionalEmail" defaultValue={valueOf(organization.webPresence?.hasProfessionalEmail)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option><option value="NO_DOMAIN">Não possui domínio</option></select></label>
-          <label>Oportunidade de e-mail<select name="emailOpportunityStatus" defaultValue=""><option value="">Não avaliado</option><option value="OFFER_RECOMMENDED">Oferta recomendada</option><option value="INTERESTED">Interessado</option><option value="DECLINED">Recusado</option></select></label>
-          <label>Identidade visual<select name="hasCompleteBrandIdentity" defaultValue={valueOf(organization.webPresence?.hasCompleteBrandIdentity)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="PARTIAL">Parcialmente</option><option value="NO">Não</option></select></label>
-          <label>Oferecer identidade<select name="brandOpportunityPlan" defaultValue=""><option value="">Não oferecer agora</option>{(planGroups.BRAND_IDENTITY ?? []).map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
-          <label className="switch-line"><input name="onlineStoreInterest" type="checkbox" defaultChecked={Boolean(organization.webPresence?.onlineStoreInterest)} /> Loja online — Em breve: marcar interesse</label>
-          <label>Lista de espera loja<select name="onlineStoreOpportunityStatus" defaultValue=""><option value="">Não avaliado</option><option value="WAITLIST">Entrar na lista de espera</option><option value="INTERESTED">Interessado</option></select></label>
-          <label className="span-2">Notas da loja online<textarea name="onlineStoreNotes" rows={3} defaultValue={valueOf(organization.webPresence?.onlineStoreNotes)} placeholder="Produtos vendidos, quantidade aproximada, pagamento online, estoque, Odoo." /></label>
+        {/* Cada serviço é um cartão: a situação de hoje e a oferta ficam juntas,
+            porque a segunda só faz sentido lendo a primeira. Na grade de duas
+            colunas anterior esse par se desfazia no celular e sobravam dez
+            selects soltos sem dizer a qual serviço pertenciam. */}
+        <div className="lista-servicos">
+          <div className="cartao-servico">
+            <h3>Catálogo PDF</h3>
+            <div className="dossier-grid two">
+              <label>Situação atual<select name="hasPdfCatalog" defaultValue={valueOf(organization.webPresence?.hasPdfCatalog)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option><option value="IN_DEVELOPMENT">Em desenvolvimento</option><option value="NOT_APPLICABLE">Não se aplica</option></select></label>
+              <label>Oferecer plano<select name="catalogOpportunityPlan" defaultValue=""><option value="">Não oferecer agora</option>{(planGroups.PDF_CATALOG ?? []).map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
+            </div>
+          </div>
+
+          <div className="cartao-servico">
+            <h3>Redes sociais</h3>
+            <div className="dossier-grid two">
+              <label>Quem administra<select name="socialMediaOwnerStatus" defaultValue={valueOf(organization.webPresence?.socialMediaOwnerStatus)}><option value="">Não avaliado</option><option value="INTERNAL_TEAM">Sim, equipe interna</option><option value="OUTSOURCED">Sim, terceirizado</option><option value="NO">Não</option><option value="OWNER">Proprietário administra</option></select></label>
+              <label>Oferecer plano<select name="socialOpportunityPlan" defaultValue=""><option value="">Não oferecer agora</option>{(planGroups.SOCIAL_MEDIA ?? []).map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
+            </div>
+          </div>
+
+          <div className="cartao-servico">
+            <h3>E-mail profissional</h3>
+            <div className="dossier-grid two">
+              <label>Situação atual<select name="hasProfessionalEmail" defaultValue={valueOf(organization.webPresence?.hasProfessionalEmail)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option><option value="NO_DOMAIN">Não possui domínio</option></select></label>
+              <label>Oportunidade<select name="emailOpportunityStatus" defaultValue=""><option value="">Não avaliado</option><option value="OFFER_RECOMMENDED">Oferta recomendada</option><option value="INTERESTED">Interessado</option><option value="DECLINED">Recusado</option></select></label>
+            </div>
+          </div>
+
+          <div className="cartao-servico">
+            <h3>Identidade visual</h3>
+            <div className="dossier-grid two">
+              <label>Situação atual<select name="hasCompleteBrandIdentity" defaultValue={valueOf(organization.webPresence?.hasCompleteBrandIdentity)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="PARTIAL">Parcialmente</option><option value="NO">Não</option></select></label>
+              <label>Oferecer plano<select name="brandOpportunityPlan" defaultValue=""><option value="">Não oferecer agora</option>{(planGroups.BRAND_IDENTITY ?? []).map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
+            </div>
+          </div>
+
+          <div className="cartao-servico">
+            <h3>Loja online</h3>
+            <p className="aviso-servico">Em breve. Registre o interesse para entrar na fila.</p>
+            <label className="switch-line"><input name="onlineStoreInterest" type="checkbox" defaultChecked={Boolean(organization.webPresence?.onlineStoreInterest)} /> Cliente tem interesse</label>
+            <div className="dossier-grid two">
+              <label>Lista de espera<select name="onlineStoreOpportunityStatus" defaultValue=""><option value="">Não avaliado</option><option value="WAITLIST">Entrar na lista de espera</option><option value="INTERESTED">Interessado</option></select></label>
+              <label className="span-2">Notas da loja online<textarea name="onlineStoreNotes" rows={3} defaultValue={valueOf(organization.webPresence?.onlineStoreNotes)} placeholder="Produtos vendidos, quantidade aproximada, pagamento online, estoque, Odoo." /></label>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1012,6 +1175,18 @@ export default function ClientDossierForm({
       </div>
       {message ? <p className="inline-feedback feedback-success">{message}</p> : null}
       {error ? <p className="inline-feedback feedback-error">{error}</p> : null}
+
+      {/* No celular o "Salvar" ficava no fim de uma página muito longa, atrás
+          da barra de abas. Esta barra sobe quando algo muda e mora acima da
+          navegação, respeitando a safe-area do iPhone. */}
+      {temAlteracao ? (
+        <div className="barra-acao" role="status">
+          <span>Alterações não salvas</span>
+          <button className="primary-button" type="submit" disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      ) : null}
     </form>
   );
 }
