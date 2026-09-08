@@ -2330,8 +2330,16 @@ tbody tr:last-child td {
 }
 
 .client-identity small {
+  display: block;
+  overflow: hidden;
   color: var(--muted);
   font-size: 0.75rem;
+  /* Razao social e um texto que nao tem limite de tamanho: "PK VEDACOES
+     INDUSTRIA E COMERCIO DE BORRACHAS E PLASTICOS LTDA" quebrava em dez
+     linhas e a linha do cliente virava um paragrafo. Uma linha so, com
+     reticencias, como faz a celula de uma lista no iOS. */
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .client-signals {
@@ -5551,6 +5559,18 @@ tbody tr:last-child td {
     font-size: 0.9375rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* No celular o nome perdia a disputa por espaco: sobravam sete caracteres e
+     reticencias ("Mello...", "Parts..."), e a lista deixava de responder
+     "quem sao meus clientes". A tira de numeros e o item que menos importa
+     nessa tela, entao e ela que encolhe. */
+  .client-identity {
+    min-width: 60%;
+  }
+
+  .client-identity small {
+    font-size: 0.6875rem;
   }
 
   /* O nome estende a área de toque para a linha inteira. */
