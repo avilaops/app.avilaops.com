@@ -21,13 +21,20 @@ export type LeadDaLista = {
 
 /*
  * Os estágios em ordem de funil. O rótulo é o que a tela mostra; o valor é o
- * que está no banco. Estágio fora desta lista aparece como veio, para ninguém
- * sumir com um lead por causa de um valor novo.
+ * que está no banco.
+ *
+ * Esta lista é a do CHECK `leads_stage_check`, que existe desde a migração
+ * inicial: NEW, QUALIFIED, DIAGNOSIS, PROPOSAL, WON, LOST. Em 10/09/2026 a tela
+ * nasceu oferecendo "CONTACTED", que não está no CHECK, e mudar o estágio
+ * devolvia 500. Quem acrescentar um estágio aqui muda o CHECK junto.
+ *
+ * Estágio fora desta lista aparece como veio, para ninguém sumir com um lead
+ * por causa de um valor novo.
  */
 const ESTAGIOS: { valor: string; rotulo: string }[] = [
   { valor: "NEW", rotulo: "Novo" },
-  { valor: "CONTACTED", rotulo: "Contatado" },
   { valor: "QUALIFIED", rotulo: "Qualificado" },
+  { valor: "DIAGNOSIS", rotulo: "Em diagnóstico" },
   { valor: "PROPOSAL", rotulo: "Proposta enviada" },
   { valor: "WON", rotulo: "Ganho" },
   { valor: "LOST", rotulo: "Perdido" },
@@ -35,15 +42,6 @@ const ESTAGIOS: { valor: string; rotulo: string }[] = [
 
 const rotuloEstagio = (valor: string) =>
   ESTAGIOS.find((e) => e.valor === valor)?.rotulo ?? valor;
-
-const classeEstagio: Record<string, string> = {
-  NEW: "status-pending",
-  CONTACTED: "status-pending",
-  QUALIFIED: "status-active",
-  PROPOSAL: "status-active",
-  WON: "status-active",
-  LOST: "status-ignored",
-};
 
 function apenasDigitos(telefone: string) {
   return telefone.replace(/\D/g, "");
@@ -161,8 +159,11 @@ export default function LeadsPanel({ leads }: { leads: LeadDaLista[] }) {
                 )}
                 {/* Mudar o estágio é a única coisa que se faz com um lead nesta
                     tela, então é um campo só, sem folha e sem formulário. */}
+                {/* Sem as classes `status-*` aqui: elas pintam a borda de
+                    âmbar e o campo passa a parecer erro de validação. Cor de
+                    estado é para a pílula, não para o campo que se edita. */}
                 <select
-                  className={`lead-estagio ${classeEstagio[lead.estagio] ?? ""}`}
+                  className="lead-estagio"
                   value={ESTAGIOS.some((e) => e.valor === lead.estagio) ? lead.estagio : ""}
                   disabled={ocupado === lead.id}
                   onChange={(evento) => mudarEstagio(lead.id, evento.target.value)}

@@ -78,6 +78,16 @@ export const navegacao: GrupoNavegacao[] = [
       { href: "/leads", label: "Leads", section: "leads" },
       { href: "/projetos", label: "Entregas", section: "projects" },
       { href: "/operacao/servicos", label: "Serviços", section: "services" },
+    ],
+  },
+  {
+    // Assunto da própria casa, não de cliente. Saíram de "Operação" em
+    // 10/09/2026, quando "Leads" entrou e o grupo passou dos sete itens que a
+    // coluna mostra sem rolar. Vaga e programa de parceiro não são a esteira
+    // lead → cliente → entrega, então a separação também deixou o grupo mais
+    // honesto do que estava.
+    label: "Casa",
+    items: [
       { href: "/vagas", label: "Vagas", section: "jobs" },
       {
         href: "/implantacao",

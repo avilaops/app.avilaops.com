@@ -12,7 +12,12 @@ import { prisma } from "@/lib/prisma";
  * que o cliente digitou esconde o que ele realmente pediu.
  */
 
-const ESTAGIOS = ["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"] as const;
+/**
+ * Os seis estágios são os do banco, não uma lista inventada aqui: a tabela tem
+ * `leads_stage_check` desde a migração inicial e recusa qualquer outro valor
+ * com erro 500. Mexer nesta lista sem mexer no CHECK quebra a tela.
+ */
+const ESTAGIOS = ["NEW", "QUALIFIED", "DIAGNOSIS", "PROPOSAL", "WON", "LOST"] as const;
 
 export async function PATCH(
   request: NextRequest,

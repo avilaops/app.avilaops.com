@@ -457,11 +457,29 @@ export default function ProvisionamentoPanel({
               dominios.map((d) => {
                 const mail = mailDominios.find((m) => m.publicId === d.fqdn);
                 const arquivado = d.status === "ARCHIVED";
+                // Quantas caixas o MAIL diz que este domínio tem. Antes esta
+                // linha só olhava o espelho `mail_domain:` e dizia "Sem e-mail
+                // configurado" sobre um domínio com duas caixas ativas logo
+                // abaixo na mesma tela. A contagem vem do mesmo dado já
+                // buscado no carregamento: nenhuma consulta a mais.
+                const doDominio = caixas.filter((c) => c.endereco.endsWith(`@${d.fqdn}`)).length;
+                const falhou = caixasComFalha.some((f) => f.fqdn === d.fqdn);
+                const legenda = arquivado
+                  ? "Arquivado, fora das auditorias e da renovação"
+                  : falhou
+                    ? "Não consegui conferir as caixas agora"
+                    : doDominio > 0
+                      ? `${doDominio} caixa${doDominio > 1 ? "s" : ""} no ar`
+                      : mail
+                        ? mail.status === "ACTIVE"
+                          ? "DNS de e-mail verificado, sem caixa ainda"
+                          : mail.notes ?? "E-mail pendente"
+                        : "Sem e-mail configurado";
                 return (
                   <div className="ios-row ios-row-static" key={d.id}>
                     <div className="prov-row-main">
                       <strong>{d.fqdn}</strong>
-                      <small>{arquivado ? "Arquivado — fora das auditorias e da renovação" : mail ? (mail.status === "ACTIVE" ? "E-mail verificado" : mail.notes ?? "E-mail pendente") : "Sem e-mail configurado"}</small>
+                      <small>{legenda}</small>
                     </div>
                     <Pill status={arquivado ? "ARCHIVED" : d.cloudflareStatus} />
                     <button type="button" className={arquivado ? "text-button" : "text-button prov-perigo"} disabled={ocupado === "dominio"} onClick={() => arquivarDominio(d.fqdn, arquivado ? "reativar" : "arquivar")}>
