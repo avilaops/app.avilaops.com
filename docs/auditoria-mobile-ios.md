@@ -175,6 +175,7 @@ Estados ativos: a aba Financeiro acende em qualquer tela do financeiro
 | `PlanEditForm` | `src/components/PlanEditForm.tsx` | Formulário do plano dentro de `Sheet`; slug automático; segmented de status; `inputMode="decimal"` no preço |
 | `ServicePlansManager` | `src/components/ServicePlansManager.tsx` | Lista agrupada por tipo, linha por plano (`PlanCard`), toast; atualização otimista com o plano que a API devolveu, `router.refresh()` confirma por trás |
 | `TransactionList` | `src/components/TransactionList.tsx` | Movimentações: grade-tabela no desktop, cartões no celular |
+| `LedgerList` | `src/components/LedgerList.tsx` | Contas a pagar e receber (`financeiro/contas`): mesma grade-tabela no desktop; no celular cartão de quatro andares (o quê + valor, contraparte + vencimento, escopo + situação, ação em largura total com 44 px). Aplicado em 10/09/2026 |
 | `BalanceCard` | existente | Saldo com ocultar |
 | Botões | `.primary-button` / `.secondary-button` / `.row-action` | 38 px desktop, 50 / 40 px celular, `:active` com escala 0,985 |
 | Lista agrupada | `.ios-list` / `.ios-row` | Cartão de 16 px com linhas de 52–56 px e chevron |
@@ -224,13 +225,12 @@ modo "Adicionar à Tela de Início":
 `tests/unit/slug.test.ts` (regra única de slug, usada pela tela e pela API),
 `tests/unit/navegacao.test.ts` (seções sem duplicata, abas apontando para
 destinos reais, no máximo quatro abas) e
-`tests/unit/transaction-list.test.tsx` (uma tabela acessível, um DOM só,
-sinais e classes das áreas do celular). Rodar com `npm run test:unit`.
+`tests/unit/transaction-list.test.tsx` e `tests/unit/ledger-list.test.tsx` (uma
+tabela acessível, um DOM só, sinais e classes das áreas do celular). Rodar com `npm run test:unit`.
 Render de componente usa `react-dom/server` — sem jsdom, sem biblioteca extra.
 
 ## 8. O que ficou de fora (próximas telas)
 
-Mesmo padrão, ainda não aplicado: `financeiro/contas`, `financeiro/mercadopago`,
-`clientes/[id]` (dossiê com abas), `projetos`, `vagas`, `operacao/seo`,
+Mesmo padrão, ainda não aplicado: `financeiro/mercadopago`, `projetos`, `vagas`, `operacao/seo`,
 `operacao/meta`, `implantacao`. Todas usam `AppShell`, então já ganham
 navegação, safe-area, botões e cantos; falta reorganizar as grades internas.

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import LedgerRowActions from "@/components/LedgerRowActions";
+import LedgerList from "@/components/LedgerList";
 import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
 import { ehDono, getAdmin } from "@/lib/auth";
 import {
@@ -12,7 +12,7 @@ import {
   type LedgerStatus,
 } from "@/lib/contas";
 import { isFinanceScope, SCOPE_LABELS, type FinanceScope } from "@/lib/finance-escopo";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 
 const directionTabs: Array<{ value: LedgerDirection | "ALL"; label: string }> = [
   { value: "ALL", label: "Tudo" },
@@ -33,14 +33,6 @@ const scopeTabs: Array<{ value: FinanceScope | "ALL"; label: string }> = [
   { value: "PESSOAL", label: "Pessoal" },
   { value: "ALL", label: "Tudo" },
 ];
-
-function statusLabel(status: string, overdue: boolean) {
-  if (overdue) return "Vencida";
-  return (
-    { OPEN: "Em aberto", PAID: "Quitada", CANCELLED: "Cancelada" }[status] ??
-    status
-  );
-}
 
 export default async function ContasPage({
   searchParams,
@@ -184,75 +176,7 @@ export default async function ContasPage({
             </span>
           </div>
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Vencimento</th>
-                  <th>Lançamento</th>
-                  <th>Contraparte</th>
-                  <th>Valor</th>
-                  <th>Escopo</th>
-                  <th>Situação</th>
-                  <th aria-label="Ações" />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className={row.overdue ? "row-overdue" : ""}>
-                    <td>
-                      <time dateTime={row.dueDate.toISOString()}>
-                        {formatShortDate(row.dueDate)}
-                      </time>
-                      {row.overdue ? (
-                        <small className="negative">
-                          {row.daysLate} dia{row.daysLate === 1 ? "" : "s"} de
-                          atraso
-                        </small>
-                      ) : null}
-                    </td>
-                    <td>
-                      <strong>{row.description}</strong>
-                      {row.category ? <small>{row.category}</small> : null}
-                    </td>
-                    <td>
-                      {row.counterparty ?? <span className="muted">—</span>}
-                    </td>
-                    <td
-                      className={
-                        row.direction === "RECEIVABLE" ? "money positive" : "money"
-                      }
-                    >
-                      {row.direction === "RECEIVABLE" ? "+" : "−"}{" "}
-                      {formatCurrency(row.amount, row.currency)}
-                    </td>
-                    <td>
-                      <span className={`status-pill scope-${row.scope.toLowerCase()}`}>
-                        {SCOPE_LABELS[row.scope as FinanceScope] ?? row.scope}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`status-pill status-${row.overdue ? "overdue" : row.status.toLowerCase()}`}
-                      >
-                        {statusLabel(row.status, row.overdue)}
-                      </span>
-                      {row.referenceType === "BANK_TRANSACTION" ? (
-                        <small className="muted">conciliada com o extrato</small>
-                      ) : null}
-                    </td>
-                    <td>
-                      <LedgerRowActions
-                        entryId={row.id}
-                        status={row.status}
-                        direction={row.direction}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <LedgerList rows={rows} />
         )}
       </section>
     </AppShell>

@@ -5092,6 +5092,105 @@ tbody tr:last-child td {
   text-align: right;
 }
 
+/* ---------- Contas a pagar e receber (lista em grade) ---------- */
+/* Mesmo desenho da .tx-list: tabela no desktop, cartão no celular. */
+.lg-list {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+
+.lg-head,
+.lg-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1.5fr) minmax(0, 1fr) 128px 104px 150px 150px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 6px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 0.8125rem;
+}
+
+.lg-head {
+  padding: 8px 6px;
+  color: var(--subtle-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.lg-row:last-child {
+  border-bottom: 0;
+}
+
+.lg-row:hover {
+  background: var(--hover-bg);
+}
+
+.lg-row-overdue > .lg-due {
+  box-shadow: inset 2px 0 0 var(--red);
+}
+
+.lg-due {
+  display: grid;
+  gap: 2px;
+  padding-left: 8px;
+  color: var(--table-text);
+}
+
+.lg-due time {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.lg-due small,
+.lg-kind small,
+.lg-state small {
+  font-size: 0.75rem;
+}
+
+.lg-kind {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.lg-kind strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-kind small {
+  color: var(--subtle-text);
+}
+
+.lg-party {
+  overflow: hidden;
+  color: var(--table-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-amount {
+  text-align: right;
+}
+
+.lg-state {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.lg-actions {
+  text-align: right;
+}
+
+.lg-actions .ledger-actions {
+  justify-content: flex-end;
+}
+
 /* Reduz movimento para quem pediu ------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .sheet,
@@ -5531,6 +5630,122 @@ tbody tr:last-child td {
   .tx-actions {
     grid-area: actions;
     align-self: end;
+  }
+
+/* Conta a pagar/receber vira cartão: o quê + valor, quem + quando,
+     escopo + situação, e a ação em largura total no rodapé. */
+  .lg-list {
+    gap: 10px;
+    border-top: 0;
+  }
+
+  .lg-head {
+    display: none;
+  }
+
+  .lg-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "kind amount"
+      "party due"
+      "scope state"
+      "actions actions";
+    row-gap: 6px;
+    column-gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface-raised);
+  }
+
+  :root[data-theme="light"] .lg-row {
+    background: var(--surface);
+  }
+
+  .lg-row:hover {
+    background: var(--surface-raised);
+  }
+
+  .lg-row-overdue {
+    border-color: var(--red-line);
+  }
+
+  .lg-row-overdue > .lg-due {
+    box-shadow: none;
+  }
+
+  .lg-kind {
+    grid-area: kind;
+  }
+
+  .lg-kind strong {
+    font-size: 0.9375rem;
+    white-space: normal;
+  }
+
+  .lg-amount {
+    grid-area: amount;
+    align-self: start;
+    font-size: 1rem;
+  }
+
+  .lg-party {
+    grid-area: party;
+    white-space: normal;
+  }
+
+  .lg-due {
+    grid-area: due;
+    justify-items: end;
+    padding-left: 0;
+    text-align: right;
+  }
+
+  .lg-scope {
+    grid-area: scope;
+    padding-top: 4px;
+  }
+
+  .lg-state {
+    grid-area: state;
+    justify-items: end;
+    padding-top: 4px;
+    text-align: right;
+  }
+
+  .lg-actions {
+    grid-area: actions;
+    margin-top: 4px;
+    text-align: left;
+  }
+
+  /* Botões da conta com alvo de 44px; "Dar baixa" ocupa a largura. */
+  .lg-actions .ledger-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    white-space: normal;
+  }
+
+  .lg-actions .ledger-actions .small-primary,
+  .lg-actions .ledger-actions .text-button {
+    min-height: 44px;
+    border-radius: 12px;
+    font-size: 0.9375rem;
+  }
+
+  .lg-actions .ledger-actions .text-button {
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+
+  .lg-actions .ledger-actions .text-button:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .lg-actions .ledger-actions .form-error {
+    grid-column: 1 / -1;
   }
 
   /* O editor de conciliação sobe como folha em vez de abrir ao lado. */
