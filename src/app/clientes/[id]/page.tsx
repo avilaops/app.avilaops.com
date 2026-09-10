@@ -6,6 +6,7 @@ import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
+import { listarCaixasDosDominios } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
 
 export default async function ClientDossierPage({
@@ -61,6 +62,16 @@ export default async function ClientDossierPage({
   const contatoPrincipal = organization.contacts[0] ?? null;
   const contatoEmail = contatoPrincipal?.email?.trim().toLowerCase() ?? "";
   const acessoExiste = contatoEmail ? Boolean(await buscarContaPorEmail(contatoEmail)) : false;
+
+  // As caixas vêm do mail.avilaops.com a cada carregamento, não de espelho no
+  // nosso banco. Até 10/09/2026 a ficha lia `organization_integrations`, que só
+  // esta tela escrevia: caixa criada pelo /admin do auth ou na mão ficava
+  // invisível aqui, e o botão "Criar caixa" respondia "já existe" sobre uma
+  // caixa que a tela jurava não ter. Quem quer saber, pergunta à fonte.
+  const { caixas: caixasDoMail, dominiosComFalha: caixasComFalha } =
+    await listarCaixasDosDominios(
+      organization.domains.filter((d) => d.status !== "ARCHIVED").map((d) => d.fqdn),
+    );
 
   const cents = (valor: { toString(): string }) => Math.round(Number(valor.toString()) * 100);
   const assinaturas = organization.subscriptions.map((a) => ({
@@ -129,6 +140,8 @@ export default async function ClientDossierPage({
         }
         acessoExiste={acessoExiste}
         dominios={organization.domains}
+        caixas={caixasDoMail}
+        caixasComFalha={caixasComFalha}
         integracoes={organization.organizationIntegrations.map((item) => ({
           provider: item.provider,
           publicId: item.publicId,

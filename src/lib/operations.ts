@@ -68,9 +68,11 @@ export async function getOperationsDashboard() {
           { dueAt: { lte: inSixtyDays } },
         ],
       },
+      // O `id` do cliente e do projeto entra porque a Visão central abre a
+      // linha: sem ele a fila mostrava a tarefa e não levava a lugar nenhum.
       include: {
-        organization: { select: { name: true } },
-        project: { select: { title: true } },
+        organization: { select: { id: true, name: true } },
+        project: { select: { id: true, title: true } },
       },
       orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
       take: 6,
@@ -80,7 +82,7 @@ export async function getOperationsDashboard() {
         status: { in: ["ACTIVE", "RENEWAL_DUE"] },
         expiresAt: { lte: inSixtyDays },
       },
-      include: { organization: { select: { name: true } } },
+      include: { organization: { select: { id: true, name: true } } },
       orderBy: { expiresAt: "asc" },
       take: 5,
     }),

@@ -83,6 +83,10 @@ export async function POST(
   }
 
   const address = resultado.address || endereco;
+  // Isto é trilha do que ESTA tela provisionou, não a lista de caixas do
+  // cliente. Desde 10/09/2026 a ficha pergunta ao mail (src/lib/mail.ts) em vez
+  // de ler daqui: como espelho, esta tabela mentia sempre que a caixa nascia
+  // por outro caminho. Não voltar a usá-la para responder "quais caixas existem".
   await prisma.organizationIntegration.upsert({
     where: { organizationId_provider: { organizationId: organizacao.id, provider: `mailbox:${address}` } },
     create: {

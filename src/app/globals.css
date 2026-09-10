@@ -1643,12 +1643,31 @@ tbody tr:last-child td {
   background: var(--surface);
 }
 
+/* Cada linha abre uma tela, então se comporta como linha tocável: cor de texto
+   normal, realce no toque e a seta que diz que há para onde ir. Antes eram
+   `div` e o número ficava ali sem levar a lugar nenhum. */
 .operations-metric {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: baseline;
   gap: 2px 12px;
   padding: 10px 14px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.operations-metric:hover,
+.operations-metric:focus-visible {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.08));
+}
+
+.operations-metric > .chevron {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  align-self: center;
+  color: var(--subtle-text);
+  flex: none;
 }
 
 .operations-metric + .operations-metric {
@@ -1806,6 +1825,8 @@ tbody tr:last-child td {
   border-top: 1px solid var(--line-soft);
 }
 
+/* A linha da fila abre o projeto ou a ficha do cliente: é link, e precisa
+   parecer. Sem isso a fila mostrava a pendência e não deixava agir. */
 .attention-row {
   display: grid;
   min-height: 52px;
@@ -1813,6 +1834,14 @@ tbody tr:last-child td {
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--line-soft);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.attention-row:hover,
+.attention-row:focus-visible {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.08));
 }
 
 .attention-row:last-child {
@@ -6378,4 +6407,60 @@ tbody tr:last-child td {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 4px;
+}
+
+/* --- Leads -------------------------------------------------------------- */
+/* Uma linha por lead: quem é, o que pediu, e as duas ações que existem
+   (chamar no WhatsApp e mover de estágio). Nada de cartão: são poucos campos
+   e a lista cabe de uma vez no celular. */
+.lead-row {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lead-notas {
+  color: var(--subtle-text);
+  font-style: italic;
+}
+
+.lead-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  flex: none;
+}
+
+.lead-acoes .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.lead-estagio {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .lead-row {
+    flex-wrap: wrap;
+  }
+
+  .lead-acoes {
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .lead-acoes .secondary-button,
+  .lead-estagio {
+    flex: 1 1 0;
+  }
 }

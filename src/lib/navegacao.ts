@@ -7,6 +7,7 @@ export type SecaoApp =
   | "operations"
   | "clients"
   | "client-requests"
+  | "leads"
   | "projects"
   | "overview"
   | "reconciliation"
@@ -74,6 +75,7 @@ export const navegacao: GrupoNavegacao[] = [
         section: "client-requests",
         somenteDono: true,
       },
+      { href: "/leads", label: "Leads", section: "leads" },
       { href: "/projetos", label: "Entregas", section: "projects" },
       { href: "/operacao/servicos", label: "Serviços", section: "services" },
       { href: "/vagas", label: "Vagas", section: "jobs" },

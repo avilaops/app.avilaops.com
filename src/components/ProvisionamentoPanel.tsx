@@ -24,6 +24,15 @@ export type IntegracaoDaFicha = {
   notes: string | null;
 };
 
+/** Caixa como o mail.avilaops.com devolve. Não vem do nosso banco. */
+export type CaixaDaFicha = {
+  endereco: string;
+  nomeExibicao: string | null;
+  status: string;
+  quotaGb: number | null;
+  usadoMb: number | null;
+};
+
 type Props = {
   organizationId: string;
   nome: string;
@@ -31,6 +40,10 @@ type Props = {
   contato: { nome: string; email: string | null; telefone: string | null } | null;
   acessoExiste: boolean;
   dominios: DominioDaFicha[];
+  /** Perguntadas ao mail no carregamento da página, não lidas de espelho. */
+  caixas: CaixaDaFicha[];
+  /** Domínio que o mail não respondeu: a tela não pode dizer "nenhuma caixa". */
+  caixasComFalha: { fqdn: string; erro: string }[];
   integracoes: IntegracaoDaFicha[];
 };
 
@@ -46,6 +59,8 @@ export default function ProvisionamentoPanel({
   contato,
   acessoExiste,
   dominios,
+  caixas,
+  caixasComFalha,
   integracoes,
 }: Props) {
   const router = useRouter();
@@ -65,7 +80,6 @@ export default function ProvisionamentoPanel({
 
   const base = `/api/organizations/${organizationId}`;
   const dominiosAtivos = dominios.filter((d) => d.status !== "ARCHIVED");
-  const caixas = integracoes.filter((i) => i.provider.startsWith("mailbox:"));
   const mailDominios = integracoes.filter((i) => i.provider.startsWith("mail_domain:"));
   const google = {
     ga4: integracoes.find((i) => i.provider === "google_analytics_4") ?? null,
@@ -471,14 +485,29 @@ export default function ProvisionamentoPanel({
           }
         >
           <div className="ios-list">
+            {/* "Não consegui perguntar" nunca pode virar "nenhuma caixa": foi
+                dizer isso que fez a tela jurar vazio com a caixa no ar. */}
+            {caixasComFalha.length > 0 && (
+              <p className="prov-empty negative">
+                {caixasComFalha.map((f) => `${f.fqdn}: ${f.erro}`).join(" · ")}
+              </p>
+            )}
             {caixas.length === 0 ? (
-              <p className="prov-empty">{dominios.length === 0 ? "Adicione um domínio primeiro." : "Nenhuma caixa ainda."}</p>
+              caixasComFalha.length > 0 ? null : (
+                <p className="prov-empty">
+                  {dominios.length === 0 ? "Adicione um domínio primeiro." : "Nenhuma caixa ainda."}
+                </p>
+              )
             ) : (
               caixas.map((c) => (
-                <div className="ios-row ios-row-static" key={c.provider}>
+                <div className="ios-row ios-row-static" key={c.endereco}>
                   <div className="prov-row-main">
-                    <strong>{c.publicId}</strong>
-                    <small>{[c.accountName, c.notes].filter(Boolean).join(" · ") || "Caixa ativa"}</small>
+                    <strong>{c.endereco}</strong>
+                    <small>
+                      {[c.nomeExibicao, c.quotaGb ? `${c.quotaGb} GB` : null]
+                        .filter(Boolean)
+                        .join(" · ") || "Caixa ativa"}
+                    </small>
                   </div>
                   <Pill status={c.status} />
                 </div>

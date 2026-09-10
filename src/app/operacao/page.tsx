@@ -39,37 +39,52 @@ export default async function OperationsPage() {
     data.metrics.domainAttentionCount +
     data.metrics.financeAttentionCount;
 
+  /*
+   * Cada linha leva a algum lugar. Até 10/09/2026 as seis eram `div` sem
+   * destino: o número aparecia e o clique não fazia nada, então a Visão central
+   * mostrava o estado da casa sem deixar agir sobre ele.
+   *
+   * Tarefas e aprovações não têm tela própria: as duas vivem dentro do projeto,
+   * e é para lá que apontam. Enquanto não existir tela de tarefa, mandar para
+   * /projetos é honesto; inventar rota que não existe seria pior que não linkar.
+   */
   const metrics = [
     {
       label: "Clientes ativos",
       value: data.metrics.organizationCount,
       detail: `${data.metrics.onboardingCount} em onboarding`,
+      href: "/clientes",
     },
     {
       label: "Projetos abertos",
       value: data.metrics.activeProjectCount,
       detail: "Planejamento, execução ou espera",
+      href: "/projetos",
     },
     {
       label: "Tarefas abertas",
       value: data.metrics.openTaskCount,
       detail: `${data.metrics.overdueTaskCount} vencidas`,
       alerta: data.metrics.overdueTaskCount > 0,
+      href: "/projetos",
     },
     {
       label: "Aprovações",
       value: data.metrics.pendingApprovalCount,
       detail: "Aguardando decisão",
+      href: "/projetos",
     },
     {
       label: "Leads abertos",
       value: data.metrics.openLeadCount,
       detail: "Da entrada à proposta",
+      href: "/leads",
     },
     {
       label: "Domínios em 60 dias",
       value: data.metrics.domainAttentionCount,
       detail: "Próximos do vencimento",
+      href: "/operacao/dominios",
     },
   ];
 
@@ -111,11 +126,12 @@ export default async function OperationsPage() {
           cabe de uma vez no celular. */}
       <section className="operations-metrics" aria-label="Resumo operacional">
         {metrics.map((metric) => (
-          <div className="operations-metric" key={metric.label}>
+          <Link className="operations-metric" href={metric.href} key={metric.label}>
             <span className="operations-metric-label">{metric.label}</span>
             <small className={metric.alerta ? "negative" : ""}>{metric.detail}</small>
             <strong>{metric.value}</strong>
-          </div>
+            <Icone nome="chevron" tamanho={16} className="chevron" />
+          </Link>
         ))}
       </section>
 
@@ -136,8 +152,18 @@ export default async function OperationsPage() {
             </div>
           ) : (
             <div className="attention-list">
+              {/* A tarefa abre onde ela vive: no projeto quando tem projeto, na
+                  ficha do cliente quando é solta. */}
               {data.priorityTasks.map((task) => (
-                <div className="attention-row" key={task.id}>
+                <Link
+                  className="attention-row"
+                  href={
+                    task.project
+                      ? `/projetos/${task.project.id}`
+                      : `/clientes/${task.organization.id}`
+                  }
+                  key={task.id}
+                >
                   <span
                     className={`attention-marker marker-${task.priority.toLowerCase()}`}
                   />
@@ -154,10 +180,14 @@ export default async function OperationsPage() {
                   <time dateTime={task.dueAt?.toISOString()}>
                     {formatAttentionDate(task.dueAt)}
                   </time>
-                </div>
+                </Link>
               ))}
               {data.upcomingDomains.map((domain) => (
-                <div className="attention-row" key={domain.id}>
+                <Link
+                  className="attention-row"
+                  href={`/clientes/${domain.organization.id}`}
+                  key={domain.id}
+                >
                   <span className="attention-marker marker-domain" />
                   <div>
                     <strong>{domain.fqdn}</strong>
@@ -167,7 +197,7 @@ export default async function OperationsPage() {
                   <time dateTime={domain.expiresAt?.toISOString()}>
                     {formatAttentionDate(domain.expiresAt)}
                   </time>
-                </div>
+                </Link>
               ))}
             </div>
           )}
