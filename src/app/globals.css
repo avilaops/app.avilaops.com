@@ -1752,7 +1752,11 @@ tbody tr:last-child td {
 .system-balance-panel,
 .module-panel,
 .organizations-preview,
-.clients-panel {
+.clients-panel,
+/* `.operations-panel` sozinho não tem respiro: o padding mora nas variantes.
+   Quem esquece a variante põe o título colado na borda do cartão, que foi o
+   que aconteceu com /leads em 10/09. */
+.leads-panel {
   padding: 18px;
 }
 

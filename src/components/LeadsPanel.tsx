@@ -92,7 +92,7 @@ export default function LeadsPanel({ leads }: { leads: LeadDaLista[] }) {
 
   if (leads.length === 0) {
     return (
-      <section className="operations-panel">
+      <section className="operations-panel leads-panel">
         <div className="operations-empty">
           <strong>Nenhum lead ainda.</strong>
           <p>O formulário do avilaops.com cai aqui assim que alguém pedir contato.</p>
@@ -102,7 +102,7 @@ export default function LeadsPanel({ leads }: { leads: LeadDaLista[] }) {
   }
 
   return (
-    <section className="operations-panel">
+    <section className="operations-panel leads-panel">
       <div className="operations-panel-heading">
         <h2>{mostrarFechados ? "Todos" : "Em aberto"}</h2>
         <span className="panel-count">{visiveis.length}</span>
