@@ -45,3 +45,26 @@ Toda escrita entra em `finance.audit_events` (`CREDIT_SCORE_RECORDED`,
 idempotente, aplicada à mão em produção em 10/09/2026 com
 `--single-transaction -v ON_ERROR_STOP=1` (o `_prisma_migrations` é do
 vizinho).
+
+## Meta: limpar o nome (11/09/2026)
+
+O extrato do Serasa de 23/06/2026 (código WHJJ.LNCG.IIR6.ZV4L) trazia 13
+anotações do CPF do Nicolas, anteriores à Ávila Ops: 9 dívidas negativadas e 4
+protestos, R$ 199.221,22 no total. Foram lançadas como contas a pagar
+`PESSOAL`, em aberto, com o vencimento original e `reference_type = "SERASA"`.
+
+A tela ganhou o cartão **Meta: limpar o nome** (quanto falta, quanto já foi,
+barra de progresso) e o bloco **Anotações no Serasa**, ordenado da menor para
+a maior porque essa é a ordem de ataque de quem quita aos poucos. As "outras
+contas a pagar" excluem essas 13 para não contar duas vezes.
+
+O valor lançado é o anotado no extrato; o acordo pode sair por menos. Ao pagar,
+dar baixa e anotar o valor pago na nota. Cancelada não conta nem como quitada
+nem como pendente (anotação contestada ou baixada pelo credor).
+
+**Defeito corrigido no caminho:** "Cancelar" conta nunca funcionou em produção.
+A rota grava `CANCELLED` e o CHECK de 10/08 só aceitava `CANCELED`. Migration
+`20260911010000_ledger_status_cancelled` recria o CHECK aceitando os dois.
+
+Tarefas no Todoist: a meta (p2) e uma recorrente todo dia 20, "quitar ou
+negociar uma anotação este mês".

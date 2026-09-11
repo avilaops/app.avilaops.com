@@ -5338,6 +5338,40 @@ tbody tr:last-child td {
   font-size: 0.75rem;
 }
 
+/* Meta de limpar o nome: um cartão largo entre o score e as contas. */
+.meta-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.meta-card-done {
+  border-color: var(--green-line);
+}
+
+.meta-value {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.meta-value strong {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.meta-value span {
+  color: var(--subtle-text);
+  font-size: 0.875rem;
+}
+
 /* Reduz movimento para quem pediu ------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .sheet,

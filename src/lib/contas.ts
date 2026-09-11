@@ -27,6 +27,10 @@ export type LedgerFilter = {
   scope?: FinanceScope | "ALL";
   currency?: string;
   search?: string;
+  /** Só lançamentos com esta origem (ex.: "SERASA", o extrato de negativação). */
+  referenceType?: string;
+  /** Tudo menos esta origem. */
+  excetoReferenceType?: string;
 };
 
 export type LedgerRow = {
@@ -120,6 +124,14 @@ function buildWhere(filter: LedgerFilter, today: Date): Prisma.LedgerEntryWhereI
   if (filter.currency) {
     where.currency = filter.currency;
   }
+  if (filter.referenceType) {
+    where.referenceType = filter.referenceType;
+  } else if (filter.excetoReferenceType) {
+    where.OR = [
+      { referenceType: null },
+      { referenceType: { not: filter.excetoReferenceType } },
+    ];
+  }
   if (filter.status === "OVERDUE") {
     where.status = "OPEN";
     where.dueDate = { lt: today };
@@ -128,11 +140,20 @@ function buildWhere(filter: LedgerFilter, today: Date): Prisma.LedgerEntryWhereI
   }
   if (filter.search) {
     const search = filter.search.slice(0, 80);
-    where.OR = [
-      { description: { contains: search, mode: "insensitive" } },
-      { counterparty: { contains: search, mode: "insensitive" } },
-      { category: { contains: search, mode: "insensitive" } },
-    ];
+    const busca: Prisma.LedgerEntryWhereInput = {
+      OR: [
+        { description: { contains: search, mode: "insensitive" } },
+        { counterparty: { contains: search, mode: "insensitive" } },
+        { category: { contains: search, mode: "insensitive" } },
+      ],
+    };
+    // Dois ORs não cabem no mesmo nível: o da origem vai para o AND.
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, busca];
+      delete where.OR;
+    } else {
+      where.OR = busca.OR;
+    }
   }
 
   return where;

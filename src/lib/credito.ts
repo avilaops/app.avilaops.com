@@ -101,6 +101,41 @@ export function montarResumo(
   };
 }
 
+/**
+ * Meta "limpar o nome": as anotações do extrato do Serasa lançadas como contas
+ * a pagar pessoais, com `referenceType = "SERASA"`. O progresso é o que já foi
+ * quitado sobre o total anotado. Cancelada não conta como quitada nem como
+ * pendente: é anotação contestada ou baixada pelo credor.
+ */
+export const SERASA_REFERENCE = "SERASA";
+
+export type LinhaMeta = { status: string; amount: string | number };
+
+export type ProgressoMeta = {
+  total: number;
+  quitado: number;
+  restante: number;
+  /** 0–100, inteiro. */
+  percentual: number;
+  quantidade: number;
+  quantidadeQuitada: number;
+};
+
+export function progressoDaMeta(linhas: LinhaMeta[]): ProgressoMeta {
+  const validas = linhas.filter((l) => l.status === "OPEN" || l.status === "PAID");
+  const total = validas.reduce((soma, l) => soma + Number(l.amount), 0);
+  const quitadas = validas.filter((l) => l.status === "PAID");
+  const quitado = quitadas.reduce((soma, l) => soma + Number(l.amount), 0);
+  return {
+    total,
+    quitado,
+    restante: total - quitado,
+    percentual: total > 0 ? Math.round((quitado / total) * 100) : 0,
+    quantidade: validas.length,
+    quantidadeQuitada: quitadas.length,
+  };
+}
+
 export async function resumoDeCredito(): Promise<ResumoScore[]> {
   const registros = await prisma.creditScoreReading.findMany({
     orderBy: [{ readAt: "desc" }, { id: "desc" }],
