@@ -27,6 +27,7 @@ export type SecaoApp =
   | "domains"
   | "google-suite"
   | "fiscal"
+  | "credito"
   | "estudio";
 
 export type ItemNavegacao = {
@@ -165,6 +166,20 @@ export const navegacao: GrupoNavegacao[] = [
       { href: "/relatorios", label: "Relatórios", section: "reports" },
     ],
   },
+  {
+    // Score do CPF e do CNPJ junto com o que vence. Grupo próprio porque o
+    // "Financeiro" já está nos sete itens que a coluna mostra sem rolar.
+    label: "Crédito",
+    somenteDono: true,
+    items: [
+      {
+        href: "/financeiro/credito",
+        label: "Score e contas a pagar",
+        section: "credito",
+        somenteDono: true,
+      },
+    ],
+  },
 ];
 
 /**
@@ -211,6 +226,7 @@ export const abasCelular: AbaCelular[] = [
       "import",
       "mercadopago",
       "reports",
+      "credito",
     ],
   },
 ];

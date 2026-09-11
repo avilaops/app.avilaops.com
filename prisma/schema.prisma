@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // O build sai desta máquina (Windows) e roda em Debian dentro do container.
   // Sem o alvo Linux o Prisma sobe procurando um engine que não foi gerado e a
   // aplicação morre na primeira consulta, já em produção.
@@ -202,6 +202,30 @@ model LedgerEntry {
   @@index([scope, status, dueDate])
   @@index([dueDate])
   @@map("ledger_entries")
+  @@schema("finance")
+}
+
+/// Leitura de score de crédito (Serasa, Boa Vista, Quod, SPC ou o que o
+/// banco mostra) do CPF do Nicolas ou do CNPJ da Ávila. Nenhum birô abre API
+/// para pessoa física: a leitura é registrada à mão ou chega pelo n8n. O
+/// documento em si não é gravado; só de quem é (CPF ou CNPJ).
+model CreditScoreReading {
+  id          BigInt   @id @default(autoincrement())
+  /// CPF ou CNPJ.
+  subjectKind String   @map("subject_kind")
+  /// SERASA, BOA_VISTA, QUOD, SPC ou BANCO.
+  bureau      String
+  score       Int
+  maxScore    Int      @default(1000) @map("max_score")
+  readAt      DateTime @map("read_at")
+  /// MANUAL (tela) ou N8N (fluxo).
+  source      String   @default("MANUAL")
+  note        String?
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([subjectKind, bureau, readAt])
+  @@map("credit_score_readings")
   @@schema("finance")
 }
 
@@ -1196,27 +1220,27 @@ model DeliverableCharge {
 /// esta assinatura paga. É por esse par que o produto pergunta "qual é a minha
 /// fatura?" — o produto não conhece `Organization`, e não precisa conhecer.
 model Subscription {
-  id             String    @id @default(cuid())
-  organizationId String    @map("organization_id")
-  description    String
-  amount         Decimal   @db.Decimal(10, 2)
-  currency       String    @default("BRL")
+  id              String    @id @default(cuid())
+  organizationId  String    @map("organization_id")
+  description     String
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("BRL")
   /// Dia do vencimento, 1–28. Os dias 29, 30 e 31 não existem em todo mês, e
   /// mensalidade que some em fevereiro é conversa desagradável.
-  billingDay     Int       @map("billing_day")
+  billingDay      Int       @map("billing_day")
   /// MONTHLY | YEARLY. O anual cobra uma vez por ano, na competência do mês de
   /// aniversário, usando o mesmo `billingDay` para o vencimento. Serviço pago
   /// adiantado por ano (e-mail, domínio) não cabia no modelo mensal: gravar o
   /// valor do ano num campo lido como mensal mentiria o MRR e a tela.
-  billingCycle   String    @default("MONTHLY") @map("billing_cycle")
+  billingCycle    String    @default("MONTHLY") @map("billing_cycle")
   /// ACTIVE | PAUSED | CANCELLED
-  status         String    @default("ACTIVE")
-  startedAt      DateTime  @map("started_at")
-  endedAt        DateTime? @map("ended_at")
-  productKey      String?  @map("product_key")
-  productTenantId String?  @map("product_tenant_id")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  status          String    @default("ACTIVE")
+  startedAt       DateTime  @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  productKey      String?   @map("product_key")
+  productTenantId String?   @map("product_tenant_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invoices     SubscriptionInvoice[]
@@ -1268,27 +1292,27 @@ model SubscriptionInvoice {
 /// desiste, e no dia seguinte tira um boleto — as duas cobranças existem, e
 /// só uma vai ser paga.
 model SubscriptionCharge {
-  id        String @id @default(cuid())
-  invoiceId String @map("invoice_id")
+  id             String    @id @default(cuid())
+  invoiceId      String    @map("invoice_id")
   /// PIX | BOLETO | CARD
-  method    String
-  provider  String @default("EFI")
-  externalId String? @map("external_id")
-  status    String  @default("CREATED")
+  method         String
+  provider       String    @default("EFI")
+  externalId     String?   @map("external_id")
+  status         String    @default("CREATED")
   /// O que foi cobrado de fato. No cartão parcelado já inclui o juros — é o
   /// valor que o cliente vê e o que a EFI captura, e guardar o da fatura aqui
   /// faria a conciliação divergir todo mês.
-  amount    Decimal @db.Decimal(10, 2)
-  installments   Int     @default(1)
-  interestAmount Decimal @default(0) @map("interest_amount") @db.Decimal(10, 2)
-  pixCopyPaste  String?   @map("pix_copy_paste")
-  pixQrBase64   String?   @map("pix_qr_base64")
-  boletoUrl     String?   @map("boleto_url")
-  boletoBarcode String?   @map("boleto_barcode")
-  expiresAt     DateTime? @map("expires_at")
-  paidAt        DateTime? @map("paid_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  amount         Decimal   @db.Decimal(10, 2)
+  installments   Int       @default(1)
+  interestAmount Decimal   @default(0) @map("interest_amount") @db.Decimal(10, 2)
+  pixCopyPaste   String?   @map("pix_copy_paste")
+  pixQrBase64    String?   @map("pix_qr_base64")
+  boletoUrl      String?   @map("boleto_url")
+  boletoBarcode  String?   @map("boleto_barcode")
+  expiresAt      DateTime? @map("expires_at")
+  paidAt         DateTime? @map("paid_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -1382,22 +1406,22 @@ model DnsRecord {
 }
 
 model ClientRegistrationRequest {
-  id             String    @id @default(cuid())
-  nome           String
-  email          String
-  telefone       String?
-  cpfCnpj        String    @map("cpf_cnpj")
-  tipoDocumento  String    @map("tipo_documento") // CPF | CNPJ
-  empresa        String?
+  id               String    @id @default(cuid())
+  nome             String
+  email            String
+  telefone         String?
+  cpfCnpj          String    @map("cpf_cnpj")
+  tipoDocumento    String    @map("tipo_documento") // CPF | CNPJ
+  empresa          String?
   /// Endereço pessoal de quem pede o cadastro, fora dos domínios que a casa
   /// hospeda. Vira o `email_recuperacao` da conta na aprovação.
-  emailRecuperacao String? @map("email_recuperacao")
-  status         String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  documentos     Json      @default("[]") // [{ key, fileName, mimeType, sizeBytes }]
-  motivoRejeicao String?   @map("motivo_rejeicao")
-  revisadoPorId  String?   @map("revisado_por_id")
-  revisadoEm     DateTime? @map("revisado_em")
-  criadoEm       DateTime  @default(now()) @map("criado_em")
+  emailRecuperacao String?   @map("email_recuperacao")
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  documentos       Json      @default("[]") // [{ key, fileName, mimeType, sizeBytes }]
+  motivoRejeicao   String?   @map("motivo_rejeicao")
+  revisadoPorId    String?   @map("revisado_por_id")
+  revisadoEm       DateTime? @map("revisado_em")
+  criadoEm         DateTime  @default(now()) @map("criado_em")
 
   @@index([status, criadoEm])
   @@map("client_registration_requests")

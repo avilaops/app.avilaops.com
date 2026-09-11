@@ -5191,6 +5191,153 @@ tbody tr:last-child td {
   justify-content: flex-end;
 }
 
+/* ---------- Score de crédito ---------- */
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.score-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.score-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.score-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.score-value strong {
+  font-family: var(--mono);
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.score-value span {
+  color: var(--subtle-text);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+}
+
+.score-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line-soft);
+}
+
+.score-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--blue);
+}
+
+.score-bar .faixa-baixa { background: var(--red); }
+.score-bar .faixa-regular { background: var(--amber); }
+.score-bar .faixa-boa { background: var(--blue); }
+.score-bar .faixa-excelente { background: var(--green); }
+
+.status-pill.faixa-baixa { border-color: var(--red-line); color: var(--red); }
+.status-pill.faixa-regular { border-color: var(--amber-line); color: var(--amber); }
+.status-pill.faixa-boa { border-color: var(--blue-line); color: var(--link-soft); }
+.status-pill.faixa-excelente { border-color: var(--green-line); color: var(--green); }
+
+.score-meta,
+.score-delta,
+.score-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.score-delta.positive { color: var(--green); }
+.score-delta.negative { color: var(--red); }
+
+.score-empty {
+  padding: 8px 0;
+  color: var(--subtle-text);
+  font-size: 0.875rem;
+}
+
+.score-history {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.score-history .ios-row-label {
+  display: grid;
+  gap: 2px;
+}
+
+.score-history strong {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+}
+
+.score-history strong small {
+  color: var(--subtle-text);
+  font-weight: 400;
+}
+
+.score-history .ios-row-label > small {
+  color: var(--subtle-text);
+  font-size: 0.75rem;
+}
+
+.score-row-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-card {
+  align-content: start;
+}
+
+/* Fontes do score: lista de links externos no desenho da lista agrupada. */
+.fontes-panel {
+  margin-top: 20px;
+}
+
+.fontes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fontes-list .ios-row {
+  text-decoration: none;
+}
+
+.fontes-list .ios-row-label {
+  display: grid;
+  gap: 2px;
+}
+
+.fontes-list .ios-row-label small {
+  color: var(--subtle-text);
+  font-size: 0.75rem;
+}
+
 /* Reduz movimento para quem pediu ------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .sheet,
@@ -5746,6 +5893,24 @@ tbody tr:last-child td {
 
   .lg-actions .ledger-actions .form-error {
     grid-column: 1 / -1;
+  }
+
+  .score-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .score-card {
+    padding: 16px;
+  }
+
+  .score-value strong {
+    font-size: 2.25rem;
+  }
+
+  .score-row-actions .text-button {
+    min-height: 44px;
+    padding: 0 12px;
   }
 
   /* O editor de conciliação sobe como folha em vez de abrir ao lado. */
