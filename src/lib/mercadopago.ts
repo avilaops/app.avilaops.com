@@ -148,6 +148,35 @@ export interface PagamentoRecebido {
   descricao: string | null;
   email: string | null;
   data: string;
+  /** Quem recebeu. Quando não somos nós, o pagamento é compra nossa, não venda. */
+  collectorId: number | null;
+  payerId: number | null;
+}
+
+function idOuNulo(valor: unknown): number | null {
+  const n = Number(valor);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function participantes(p: Record<string, unknown>): { collectorId: number | null; payerId: number | null } {
+  const collector = p.collector as { id?: unknown } | undefined;
+  const payer = p.payer as { id?: unknown } | undefined;
+  return {
+    collectorId: idOuNulo(p.collector_id) ?? idOuNulo(collector?.id),
+    payerId: idOuNulo(p.payer_id) ?? idOuNulo(payer?.id),
+  };
+}
+
+let usuarioCache: { id: number; apelido: string; email: string | null } | null = null;
+
+/** A conta dona do token, para saber de que lado de cada pagamento estamos. */
+export async function usuarioDoToken(): Promise<{ id: number; apelido: string; email: string | null }> {
+  if (usuarioCache) return usuarioCache;
+  const d = await chamar<{ id?: unknown; nickname?: unknown; email?: unknown }>("/users/me");
+  const id = idOuNulo(d.id);
+  if (!id) throw new MercadoPagoIndisponivel("Mercado Pago não devolveu a conta do token.");
+  usuarioCache = { id, apelido: String(d.nickname ?? ""), email: d.email ? String(d.email) : null };
+  return usuarioCache;
 }
 
 export interface ConfiguracaoWebhook {
@@ -242,6 +271,7 @@ export async function listarPagamentos(limite = 30): Promise<PagamentoRecebido[]
       descricao: (p.description as string) || null,
       email: pagador?.email ?? null,
       data: String(p.date_created ?? ""),
+      ...participantes(p),
     };
   });
 }
@@ -276,6 +306,7 @@ export async function listarPagamentosDoPeriodo(desde: Date): Promise<PagamentoR
         descricao: (p.description as string) || null,
         email: pagador?.email ?? null,
         data: String(p.date_created ?? ""),
+        ...participantes(p),
       });
     }
     // Página incompleta é a última; o `total` do Mercado Pago nem sempre vem.

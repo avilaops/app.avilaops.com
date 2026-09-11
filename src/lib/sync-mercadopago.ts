@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
-import { listarPagamentosDoPeriodo, mercadoPagoConfigurado } from "@/lib/mercadopago";
+import { listarPagamentosDoPeriodo, mercadoPagoConfigurado, usuarioDoToken } from "@/lib/mercadopago";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -28,19 +28,49 @@ const STATUS_QUE_VIRAM_LINHA = new Set(["approved", "refunded", "charged_back"])
 /**
  * O que cada pagamento vira no extrato, ou `null` quando não vira nada.
  *
+ * `/v1/payments/search` devolve os dois lados: o que a conta **recebeu**
+ * (somos o collector) e o que a conta **pagou** (somos o payer, numa compra
+ * no Mercado Livre, por exemplo). Descoberto em 11/09/2026 com o único
+ * pagamento da conta, um fone de R$ 24,90 que entraria como "Venda".
+ *
  * Exportado para o teste: é a regra que decide se um valor entra no fluxo de
  * caixa e em que sentido, e errar aqui infla ou some com dinheiro.
  */
-export function lancamentoDoPagamento(status: string): {
+export function lancamentoDoPagamento(
+  status: string,
+  lado: "RECEBEMOS" | "PAGAMOS" = "RECEBEMOS",
+): {
   direction: "CREDIT" | "DEBIT";
   category: string;
+  scope: "EMPRESA" | "INDEFINIDO";
 } | null {
   if (!STATUS_QUE_VIRAM_LINHA.has(status)) return null;
   const devolucao = status === "refunded" || status === "charged_back";
+  if (lado === "PAGAMOS") {
+    // Compra pela conta do Mercado Pago: pode ser insumo da casa ou fone de
+    // ouvido pessoal. Vai para a fila de triagem, como o cartão da Wise.
+    return {
+      direction: devolucao ? "CREDIT" : "DEBIT",
+      category: devolucao ? "Estorno de compra" : "Compra",
+      scope: "INDEFINIDO",
+    };
+  }
   return {
     direction: devolucao ? "DEBIT" : "CREDIT",
     category: devolucao ? "Estorno de venda" : "Venda",
+    scope: "EMPRESA",
   };
+}
+
+/** De que lado do pagamento a conta do token está. */
+export function ladoDoPagamento(
+  p: { collectorId: number | null; payerId: number | null },
+  nossoId: number,
+): "RECEBEMOS" | "PAGAMOS" {
+  if (p.collectorId === nossoId) return "RECEBEMOS";
+  if (p.payerId === nossoId) return "PAGAMOS";
+  // Sem os dois ids, o padrão é o que a rota sempre foi: recebimento.
+  return "RECEBEMOS";
 }
 
 function safeErrorMessage(error: unknown): string {
@@ -80,7 +110,7 @@ export async function runMercadoPagoSync(options?: {
 
   try {
     const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const pagamentos = await listarPagamentosDoPeriodo(desde);
+    const [pagamentos, nos] = await Promise.all([listarPagamentosDoPeriodo(desde), usuarioDoToken()]);
     const capturadoEm = new Date();
     let receivedCount = 0;
     let sentCount = 0;
@@ -89,7 +119,8 @@ export async function runMercadoPagoSync(options?: {
       for (const p of pagamentos) {
         // Estorno e chargeback devolvem dinheiro: entram como saída, senão a
         // venda cancelada continuaria somando no fluxo.
-        const lancamento = lancamentoDoPagamento(p.status);
+        const lado = ladoDoPagamento(p, nos.id);
+        const lancamento = lancamentoDoPagamento(p.status, lado);
         if (!lancamento) continue;
         const ocorridoEm = new Date(p.data);
         if (Number.isNaN(ocorridoEm.getTime())) continue;
@@ -112,6 +143,10 @@ export async function runMercadoPagoSync(options?: {
             description: descricao,
             counterpartyName: p.email,
             occurredAt: ocorridoEm,
+            // O lado pode ter sido lido errado antes de 11/09/2026 (compra
+            // gravada como venda): a reimportação corrige direção e categoria.
+            direction,
+            category: lancamento.category,
           },
           create: {
             accountId: MP_ACCOUNT_ID,
@@ -126,9 +161,9 @@ export async function runMercadoPagoSync(options?: {
             rawHash: createHash("sha256")
               .update(`${p.id}|${p.status}|${p.valorCentavos}|${p.data}`)
               .digest("hex"),
-            // Recebimento pelo Mercado Pago é venda da casa: não há dúvida de
-            // escopo como há num extrato bancário misturado com gasto pessoal.
-            scope: "EMPRESA",
+            // Recebimento pelo Mercado Pago é venda da casa; compra pela conta
+            // vai para a triagem, porque pode ser pessoal.
+            scope: lancamento.scope,
             scopeSource: "IMPORTACAO",
             category: lancamento.category,
           },
