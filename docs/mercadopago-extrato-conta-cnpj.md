@@ -23,7 +23,7 @@ API do Mercado Pago e entrega ao app.
    (`bNeXor6Ok54jjpbO`, Bearer). Nasceu com um valor de exemplo; o Nicolas cola
    o Access Token de produção (`APP_USR-...`) gerado no painel de desenvolvedor
    daquela conta.
-2. Workflow `Ávila OS — Mercado Pago · Extrato da conta CNPJ`
+2. Workflow `Ávila OS - Mercado Pago · Extrato da conta CNPJ`
    (`NV72KXfoSZceQtlP`): todo dia às 06:30 lê `/users/me` e
    `/v1/payments/search` dos últimos 7 dias, paginando de 50 em 50, e manda o
    JSON cru para o app. Para a carga inicial:
