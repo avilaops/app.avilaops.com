@@ -191,6 +191,28 @@ export interface ConfiguracaoWebhook {
 
 const centavos = (v: unknown) => (typeof v === "number" ? Math.round(v * 100) : 0);
 
+/**
+ * Um pagamento cru da API (`/v1/payments/search` ou `/v1/payments/{id}`) no
+ * formato da casa. Exportado porque o n8n manda o JSON cru para
+ * `/api/integrations/mercadopago/importar`: a regra de leitura mora aqui, num
+ * lugar só, e não em Code node.
+ */
+export function normalizarPagamento(p: Record<string, unknown>): PagamentoRecebido {
+  const pagador = p.payer as { email?: string } | undefined;
+  return {
+    id: Number(p.id ?? 0),
+    status: String(p.status ?? ""),
+    detalhe: (p.status_detail as string) || null,
+    valorCentavos: centavos(p.transaction_amount),
+    liquidoCentavos: typeof p.net_received_amount === "number" ? centavos(p.net_received_amount) : null,
+    meio: (p.payment_type_id as string) || null,
+    descricao: (p.description as string) || null,
+    email: pagador?.email ?? null,
+    data: String(p.date_created ?? ""),
+    ...participantes(p),
+  };
+}
+
 export const buscarConta = () =>
   chamar<Record<string, unknown>>("/users/me").then(
     (d): ContaMercadoPago => ({
@@ -259,21 +281,7 @@ export async function listarPagamentos(limite = 30): Promise<PagamentoRecebido[]
   const d = await chamar<{ results?: Array<Record<string, unknown>> }>(
     `/v1/payments/search?limit=${limite}&sort=date_created&criteria=desc`,
   );
-  return (d.results ?? []).map((p) => {
-    const pagador = p.payer as { email?: string } | undefined;
-    return {
-      id: Number(p.id ?? 0),
-      status: String(p.status ?? ""),
-      detalhe: (p.status_detail as string) || null,
-      valorCentavos: centavos(p.transaction_amount),
-      liquidoCentavos: typeof p.net_received_amount === "number" ? centavos(p.net_received_amount) : null,
-      meio: (p.payment_type_id as string) || null,
-      descricao: (p.description as string) || null,
-      email: pagador?.email ?? null,
-      data: String(p.date_created ?? ""),
-      ...participantes(p),
-    };
-  });
+  return (d.results ?? []).map(normalizarPagamento);
 }
 
 /**
@@ -294,21 +302,7 @@ export async function listarPagamentosDoPeriodo(desde: Date): Promise<PagamentoR
         `&sort=date_created&criteria=desc&range=date_created&begin_date=${encodeURIComponent(inicio)}&end_date=NOW`,
     );
     const pagina = d.results ?? [];
-    for (const p of pagina) {
-      const pagador = p.payer as { email?: string; first_name?: string; last_name?: string } | undefined;
-      todos.push({
-        id: Number(p.id ?? 0),
-        status: String(p.status ?? ""),
-        detalhe: (p.status_detail as string) || null,
-        valorCentavos: centavos(p.transaction_amount),
-        liquidoCentavos: typeof p.net_received_amount === "number" ? centavos(p.net_received_amount) : null,
-        meio: (p.payment_type_id as string) || null,
-        descricao: (p.description as string) || null,
-        email: pagador?.email ?? null,
-        data: String(p.date_created ?? ""),
-        ...participantes(p),
-      });
-    }
+    for (const p of pagina) todos.push(normalizarPagamento(p));
     // Página incompleta é a última; o `total` do Mercado Pago nem sempre vem.
     if (pagina.length < porPagina) break;
     // Trava de segurança: 40 páginas são 2.000 pagamentos, muito acima do

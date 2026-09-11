@@ -1,6 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
-import { listarPagamentosDoPeriodo, mercadoPagoConfigurado, usuarioDoToken } from "@/lib/mercadopago";
+import {
+  listarPagamentosDoPeriodo,
+  mercadoPagoConfigurado,
+  usuarioDoToken,
+  type PagamentoRecebido,
+} from "@/lib/mercadopago";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -78,6 +83,20 @@ function safeErrorMessage(error: unknown): string {
   return message.replace(/\s+/g, " ").slice(0, 240);
 }
 
+export type ContaMercadoPago = {
+  /** Id em `bank_accounts`, ex.: "mercadopago-production", "mercadopago-cnpj". */
+  id: string;
+  /** Id do usuário no Mercado Pago (`/users/me`), para saber de que lado estamos. */
+  usuarioId: number;
+  displayName: string;
+  externalId: string;
+};
+
+/**
+ * Sincroniza a conta cujo token está no ambiente do app (`MP_ACCESS_TOKEN`).
+ * É a conta que as lojas usam para cobrar. Outras contas chegam pelo n8n, em
+ * `gravarPagamentosMercadoPago`.
+ */
 export async function runMercadoPagoSync(options?: {
   actorId?: string | null;
   days?: number;
@@ -90,15 +109,42 @@ export async function runMercadoPagoSync(options?: {
     1,
     Math.min(365, options?.days ?? Number.parseInt(process.env.MP_SYNC_DAYS ?? "90", 10) ?? 90),
   );
+  const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const [pagamentos, nos] = await Promise.all([listarPagamentosDoPeriodo(desde), usuarioDoToken()]);
+
+  return gravarPagamentosMercadoPago({
+    conta: { id: MP_ACCOUNT_ID, usuarioId: nos.id, displayName: "Mercado Pago", externalId: "primary" },
+    pagamentos,
+    days,
+    actorId: options?.actorId,
+  });
+}
+
+/**
+ * Grava no extrato os pagamentos de uma conta do Mercado Pago, venham de onde
+ * vierem: do token do app ou de um fluxo do n8n que leu outra conta. Uma conta
+ * em `bank_accounts`, uma corrida em `bank_sync_runs`, uma linha por
+ * pagamento com conciliação pendente.
+ */
+export async function gravarPagamentosMercadoPago(input: {
+  conta: ContaMercadoPago;
+  pagamentos: PagamentoRecebido[];
+  days: number;
+  actorId?: string | null;
+}) {
+  const { conta, pagamentos, days } = input;
+  const options = { actorId: input.actorId };
+  const nos = { id: conta.usuarioId };
+  const MP_ACCOUNT_ID = conta.id;
 
   await prisma.bankAccount.upsert({
     where: { id: MP_ACCOUNT_ID },
-    update: { active: true, displayName: "Mercado Pago" },
+    update: { active: true, displayName: conta.displayName },
     create: {
       id: MP_ACCOUNT_ID,
       provider: "mercadopago",
-      externalId: "primary",
-      displayName: "Mercado Pago",
+      externalId: conta.externalId,
+      displayName: conta.displayName,
       environment: "production",
       currency: "BRL",
     },
@@ -109,8 +155,6 @@ export async function runMercadoPagoSync(options?: {
   });
 
   try {
-    const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const [pagamentos, nos] = await Promise.all([listarPagamentosDoPeriodo(desde), usuarioDoToken()]);
     const capturadoEm = new Date();
     let receivedCount = 0;
     let sentCount = 0;
