@@ -154,7 +154,11 @@ export default function CredenciaisN8n() {
         >
           <p className="cred-uso">
             {aberta.tipoRotulo}
-            {aberta.fluxos.length > 0 ? ` · usada em: ${aberta.fluxos.join(", ")}` : " · nenhum fluxo usa"}
+            {aberta.fluxos.length === 0
+              ? " · nenhum fluxo usa"
+              : ` · usada em ${aberta.fluxos.length} fluxo(s): ${aberta.fluxos.slice(0, 3).join(", ")}${
+                  aberta.fluxos.length > 3 ? ` e mais ${aberta.fluxos.length - 3}` : ""
+                }`}
           </p>
 
           {tipo ? (
