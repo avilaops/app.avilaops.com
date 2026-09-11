@@ -28,7 +28,8 @@ export type SecaoApp =
   | "google-suite"
   | "fiscal"
   | "credito"
-  | "estudio";
+  | "estudio"
+  | "automacoes";
 
 export type ItemNavegacao = {
   href: string;
@@ -94,6 +95,13 @@ export const navegacao: GrupoNavegacao[] = [
         href: "/implantacao",
         label: "Implantação OpenAI",
         section: "partner-network",
+      },
+      {
+        href: "/operacao/automacoes",
+        label: "Automações",
+        section: "automacoes",
+        // Cofre do n8n: chave de terceiro é do dono.
+        somenteDono: true,
       },
     ],
   },

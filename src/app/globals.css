@@ -6882,3 +6882,14 @@ tbody tr:last-child td {
     flex: 1 1 0;
   }
 }
+
+/* Cofre do n8n (/operacao/automacoes) ------------------------------------- */
+.cred-titulo { margin: 22px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #6b7280); display: flex; align-items: center; gap: 8px; }
+.cred-contagem { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(120, 120, 128, .16); font-size: 12px; text-align: center; color: inherit; }
+.cred-estado { flex: none; margin-left: auto; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.cred-falta { background: rgba(239, 106, 87, .16); color: #b3261e; }
+.cred-ok { background: rgba(98, 214, 143, .18); color: #1b7f3a; }
+.cred-n8n .ios-row { width: 100%; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.cred-n8n .ios-row .chevron { margin-left: 8px; }
+.cred-uso, .cred-ajuda, .cred-vazio { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: var(--muted, #6b7280); }
+.cred-n8n textarea { width: 100%; min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
