@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: avilaops/infra-observabilidade/.github/workflows/container.yml@5fc768f4ebf631bdcd614b3e87a148dc08dd278f
+    uses: avilaops/infra/.github/workflows/container.yml@5fc768f4ebf631bdcd614b3e87a148dc08dd278f
     with:
       publish: ${{ github.event_name != 'pull_request' }}
   deploy:
@@ -21,7 +21,7 @@ jobs:
       packages: read
     needs: image
     if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
-    uses: avilaops/infra-observabilidade/.github/workflows/deploy-ssh.yml@5fc768f4ebf631bdcd614b3e87a148dc08dd278f
+    uses: avilaops/infra/.github/workflows/deploy-ssh.yml@5fc768f4ebf631bdcd614b3e87a148dc08dd278f
     with:
       application: app.avilaops.com
       image: ${{ needs.image.outputs.image }}
