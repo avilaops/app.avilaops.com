@@ -121,9 +121,9 @@ export default async function MetaCampaignsPage({
                 {snapshots.map((snapshot) => (
                   <tr key={snapshot.id}>
                     <td>{snapshot.campaignName ?? snapshot.campaignId}</td>
-                    <td>{snapshot.adAccount?.name ?? "—"}</td>
-                    <td>{snapshot.status ?? "—"}</td>
-                    <td>{snapshot.objective ?? "—"}</td>
+                    <td>{snapshot.adAccount?.name ?? "-"}</td>
+                    <td>{snapshot.status ?? "-"}</td>
+                    <td>{snapshot.objective ?? "-"}</td>
                     <td>{formatCurrency(snapshot.spend?.toString())}</td>
                     <td>{(snapshot.impressions ?? 0).toLocaleString("pt-BR")}</td>
                     <td>{(snapshot.clicks ?? 0).toLocaleString("pt-BR")}</td>
@@ -167,8 +167,8 @@ export default async function MetaCampaignsPage({
                   <tr key={account.id}>
                     <td>{account.name}</td>
                     <td>{account.adAccountId}</td>
-                    <td>{account.businessAccount?.name ?? "—"}</td>
-                    <td>{account.currency ?? "—"}</td>
+                    <td>{account.businessAccount?.name ?? "-"}</td>
+                    <td>{account.currency ?? "-"}</td>
                     <td>{account.accountStatus ?? account.status}</td>
                   </tr>
                 ))}

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         accountName: ga4PropertyId ? `Propriedade ${ga4PropertyId}` : null,
         url: ga4PropertyId ? `https://analytics.google.com/analytics/web/#/p${ga4PropertyId}/reports/intro` : null,
         status: "ACTIVE",
-        notes: "Criado pelo n8n (Google — onboarding de cliente)",
+        notes: "Criado pelo n8n (Google - onboarding de cliente)",
       }),
     );
   }

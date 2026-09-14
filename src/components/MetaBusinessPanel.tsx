@@ -145,14 +145,14 @@ export default function MetaBusinessPanel({
           </div>
           <div>
             <dt>Status técnico</dt>
-            <dd>{status.connection?.lastSyncStatus ?? "—"}</dd>
+            <dd>{status.connection?.lastSyncStatus ?? "-"}</dd>
           </div>
           <div>
             <dt>Expiração do token</dt>
             <dd>
               {status.connection?.tokenExpiresAt
                 ? new Date(status.connection.tokenExpiresAt).toLocaleDateString("pt-BR")
-                : "—"}
+                : "-"}
             </dd>
           </div>
         </dl>

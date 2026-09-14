@@ -91,7 +91,7 @@ function conferirLinha(mp: Assinatura | null, loja: LojaDaPlataforma | null): Di
     fora.push({
       gravidade: "atencao",
       titulo: "Assinatura sem loja",
-      detalhe: `O Mercado Pago cobra por "${mp.loja ?? "sem referência"}", mas não existe loja com esse slug. Pode ser teste antigo — vale cancelar.`,
+      detalhe: `O Mercado Pago cobra por "${mp.loja ?? "sem referência"}", mas não existe loja com esse slug. Pode ser teste antigo - vale cancelar.`,
     });
     return fora;
   }

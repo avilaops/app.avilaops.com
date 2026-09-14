@@ -18,6 +18,7 @@ export type SecaoApp =
   | "reports"
   | "seo"
   | "obs"
+  | "health-live"
   | "meta"
   | "whatsapp"
   | "services"
@@ -120,6 +121,12 @@ export const navegacao: GrupoNavegacao[] = [
         label: "Newsletter",
         section: "newsletter",
       },
+    ],
+  },
+  {
+    label: "Infraestrutura",
+    items: [
+      { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live" },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
     ],
   },

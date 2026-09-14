@@ -62,7 +62,7 @@ export default function ScopePicker({
         ))}
       </select>
       {source === "REGRA" ? (
-        <small className="scope-hint" title="Classificado por regra automática — confirme se estiver errado.">
+        <small className="scope-hint" title="Classificado por regra automática - confirme se estiver errado.">
           regra
         </small>
       ) : null}

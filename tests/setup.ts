@@ -16,7 +16,7 @@ const url = process.env.DATABASE_URL ?? "";
 if (!url) {
   throw new Error(
     "DATABASE_URL ausente. Suba o banco descartável com `npm run db:test:up` " +
-      "e rode `npm test` — ele exporta a URL local.",
+      "e rode `npm test` - ele exporta a URL local.",
   );
 }
 

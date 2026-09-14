@@ -56,7 +56,7 @@ export async function POST(
     );
   }
   if (!Number.isInteger(dia) || dia < 1 || dia > 28) {
-    return NextResponse.json({ error: "Dia de vencimento entre 1 e 28 — 29, 30 e 31 não existem em todo mês." }, { status: 400 });
+    return NextResponse.json({ error: "Dia de vencimento entre 1 e 28 - 29, 30 e 31 não existem em todo mês." }, { status: 400 });
   }
   if ((produto && !tenant) || (!produto && tenant)) {
     return NextResponse.json({ error: "Produto e tenant andam juntos: informe os dois ou nenhum." }, { status: 400 });

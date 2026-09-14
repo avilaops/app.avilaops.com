@@ -88,7 +88,7 @@ function initialReconciliation(movement: WiseMovement) {
   if (movement.isInternalTransfer) {
     return {
       status: "IGNORED",
-      note: "Dinheiro entre contas próprias — não é receita nem despesa.",
+      note: "Dinheiro entre contas próprias - não é receita nem despesa.",
     };
   }
   return { status: "PENDING", note: null as string | null };

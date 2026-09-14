@@ -50,7 +50,7 @@ export default function AcoesAssinatura({
   // Cancelar é o único caminho sem volta: o cartão é desvinculado e o lojista
   // precisa cadastrar de novo. Por isso confirma pelo nome da loja.
   function cancelar() {
-    if (!window.confirm(`Cancelar a mensalidade de ${nome}?\n\nO cartão é desvinculado e a loja será suspensa na próxima varredura. Não dá para desfazer — ele terá que assinar de novo.`)) return;
+    if (!window.confirm(`Cancelar a mensalidade de ${nome}?\n\nO cartão é desvinculado e a loja será suspensa na próxima varredura. Não dá para desfazer - ele terá que assinar de novo.`)) return;
     void executar("cancelar");
   }
 

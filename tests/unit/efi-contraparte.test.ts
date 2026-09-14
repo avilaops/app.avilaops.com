@@ -55,7 +55,7 @@ describe("Pix enviado", () => {
     );
   });
 
-  it("chave aleatória não vira nome — não identifica ninguém", () => {
+  it("chave aleatória não vira nome - não identifica ninguém", () => {
     const aleatoria = {
       ...ENVIADO,
       favorecido: { chave: "71d2f4a0-9c3e-4b8a-8f21-6d5e0c7a1b93" },
@@ -81,7 +81,7 @@ describe("Pix recebido", () => {
     expect(t.transactionType).toBe("PIX_RECEIVED");
   });
 
-  it("usa o pagador quando ele existe — Pix vindo de cobrança", () => {
+  it("usa o pagador quando ele existe - Pix vindo de cobrança", () => {
     const comCobranca = {
       ...RECEBIDO,
       txid: "9a8b7c6d5e4f30211f0e9d8c7b6a5940",

@@ -142,12 +142,12 @@ export default function BingWebmasterPanel({
         <div>
           <dt>Status</dt>
           <dd className={connection?.lastSyncStatus === "SUCCESS" ? "positive" : ""}>
-            {connection?.lastSyncStatus ?? "—"}
+            {connection?.lastSyncStatus ?? "-"}
           </dd>
         </div>
         <div>
           <dt>URLs enviadas</dt>
-          <dd>{submittedCount ?? "—"}</dd>
+          <dd>{submittedCount ?? "-"}</dd>
         </div>
       </dl>
     </article>

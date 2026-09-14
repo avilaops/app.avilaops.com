@@ -42,7 +42,7 @@ export async function generateWeeklyHealthReport(fqdn: string): Promise<WeeklyHe
   const orgName = domain.organization.name || fqdn;
 
   const formattedMessage = [
-    `🟢 *Relatório Semanal de Saúde Digital — Ávila Ops*`,
+    `🟢 *Relatório Semanal de Saúde Digital - Ávila Ops*`,
     `🏢 *Empresa*: ${orgName}`,
     `🌐 *Domínio*: ${fqdn}`,
     ``,

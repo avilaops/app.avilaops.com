@@ -44,7 +44,7 @@ function certificateBuffer(): Buffer {
     const caminho = process.env.EFI_CERTIFICATE_PATH_HOMOLOGACAO?.trim();
     if (!caminho) {
       throw new Error(
-        "EFI_ENVIRONMENT=homologacao exige EFI_CERTIFICATE_PATH_HOMOLOGACAO — o " +
+        "EFI_ENVIRONMENT=homologacao exige EFI_CERTIFICATE_PATH_HOMOLOGACAO - o " +
           "certificado de produção não autentica no ambiente de teste",
       );
     }

@@ -125,7 +125,7 @@ describe("scoreMatch", () => {
   });
 });
 
-describe("suggestScope — a armadilha do titular", () => {
+describe("suggestScope - a armadilha do titular", () => {
   it("não marca gasto do cartão como INTERNO só porque o titular é o remetente", () => {
     // A contraparte é a OUTRA ponta. Passar o titular aqui marcaria todo gasto
     // do cartão como dinheiro entre contas, e o resultado inteiro zeraria.

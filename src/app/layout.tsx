@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: "Ávila Ops",
   },
   metadataBase: new URL(siteUrl),
-  title: "Ávila OS — operação digital",
+  title: "Ávila OS - operação digital",
   description,
   // `noindex` tira da busca, mas não tira o card do WhatsApp: o link da
   // plataforma é justamente o que a gente manda para o cliente entrar.
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
   openGraph: {
-    title: "Ávila OS — operação digital",
+    title: "Ávila OS - operação digital",
     description,
     url: siteUrl,
     siteName: "Ávila OS",
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ávila OS — operação digital",
+    title: "Ávila OS - operação digital",
     description,
     images: ["/og-default.png"],
   },
@@ -73,7 +73,7 @@ export default function RootLayout({
       <head>
         {/*
           Modo noturno da casa: 18h escurece, 6h clareia. Precisa rodar antes do
-          CSS, senão a tela pinta clara e escurece depois — o flash branco às
+          CSS, senão a tela pinta clara e escurece depois - o flash branco às
           22h é pior do que não ter tema escuro.
         */}
         <script dangerouslySetInnerHTML={{ __html: scriptInicial() }} />

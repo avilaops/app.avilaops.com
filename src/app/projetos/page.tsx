@@ -118,11 +118,11 @@ export default async function ProjectsPage({
                   </div>
                   <div>
                     <dt>Responsável</dt>
-                    <dd>{project.ownerName ?? "—"}</dd>
+                    <dd>{project.ownerName ?? "-"}</dd>
                   </div>
                   <div>
                     <dt>Prazo</dt>
-                    <dd>{project.dueAt ? formatShortDate(project.dueAt) : "—"}</dd>
+                    <dd>{project.dueAt ? formatShortDate(project.dueAt) : "-"}</dd>
                   </div>
                 </dl>
                 <span className={`status-pill status-${project.status.toLowerCase()}`}>

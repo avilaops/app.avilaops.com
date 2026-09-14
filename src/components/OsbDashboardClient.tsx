@@ -158,7 +158,7 @@ export default function OsbDashboardClient({
           }}
         >
           ❔ {perfMissingCount} de {rows.length} domínio(s) estão sem medição de PageSpeed. Enquanto a coleta não
-          funcionar, esse indicador não entra no cálculo da saúde geral — não é 0/100.
+          funcionar, esse indicador não entra no cálculo da saúde geral - não é 0/100.
         </div>
       ) : null}
 

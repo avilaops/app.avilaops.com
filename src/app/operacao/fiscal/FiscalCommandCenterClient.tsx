@@ -227,7 +227,7 @@ export default function FiscalCommandCenterClient({
                 </div>
                 <div className="text-xs text-gray-400 mt-2">Documento</div>
                 <div className="font-mono text-emerald-400">
-                  {orgAtual.certificadoInfo.cnpj || orgAtual.certificadoInfo.cpf || "—"}
+                  {orgAtual.certificadoInfo.cnpj || orgAtual.certificadoInfo.cpf || "-"}
                 </div>
               </div>
 
@@ -392,7 +392,7 @@ export default function FiscalCommandCenterClient({
                       <td className="px-4 py-3 text-xs text-gray-400">
                         {doc.dataEmissao
                           ? new Date(doc.dataEmissao).toLocaleDateString("pt-BR")
-                          : "—"}
+                          : "-"}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-white">
                         {valor.toLocaleString("pt-BR", {

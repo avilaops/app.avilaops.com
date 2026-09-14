@@ -121,7 +121,7 @@ export default async function ProjectDetailPage({
                         : "Concluída"}
                     </small>
                   </div>
-                  <time>—</time>
+                  <time>-</time>
                   <TaskStatusControl taskId={task.id} status={task.status} />
                 </div>
               ))}

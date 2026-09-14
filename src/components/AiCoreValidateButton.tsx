@@ -27,7 +27,7 @@ export default function AiCoreValidateButton() {
         setMessage("Credencial OpenAI ainda não configurada para a organização interna.");
       } else if (result.status === "SUCCESS") {
         setMessage(
-          `Sucesso — ${result.latencyMs}ms, custo estimado $${result.estimatedCostUsd?.toFixed(6)}.`,
+          `Sucesso - ${result.latencyMs}ms, custo estimado $${result.estimatedCostUsd?.toFixed(6)}.`,
         );
       } else {
         setMessage(result.error ?? "Falha na validação.");

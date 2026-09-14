@@ -76,7 +76,7 @@ export async function POST(
 
   /*
     O CNPJ é obrigatório aqui, e não no Comandeiro por acaso: lá ele é a
-    IDENTIDADE da casa na entrada — é o que o garçom digita. Sem CNPJ na ficha
+    IDENTIDADE da casa na entrada - é o que o garçom digita. Sem CNPJ na ficha
     não há restaurante para criar, e dizer isso agora é melhor do que gastar
     uma chamada ao n8n para receber a mesma recusa em 422.
   */
@@ -94,7 +94,7 @@ export async function POST(
 
   if (!donoEmail) {
     return NextResponse.json(
-      { error: "Informe o e-mail do responsável — é para onde vai a recuperação de senha." },
+      { error: "Informe o e-mail do responsável - é para onde vai a recuperação de senha." },
       { status: 422 },
     );
   }

@@ -22,3 +22,9 @@ secrets/
 
 # Bundle de deploy: gerado por `npm run build`, nunca versionado.
 standalone.tgz
+
+# Artefatos locais de empacotamento e validacao visual.
+standalone-health*.tgz
+.deploy-health-runtime-*/
+.playwright-cli/
+output/playwright/

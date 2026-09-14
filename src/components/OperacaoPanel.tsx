@@ -497,7 +497,7 @@ export default function OperacaoPanel({
                 <option value="">Escolher (preenche descrição e valor)</option>
                 {planosRecorrentes.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — {p.priceCents !== null ? dinheiro(p.priceCents, p.currency) : "a definir"} ({rotuloCiclo[p.billingCycle ?? ""] ?? p.billingCycle})
+                    {p.name} - {p.priceCents !== null ? dinheiro(p.priceCents, p.currency) : "a definir"} ({rotuloCiclo[p.billingCycle ?? ""] ?? p.billingCycle})
                   </option>
                 ))}
               </select>
@@ -505,7 +505,7 @@ export default function OperacaoPanel({
             </label>
             <label className="field">
               <span>Descrição</span>
-              <input value={formAssinatura.descricao} onChange={(e) => setFormAssinatura((f) => ({ ...f, descricao: e.target.value }))} placeholder={`Plataforma Ávila Ops — ${nomeCliente}`} required autoFocus />
+              <input value={formAssinatura.descricao} onChange={(e) => setFormAssinatura((f) => ({ ...f, descricao: e.target.value }))} placeholder={`Plataforma Ávila Ops - ${nomeCliente}`} required autoFocus />
             </label>
             <div className="field-grid">
               <label className="field field-select">
@@ -546,7 +546,7 @@ export default function OperacaoPanel({
                   <option value="">Sem plano</option>
                   {planosUnicos.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {p.priceCents !== null ? dinheiro(p.priceCents, p.currency) : "a definir"}
+                      {p.name} - {p.priceCents !== null ? dinheiro(p.priceCents, p.currency) : "a definir"}
                     </option>
                   ))}
                 </select>

@@ -98,7 +98,7 @@ export default function SeoAuditPanel({
         throw new Error(data.error || "Falha ao aplicar Auto-Fix SEO.");
       }
 
-      setMessage(`⚡ Auto-Fix SEO aplicado com sucesso para ${fqdn}! Re-auditando...`);
+      setMessage(`Correções seguras aplicadas em ${fqdn}. Executando uma nova auditoria.`);
       await runAudit(fqdn);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Falha no Auto-Fix SEO.");
@@ -115,24 +115,25 @@ export default function SeoAuditPanel({
     <article className="operations-panel">
       <div className="operations-panel-heading">
         <div>
-          <span className="eyebrow">Auditoria Técnica SEO & Core Web Vitals</span>
-          <h2>{fqdn}</h2>
+          <span className="eyebrow">DIAGNÓSTICO TÉCNICO</span>
+          <h2>Auditoria de {fqdn}</h2>
+          <p>Verifica indexação, metadados e experiência de carregamento.</p>
         </div>
         <div className="panel-actions" style={{ display: "flex", gap: "0.5rem" }}>
           <button
             className="secondary-button"
             onClick={runAutoFix}
             disabled={status === "running"}
-            style={{ background: "#2563eb", color: "#fff", border: "none" }}
+            title="Aplica somente correções automáticas já autorizadas e executa uma nova auditoria"
           >
-            ⚡ Auto-Fix SEO
+            Aplicar correções seguras
           </button>
           <button
-            className="secondary-button"
+            className="primary-button"
             onClick={() => runAudit(fqdn)}
             disabled={status === "running"}
           >
-            {status === "running" ? "Analisando..." : "Rodar Auditoria Agora"}
+            {status === "running" ? "Analisando..." : "Executar auditoria"}
           </button>
         </div>
       </div>
@@ -173,29 +174,29 @@ export default function SeoAuditPanel({
         <h4 style={{ margin: "0 0 1rem 0" }}>Checklist de Saúde Técnica</h4>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.8rem" }}>
           <div>
-            <strong>robots.txt:</strong> {seoData?.robots.ok ? "✅ Presente" : "❌ Ausente/Erro"}
+            <strong>robots.txt:</strong> {seoData?.robots.ok ? "Aprovado" : "Ausente ou com erro"}
             {seoData?.robots.hasSitemap ? " (Sitemap OK)" : ""}
           </div>
           <div>
-            <strong>sitemap.xml:</strong> {seoData?.sitemap.ok ? `✅ Presente (${seoData.sitemap.urlCount} URLs)` : "❌ Ausente"}
+            <strong>sitemap.xml:</strong> {seoData?.sitemap.ok ? `Aprovado (${seoData.sitemap.urlCount} URLs)` : "Ausente"}
           </div>
           <div>
-            <strong>llms.txt:</strong> {seoData?.llms.ok ? "✅ Presente" : "⚠️ Ausente"}
+            <strong>llms.txt:</strong> {seoData?.llms.ok ? "Aprovado" : "Ausente"}
           </div>
           <div>
-            <strong>Favicon:</strong> {seoData?.favicon.ok ? "✅ OK" : "⚠️ Faltando"}
+            <strong>Favicon:</strong> {seoData?.favicon.ok ? "Aprovado" : "Faltando"}
           </div>
           <div>
-            <strong>Manifest.json:</strong> {seoData?.manifest.ok ? "✅ Presente" : "⚠️ Ausente"}
+            <strong>Manifest.json:</strong> {seoData?.manifest.ok ? "Aprovado" : "Ausente"}
           </div>
           <div>
-            <strong>Canonical URL:</strong> {seoData?.homeHtml.hasCanonical ? "✅ Configurada" : "❌ Faltando"}
+            <strong>URL canônica:</strong> {seoData?.homeHtml.hasCanonical ? "Aprovada" : "Faltando"}
           </div>
           <div>
-            <strong>Open Graph (OG):</strong> {seoData?.homeHtml.hasOgTitle && seoData?.homeHtml.hasOgDescription ? "✅ OK" : "⚠️ Incompleto"}
+            <strong>Open Graph:</strong> {seoData?.homeHtml.hasOgTitle && seoData?.homeHtml.hasOgDescription ? "Aprovado" : "Incompleto"}
           </div>
           <div>
-            <strong>Schema.org / JSON-LD:</strong> {seoData?.homeHtml.hasJsonLd ? "✅ Detectado" : "⚠️ Ausente"}
+            <strong>Schema.org / JSON-LD:</strong> {seoData?.homeHtml.hasJsonLd ? "Detectado" : "Ausente"}
           </div>
         </div>
       </div>

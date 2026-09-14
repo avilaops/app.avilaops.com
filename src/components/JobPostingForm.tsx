@@ -139,7 +139,7 @@ export default function JobPostingForm() {
 
           <div className="organization-form-actions">
             <p>
-              O corpo da vaga — introdução, responsabilidades, expertise e benefícios —
+              O corpo da vaga - introdução, responsabilidades, expertise e benefícios -
               é preenchido no editor, que abre em seguida.
             </p>
             <button className="primary-button" type="submit" disabled={loading}>

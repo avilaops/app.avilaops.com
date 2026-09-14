@@ -33,7 +33,7 @@ export default async function CobrarPage() {
         <NovaCobrancaForm />
         <p className="mp-nota">
           Isto não é mensalidade: não salva cartão e não repete. Para mudar o que um lojista paga por
-          mês, use o botão <strong>Valor</strong> na assinatura dele — some ao plano em vez de criar
+          mês, use o botão <strong>Valor</strong> na assinatura dele - some ao plano em vez de criar
           uma segunda cobrança.
         </p>
       </section>
@@ -57,17 +57,17 @@ export default async function CobrarPage() {
               <tbody>
                 {links.map((l) => (
                   <tr key={l.id}>
-                    <td>{l.criadoEm ? formatShortDate(l.criadoEm) : "—"}</td>
+                    <td>{l.criadoEm ? formatShortDate(l.criadoEm) : "-"}</td>
                     <td>{l.titulo}</td>
-                    <td>{l.referencia ?? "—"}</td>
-                    <td>{l.valorCentavos ? formatCurrency(l.valorCentavos / 100) : "—"}</td>
+                    <td>{l.referencia ?? "-"}</td>
+                    <td>{l.valorCentavos ? formatCurrency(l.valorCentavos / 100) : "-"}</td>
                     <td>
                       {l.link ? (
                         <a href={l.link} target="_blank" rel="noopener">
                           abrir
                         </a>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                   </tr>

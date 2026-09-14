@@ -164,7 +164,7 @@ export async function POST(
 
   /*
     Chave de idempotência: entregável + método + minuto. Mesma regra da
-    mensalidade — o minuto é a janela em que "de novo" é retry de rede, e não
+    mensalidade - o minuto é a janela em que "de novo" é retry de rede, e não
     o cliente pedindo um código novo depois de o primeiro vencer.
   */
   const chaveIdempotencia = `entregavel:${deliverable.id}:${body?.method}:${Math.floor(
@@ -219,7 +219,7 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "O boleto precisa do endereço completo da empresa emissora. Fale com a Avila Ops — o PIX funciona sem isso.",
+              "O boleto precisa do endereço completo da empresa emissora. Fale com a Avila Ops - o PIX funciona sem isso.",
           },
           { status: 400 },
         );

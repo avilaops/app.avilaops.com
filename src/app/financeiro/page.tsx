@@ -167,7 +167,7 @@ export default async function FinancePage({
                   data.latestBalance.availableBalance.toString(),
                   currency,
                 )
-              : "—"
+              : "-"
           }
           capturedAtLabel={
             data.latestBalance

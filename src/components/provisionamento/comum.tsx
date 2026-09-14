@@ -106,6 +106,6 @@ export function dinheiro(cents: number, moeda = "BRL") {
 }
 
 export function dataCurta(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "UTC" }).format(new Date(iso));
 }

@@ -147,7 +147,7 @@ export default function ProjectForm({
                 required
                 minLength={3}
                 maxLength={160}
-                placeholder="Ex.: Site institucional — fase 1"
+                placeholder="Ex.: Site institucional - fase 1"
               />
             </label>
             <label>

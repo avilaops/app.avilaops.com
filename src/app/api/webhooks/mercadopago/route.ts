@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
   if (!pagamentoId) return NextResponse.json({ ok: true, ignorado: true });
 
   /*
-    Id que não bate com cobrança nossa não vira consulta à API — senão o
+    Id que não bate com cobrança nossa não vira consulta à API - senão o
     endpoint vira ferramenta de varredura de ids válidos.
 
     Duas famílias de cobrança usam o mesmo gateway e o mesmo webhook: a

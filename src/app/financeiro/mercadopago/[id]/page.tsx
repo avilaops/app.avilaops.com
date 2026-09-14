@@ -72,16 +72,16 @@ export default async function AssinaturaPage({ params }: { params: Promise<{ id:
         <article className="metric">
           <span>Na plataforma</span>
           <strong>{loja ? loja.status : "sem loja"}</strong>
-          <small>{loja?.assinaturaStatus ?? "—"}</small>
+          <small>{loja?.assinaturaStatus ?? "-"}</small>
         </article>
         <article className="metric">
           <span>Valor mensal</span>
           <strong>{formatCurrency(assinatura.valorCentavos / 100)}</strong>
-          <small>{loja?.plano ?? "—"}</small>
+          <small>{loja?.plano ?? "-"}</small>
         </article>
         <article className="metric">
           <span>Próxima cobrança</span>
-          <strong>{assinatura.proximaCobranca ? formatShortDate(assinatura.proximaCobranca) : "—"}</strong>
+          <strong>{assinatura.proximaCobranca ? formatShortDate(assinatura.proximaCobranca) : "-"}</strong>
           <small>{assinatura.pagador ?? "sem pagador"}</small>
         </article>
       </section>
@@ -91,7 +91,7 @@ export default async function AssinaturaPage({ params }: { params: Promise<{ id:
           <h2>Ainda sem cartão</h2>
           <p className="mp-nota">
             A assinatura existe mas nunca foi autorizada. Mande este link para o lojista cadastrar o
-            cartão — enquanto ele não fizer isso, nada é cobrado.
+            cartão - enquanto ele não fizer isso, nada é cobrado.
           </p>
           <p>
             <a className="small-primary" href={assinatura.linkCadastroCartao} target="_blank" rel="noopener">
@@ -121,10 +121,10 @@ export default async function AssinaturaPage({ params }: { params: Promise<{ id:
               <tbody>
                 {cobrancas.map((c) => (
                   <tr key={c.id}>
-                    <td>{c.data ? formatShortDate(c.data) : "—"}</td>
+                    <td>{c.data ? formatShortDate(c.data) : "-"}</td>
                     <td>{STATUS_COBRANCA[c.status] ?? c.status}</td>
                     <td>
-                      {c.statusPagamento ?? "—"}
+                      {c.statusPagamento ?? "-"}
                       {c.detalhe && <small>{c.detalhe}</small>}
                     </td>
                     <td>{formatCurrency(c.valorCentavos / 100)}</td>
@@ -155,7 +155,7 @@ export default async function AssinaturaPage({ params }: { params: Promise<{ id:
             </div>
             <div>
               <dt>Contato</dt>
-              <dd>{loja.loginEmail ?? loja.emailContato ?? "—"}</dd>
+              <dd>{loja.loginEmail ?? loja.emailContato ?? "-"}</dd>
             </div>
             <div>
               <dt>Catálogo</dt>

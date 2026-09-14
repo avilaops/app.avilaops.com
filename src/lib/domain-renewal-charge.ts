@@ -40,7 +40,7 @@ export async function checkDomainRenewalStatus(fqdn: string): Promise<DomainRene
 
   const pixNoticeText = needsRenewalNotice
     ? [
-        `⚠️ *Aviso de Vencimento de Domínio — Ávila Ops*`,
+        `⚠️ *Aviso de Vencimento de Domínio - Ávila Ops*`,
         `🏢 *Empresa*: ${orgName}`,
         `🌐 *Domínio*: ${fqdn}`,
         `📅 *Vencimento*: ${expiresAt ? expiresAt.toLocaleDateString("pt-BR") : "Em breve"} (${daysRemaining} dias restantes)`,

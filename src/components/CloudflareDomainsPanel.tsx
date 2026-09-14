@@ -83,12 +83,12 @@ export default function CloudflareDomainsPanel({
               <div>
                 <strong>{domain.fqdn}</strong>
                 <small>
-                  {domain.organizationName} · {domain.cloudflarePlan ?? "—"} ·{" "}
+                  {domain.organizationName} · {domain.cloudflarePlan ?? "-"} ·{" "}
                   {domain.dnsRecordCount} registros DNS
                 </small>
               </div>
               <span className={`module-state state-${domain.cloudflareStatus === "active" ? "active" : "next"}`}>
-                {domain.cloudflareStatus ?? "—"}
+                {domain.cloudflareStatus ?? "-"}
               </span>
             </div>
           ))}

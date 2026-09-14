@@ -236,7 +236,7 @@ export default function JobPostingEditor({
             disabled={ocupado || posting.applicationCount > 0}
             title={
               posting.applicationCount > 0
-                ? "Vaga com candidatura não pode ser excluída — encerre."
+                ? "Vaga com candidatura não pode ser excluída - encerre."
                 : undefined
             }
           >
@@ -323,7 +323,7 @@ export default function JobPostingEditor({
               <textarea rows={2} maxLength={400} {...campo("summary")} />
             </label>
             <label className="span-two">
-              Introdução — um parágrafo por linha
+              Introdução - um parágrafo por linha
               <textarea
                 rows={4}
                 value={intro}
@@ -387,7 +387,7 @@ export default function JobPostingEditor({
                     />
                   </label>
                   <label>
-                    Itens — um por linha
+                    Itens - um por linha
                     <textarea
                       rows={4}
                       value={group.items}
@@ -416,7 +416,7 @@ export default function JobPostingEditor({
 
           <div className="operations-form-grid job-form">
             <label className="span-two">
-              Conhecimento e expertise — um por linha
+              Conhecimento e expertise - um por linha
               <textarea
                 rows={5}
                 value={expertise}
@@ -424,7 +424,7 @@ export default function JobPostingEditor({
               />
             </label>
             <label className="span-two">
-              Benefícios — um por linha
+              Benefícios - um por linha
               <textarea
                 rows={4}
                 value={benefits}
@@ -432,7 +432,7 @@ export default function JobPostingEditor({
               />
             </label>
             <label className="span-two">
-              Fechamento — um parágrafo por linha
+              Fechamento - um parágrafo por linha
               <textarea
                 rows={3}
                 value={closing}

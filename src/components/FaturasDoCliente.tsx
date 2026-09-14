@@ -6,6 +6,7 @@ type Cobranca = {
   metodo: string;
   pixCopiaECola: string | null;
   boletoUrl: string | null;
+  checkoutUrl: string | null;
   expiraEm: string | null;
 };
 
@@ -32,11 +33,13 @@ export type FaturaDoCliente = {
  * novo a cada clique: dois códigos para a mesma fatura confundem quem paga e
  * sujam a conciliação.
  */
-export default function FaturasDoCliente({ iniciais }: { iniciais: FaturaDoCliente[] }) {
+export default function FaturasDoCliente({ iniciais, pais }: { iniciais: FaturaDoCliente[]; pais: string }) {
   const [faturas, setFaturas] = useState(iniciais);
   const [ocupada, setOcupada] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [copiada, setCopiada] = useState<string | null>(null);
+  const paisNormalizado = pais.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  const brasileira = ["BR", "BRA", "BRASIL", "BRAZIL", ""].includes(paisNormalizado);
 
   if (faturas.length === 0) {
     return (
@@ -47,7 +50,7 @@ export default function FaturasDoCliente({ iniciais }: { iniciais: FaturaDoClien
     );
   }
 
-  async function cobrar(fatura: FaturaDoCliente, metodo: "PIX" | "BOLETO") {
+  async function cobrar(fatura: FaturaDoCliente, metodo: "PIX" | "BOLETO" | "PAYPAL") {
     setOcupada(fatura.id);
     setErro(null);
     try {
@@ -61,6 +64,7 @@ export default function FaturasDoCliente({ iniciais }: { iniciais: FaturaDoClien
         metodo?: string;
         pixCopiaECola?: string | null;
         boletoUrl?: string | null;
+        checkoutUrl?: string | null;
         expiraEm?: string | null;
       };
       if (!resposta.ok) {
@@ -76,6 +80,7 @@ export default function FaturasDoCliente({ iniciais }: { iniciais: FaturaDoClien
                   metodo: dados.metodo ?? metodo,
                   pixCopiaECola: dados.pixCopiaECola ?? null,
                   boletoUrl: dados.boletoUrl ?? null,
+                  checkoutUrl: dados.checkoutUrl ?? null,
                   expiraEm: dados.expiraEm ?? null,
                 },
               }
@@ -125,17 +130,20 @@ export default function FaturasDoCliente({ iniciais }: { iniciais: FaturaDoClien
 
               {aberta && !cobranca && (
                 <div className="portal-acoes">
-                  <button type="button" onClick={() => cobrar(fatura, "PIX")} disabled={ocupada === fatura.id}>
-                    {ocupada === fatura.id ? "Gerando…" : "Pagar com Pix"}
-                  </button>
-                  <button
-                    type="button"
-                    className="secundario"
-                    onClick={() => cobrar(fatura, "BOLETO")}
-                    disabled={ocupada === fatura.id}
-                  >
-                    Gerar boleto
-                  </button>
+                  {brasileira ? (
+                    <>
+                      <button type="button" onClick={() => cobrar(fatura, "PIX")} disabled={ocupada === fatura.id}>
+                        {ocupada === fatura.id ? "Gerando…" : "Pagar com Pix"}
+                      </button>
+                      <button type="button" className="secundario" onClick={() => cobrar(fatura, "BOLETO")} disabled={ocupada === fatura.id}>
+                        Gerar boleto
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => cobrar(fatura, "PAYPAL")} disabled={ocupada === fatura.id}>
+                      {ocupada === fatura.id ? "Preparando…" : "Pagar com PayPal"}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -158,12 +166,19 @@ export default function FaturasDoCliente({ iniciais }: { iniciais: FaturaDoClien
                   </a>
                 </div>
               )}
+
+              {aberta && cobranca?.checkoutUrl && (
+                <div className="portal-acoes">
+                  <a href={cobranca.checkoutUrl}>Continuar no PayPal</a>
+                </div>
+              )}
             </li>
           );
         })}
       </ul>
 
       <p className="portal-muted">
+        {brasileira ? "Pagamentos no Brasil são processados pelo Mercado Pago. " : "Pagamentos fora do Brasil são processados pelo PayPal. "}
         O pagamento é confirmado automaticamente. Se demorar mais de uma hora para dar baixa, fale
         com a gente que resolvemos.
       </p>

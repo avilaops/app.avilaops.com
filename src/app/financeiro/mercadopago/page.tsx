@@ -70,7 +70,7 @@ export default async function MercadoPagoPage() {
         <section className="mp-alerta">
           <h2>Mercado Pago não configurado</h2>
           <p>
-            Falta <code>MP_ACCESS_TOKEN</code> no ambiente deste app. Sem ele nada nesta tela carrega —
+            Falta <code>MP_ACCESS_TOKEN</code> no ambiente deste app. Sem ele nada nesta tela carrega -
             a cobrança da mensalidade em si continua rodando pelo lojas.avilaops.com.
           </p>
         </section>
@@ -84,7 +84,7 @@ export default async function MercadoPagoPage() {
               <li key={f}>{f}</li>
             ))}
           </ul>
-          <p>O resto da tela mostra o que deu para ler — não é a foto completa.</p>
+          <p>O resto da tela mostra o que deu para ler - não é a foto completa.</p>
         </section>
       )}
 
@@ -108,7 +108,7 @@ export default async function MercadoPagoPage() {
             </article>
             <article className="metric">
               <span>Conta em uso</span>
-              <strong>{painel.conta?.apelido ?? "—"}</strong>
+              <strong>{painel.conta?.apelido ?? "-"}</strong>
               <small>{painel.conta ? `${painel.conta.email} · ${painel.conta.pais}` : "não identificada"}</small>
             </article>
           </section>
@@ -163,9 +163,9 @@ export default async function MercadoPagoPage() {
                           <td>
                             <strong>
                               {l.mp ? (
-                                <Link href={`/financeiro/mercadopago/${l.mp.id}`}>{l.loja?.nome ?? l.mp.loja ?? "—"}</Link>
+                                <Link href={`/financeiro/mercadopago/${l.mp.id}`}>{l.loja?.nome ?? l.mp.loja ?? "-"}</Link>
                               ) : (
-                                (l.loja?.nome ?? "—")
+                                (l.loja?.nome ?? "-")
                               )}
                             </strong>
                             <small>{l.loja?.slug ?? l.mp?.pagador ?? ""}</small>
@@ -175,14 +175,14 @@ export default async function MercadoPagoPage() {
                               </p>
                             )}
                           </td>
-                          <td>{l.loja?.plano ?? "—"}</td>
+                          <td>{l.loja?.plano ?? "-"}</td>
                           <td>{l.mp ? (STATUS_ASSINATURA[l.mp.status] ?? l.mp.status) : "sem assinatura"}</td>
                           <td>
                             {l.loja ? (STATUS_LOJA[l.loja.status] ?? l.loja.status) : "sem loja"}
                             {l.loja?.assinaturaStatus && <small>{l.loja.assinaturaStatus}</small>}
                           </td>
-                          <td>{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "—"}</td>
-                          <td>{l.mp?.proximaCobranca ? formatShortDate(l.mp.proximaCobranca) : "—"}</td>
+                          <td>{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "-"}</td>
+                          <td>{l.mp?.proximaCobranca ? formatShortDate(l.mp.proximaCobranca) : "-"}</td>
                           <td>
                             {l.loja?.assinaturaId ? (
                               <AcoesAssinatura
@@ -196,7 +196,7 @@ export default async function MercadoPagoPage() {
                                 Link do cartão
                               </a>
                             ) : (
-                              <span className="mp-nota">—</span>
+                              <span className="mp-nota">-</span>
                             )}
                           </td>
                         </tr>
@@ -235,14 +235,14 @@ export default async function MercadoPagoPage() {
                             {p.descricao ?? `#${p.id}`}
                           </a>
                         </td>
-                        <td>{p.email ?? "—"}</td>
-                        <td>{p.meio ?? "—"}</td>
+                        <td>{p.email ?? "-"}</td>
+                        <td>{p.meio ?? "-"}</td>
                         <td>
                           {STATUS_PAGAMENTO[p.status] ?? p.status}
                           {p.detalhe && p.status !== "approved" && <small>{p.detalhe}</small>}
                         </td>
                         <td>{formatCurrency(p.valorCentavos / 100)}</td>
-                        <td>{p.liquidoCentavos !== null ? formatCurrency(p.liquidoCentavos / 100) : "—"}</td>
+                        <td>{p.liquidoCentavos !== null ? formatCurrency(p.liquidoCentavos / 100) : "-"}</td>
                       </tr>
                     ))}
                   </tbody>

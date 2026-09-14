@@ -14,7 +14,7 @@ import { prisma } from "@/lib/prisma";
  */
 function chave(): string {
   const valor = process.env.AI_CORE_TOKEN_ENCRYPTION_KEY?.trim();
-  if (!valor) throw new Error("AI_CORE_TOKEN_ENCRYPTION_KEY não configurado — o cofre está fechado.");
+  if (!valor) throw new Error("AI_CORE_TOKEN_ENCRYPTION_KEY não configurado - o cofre está fechado.");
   return valor;
 }
 

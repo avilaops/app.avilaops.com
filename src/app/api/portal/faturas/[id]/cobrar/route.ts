@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { id } = await params;
   const corpo = (await request.json().catch(() => null)) as { metodo?: unknown } | null;
-  const metodo = corpo?.metodo === "BOLETO" ? "BOLETO" : "PIX";
+  const metodo = corpo?.metodo === "BOLETO" ? "BOLETO" : corpo?.metodo === "PAYPAL" ? "PAYPAL" : "PIX";
 
   const fatura = await prisma.subscriptionInvoice.findFirst({
     where: { id, subscription: { organizationId: sessao.organizationId } },
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       pixCopiaECola: cobranca.pixCopyPaste,
       pixQrBase64: cobranca.pixQrBase64,
       boletoUrl: cobranca.boletoUrl,
+      checkoutUrl: cobranca.checkoutUrl,
       expiraEm: cobranca.expiresAt?.toISOString() ?? null,
     });
   } catch (erro) {

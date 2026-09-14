@@ -68,7 +68,7 @@ export default async function JobPostingsPage({
             <a className="text-link" href={JOBS_SITE_URL} target="_blank" rel="noreferrer">
               jobs.avilaops.com
             </a>{" "}
-            no build do site — é o conteúdo que alimenta o Google Jobs.
+            no build do site - é o conteúdo que alimenta o Google Jobs.
           </p>
         </div>
         <JobPostingForm />
@@ -192,12 +192,12 @@ export default async function JobPostingsPage({
                   </div>
                   <div>
                     <dt>Publicada</dt>
-                    <dd>{posting.postedAt ? formatShortDate(posting.postedAt) : "—"}</dd>
+                    <dd>{posting.postedAt ? formatShortDate(posting.postedAt) : "-"}</dd>
                   </div>
                   <div>
                     <dt>Inscrição até</dt>
                     <dd>
-                      {posting.validThrough ? formatShortDate(posting.validThrough) : "—"}
+                      {posting.validThrough ? formatShortDate(posting.validThrough) : "-"}
                       {isExpired(posting) ? <em className="job-expired"> vencida</em> : null}
                     </dd>
                   </div>

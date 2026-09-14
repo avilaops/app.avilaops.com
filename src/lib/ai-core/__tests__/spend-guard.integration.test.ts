@@ -124,7 +124,7 @@ test("PrismaSpendGuard: release() reverte por completo o valor reservado", async
   }
 });
 
-test("PrismaSpendGuard: confirm() é idempotente — chamar duas vezes não ajusta o acumulado duas vezes", async () => {
+test("PrismaSpendGuard: confirm() é idempotente - chamar duas vezes não ajusta o acumulado duas vezes", async () => {
   const { orgA, cleanup } = await setupTestTenants();
   try {
     await createPolicy(orgA.id, "proj_1", 10);
@@ -326,7 +326,7 @@ test("PrismaSpendGuard: tenant.source='TEST' e reserva de produção não interf
     await guard.reserve(
       { organizationId: orgA.id, projectId: "proj_1", agentId: "a1", source: "TEST" },
       "req_test",
-      100, // valor absurdamente alto — se afetasse o orçamento real, bloquearia tudo
+      100, // valor absurdamente alto - se afetasse o orçamento real, bloquearia tudo
     );
 
     const statusProd = await guard.reserve(

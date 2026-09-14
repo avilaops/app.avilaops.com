@@ -1,0 +1,14 @@
+[Unit]
+Description=Envia a saude deste servidor ao painel Avila Ops
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/avila-monitoring.env
+ExecStart=/usr/local/bin/avila-server-health
+User=root
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

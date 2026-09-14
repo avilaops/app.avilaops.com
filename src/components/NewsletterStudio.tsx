@@ -82,7 +82,7 @@ const FORMAT_LABEL: Record<string, string> = {
 };
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "-";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
@@ -265,7 +265,7 @@ export default function NewsletterStudio({
       const { sent, failed, remaining } = result.result;
       feedback(
         remaining > 0
-          ? `${sent} enviados, ${failed} falhas. Faltam ${remaining} — use “continuar envio”.`
+          ? `${sent} enviados, ${failed} falhas. Faltam ${remaining} - use “continuar envio”.`
           : `Envio concluído: ${sent} enviados, ${failed} falhas.`,
         failed > 0 && sent === 0 ? "erro" : "ok",
       );
@@ -398,7 +398,7 @@ export default function NewsletterStudio({
               <small>{overview.tags.length} etiquetas</small>
             </div>
             {overview.tags.length === 0 ? (
-              <p className="muted">Nenhuma etiqueta ainda — importe contatos com etiqueta para segmentar.</p>
+              <p className="muted">Nenhuma etiqueta ainda - importe contatos com etiqueta para segmentar.</p>
             ) : (
               <div className="filter-strip">
                 {overview.tags.map((item) => (
@@ -431,7 +431,7 @@ export default function NewsletterStudio({
                     <div>
                       <strong>{contact.email}</strong>
                       <small>
-                        {contact.name ?? "—"}
+                        {contact.name ?? "-"}
                         {contact.company ? ` · ${contact.company}` : ""} · {contact.source.toLowerCase()}
                       </small>
                     </div>
@@ -476,7 +476,7 @@ export default function NewsletterStudio({
                 value={draft.name}
                 maxLength={160}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                placeholder="Ex.: Quem cuida do seu site — agosto"
+                placeholder="Ex.: Quem cuida do seu site - agosto"
               />
             </label>
             <label>
@@ -606,7 +606,7 @@ export default function NewsletterStudio({
           </div>
 
           <div className="newsletter-preview">
-            <span className="eyebrow">Prévia — renderizada pelo mesmo código que envia</span>
+            <span className="eyebrow">Prévia - renderizada pelo mesmo código que envia</span>
             <iframe title="Prévia da campanha" srcDoc={preview.html} sandbox="" />
           </div>
 

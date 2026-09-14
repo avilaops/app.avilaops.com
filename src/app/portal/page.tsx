@@ -7,7 +7,7 @@ import { formatCurrency, formatShortDate } from "@/lib/format";
 import { carregarPainelDoCliente } from "@/lib/portal-cliente";
 import { listarUsuariosDaEmpresa } from "@/lib/usuarios-do-cliente";
 
-export const metadata = { title: "Sua conta — Ávila Ops" };
+export const metadata = { title: "Sua conta - Ávila Ops" };
 
 const ROTULO_STATUS_EMPRESA: Record<string, string> = {
   ACTIVE: "Ativo",
@@ -32,12 +32,9 @@ const ROTULO_ENTREGA: Record<string, string> = {
 };
 
 /**
- * Área do cliente, dentro do próprio app.
- *
- * Substitui o `cliente.avilaops.com`, que foi desligado em 24/08/2026 e não
- * será construído (decisão do Nicolas em 30/08/2026). Quem é da casa não para
- * aqui: vai para a operação. Quem é cliente vê só a própria empresa — o id vem
- * da conta, nunca da URL.
+ * Area do cliente publicada em cliente.avilaops.com e servida pelo mesmo
+ * backend de app.avilaops.com. Quem e cliente ve apenas a propria empresa: o
+ * id vem da sessao, nunca da URL.
  */
 export default async function PortalDoCliente() {
   const sessao = await getSessaoPortal();
@@ -152,6 +149,7 @@ export default async function PortalDoCliente() {
       </section>
 
       <FaturasDoCliente
+        pais={empresa.pais}
         iniciais={faturas.map((f) => ({
           id: f.id,
           descricao: f.descricao,
@@ -166,6 +164,7 @@ export default async function PortalDoCliente() {
                 metodo: f.cobranca.metodo,
                 pixCopiaECola: f.cobranca.pixCopiaECola,
                 boletoUrl: f.cobranca.boletoUrl,
+                checkoutUrl: f.cobranca.checkoutUrl,
                 expiraEm: f.cobranca.expiraEm?.toISOString() ?? null,
               }
             : null,

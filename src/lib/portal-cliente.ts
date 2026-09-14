@@ -20,6 +20,7 @@ export type PainelDoCliente = {
     documento: string | null;
     status: string;
     site: string | null;
+    pais: string;
     desde: Date;
   };
   contatos: Array<{ nome: string; email: string | null; telefone: string | null; principal: boolean }>;
@@ -41,7 +42,7 @@ export type PainelDoCliente = {
     vencimento: Date;
     status: string;
     pagaEm: Date | null;
-    cobranca: { metodo: string; pixCopiaECola: string | null; boletoUrl: string | null; expiraEm: Date | null } | null;
+    cobranca: { metodo: string; pixCopiaECola: string | null; boletoUrl: string | null; checkoutUrl: string | null; expiraEm: Date | null } | null;
   }>;
   entregas: Array<{ id: string; titulo: string; status: string; valor: number; criadoEm: Date; token: string }>;
   etapas: Array<{ rotulo: string; status: string; concluidaEm: Date | null; prazo: Date | null }>;
@@ -58,6 +59,12 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
       status: true,
       siteUrl: true,
       createdAt: true,
+      profile: { select: { country: true } },
+      addresses: {
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { country: true },
+      },
       contacts: {
         orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
         take: 5,
@@ -92,7 +99,7 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
                 where: { status: { in: ["CREATED", "PENDING", "WAITING"] } },
                 orderBy: { createdAt: "desc" },
                 take: 1,
-                select: { method: true, pixCopyPaste: true, boletoUrl: true, expiresAt: true },
+                select: { method: true, pixCopyPaste: true, boletoUrl: true, checkoutUrl: true, expiresAt: true },
               },
             },
           },
@@ -121,6 +128,7 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
       status: empresa.status,
       site: empresa.siteUrl,
       desde: empresa.createdAt,
+      pais: empresa.addresses[0]?.country ?? empresa.profile?.country ?? "Brasil",
     },
     contatos: empresa.contacts.map((c) => ({
       nome: c.name,
@@ -161,6 +169,7 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
                   metodo: cobranca.method,
                   pixCopiaECola: cobranca.pixCopyPaste,
                   boletoUrl: cobranca.boletoUrl,
+                  checkoutUrl: cobranca.checkoutUrl,
                   expiraEm: cobranca.expiresAt,
                 }
               : null,

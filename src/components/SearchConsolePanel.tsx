@@ -223,7 +223,7 @@ export default function SearchConsolePanel({
         <div>
           <dt>Status</dt>
           <dd className={connection?.lastSyncStatus === "SUCCESS" ? "positive" : ""}>
-            {connection?.lastSyncStatus ?? "—"}
+            {connection?.lastSyncStatus ?? "-"}
           </dd>
         </div>
         <div>
@@ -251,7 +251,7 @@ export default function SearchConsolePanel({
               <span className="attention-type">
                 {sitemap.lastSubmitted
                   ? new Date(sitemap.lastSubmitted).toLocaleDateString("pt-BR")
-                  : "—"}
+                  : "-"}
               </span>
             </div>
           ))}

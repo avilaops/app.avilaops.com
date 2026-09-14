@@ -213,17 +213,16 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
 /**
  * Para onde mandar cada papel depois do login.
  *
- * A área do cliente vive **aqui dentro**, em `/portal`, desde 30/08/2026:
- * decisão do Nicolas de não construir o `cliente.avilaops.com`. Antes disso o
- * destino do cliente era um host apagado — quem entrava com papel CLIENT caía
- * em `/`, que exige equipe, e voltava para o login sem nunca chegar a lugar
- * nenhum.
+ * A area do cliente usa o mesmo backend e a mesma sessao, mas e apresentada
+ * no host cliente.avilaops.com. Isso evita duplicar regras financeiras e
+ * preserva o isolamento visual entre operacao interna e experiencia do cliente.
  *
  * O padrão é o destino do **cliente**: qualquer papel que não seja da casa cai
  * na área restrita, nunca no painel administrativo.
  */
 export function destinoPorPapel(role: string): string {
-  return ehDaCasa(role) ? "/operacao" : "/portal";
+  if (ehDaCasa(role)) return "/operacao";
+  return `${(process.env.CLIENT_PORTAL_URL ?? "https://cliente.avilaops.com").replace(/\/$/, "")}/portal`;
 }
 
 /** Papel legível, para tela e auditoria. */

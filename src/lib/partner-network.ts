@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 
 const PHASE_LABELS: Record<string, string> = {
-  FOUNDATION: "Fundação · dias 1–30",
-  IMPLEMENTATION: "Implantação · dias 31–60",
-  EVIDENCE: "Evidências · dias 61–90",
+  FOUNDATION: "Fundação · dias 1-30",
+  IMPLEMENTATION: "Implantação · dias 31-60",
+  EVIDENCE: "Evidências · dias 61-90",
 };
 
 const CASE_STATUS_LABELS: Record<string, string> = {

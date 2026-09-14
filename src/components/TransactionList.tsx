@@ -94,7 +94,7 @@ export default function TransactionList({
                   className="muted"
                   title={
                     entrada
-                      ? "O Éfi não identifica o pagador em Pix recebido fora de cobrança — a resposta da API não traz esse campo."
+                      ? "O Éfi não identifica o pagador em Pix recebido fora de cobrança - a resposta da API não traz esse campo."
                       : "O Éfi não devolveu o favorecido nesta movimentação."
                   }
                 >

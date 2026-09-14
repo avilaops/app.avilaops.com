@@ -216,11 +216,11 @@ export function normalizarPagamento(p: Record<string, unknown>): PagamentoRecebi
 export const buscarConta = () =>
   chamar<Record<string, unknown>>("/users/me").then(
     (d): ContaMercadoPago => ({
-      apelido: String(d.nickname ?? "—"),
+      apelido: String(d.nickname ?? "-"),
       id: Number(d.id ?? 0),
-      email: String(d.email ?? "—"),
-      pais: String(d.site_id ?? "—"),
-      tipo: String(d.user_type ?? "—"),
+      email: String(d.email ?? "-"),
+      pais: String(d.site_id ?? "-"),
+      tipo: String(d.user_type ?? "-"),
     }),
   );
 
@@ -324,7 +324,7 @@ export async function buscarConfiguracaoWebhook(): Promise<ConfiguracaoWebhook |
   if (!clientId) return null;
   const d = await chamar<Record<string, unknown>>(`/applications/${clientId}`);
   return {
-    aplicacao: String(d.name ?? "—"),
+    aplicacao: String(d.name ?? "-"),
     clientId: Number(d.id ?? 0),
     url: (d.notifications_callback_url as string) || null,
     topicos: (d.notifications_topics as string[]) ?? [],

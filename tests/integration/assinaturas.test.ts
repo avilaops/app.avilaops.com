@@ -250,7 +250,7 @@ describe("emissão de cobrança", () => {
   /*
     Exigência que nasceu com o Mercado Pago (30/08/2026): o boleto pede
     endereço, a Efí não pedia. Mandar sem ele devolve 400 sem dizer qual campo
-    faltou, então a recusa tem que ser nossa — e só do boleto, porque PIX e
+    faltou, então a recusa tem que ser nossa - e só do boleto, porque PIX e
     cartão continuam passando.
   */
   it("recusa boleto sem endereço, mas o PIX segue disponível", async () => {

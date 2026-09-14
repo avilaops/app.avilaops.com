@@ -133,7 +133,7 @@ export async function runPageSpeedAuditForDomain(fqdn: string): Promise<PageSpee
 
         if (res.status === 429 && !hasPageSpeedCredentials()) {
           lastError +=
-            " (cota anônima compartilhada esgotada — configure PAGESPEED_API_KEY ou GOOGLE_SERVICE_ACCOUNT_JSON)";
+            " (cota anônima compartilhada esgotada - configure PAGESPEED_API_KEY ou GOOGLE_SERVICE_ACCOUNT_JSON)";
         }
 
         return persistFailure(fqdn, lastError);

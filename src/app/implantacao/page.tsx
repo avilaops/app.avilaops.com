@@ -96,7 +96,7 @@ export default async function ImplantacaoPage() {
           <h2>Como a pontuação é calculada</h2>
           <p style={{ fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
             Um pilar só pontua quando existe evidência real: item de roadmap marcado,
-            documento concluído ou caso em produção — nunca por intenção.
+            documento concluído ou caso em produção - nunca por intenção.
           </p>
           <dl className="health-list">
             <div>
@@ -176,7 +176,7 @@ export default async function ImplantacaoPage() {
               <div>
                 <strong>Persistência Prisma implementada e testada</strong>
                 <small>
-                  Schema ai_core (telemetria, aprovações, política de gasto, avaliações) — 11/11 testes
+                  Schema ai_core (telemetria, aprovações, política de gasto, avaliações) - 11/11 testes
                   de integração aprovados: isolamento entre tenants, idempotência, concorrência de
                   orçamento e expiração de aprovação
                 </small>
@@ -226,7 +226,7 @@ export default async function ImplantacaoPage() {
             <div className="doc-row-main">
               <span className="status-pill status-pending">Pendente</span>
               <div>
-                <strong>Integração comercial (Caso 01 — Assistente comercial)</strong>
+                <strong>Integração comercial (Caso 01 - Assistente comercial)</strong>
                 <small>Próximo passo após a validação real, conforme recomendado</small>
               </div>
             </div>

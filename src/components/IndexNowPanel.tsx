@@ -141,7 +141,7 @@ export default function IndexNowPanel({
         <div>
           <dt>Status</dt>
           <dd className={connection?.lastSyncStatus === "SUCCESS" ? "positive" : ""}>
-            {connection?.lastSyncStatus ?? "—"}
+            {connection?.lastSyncStatus ?? "-"}
           </dd>
         </div>
         <div>
@@ -149,7 +149,7 @@ export default function IndexNowPanel({
           <dd>
             {connection?.lastSyncStatus === "REDIRECT_DOMAIN" && canonicalHost
               ? `Canônico: ${canonicalHost}`
-              : submittedCount || "—"}
+              : submittedCount || "-"}
           </dd>
         </div>
         <div>

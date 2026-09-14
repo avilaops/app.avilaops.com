@@ -117,7 +117,7 @@ test("PrismaApprovalStore.decide: rejeitar sem justificativa lança erro e não 
   }
 });
 
-test("PrismaApprovalStore.decide: duas decisões concorrentes sobre o mesmo pedido — só uma aplica", async () => {
+test("PrismaApprovalStore.decide: duas decisões concorrentes sobre o mesmo pedido - só uma aplica", async () => {
   const { orgA, cleanup } = await setupTestTenants();
   try {
     const store = new PrismaApprovalStore();

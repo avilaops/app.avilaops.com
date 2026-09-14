@@ -25,7 +25,7 @@ export default function NovaCobrancaForm() {
     setCriado(null);
 
     const centavos = Math.round(Number.parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) * 100);
-    if (!f.titulo.trim()) return setErro("Descreva o que está sendo cobrado — é o que o cliente vê.");
+    if (!f.titulo.trim()) return setErro("Descreva o que está sendo cobrado - é o que o cliente vê.");
     if (!Number.isFinite(centavos) || centavos < 100) return setErro("Valor inválido (mínimo R$ 1,00).");
 
     try {
@@ -53,7 +53,7 @@ export default function NovaCobrancaForm() {
     <form className="mp-cobranca-form" onSubmit={enviar}>
       <label>
         O que está cobrando
-        <input value={f.titulo} onChange={(e) => set("titulo", e.target.value)} placeholder="Setup da loja — Avila Ops" />
+        <input value={f.titulo} onChange={(e) => set("titulo", e.target.value)} placeholder="Setup da loja - Avila Ops" />
       </label>
       <label>
         Valor (R$)
@@ -76,7 +76,7 @@ export default function NovaCobrancaForm() {
 
       {criado && (
         <div className="mp-sinal mp-sinal-ok">
-          <strong>Link pronto — {criado.titulo}</strong>
+          <strong>Link pronto - {criado.titulo}</strong>
           <p>
             <a href={criado.link} target="_blank" rel="noopener">
               {criado.link}

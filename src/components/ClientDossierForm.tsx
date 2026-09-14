@@ -233,12 +233,14 @@ function groupedPlans(plans: Plan[]) {
 export default function ClientDossierForm({
   organization,
   plans,
+  initialTab = "overview",
 }: {
   organization: OrganizationData;
   plans: Plan[];
+  initialTab?: (typeof tabs)[number][0];
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>("overview");
+  const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>(initialTab);
   const [secoesAbertas, setSecoesAbertas] = useState(false);
   // A barra de "salvar" só existe quando há o que salvar: barra fixa
   // permanente rouba altura útil de uma tela que já é pequena.

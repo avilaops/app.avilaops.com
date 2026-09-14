@@ -81,6 +81,45 @@ async function chamar<T>(caminho: string, init?: RequestInit): Promise<T> {
   return (corpo ? JSON.parse(corpo) : {}) as T;
 }
 
+export async function criarOrdem(params: { valor: number; descricao: string; referencia: string; retorno: string; cancelamento: string }) {
+  const ordem = await chamar<{ id: string; status: string; links?: Array<{ rel: string; href: string }> }>("/v2/checkout/orders", {
+    method: "POST",
+    headers: { "PayPal-Request-Id": `avila-${params.referencia}` },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: params.referencia,
+        custom_id: params.referencia,
+        invoice_id: params.referencia,
+        description: params.descricao.slice(0, 127),
+        amount: { currency_code: "BRL", value: params.valor.toFixed(2) },
+      }],
+      payment_source: {
+        paypal: {
+          experience_context: {
+            brand_name: "Avila Ops",
+            locale: "pt-BR",
+            user_action: "PAY_NOW",
+            return_url: params.retorno,
+            cancel_url: params.cancelamento,
+          },
+        },
+      },
+    }),
+  });
+  const aprovacao = ordem.links?.find((link) => link.rel === "payer-action" || link.rel === "approve")?.href;
+  if (!ordem.id || !aprovacao) throw new PayPalIndisponivel("PayPal não devolveu o link de aprovação.");
+  return { id: ordem.id, status: ordem.status, aprovacao };
+}
+
+export async function capturarOrdem(id: string) {
+  return chamar<{
+    id: string;
+    status: string;
+    purchase_units?: Array<{ payments?: { captures?: Array<{ id: string; status: string; amount?: { value?: string; currency_code?: string } }> } }>;
+  }>(`/v2/checkout/orders/${encodeURIComponent(id)}/capture`, { method: "POST", body: "{}" });
+}
+
 /**
  * Confirma com o PayPal que a notificação veio mesmo dele.
  *

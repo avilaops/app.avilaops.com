@@ -61,3 +61,21 @@ Para medir a tela foi criado o membro `claude@avilaops.com` (papel member,
 sem licença para admin). Senha em `/etc/avilaops/tokens.env`
 (`N8N_CLAUDE_PASSWORD`). Membro só vê o próprio projeto; para ver a lista de
 todos os fluxos continua sendo preciso o login do dono.
+
+## Identidade visual das credenciais (12/09/2026)
+
+A mesma camada de override injeta `avila-n8n-credentials.css` e
+`avila-n8n-credentials.js` na interface. O script atua somente na tela
+`/home/credentials`, reconhece o nome visível da credencial e troca apenas o
+ícone apresentado no cartão — nenhuma credencial, valor secreto ou workflow é
+alterado.
+
+Os SVGs ficam em `/opt/n8n/override/avila-credential-icons/` e cobrem dez
+famílias: Ávila/Auth, Mail, SMS, Cloudflare, Comandeiro, Google, Lojas, Mercado
+Pago, n8n e PostgreSQL. O `MutationObserver` reaplica a identidade quando a
+lista virtualizada muda por busca, rolagem ou paginação. O cartão também recebe
+uma borda lateral e um realce discreto na cor da família.
+
+A fonte versionada desses arquivos está em
+`arxisvr.avilaops.com/deploy/n8n-override/`; as rotas estáticas correspondentes
+estão no bloco do n8n em `deploy/Caddyfile.apps-noclient`.

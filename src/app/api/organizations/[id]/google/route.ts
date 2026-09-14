@@ -66,7 +66,7 @@ export async function POST(
     );
   }
 
-  const nota = `Iniciado em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} para ${dominio}. O n8n grava o resultado quando terminar (1–3 min).`;
+  const nota = `Iniciado em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} para ${dominio}. O n8n grava o resultado quando terminar (1-3 min).`;
   await prisma.organizationIntegration.upsert({
     where: { organizationId_provider: { organizationId: organizacao.id, provider: "google_onboarding" } },
     create: { organizationId: organizacao.id, provider: "google_onboarding", publicId: dominio, status: "PENDING", notes: nota },

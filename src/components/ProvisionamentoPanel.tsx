@@ -182,7 +182,7 @@ export default function ProvisionamentoPanel({
                   <ul>
                     {falhas.map((f) => (
                       <li key={`${f.type}-${f.name}`}>
-                        {f.type} {f.name} — {f.erro}
+                        {f.type} {f.name} - {f.erro}
                       </li>
                     ))}
                   </ul>
@@ -320,7 +320,7 @@ export default function ProvisionamentoPanel({
     O resultado traz segredo, e é a única ação do painel em que isso acontece
     fora do "criar acesso": a senha da empresa e as três senhas de setor
     existem em claro só neste instante. Ficam na tela até o operador fechar,
-    não vão para o banco nem para a auditoria — o mesmo trato da senha
+    não vão para o banco nem para a auditoria - o mesmo trato da senha
     provisória do acesso.
   */
   async function enviarRestaurante(evento: FormEvent<HTMLFormElement>) {
@@ -344,7 +344,7 @@ export default function ProvisionamentoPanel({
             tipo: "ok",
             conteudo: (
               <>
-                <strong>Restaurante {r.slug} já existia — nada foi criado.</strong>
+                <strong>Restaurante {r.slug} já existia - nada foi criado.</strong>
                 <span>{r.aviso ?? "O vínculo com a ficha foi atualizado."}</span>
               </>
             ),
@@ -562,7 +562,7 @@ export default function ProvisionamentoPanel({
               <div className="ios-row ios-row-static">
                 <div className="prov-row-main">
                   <strong>Onboarding</strong>
-                  <small>{google.onboarding.notes ?? "—"}</small>
+                  <small>{google.onboarding.notes ?? "-"}</small>
                 </div>
                 <Pill status={google.onboarding.status} />
               </div>
@@ -893,7 +893,7 @@ export default function ProvisionamentoPanel({
         >
           <form id="form-restaurante" className="form-stack" onSubmit={enviarRestaurante}>
             <p className="field-help">
-              O CNPJ da ficha vira a identidade da casa — é ele que a equipe digita para entrar.
+              O CNPJ da ficha vira a identidade da casa - é ele que a equipe digita para entrar.
               As senhas da empresa e dos setores aparecem uma única vez, aqui, quando a casa nascer.
             </p>
             <label className="field">

@@ -1,0 +1,12 @@
+[Unit]
+Description=Coleta saude do servidor a cada 15 segundos
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=15s
+AccuracySec=2s
+Unit=avila-monitoring.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

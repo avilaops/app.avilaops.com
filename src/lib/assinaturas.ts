@@ -5,6 +5,7 @@ import {
   createPixCharge,
   type Pagador,
 } from "@/lib/mercadopago-cobranca";
+import { criarOrdem } from "@/lib/paypal";
 import { opcaoParcelamento, simularParcelamento } from "@/lib/parcelamento";
 
 /**
@@ -25,7 +26,12 @@ import { opcaoParcelamento, simularParcelamento } from "@/lib/parcelamento";
  * e é isso que permite trocar o CNPJ do cliente aqui sem tocar no produto.
  */
 
-export type MetodoCobranca = "PIX" | "BOLETO" | "CARD";
+export type MetodoCobranca = "PIX" | "BOLETO" | "CARD" | "PAYPAL";
+
+function paisEhBrasil(pais: string | null | undefined): boolean {
+  const normalizado = (pais ?? "Brasil").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  return ["BR", "BRA", "BRASIL", "BRAZIL"].includes(normalizado);
+}
 
 /** O que o produto recebe para desenhar a tela. Sem dado interno da Avila Ops. */
 export type FaturaResumo = {
@@ -148,7 +154,7 @@ export async function assinaturaDoProduto(params: {
     status: assinatura.status,
     /*
       O bloqueio mostrado ao cliente é o do BOLETO, o mais exigente dos três.
-      Se ele passa, cartão e PIX passam — então uma frase só cobre a tela
+      Se ele passa, cartão e PIX passam - então uma frase só cobre a tela
       inteira, que é o que o produto desenha.
     */
     bloqueioPagamento: faltaParaCobrar(assinatura.organization, "BOLETO"),
@@ -209,11 +215,11 @@ function faltaParaCobrar(
   // CNPJ da empresa OU CPF do responsável: no Mercado Pago o par
   // (tipo, número) é um só, e qualquer um dos dois serve.
   if ((documento.length !== 14 && cpf.length !== 11) || !email) {
-    return "Boleto e cartão pedem o CNPJ (ou o CPF de quem responde) e o e-mail da empresa. Fale com a Avila Ops para completar o cadastro — o PIX funciona sem isso.";
+    return "Boleto e cartão pedem o CNPJ (ou o CPF de quem responde) e o e-mail da empresa. Fale com a Avila Ops para completar o cadastro - o PIX funciona sem isso.";
   }
 
   if (metodo === "BOLETO" && !enderecoDoPagador(organizacao)) {
-    return "O boleto pede o endereço completo da empresa: CEP, rua, número, bairro, cidade e UF. Fale com a Avila Ops para completar o cadastro — o PIX e o cartão funcionam sem isso.";
+    return "O boleto pede o endereço completo da empresa: CEP, rua, número, bairro, cidade e UF. Fale com a Avila Ops para completar o cadastro - o PIX e o cartão funcionam sem isso.";
   }
 
   return null;
@@ -293,17 +299,48 @@ export async function criarCobrancaDaFatura(params: {
   const organizacao = fatura.subscription.organization;
   const valorCents = centavos(fatura.amount);
   const descricao = `${fatura.subscription.description} · ${fatura.competence}`;
+  const pais = organizacao.profile?.country ?? "Brasil";
+  const brasileira = paisEhBrasil(pais);
+
+  if (brasileira && params.metodo === "PAYPAL") {
+    throw new CobrancaIndisponivelError("No Brasil, o pagamento é processado pelo Mercado Pago.");
+  }
+  if (!brasileira && params.metodo !== "PAYPAL") {
+    throw new CobrancaIndisponivelError("Fora do Brasil, o pagamento é processado pelo PayPal.");
+  }
 
   /*
     Chave de idempotência do gateway: fatura + método + minuto.
 
     O minuto entra de propósito. Amarrar só à fatura impediria o cliente de
-    gerar um PIX novo depois de o primeiro vencer — o Mercado Pago devolveria
+    gerar um PIX novo depois de o primeiro vencer - o Mercado Pago devolveria
     a cobrança antiga, já expirada. Amarrar a nada devolveria cobrança dupla
     quando a rede cai depois do POST e o app tenta de novo. O minuto é a
     janela em que "de novo" é retry, e não segunda tentativa do cliente.
   */
   const chaveIdempotencia = `${fatura.id}:${params.metodo}:${Math.floor(Date.now() / 60_000)}`;
+
+  if (params.metodo === "PAYPAL") {
+    const origem = (process.env.CLIENT_PORTAL_URL ?? "https://cliente.avilaops.com").replace(/\/$/, "");
+    const ordem = await criarOrdem({
+      valor: valorCents / 100,
+      descricao,
+      referencia: fatura.id,
+      retorno: `${origem}/api/paypal/retorno`,
+      cancelamento: `${origem}/portal?pagamento=cancelado`,
+    });
+    return prisma.subscriptionCharge.create({
+      data: {
+        invoiceId: fatura.id,
+        method: "PAYPAL",
+        provider: "PAYPAL",
+        externalId: ordem.id,
+        status: ordem.status,
+        amount: fatura.amount,
+        checkoutUrl: ordem.aprovacao,
+      },
+    });
+  }
 
   if (params.metodo === "PIX") {
     const cobranca = await createPixCharge({
@@ -320,6 +357,7 @@ export async function criarCobrancaDaFatura(params: {
       data: {
         invoiceId: fatura.id,
         method: "PIX",
+        provider: "MERCADO_PAGO",
         externalId: cobranca.externalId,
         status: "PENDING",
         amount: fatura.amount,
@@ -346,6 +384,7 @@ export async function criarCobrancaDaFatura(params: {
       data: {
         invoiceId: fatura.id,
         method: "BOLETO",
+        provider: "MERCADO_PAGO",
         externalId: cobranca.externalId,
         status: "PENDING",
         amount: fatura.amount,
@@ -380,6 +419,7 @@ export async function criarCobrancaDaFatura(params: {
     data: {
       invoiceId: fatura.id,
       method: "CARD",
+      provider: "MERCADO_PAGO",
       externalId: cobranca.externalId,
       status: cobranca.status,
       amount: opcao.totalCents / 100,
@@ -483,7 +523,7 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
     abertas nele ainda vão ser pagas. A lista só encolhe quando a última
     cobrança do Efí fechar.
   */
-  const pago = ["PAID", "paid", "CONFIRMED", "settled", "approved"].includes(status);
+  const pago = ["PAID", "paid", "CONFIRMED", "COMPLETED", "settled", "approved"].includes(status);
   const jaEstavaPago = cobranca.status === "PAID";
   const agora = new Date();
 

@@ -225,7 +225,7 @@ export function publishBlockers(posting: {
     blockers.push("Data limite de inscrição é obrigatória.");
   } else if (posting.validThrough.getTime() <= Date.now()) {
     blockers.push(
-      "A data limite de inscrição já passou — atualize antes de publicar.",
+      "A data limite de inscrição já passou - atualize antes de publicar.",
     );
   }
   if (!content.intro?.length) blockers.push("Escreva ao menos um parágrafo de introdução.");

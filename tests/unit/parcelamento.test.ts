@@ -35,7 +35,7 @@ describe("parcelamento", () => {
     );
   });
 
-  it("o total é sempre parcela × n — o que o cliente confere na calculadora", () => {
+  it("o total é sempre parcela × n - o que o cliente confere na calculadora", () => {
     for (const opcao of simularParcelamento(IMPLANTACAO)) {
       expect(opcao.totalCents).toBe(opcao.valorParcelaCents * opcao.parcelas);
       expect(opcao.jurosCents).toBe(opcao.totalCents - IMPLANTACAO);

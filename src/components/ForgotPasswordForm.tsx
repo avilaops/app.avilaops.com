@@ -33,7 +33,7 @@ export default function ForgotPasswordForm() {
     return (
       <p className="login-footnote">
         Se o e-mail existir na base, enviamos um link de redefinição. Verifique
-        sua caixa de entrada (e o spam) — o link expira em 1 hora.
+        sua caixa de entrada (e o spam) - o link expira em 1 hora.
       </p>
     );
   }

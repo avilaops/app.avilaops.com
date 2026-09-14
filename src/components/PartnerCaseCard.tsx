@@ -93,7 +93,7 @@ export default function PartnerCaseCard({
               .map((metric, index) => (
                 <div className="metric-row" key={index}>
                   <span className="label">{metric.label}</span>
-                  <span className="val">{metric.value || "—"}</span>
+                  <span className="val">{metric.value || "-"}</span>
                 </div>
               ))}
           </div>

@@ -164,8 +164,8 @@ export default async function MetaAssetsPage({
                   <tr key={account.id}>
                     <td>{account.name}</td>
                     <td>{account.adAccountId}</td>
-                    <td>{account.businessAccount?.name ?? "—"}</td>
-                    <td>{account.currency ?? "—"}</td>
+                    <td>{account.businessAccount?.name ?? "-"}</td>
+                    <td>{account.currency ?? "-"}</td>
                     <td>{account.accountStatus ?? account.status}</td>
                     <td>{formatDateTime(account.lastSyncedAt)}</td>
                   </tr>
@@ -206,8 +206,8 @@ export default async function MetaAssetsPage({
                   <tr key={business.id}>
                     <td>{business.name}</td>
                     <td>{business.businessId}</td>
-                    <td>{business.verificationStatus ?? "—"}</td>
-                    <td>{business.timezone ?? "—"}</td>
+                    <td>{business.verificationStatus ?? "-"}</td>
+                    <td>{business.timezone ?? "-"}</td>
                     <td>{formatDateTime(business.lastSyncedAt)}</td>
                   </tr>
                 ))}

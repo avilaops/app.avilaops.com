@@ -115,8 +115,8 @@ export default async function MetaLeadsPage({
                   <tr key={form.id}>
                     <td>{form.name}</td>
                     <td>{form.status}</td>
-                    <td>{form.page?.name ?? "—"}</td>
-                    <td>{form.adAccount?.name ?? "—"}</td>
+                    <td>{form.page?.name ?? "-"}</td>
+                    <td>{form.adAccount?.name ?? "-"}</td>
                     <td>{countJsonItems(form.questions)}</td>
                     <td>{formatDateTime(form.lastSyncedAt)}</td>
                   </tr>
@@ -161,7 +161,7 @@ export default async function MetaLeadsPage({
                     <td>{formatDateTime(lead.createdTime)}</td>
                     <td>{lead.processingStatus}</td>
                     <td>{lead.form?.name ?? lead.leadgenId}</td>
-                    <td>{lead.page?.name ?? "—"}</td>
+                    <td>{lead.page?.name ?? "-"}</td>
                     <td>{countJsonItems(lead.fieldData)}</td>
                     <td>{lead.lead?.companyName ?? lead.lead?.contactName ?? "Aguardando"}</td>
                     <td>

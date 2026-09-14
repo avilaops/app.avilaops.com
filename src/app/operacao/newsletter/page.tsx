@@ -19,7 +19,7 @@ export default async function NewsletterPage() {
       <header className="page-header">
         <div>
           <h1>Newsletter</h1>
-          <p>Contatos, composição, prévia e envio — com descadastro em todo e-mail.</p>
+          <p>Contatos, composição, prévia e envio - com descadastro em todo e-mail.</p>
         </div>
       </header>
 

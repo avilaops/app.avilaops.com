@@ -360,7 +360,7 @@ export default function EmailAutoatendimento() {
             >
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
-                  {n} caixa{n > 1 ? "s" : ""} — {reais(PRECO_POR_CAIXA, n)} por mês
+                  {n} caixa{n > 1 ? "s" : ""} - {reais(PRECO_POR_CAIXA, n)} por mês
                 </option>
               ))}
             </select>

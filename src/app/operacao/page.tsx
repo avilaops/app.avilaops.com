@@ -93,7 +93,7 @@ export default async function OperationsPage() {
       <header className="page-header operations-header">
         <div>
           <h1>Visão central</h1>
-          <p>O que precisa de decisão agora — prazos, domínios e saldo.</p>
+          <p>O que precisa de decisão agora - prazos, domínios e saldo.</p>
         </div>
         <div className="page-actions">
           <Link href="/clientes" className="primary-button">
