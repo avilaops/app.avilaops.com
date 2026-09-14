@@ -20,6 +20,8 @@ services:
       POSTGRES_DB: cliente_portal_test
     ports:
       - "${TEST_DB_PORT:-55433}:5432"
+    volumes:
+      - ./tests/init-portal-clients.sql:/docker-entrypoint-initdb.d/001-portal-clients.sql:ro
     # `tmpfs`: o banco inteiro vive em memória e some com o container. Não há
     # volume para esquecer de limpar, e a suíte começa sempre do zero.
     #
