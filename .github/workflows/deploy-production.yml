@@ -12,6 +12,8 @@ jobs:
     name: Validar lint, tipos e testes
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55433/cliente_portal_test?schema=public
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -24,7 +26,15 @@ jobs:
       - run: npx prisma generate
       - run: npm run lint
       - run: npx tsc --noEmit
-      - run: npm run test:unit
+      - name: Subir banco descartável
+        run: docker compose -f docker-compose.test.yml up -d --wait
+      - name: Aplicar migrações no banco de teste
+        run: npx prisma migrate deploy
+      - name: Executar suíte completa
+        run: npm test
+      - name: Derrubar banco de teste
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
   image:
     needs: verify
     permissions:
