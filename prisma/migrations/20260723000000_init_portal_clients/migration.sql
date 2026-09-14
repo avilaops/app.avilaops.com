@@ -1,4 +1,7 @@
-CREATE TABLE public.portal_clients (
+-- A tabela de contas é compartilhada com o portal do cliente em produção.
+-- IF NOT EXISTS permite preparar uma base nova e também reconhecer uma base
+-- existente sem substituir dados.
+CREATE TABLE IF NOT EXISTS public.portal_clients (
   id TEXT PRIMARY KEY,
   nome TEXT NOT NULL,
   email TEXT NOT NULL,
