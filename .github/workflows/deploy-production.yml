@@ -8,11 +8,29 @@ on:
 permissions:
   contents: read
 jobs:
+  verify:
+    name: Validar lint, tipos e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run test:unit
   image:
+    needs: verify
     permissions:
       contents: read
       packages: write
-    uses: avilaops/infra/.github/workflows/container.yml@5fc768f4ebf631bdcd614b3e87a148dc08dd278f
+    uses: avilaops/infra/.github/workflows/container.yml@5e560f44062c8e025ddcfd86197e5394b562deae
     with:
       publish: ${{ github.event_name != 'pull_request' }}
   deploy:
@@ -21,7 +39,7 @@ jobs:
       packages: read
     needs: image
     if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
-    uses: avilaops/infra/.github/workflows/deploy-ssh.yml@5fc768f4ebf631bdcd614b3e87a148dc08dd278f
+    uses: avilaops/infra/.github/workflows/deploy-ssh.yml@5e560f44062c8e025ddcfd86197e5394b562deae
     with:
       application: app.avilaops.com
       image: ${{ needs.image.outputs.image }}
