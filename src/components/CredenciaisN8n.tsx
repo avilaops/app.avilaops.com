@@ -35,6 +35,8 @@ export default function CredenciaisN8n() {
   }, []);
 
   useEffect(() => {
+    // A carga é assíncrona e atualiza a tela quando a resposta chega.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void carregar();
   }, [carregar]);
 

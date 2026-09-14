@@ -78,17 +78,17 @@ async function renderizarQuadros(browser: Browser, t: Trabalho, pasta: string): 
   let relato = "";
   try {
     await pagina.goto(t.htmlUrl, { waitUntil: "networkidle", timeout: 60_000 });
-    await pagina.evaluate(() => (document as any).fonts?.ready);
+    await pagina.evaluate(() => document.fonts?.ready);
     if (t.tipo === "imagem") {
       await pagina.waitForTimeout(300);
       await pagina.screenshot({ path: join(pasta, "imagem.png") });
       return "imagem renderizada\n";
     }
-    const temRender = await pagina.evaluate(() => typeof (window as any).render === "function");
+    const temRender = await pagina.evaluate(() => typeof (window as Window & { render?: unknown }).render === "function");
     if (!temRender) throw new Error("a peça não expõe window.render(t)");
     const total = Math.round(t.duracao * t.fps);
     for (let f = 0; f < total; f++) {
-      await pagina.evaluate((tempo) => (window as any).render(tempo), f / t.fps);
+      await pagina.evaluate((tempo) => (window as Window & { render?: (valor: number) => unknown }).render?.(tempo), f / t.fps);
       await pagina.screenshot({ path: join(pasta, `q${String(f).padStart(5, "0")}.png`) });
     }
     relato += `${total} quadros a ${t.fps} fps\n`;

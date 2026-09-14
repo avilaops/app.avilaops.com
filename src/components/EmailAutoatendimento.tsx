@@ -103,6 +103,8 @@ export default function EmailAutoatendimento() {
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("pedido");
     if (!token) return;
+    // O token vem da URL apenas depois da hidratação no navegador.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTokenDoPedido(token);
     void buscarPedido(token).then((p) => {
       if (p) setPedido(p);
