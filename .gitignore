@@ -22,3 +22,7 @@ secrets/
 
 # Bundle de deploy: gerado por `npm run build`, nunca versionado.
 standalone.tgz
+
+# Artefatos montados para execucao, nao fazem parte do codigo-fonte.
+/public/public/
+/server.js

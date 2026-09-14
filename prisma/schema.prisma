@@ -1357,6 +1357,47 @@ model IntegrationConnection {
   @@schema("operations")
 }
 
+/// Medicao curta e imutavel de disponibilidade e latencia. O painel conserva
+/// 24 horas para desenhar tendencia sem transformar o banco operacional em TSDB.
+model ServiceHealthCheck {
+  id          BigInt   @id @default(autoincrement())
+  serviceKey  String   @map("service_key")
+  serviceName String   @map("service_name")
+  serverKey   String   @map("server_key")
+  url         String
+  status      String
+  statusCode  Int?     @map("status_code")
+  latencyMs   Int?     @map("latency_ms")
+  errorCode   String?  @map("error_code")
+  checkedAt   DateTime @default(now()) @map("checked_at")
+
+  @@index([serviceKey, checkedAt])
+  @@index([status, checkedAt])
+  @@map("service_health_checks")
+  @@schema("operations")
+}
+
+/// Retrato dos recursos do host enviado por um coletor local autenticado.
+model ServerHealthSnapshot {
+  id                 BigInt   @id @default(autoincrement())
+  serverKey          String   @map("server_key")
+  serverName         String   @map("server_name")
+  cpuPercent         Float    @map("cpu_percent")
+  memoryUsedPercent  Float    @map("memory_used_percent")
+  memoryAvailableMb  Int      @map("memory_available_mb")
+  swapUsedPercent    Float    @map("swap_used_percent")
+  diskUsedPercent    Float    @map("disk_used_percent")
+  load1              Float    @map("load_1")
+  containersRunning  Int      @map("containers_running")
+  containersUnhealthy Int     @map("containers_unhealthy")
+  collectedAt        DateTime @map("collected_at")
+  receivedAt         DateTime @default(now()) @map("received_at")
+
+  @@index([serverKey, collectedAt])
+  @@map("server_health_snapshots")
+  @@schema("operations")
+}
+
 model OrganizationIntegrationConnection {
   id              String    @id @default(cuid())
   organizationId  String    @map("organization_id")
