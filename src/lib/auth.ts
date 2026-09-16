@@ -3,7 +3,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { lerSessaoCliente, lerSessaoSSO } from "@/lib/sso";
+import { lerSessaoSSO } from "@/lib/sso";
 
 const SESSION_COOKIE = "avila_ops_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
@@ -189,40 +189,21 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
     }
   }
 
-  // Cliente que entrou pelo Google chega com o cookie de `.avilaops.com`.
-  // Cliente que entrou pelo Google chega sem id local: a organização vem da
-  // conta de mesmo e-mail em portal_clients, que é onde o vínculo mora.
-  const sso = await lerSessaoCliente();
-  if (sso) {
-    const conta = await prisma.adminIdentity.findFirst({
-      where: { email: { equals: sso.email, mode: "insensitive" } },
-      select: { id: true, organizationId: true },
-    });
-    return {
-      id: conta?.id ?? `sso:${sso.sub}`,
-      nome: sso.nome,
-      email: sso.email,
-      role: "CLIENT",
-      organizationId: conta?.organizationId ?? null,
-    };
-  }
-
   return getAdminSSO();
 }
 
 /**
  * Para onde mandar cada papel depois do login.
  *
- * A area do cliente usa o mesmo backend e a mesma sessao, mas e apresentada
- * no host cliente.avilaops.com. Isso evita duplicar regras financeiras e
- * preserva o isolamento visual entre operacao interna e experiencia do cliente.
+ * A área do cliente vive neste mesmo app, em `/portal`, desde que o
+ * cliente.avilaops.com foi desligado.
  *
  * O padrão é o destino do **cliente**: qualquer papel que não seja da casa cai
  * na área restrita, nunca no painel administrativo.
  */
 export function destinoPorPapel(role: string): string {
   if (ehDaCasa(role)) return "/operacao";
-  return `${(process.env.CLIENT_PORTAL_URL ?? "https://cliente.avilaops.com").replace(/\/$/, "")}/portal`;
+  return "/portal";
 }
 
 /** Papel legível, para tela e auditoria. */

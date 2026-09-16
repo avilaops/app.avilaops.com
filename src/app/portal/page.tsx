@@ -32,8 +32,7 @@ const ROTULO_ENTREGA: Record<string, string> = {
 };
 
 /**
- * Area do cliente publicada em cliente.avilaops.com e servida pelo mesmo
- * backend de app.avilaops.com. Quem e cliente ve apenas a propria empresa: o
+ * Area do cliente, servida pelo app.avilaops.com. Quem e cliente ve apenas a propria empresa: o
  * id vem da sessao, nunca da URL.
  */
 export default async function PortalDoCliente() {

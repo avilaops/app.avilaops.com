@@ -321,7 +321,7 @@ export async function criarCobrancaDaFatura(params: {
   const chaveIdempotencia = `${fatura.id}:${params.metodo}:${Math.floor(Date.now() / 60_000)}`;
 
   if (params.metodo === "PAYPAL") {
-    const origem = (process.env.CLIENT_PORTAL_URL ?? "https://cliente.avilaops.com").replace(/\/$/, "");
+    const origem = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/$/, "");
     const ordem = await criarOrdem({
       valor: valorCents / 100,
       descricao,
