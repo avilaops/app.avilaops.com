@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import CloudflareDomainsPanel from "@/components/CloudflareDomainsPanel";
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +17,7 @@ export default async function DominiosPage() {
   });
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="domains">
+    <>
       <header className="page-header operations-header">
         <div>
           <h1>Domínios</h1>
@@ -39,6 +38,6 @@ export default async function DominiosPage() {
           }))}
         />
       </section>
-    </AppShell>
+    </>
   );
 }

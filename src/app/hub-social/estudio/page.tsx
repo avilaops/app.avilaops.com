@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import EstudioLista from "@/components/EstudioLista";
 import { getAdmin } from "@/lib/auth";
 import { listarPecas } from "@/lib/estudio/servidor";
@@ -11,7 +10,7 @@ export default async function EstudioPage() {
   if (!admin) redirect("/login");
   const pecas = await listarPecas();
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="estudio">
+    <>
       <header className="page-header">
         <div>
           <h1>Estúdio</h1>
@@ -19,6 +18,6 @@ export default async function EstudioPage() {
         </div>
       </header>
       <EstudioLista pecas={pecas} />
-    </AppShell>
+    </>
   );
 }

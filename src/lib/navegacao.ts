@@ -1,3 +1,5 @@
+import { canaisHubSocial } from "@/lib/hub-social";
+
 /**
  * Mapa de navegação do painel. É um só para as duas formas de menu: a coluna
  * fixa do desktop e a barra de abas + folha "Mais" do celular. Quem cria uma
@@ -107,21 +109,13 @@ export const navegacao: GrupoNavegacao[] = [
     ],
   },
   {
-    // Onde o cliente é encontrado e falado com. Estava tudo dentro de
-    // "Operação", que virou uma lista de 12 e obrigava a rolar.
-    label: "Canais",
-    items: [
-      { href: "/operacao/seo", label: "SEO", section: "seo" },
-      { href: "/operacao/dominios", label: "Domínios", section: "domains" },
-      { href: "/operacao/google", label: "Google", section: "google-suite" },
-      { href: "/operacao/meta", label: "Meta", section: "meta" },
-      { href: "/operacao/whatsapp", label: "WhatsApp", section: "whatsapp" },
-      {
-        href: "/operacao/newsletter",
-        label: "Newsletter",
-        section: "newsletter",
-      },
-    ],
+    // Onde o cliente é encontrado e falado com, mais o Estúdio que produz o que
+    // vai nesses canais. Eram "Canais" (6) e "Conteúdo" (Estúdio), separados em
+    // 10/09/2026 pelo teto de sete itens; em 16/09/2026 viraram uma área própria
+    // fora de Operação, /hub-social, e o grupo fechou exatamente nos sete. A
+    // ordem é a das abas da área (src/lib/hub-social.ts é a fonte).
+    label: "Hub Social",
+    items: canaisHubSocial.map(({ href, label, section }) => ({ href, label, section })),
   },
   {
     label: "Infraestrutura",
@@ -129,12 +123,6 @@ export const navegacao: GrupoNavegacao[] = [
       { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live" },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
     ],
-  },
-  {
-    // O que a casa produz para as redes e o mural: o grupo "Canais" já está no
-    // limite de sete itens, e conteúdo não é canal, é o que vai neles.
-    label: "Conteúdo",
-    items: [{ href: "/operacao/estudio", label: "Estúdio", section: "estudio" }],
   },
   {
     label: "Fiscal",

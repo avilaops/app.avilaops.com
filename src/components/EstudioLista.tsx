@@ -34,7 +34,7 @@ export default function EstudioLista({ pecas }: { pecas: PecaDTO[] }) {
       });
       const dados = await r.json();
       if (!r.ok) throw new Error(dados.error ?? "Não deu para criar a peça.");
-      router.push(`/operacao/estudio/${dados.peca.id}`);
+      router.push(`/hub-social/estudio/${dados.peca.id}`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não deu para criar a peça.");
       setCriando(false);
@@ -56,7 +56,7 @@ export default function EstudioLista({ pecas }: { pecas: PecaDTO[] }) {
             const ultimo = p.renders[0];
             return (
               <li key={p.id}>
-                <Link href={`/operacao/estudio/${p.id}`} className="ios-row">
+                <Link href={`/hub-social/estudio/${p.id}`} className="ios-row">
                   <div className="ios-row-label">
                     <strong>{p.titulo}</strong>
                     <small>

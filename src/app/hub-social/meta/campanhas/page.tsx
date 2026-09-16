@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import MetaCampaignSyncButton from "@/components/MetaCampaignSyncButton";
 import MetaClientSelect from "@/components/MetaClientSelect";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
@@ -50,7 +49,7 @@ export default async function MetaCampaignsPage({
   const leads = snapshots.reduce((total, snapshot) => total + (snapshot.leads ?? 0), 0);
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
+    <>
       <header className="page-header operations-header">
         <div>
           <h1>Campanhas da Meta</h1>
@@ -65,7 +64,7 @@ export default async function MetaCampaignsPage({
       <MetaClientSelect
         organizations={organizations}
         selectedOrganizationId={selectedOrganizationId}
-        action="/operacao/meta/campanhas"
+        action="/hub-social/meta/campanhas"
       />
 
       <section className="operations-metrics metric-cards">
@@ -177,6 +176,6 @@ export default async function MetaCampaignsPage({
           </div>
         )}
       </section>
-    </AppShell>
+    </>
   );
 }

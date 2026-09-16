@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import { getAdmin } from "@/lib/auth";
 import { listBusinessLocations, type BusinessTone } from "@/lib/google-mybusiness";
 import { getGa4OverviewMetrics } from "@/lib/google-analytics";
@@ -20,14 +19,14 @@ export default async function GoogleCommandCenterPage() {
   ).toFixed(2);
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="google-suite">
+    <>
       <header className="page-header">
         <div>
           <h1>Google</h1>
           <p>Google Meu Negócio das empresas do grupo e tráfego do GA4.</p>
         </div>
         <div className="page-actions">
-          <Link href="/operacao/seo" className="secondary-button">
+          <Link href="/hub-social/seo" className="secondary-button">
             SEO & Cloudflare
           </Link>
           <Link href="/operacao" className="secondary-button">
@@ -46,6 +45,6 @@ export default async function GoogleCommandCenterPage() {
           averageRating: parseFloat(averageRating),
         }}
       />
-    </AppShell>
+    </>
   );
 }

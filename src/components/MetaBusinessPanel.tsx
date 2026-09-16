@@ -114,7 +114,7 @@ export default function MetaBusinessPanel({
           </div>
         ) : null}
 
-        <form className="meta-client-picker" method="get" action="/operacao/meta">
+        <form className="meta-client-picker" method="get" action="/hub-social/meta">
           <label>
             Cliente
             <select name="organizationId" defaultValue={selectedOrganizationId}>

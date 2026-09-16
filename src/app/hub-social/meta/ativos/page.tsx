@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import MetaClientSelect from "@/components/MetaClientSelect";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
 import { getAdmin } from "@/lib/auth";
@@ -47,7 +46,7 @@ export default async function MetaAssetsPage({
     : [[], [], [], []];
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
+    <>
       <header className="page-header operations-header">
         <div>
           <h1>Ativos da Meta</h1>
@@ -59,7 +58,7 @@ export default async function MetaAssetsPage({
       <MetaClientSelect
         organizations={organizations}
         selectedOrganizationId={selectedOrganizationId}
-        action="/operacao/meta/ativos"
+        action="/hub-social/meta/ativos"
       />
 
       <section className="operations-metrics metric-cards">
@@ -216,6 +215,6 @@ export default async function MetaAssetsPage({
           </div>
         )}
       </section>
-    </AppShell>
+    </>
   );
 }

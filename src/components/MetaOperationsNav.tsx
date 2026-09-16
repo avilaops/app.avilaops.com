@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 const items = [
-  { href: "/operacao/meta", label: "Conexão" },
-  { href: "/operacao/meta/ativos", label: "Ativos" },
-  { href: "/operacao/meta/leads", label: "Lead Ads" },
-  { href: "/operacao/meta/campanhas", label: "Campanhas" },
+  { href: "/hub-social/meta", label: "Conexão" },
+  { href: "/hub-social/meta/ativos", label: "Ativos" },
+  { href: "/hub-social/meta/leads", label: "Lead Ads" },
+  { href: "/hub-social/meta/campanhas", label: "Campanhas" },
 ];
 
 export default function MetaOperationsNav({
@@ -21,7 +21,7 @@ export default function MetaOperationsNav({
         if (organizationId) url.set("organizationId", organizationId);
         const href = url.size ? `${item.href}?${url}` : item.href;
         const itemActive =
-          (active === "connection" && item.href === "/operacao/meta") ||
+          (active === "connection" && item.href === "/hub-social/meta") ||
           (active === "assets" && item.href.endsWith("/ativos")) ||
           (active === "leads" && item.href.endsWith("/leads")) ||
           (active === "campaigns" && item.href.endsWith("/campanhas"));

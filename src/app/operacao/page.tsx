@@ -84,7 +84,7 @@ export default async function OperationsPage() {
       label: "Domínios em 60 dias",
       value: data.metrics.domainAttentionCount,
       detail: "Próximos do vencimento",
-      href: "/operacao/dominios",
+      href: "/hub-social/dominios",
     },
   ];
 

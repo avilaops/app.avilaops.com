@@ -133,7 +133,7 @@ export default function EstudioEditor({ pecaInicial }: { pecaInicial: PecaDTO })
     <div className="estudio-editor">
       <header className="page-header estudio-cabecalho">
         <div>
-          <Link href="/operacao/estudio" className="estudio-voltar">‹ Estúdio</Link>
+          <Link href="/hub-social/estudio" className="estudio-voltar">‹ Estúdio</Link>
           <input className="estudio-titulo" value={peca.titulo} onChange={(e) => mudar({ titulo: e.target.value })} maxLength={120} aria-label="Título da peça" />
           <p>{template.nome} · {video ? "vídeo" : "imagem"} · {dims.largura}×{dims.altura}</p>
         </div>

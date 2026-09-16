@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import MetaClientSelect from "@/components/MetaClientSelect";
 import MetaLeadConvertButton from "@/components/MetaLeadConvertButton";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
@@ -49,7 +48,7 @@ export default async function MetaLeadsPage({
   const convertedLeads = leads.filter((lead) => Boolean(lead.leadId)).length;
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
+    <>
       <header className="page-header operations-header">
         <div>
           <h1>Leads da Meta</h1>
@@ -61,7 +60,7 @@ export default async function MetaLeadsPage({
       <MetaClientSelect
         organizations={organizations}
         selectedOrganizationId={selectedOrganizationId}
-        action="/operacao/meta/leads"
+        action="/hub-social/meta/leads"
       />
 
       <section className="operations-metrics metric-cards">
@@ -177,6 +176,6 @@ export default async function MetaLeadsPage({
           </div>
         )}
       </section>
-    </AppShell>
+    </>
   );
 }

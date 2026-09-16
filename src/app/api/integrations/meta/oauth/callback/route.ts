@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const expectedState = store.get(META_STATE_COOKIE)?.value;
   store.delete(META_STATE_COOKIE);
 
-  const redirectUrl = new URL("/operacao/meta", appUrl);
+  const redirectUrl = new URL("/hub-social/meta", appUrl);
 
   if (error) {
     redirectUrl.searchParams.set("error", error);

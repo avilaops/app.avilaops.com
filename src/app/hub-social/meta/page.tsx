@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import MetaBusinessPanel from "@/components/MetaBusinessPanel";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
 import { getAdmin } from "@/lib/auth";
@@ -27,7 +26,7 @@ export default async function MetaOperationsPage({
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="meta">
+    <>
       <header className="page-header operations-header">
         <div>
           <h1>Meta Business</h1>
@@ -48,6 +47,6 @@ export default async function MetaOperationsPage({
           connected={params.connected === "1"}
         />
       </section>
-    </AppShell>
+    </>
   );
 }

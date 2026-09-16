@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Renderiza as peças do Estúdio (app.avilaops.com/operacao/estudio): Chromium quadro a quadro, Kokoro e ffmpeg.",
+  "description": "Renderiza as peças do Estúdio (app.avilaops.com/hub-social/estudio): Chromium quadro a quadro, Kokoro e ffmpeg.",
   "scripts": {
     "start": "node --experimental-strip-types src/worker.ts",
     "check": "tsc --noEmit -p ."

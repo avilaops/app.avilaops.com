@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import { getAdmin } from "@/lib/auth";
 import { getWhatsappStatus } from "@/lib/whatsapp";
 
@@ -15,7 +14,7 @@ export default async function WhatsappOperationsPage() {
   const legacyFlowUrl = `${appUrl}/flow-endpoint`;
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="whatsapp">
+    <>
       <header className="page-header operations-header">
         <div>
           <h1>WhatsApp Business</h1>
@@ -108,6 +107,6 @@ export default async function WhatsappOperationsPage() {
           </dl>
         </article>
       </section>
-    </AppShell>
+    </>
   );
 }
