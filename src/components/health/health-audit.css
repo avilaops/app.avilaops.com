@@ -1,0 +1,143 @@
+/* Rastreabilidade da tela Saúde em tempo real: números clicáveis, painel
+   "Detalhes da medição" e modo de inspeção. Arquivo próprio para não
+   misturar com o globals.css. */
+
+.health-evidence {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 120ms ease;
+}
+.health-evidence:hover,
+.health-evidence:focus-visible {
+  text-decoration-color: currentColor;
+}
+.health-evidence:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.health-service-clickable { cursor: pointer; transition: background 120ms ease; }
+.health-service-clickable:hover { background: var(--hover-bg, rgba(100, 116, 139, 0.06)); }
+.health-service-clickable:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+
+.health-orb.unknown { background: #94a3b8; box-shadow: 0 0 0 5px rgba(148, 163, 184, 0.12); }
+.health-spark-down { fill: #ef4444; }
+.health-host-warning { color: #d97706 !important; }
+.health-stale {
+  margin-right: 4px;
+  color: #d97706;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.health-age { font-size: inherit; color: inherit; }
+
+.health-server footer { flex-wrap: wrap; }
+.health-containers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.health-unknown-note {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.health-inspect-bar { display: flex; justify-content: flex-end; }
+.health-inspector-body { display: grid; gap: 4px; padding: 0 1.35rem 1.2rem; min-width: 0; }
+.health-inspector-body h3 { margin: 12px 0 4px; font-size: 0.8rem; }
+.health-inspector-body details summary { cursor: pointer; margin-top: 8px; font-size: 0.8rem; }
+
+/* Painel "Detalhes da medição" */
+.evidence { display: grid; gap: 18px; min-width: 0; }
+.evidence-head { display: grid; gap: 4px; }
+.evidence-head > span { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.evidence-head > strong { font-size: 1.6rem; letter-spacing: -0.02em; }
+.evidence-state {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(100, 116, 139, 0.14);
+  color: var(--muted);
+}
+.evidence-state.state-live { background: rgba(34, 197, 94, 0.14); color: #16a34a; }
+.evidence-state.state-stale,
+.evidence-state.state-estimated { background: rgba(245, 158, 11, 0.16); color: #d97706; }
+.evidence-state.state-missing,
+.evidence-state.state-mock,
+.evidence-state.state-fallback { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+.evidence-alert { margin: 4px 0 0; color: #dc2626; font-size: 0.8rem; font-weight: 600; }
+.evidence-note { margin: 4px 0 0; color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+
+.evidence-list { display: grid; gap: 2px; min-width: 0; }
+.evidence-list h3 {
+  margin: 12px 0 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.evidence-list h3:first-child { margin-top: 0; }
+.evidence-error { padding: 10px 12px; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; }
+
+.evidence-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 38%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-soft, var(--line));
+  font-size: 0.8rem;
+}
+.evidence-row > span:first-child { color: var(--muted); }
+.evidence-row > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.evidence-row .mono,
+.evidence-checks .mono { font-family: var(--mono); font-size: 0.75rem; }
+
+.evidence-transport { margin: 0; padding-left: 18px; font-size: 0.78rem; line-height: 1.6; }
+
+.evidence-checks { overflow-x: auto; }
+.evidence-checks table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.evidence-checks th,
+.evidence-checks td { padding: 4px 6px; border-bottom: 1px solid var(--line-soft, var(--line)); text-align: left; white-space: nowrap; }
+.evidence-checks tr.down td { color: #dc2626; }
+
+.evidence-json {
+  max-height: 360px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--surface-raised, rgba(100, 116, 139, 0.08));
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+@media (max-width: 720px) {
+  .evidence-row { grid-template-columns: 1fr; gap: 2px; }
+}

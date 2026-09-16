@@ -1,101 +1,180 @@
 import { prisma } from "@/lib/prisma";
+import { analyzeHistory, classifyProbe, errorCategory } from "@/lib/health/classify";
+import {
+  HISTORY_WINDOW_MS,
+  MIN_REFRESH_MS,
+  MONITORED_SERVICES,
+  PROBE_ORIGIN,
+  PROBE_VERSION,
+  RETENTION_MS,
+  type MonitoredService,
+} from "@/lib/health/config";
+import { probeUrl } from "@/lib/health/probe";
+import { assertSnapshot, type Snapshot } from "@/lib/health/schemas";
+import { buildSnapshot } from "@/lib/health/snapshot";
 
-export const MONITORED_SERVICES = [
-  { key: "n8n", name: "n8n", server: "apps-noclient", url: "https://n8n.avilaops.com/healthz" },
-  { key: "notas", name: "Notas", server: "apps-noclient", url: "https://notas.avilaops.com/" },
-  { key: "ia", name: "Ávila IA", server: "apps-noclient", url: "https://ia.avilaops.com/" },
-  { key: "sms", name: "Ávila SMS", server: "apps-noclient", url: "https://sms.avilaops.com/" },
-  { key: "crm", name: "CRM", server: "apps-noclient", url: "https://crm.avilaops.com/" },
-  { key: "arxisvr", name: "ArxisVR", server: "apps-noclient", url: "https://arxisvr.avilaops.com/" },
-  { key: "alo-barbeiro", name: "Alô Barbeiro", server: "apps-noclient", url: "https://alobarbeiro.com/" },
-  { key: "cdda", name: "CDDA Judô", server: "apps-noclient", url: "https://cdda.avilaops.com/" },
-  { key: "engops", name: "EngOps", server: "apps-noclient", url: "https://engops.avilaops.com/" },
-  { key: "app-avila", name: "App Ávila Ops", server: "apps-client", url: "https://app.avilaops.com/api/health" },
-  { key: "site-avila", name: "Site Ávila Ops", server: "apps-client", url: "https://avilaops.com/" },
-  { key: "saude-pet", name: "Saúde Pet", server: "apps-client", url: "https://saudepet.app.br/" },
-  { key: "lojas", name: "Lojas Ávila Ops", server: "apps-client", url: "https://lojas.avilaops.com/api/health" },
-  { key: "mail", name: "Ávila Mail", server: "apps-client", url: "https://mail.avilaops.com/" },
-  { key: "brasa", name: "Brasa Mineira", server: "apps-client", url: "https://brasa.comandeiro.com.br/api/health" },
-  { key: "cifra", name: "CIFRA", server: "apps-client", url: "https://cifrainssdeobras.com.br/healthz" },
-  { key: "mello", name: "Mello Transportes", server: "apps-client", url: "https://mellotransportesriopreto.com.br/" },
-  { key: "fenix", name: "Fênix Eletrodos", server: "apps-client", url: "https://fenixeletrodos.com.br/" },
-  { key: "despolariza", name: "DespolarizaMED", server: "apps-client", url: "https://despolarizamed.com.br/" },
-  { key: "sorroche", name: "Sorroche", server: "apps-client", url: "https://sorroche.beauty/" },
-] as const;
+export { MONITORED_SERVICES };
 
-export type ServiceStatus = "HEALTHY" | "SLOW" | "DOWN";
+/** Quem pediu a rodada: o timer do host ou a tela aberta. */
+export type CollectTrigger = "timer" | "screen";
 
-function errorCode(error: unknown) {
-  if (!(error instanceof Error)) return "UNKNOWN";
-  const cause = error.cause as { code?: string } | undefined;
-  return cause?.code ?? (error.name === "AbortError" ? "TIMEOUT" : error.name.toUpperCase());
+/** Log em uma linha JSON, com o requestId para cruzar tela, API e banco. */
+export function logHealth(event: string, data: Record<string, unknown>) {
+  console.log(JSON.stringify({ at: new Date().toISOString(), scope: "health", event, ...data }));
 }
 
-export async function probeService(service: (typeof MONITORED_SERVICES)[number]) {
-  const started = performance.now();
-  let statusCode: number | null = null;
-  let latencyMs: number | null = null;
-  let status: ServiceStatus = "DOWN";
-  let failure: string | null = null;
-  try {
-    const response = await fetch(service.url, {
-      cache: "no-store",
-      redirect: "follow",
-      signal: AbortSignal.timeout(8_000),
-      headers: { "User-Agent": "AvilaOps-Realtime-Monitor/1.0" },
-    });
-    latencyMs = Math.round(performance.now() - started);
-    statusCode = response.status;
-    await response.body?.cancel();
-    status = !response.ok ? "DOWN" : latencyMs > 2_500 ? "SLOW" : "HEALTHY";
-  } catch (error) {
-    latencyMs = Math.round(performance.now() - started);
-    failure = errorCode(error);
-  }
-  return { ...service, status, statusCode, latencyMs, errorCode: failure, checkedAt: new Date() };
+export async function probeService(service: MonitoredService) {
+  const result = await probeUrl(service.url);
+  const { status } = classifyProbe({ httpStatus: result.httpStatus, latencyMs: result.latencyMs, errorCode: result.errorCode });
+  return { service, result, status };
 }
 
-export async function collectServices() {
-  const results = await Promise.all(MONITORED_SERVICES.map(probeService));
+export async function collectServices(requestId: string, trigger: CollectTrigger) {
+  const started = Date.now();
+  const rounds = await Promise.all(MONITORED_SERVICES.map(probeService));
   await prisma.serviceHealthCheck.createMany({
-    data: results.map((r) => ({
-      serviceKey: r.key, serviceName: r.name, serverKey: r.server, url: r.url,
-      status: r.status, statusCode: r.statusCode, latencyMs: r.latencyMs,
-      errorCode: r.errorCode, checkedAt: r.checkedAt,
+    data: rounds.map(({ service, result, status }) => ({
+      serviceKey: service.key,
+      serviceName: service.name,
+      serverKey: service.server,
+      url: service.url,
+      status,
+      statusCode: result.httpStatus,
+      latencyMs: result.latencyMs,
+      errorCode: result.errorCode,
+      checkedAt: result.startedAt,
+      requestId,
+      trigger,
+      probeServer: PROBE_ORIGIN,
+      probeVersion: PROBE_VERSION,
+      method: result.method,
+      finalUrl: result.finalUrl,
+      redirects: result.redirects,
+      resolvedIp: result.resolvedIp,
+      dnsMs: result.timings.dnsMs,
+      connectMs: result.timings.connectMs,
+      tlsMs: result.timings.tlsMs,
+      ttfbMs: result.timings.ttfbMs,
+      errorCategory: errorCategory(result.errorCode, result.httpStatus),
+      errorMessage: result.errorMessage?.slice(0, 500) ?? null,
+      finishedAt: result.finishedAt,
     })),
   });
-  // Retenção curta e previsível: uma coleta a cada 30 s = ~57 mil linhas/dia.
+
+  // Retenção de 24 h. A limpeza roda em ~2% das rodadas (a cada ~12 min com o
+  // timer de 15 s): apagar a cada rodada custaria um DELETE a cada 15 s.
   if (Math.random() < 0.02) {
-    await prisma.serviceHealthCheck.deleteMany({ where: { checkedAt: { lt: new Date(Date.now() - 86_400_000) } } });
-    await prisma.serverHealthSnapshot.deleteMany({ where: { collectedAt: { lt: new Date(Date.now() - 86_400_000) } } });
+    const cutoff = new Date(Date.now() - RETENTION_MS);
+    await prisma.serviceHealthCheck.deleteMany({ where: { checkedAt: { lt: cutoff } } });
+    await prisma.serverHealthSnapshot.deleteMany({ where: { collectedAt: { lt: cutoff } } });
   }
-  return results;
+
+  logHealth("collect", {
+    requestId,
+    trigger,
+    durationMs: Date.now() - started,
+    down: rounds.filter((r) => r.status === "DOWN").map((r) => `${r.service.key}:${r.result.errorCode ?? r.result.httpStatus}`),
+  });
+  return rounds;
 }
 
-export async function monitoringSnapshot(refresh = false) {
-  if (refresh) await collectServices();
-  const since = new Date(Date.now() - 30 * 60_000);
-  const [checks, serverRows] = await Promise.all([
+// Uma rodada por vez neste processo: duas abas abertas não disparam 40 testes.
+let inFlight: Promise<unknown> | null = null;
+
+export async function monitoringSnapshot(options: {
+  requestId: string;
+  refresh: boolean;
+  endpoint: string;
+}): Promise<Snapshot> {
+  const started = Date.now();
+  let mode: Snapshot["meta"]["collection"]["mode"] = "read-only";
+  let note = "leitura do banco, sem nova medição";
+
+  if (options.refresh) {
+    const last = await prisma.serviceHealthCheck.findFirst({ orderBy: { checkedAt: "desc" }, select: { checkedAt: true } });
+    const age = last ? Date.now() - last.checkedAt.getTime() : Infinity;
+    if (age < MIN_REFRESH_MS) {
+      mode = "reused";
+      note = `última rodada tem ${Math.round(age / 1000)} s (< ${MIN_REFRESH_MS / 1000} s): reaproveitada, os horários mostrados são os dela`;
+    } else if (inFlight) {
+      await inFlight;
+      mode = "reused";
+      note = "outra requisição já estava medindo: aproveitada a rodada dela";
+    } else {
+      inFlight = collectServices(options.requestId, "screen").finally(() => {
+        inFlight = null;
+      });
+      await inFlight;
+      mode = "collected";
+      note = "rodada nova disparada por esta requisição";
+    }
+  }
+
+  const nowMs = Date.now();
+  const since = new Date(nowMs - HISTORY_WINDOW_MS);
+  const [checks, serverRows, lastRound] = await Promise.all([
     prisma.serviceHealthCheck.findMany({ where: { checkedAt: { gte: since } }, orderBy: { checkedAt: "asc" } }),
     prisma.serverHealthSnapshot.findMany({ where: { collectedAt: { gte: since } }, orderBy: { collectedAt: "asc" } }),
+    prisma.serviceHealthCheck.findFirst({ orderBy: { checkedAt: "desc" }, select: { checkedAt: true } }),
   ]);
-  const services = MONITORED_SERVICES.map((service) => {
-    const history = checks.filter((c) => c.serviceKey === service.key);
-    const latest = history.at(-1);
-    return {
-      ...service,
-      status: latest?.status ?? "UNKNOWN",
-      statusCode: latest?.statusCode ?? null,
-      latencyMs: latest?.latencyMs ?? null,
-      errorCode: latest?.errorCode ?? null,
-      checkedAt: latest?.checkedAt.toISOString() ?? null,
-      history: history.slice(-30).map((c) => ({ latencyMs: c.latencyMs, status: c.status, at: c.checkedAt.toISOString() })),
-    };
+
+  const snapshot = buildSnapshot({
+    checks,
+    serverRows,
+    nowMs,
+    meta: {
+      requestId: options.requestId,
+      endpoint: options.endpoint,
+      generatedAt: new Date(nowMs).toISOString(),
+      durationMs: Date.now() - started,
+      collection: { mode, lastRoundAt: lastRound?.checkedAt.toISOString() ?? null, note },
+      backend: {
+        commit: process.env.GIT_SHA || "desconhecido",
+        builtAt: process.env.BUILT_AT || "desconhecido",
+        rulesVersion: "health-v2",
+        probeVersion: PROBE_VERSION,
+      },
+    },
   });
-  const servers = ["apps-client", "apps-noclient"].map((key) => {
-    const history = serverRows.filter((s) => s.serverKey === key);
-    const latest = history.at(-1);
-    return latest ? { ...latest, id: latest.id.toString(), collectedAt: latest.collectedAt.toISOString(), receivedAt: latest.receivedAt.toISOString() } : null;
-  }).filter(Boolean);
-  return { generatedAt: new Date().toISOString(), services, servers };
+  return assertSnapshot(snapshot);
+}
+
+/** Histórico completo retido de um serviço, para o painel de detalhes. */
+export async function serviceDetail(key: string) {
+  const service = MONITORED_SERVICES.find((s) => s.key === key);
+  if (!service) return null;
+  const since = new Date(Date.now() - RETENTION_MS);
+  const rows = await prisma.serviceHealthCheck.findMany({
+    where: { serviceKey: key, checkedAt: { gte: since } },
+    orderBy: { checkedAt: "asc" },
+    select: { status: true, checkedAt: true },
+  });
+  const recent = await prisma.serviceHealthCheck.findMany({
+    where: { serviceKey: key },
+    orderBy: { checkedAt: "desc" },
+    take: 20,
+  });
+  return {
+    service,
+    retentionMs: RETENTION_MS,
+    ...analyzeHistory(rows),
+    recentChecks: recent.map((c) => ({
+      id: c.id.toString(),
+      checkedAt: c.checkedAt.toISOString(),
+      finishedAt: c.finishedAt?.toISOString() ?? null,
+      persistedAt: c.persistedAt?.toISOString() ?? null,
+      status: c.status,
+      httpStatus: c.statusCode,
+      latencyMs: c.latencyMs,
+      errorCode: c.errorCode,
+      errorCategory: c.errorCategory ?? errorCategory(c.errorCode, c.statusCode),
+      errorMessage: c.errorMessage,
+      resolvedIp: c.resolvedIp,
+      tlsMs: c.tlsMs,
+      dnsMs: c.dnsMs,
+      requestId: c.requestId,
+      trigger: c.trigger,
+      probeVersion: c.probeVersion,
+    })),
+  };
 }
