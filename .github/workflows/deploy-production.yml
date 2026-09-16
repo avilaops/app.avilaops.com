@@ -28,6 +28,13 @@ jobs:
       - run: npx tsc --noEmit
       - name: Subir banco descartável
         run: docker compose -f docker-compose.test.yml up -d --wait
+      - name: Criar papel exigido pelas migrações
+        # A migração 20260904190000_add_estudio_module faz ALTER TABLE ...
+        # OWNER TO app_avila, que existe em produção mas não neste banco
+        # descartável. Sem isto, toda migração após 04/09 falha aqui — o
+        # build e o deploy ficam pulados (skipped) em silêncio, e ninguém
+        # percebe porque o job aparece só como "failure", não "deploy quebrado".
+        run: docker compose -f docker-compose.test.yml exec -T db-test psql -U postgres -d cliente_portal_test -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='app_avila') THEN CREATE ROLE app_avila; END IF; END \$\$;"
       - name: Aplicar migrações no banco de teste
         run: npx prisma migrate deploy
       - name: Executar suíte completa
