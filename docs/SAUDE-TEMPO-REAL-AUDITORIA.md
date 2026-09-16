@@ -147,6 +147,7 @@ Não foi encontrado mock, `Math.random` gerando valor exibido nem array de núme
 
 - **CPU com janela de ~200 ms** (`top -bn2 -d .2`): é uma foto, não uma média. Varia muito entre leituras. Mantido (não inventar outra métrica), mas a fórmula está exposta no painel.
 - **Disco só de `/`**: volumes montados em outro ponto não entram.
+- **Latência subiu com o probe v2 (medição, não piora do serviço)**: o `fetch` antigo reaproveitava conexões (keep-alive), então a maioria dos checks não pagava DNS, TCP e TLS. O v2 abre conexão nova a cada check. Em 16/09/2026, com os mesmos serviços, a resposta média foi de ~114 ms (v1) para ~264 ms (v2). As 20 conexões TLS em paralelo também disputam CPU no host de 2 vCPUs, o que infla os serviços do próprio servidor (DespolarizaMED ~259 ms). As fases DNS/TCP/TLS/TTFB no painel mostram onde está o tempo.
 - **Probe sai do servidor applications**: serviços hospedados nele medem quase só loopback (ex.: Site Ávila Ops ~11 ms). Não representa a latência de um cliente externo.
 - **CRM, Lojas, Mello e Sorroche** passam pela Cloudflare: o servidor de origem não é comprovável pelo DNS.
 - **Fênix Eletrodos** (16/09/2026): o certificado entregue é `CN=*.websiteseguro.com`, sem cadeia intermediária e sem cobrir `fenixeletrodos.com.br` (`openssl`: `Verify return code: 21`). O DOWN é real. Hospedagem externa (191.252.51.32), não o servidor de aplicações.
