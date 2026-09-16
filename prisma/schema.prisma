@@ -447,6 +447,9 @@ model AiCoreEvalRun {
 
 model Organization {
   id        String   @id @default(cuid())
+  /// Número único do cliente (6 dígitos, a partir de 100001), usado fora do
+  /// sistema: atendimento, cobrança, contratos e infraestrutura. Nunca muda.
+  clientNumber Int   @unique @default(autoincrement()) @map("client_number")
   name      String
   slug      String   @unique
   legalName String?  @map("legal_name")

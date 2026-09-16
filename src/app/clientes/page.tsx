@@ -77,9 +77,12 @@ export default async function ClientsPage() {
                     <Link className="client-name-link" href={`/clientes/${organization.id}`}>
                       {organization.name}
                     </Link>
-                    {(organization.legalName ?? organization.segment) ? (
-                      <small>{organization.legalName ?? organization.segment}</small>
-                    ) : null}
+                    <small>
+                      Nº {organization.clientNumber}
+                      {(organization.legalName ?? organization.segment)
+                        ? ` · ${organization.legalName ?? organization.segment}`
+                        : null}
+                    </small>
                   </div>
                 </div>
                 {/* `data-sigla` é a marca visual do celular, onde o rótulo por
