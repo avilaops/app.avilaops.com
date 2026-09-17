@@ -2670,128 +2670,6 @@ tbody tr:last-child td {
   }
 }
 
-@media (max-width: 560px) {
-  .page-header h1 {
-    font-size: 1.25rem;
-  }
-
-  .page-actions {
-    width: 100%;
-  }
-
-  .page-actions .primary-button,
-  .page-actions .secondary-button {
-    flex: 1 1 0;
-  }
-
-  .organization-form-wrap,
-  .organization-form-wrap > .primary-button {
-    width: 100%;
-  }
-
-  /* `.operations-metrics` saiu daqui: ela nunca teve `display: grid`, então
-     `grid-template-columns` e `gap` eram inertes, e borda, raio e fundo já
-     vêm iguais da regra base. Quem é grade de verdade é `.metric-grid`. */
-  .metric-grid {
-    grid-template-columns: 1fr;
-    gap: 0;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-
-  .metric,
-  .operations-metric {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 2px 12px;
-    padding: 10px 14px;
-    border: 0;
-    border-bottom: 1px solid var(--line-soft);
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .metric:last-child,
-  .operations-metric:last-child {
-    border-bottom: 0;
-  }
-
-  .metric > span,
-  .metric > .balance-card-head,
-  .operations-metric > span {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .metric > strong,
-  .operations-metric > strong {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    align-self: center;
-    font-size: 1.125rem;
-    text-align: right;
-  }
-
-  .metric > small,
-  .metric > .progress-track,
-  .operations-metric > small {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .report-hero dl {
-    grid-template-columns: 1fr;
-  }
-
-  .attention-row {
-    grid-template-columns: 6px minmax(0, 1fr) auto;
-    row-gap: 2px;
-    padding: 12px 0;
-  }
-
-  .attention-row strong {
-    white-space: normal;
-  }
-
-  .attention-row time {
-    grid-column: 2 / -1;
-    text-align: left;
-  }
-
-  .organization-preview-row {
-    grid-template-columns: 30px minmax(0, 1fr) auto;
-    padding: 12px 0;
-  }
-
-  .organization-preview-row > small {
-    grid-column: 2 / -1;
-    text-align: left;
-  }
-
-  .operations-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .organization-form-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .client-row {
-    grid-template-columns: 30px minmax(0, 1fr);
-  }
-
-  .client-signals {
-    grid-column: 2;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 0;
-  }
-
-  .client-row > .status-pill {
-    grid-column: 2;
-  }
-}
 
 /* Projects and tasks */
 .filter-strip {
@@ -5882,21 +5760,6 @@ tbody tr:last-child td {
   }
 }
 
-/* Textos maiores (Dynamic Type / zoom do navegador) não podem quebrar a grade. */
-@media (max-width: 400px) {
-  .tab-item {
-    font-size: 0.625rem;
-  }
-
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .client-signals {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 0;
-  }
-}
 
 /* Provisionamento na ficha do cliente ------------------------------------- */
 .prov-section {
@@ -6379,7 +6242,7 @@ tbody tr:last-child td {
   .barra-acao {
     position: fixed;
     right: 0;
-    bottom: calc(var(--tabbar-h, 56px) + env(safe-area-inset-bottom));
+    bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom));
     left: 0;
     z-index: 40;
     display: flex;
@@ -6966,5 +6829,146 @@ tbody tr:last-child td {
 
   .cadastro-ia-acoes button {
     flex: 1 1 auto;
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+   Telas estreitas, por último e em ordem decrescente de largura.
+
+   Regra da casa daqui para a frente: media query mais estreita mora DEPOIS de
+   todas as mais largas. Não é estilo — é a única forma de a cascata desempatar
+   do jeito que quem escreve a regra espera.
+
+   Como estava: o bloco de 560px na linha 2673 e o de 400px na 5885, com QUATRO
+   blocos de `max-width: 820px` espalhados depois deles. Num aparelho de 390px
+   todas essas condições casam ao mesmo tempo, e o desempate é pela ordem no
+   arquivo: regra escrita "para 560 e abaixo" perdia para regra escrita "para
+   820 e abaixo". Quem escrevia uma regra de celular não tinha como prever se
+   ela valeria — dependia de em qual bloco tivesse caído.
+
+   Foi por isso que a correção da linha do cliente na Visão central precisou ser
+   escrita no bloco de 820px: era o único lugar onde ela vencia.
+
+   Os blocos vieram inteiros, sem uma declaração alterada. Cinco declarações
+   que nunca estiveram em vigor foram removidas antes da mudança, no mesmo
+   commit, para que a nova ordem não as ligasse de surpresa — estão nomeadas na
+   mensagem do commit. Resultado: os 164 prints de antes e depois são idênticos
+   byte a byte, que é o que prova que aqui só mudou a previsibilidade.
+   --------------------------------------------------------------------------- */
+
+@media (max-width: 560px) {
+  .page-actions {
+    width: 100%;
+  }
+
+  .page-actions .primary-button,
+  .page-actions .secondary-button {
+    flex: 1 1 0;
+  }
+
+  .organization-form-wrap,
+  .organization-form-wrap > .primary-button {
+    width: 100%;
+  }
+
+  /* `.operations-metrics` saiu daqui: ela nunca teve `display: grid`, então
+     `grid-template-columns` e `gap` eram inertes, e borda, raio e fundo já
+     vêm iguais da regra base. Quem é grade de verdade é `.metric-grid`. */
+  .metric-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .metric,
+  .operations-metric {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 12px;
+    padding: 10px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .metric:last-child,
+  .operations-metric:last-child {
+    border-bottom: 0;
+  }
+
+  .metric > span,
+  .metric > .balance-card-head,
+  .operations-metric > span {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .metric > strong,
+  .operations-metric > strong {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    font-size: 1.125rem;
+    text-align: right;
+  }
+
+  .metric > small,
+  .metric > .progress-track,
+  .operations-metric > small {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .report-hero dl {
+    grid-template-columns: 1fr;
+  }
+
+  .attention-row {
+    grid-template-columns: 6px minmax(0, 1fr) auto;
+    row-gap: 2px;
+    padding: 12px 0;
+  }
+
+  .attention-row strong {
+    white-space: normal;
+  }
+
+  .attention-row time {
+    grid-column: 2 / -1;
+    text-align: left;
+  }
+
+  .organization-preview-row {
+    padding: 12px 0;
+  }
+
+  .operations-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .organization-form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+}
+
+/* Textos maiores (Dynamic Type / zoom do navegador) não podem quebrar a grade. */
+@media (max-width: 400px) {
+  .tab-item {
+    font-size: 0.625rem;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .client-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 0;
   }
 }

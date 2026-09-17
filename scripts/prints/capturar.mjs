@@ -20,6 +20,15 @@
  * 2. Navegar de uma tela para outra na mesma aba faz o roteador do Next abortar
  *    os chunks em voo (ERR_ABORTED) e a árvore some. Cada tela ganha uma página
  *    nova — print não precisa exercitar transição de rota.
+ *
+ * Se você estiver comparando dois conjuntos de prints byte a byte (o jeito de
+ * provar que uma mudança de CSS não mexeu em nada), saiba que a captura é
+ * determinística — duas rodadas da mesma build dão 164 PNGs idênticos — com
+ * uma exceção: **horário relativo**. `/hub-social/dominios` mostra "sync há N h"
+ * contra o relógio, então um par antes/depois separado por tempo suficiente
+ * diverge nessa tela sem que uma linha de CSS tenha mudado. Antes de tratar uma
+ * diferença como regressão, abra o PNG e confira se o que mudou não é um número
+ * de horas.
  */
 import { mkdir } from "node:fs/promises";
 import jwt from "jsonwebtoken";
