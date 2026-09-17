@@ -10,6 +10,11 @@ RUN npm ci
 FROM deps AS build
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# A checagem de tipos do `next build` passou de 1,8 GB (medido com
+# `tsc --extendedDiagnostics`) e o teto padrão do Node 22 é ~2 GB: o build
+# morria com "heap out of memory" em "Running TypeScript". Só vale neste
+# estágio — a imagem final não herda.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 FROM base AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
