@@ -1,131 +1,50 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
+import ComporCampanha from "@/components/newsletter/ComporCampanha";
+import ContatosRecentes from "@/components/newsletter/ContatosRecentes";
+import HistoricoCampanhas from "@/components/newsletter/HistoricoCampanhas";
+import ImportarContatos from "@/components/newsletter/ImportarContatos";
+import Toast, { type TomToast } from "@/components/newsletter/Toast";
+import { call } from "@/components/newsletter/api";
+import { EMPTY_DRAFT, type Aba, type Campaign, type Contact, type Draft, type Overview, type Previa, type Readiness } from "@/components/newsletter/tipos";
+import { Button } from "@/components/shadcn/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/shadcn/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn/tabs";
 
-type Contact = {
-  id: string;
-  email: string;
-  name: string | null;
-  company: string | null;
-  source: string;
-  status: string;
-  tags: string[];
-  createdAt: string;
-};
-
-type Campaign = {
-  id: string;
-  name: string;
-  subject: string;
-  format: string;
-  status: string;
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-  audienceTags: string[];
-  createdAt: string;
-  sentAt: string | null;
-};
-
-type Overview = {
-  metrics: { subscribed: number; unsubscribed: number; total: number; campaignsSent: number };
-  tags: { tag: string; count: number }[];
-  campaigns: Campaign[];
-  contacts: Contact[];
-};
-
-type Readiness = { ready: boolean; driver: string; reason: string };
-
-type Draft = {
-  id: string | null;
-  name: string;
-  subject: string;
-  previewText: string;
-  format: "HTML" | "TEXT" | "IMAGE";
-  html: string;
-  text: string;
-  imageUrl: string;
-  imageAlt: string;
-  imageLinkUrl: string;
-  audienceTags: string[];
-};
-
-const EMPTY_DRAFT: Draft = {
-  id: null,
-  name: "",
-  subject: "",
-  previewText: "",
-  format: "HTML",
-  html: "",
-  text: "",
-  imageUrl: "",
-  imageAlt: "",
-  imageLinkUrl: "",
-  audienceTags: [],
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Rascunho",
-  SENDING: "Enviando",
-  SENT: "Enviada",
-  FAILED: "Falhou",
-  SUBSCRIBED: "Inscrito",
-  UNSUBSCRIBED: "Descadastrado",
-  BOUNCED: "Retornou",
-};
-
-const FORMAT_LABEL: Record<string, string> = {
-  HTML: "HTML",
-  TEXT: "Mensagem",
-  IMAGE: "Imagem",
-};
-
-function formatDate(value: string | null) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
-}
+const ORIGEM = "getNewsletterOverview() em src/lib/newsletter.ts";
 
 export default function NewsletterStudio({
   overview,
   readiness,
   adminEmail,
+  lidoEm,
 }: {
   overview: Overview;
   readiness: Readiness;
   adminEmail: string;
+  lidoEm: string;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"contatos" | "campanha" | "historico">("contatos");
+  const [tab, setTab] = useState<Aba>("contatos");
   const [busy, setBusy] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [aviso, setAviso] = useState<{ texto: string; tom: TomToast } | null>(null);
+  const [envioPendente, setEnvioPendente] = useState<{ campaignId?: string } | null>(null);
 
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  const [preview, setPreview] = useState<{ html: string; recipients: number }>({ html: "", recipients: 0 });
+  const [preview, setPreview] = useState<Previa>({ html: "", recipients: 0 });
   const [testTo, setTestTo] = useState(adminEmail);
+  const refEmails = useRef<HTMLTextAreaElement>(null);
 
   const audienceLabel = useMemo(
     () => (draft.audienceTags.length === 0 ? "todos os inscritos" : draft.audienceTags.join(", ")),
     [draft.audienceTags],
   );
 
-  const feedback = useCallback((text: string, kind: "ok" | "erro") => {
-    if (kind === "ok") {
-      setMessage(text);
-      setError("");
-    } else {
-      setError(text);
-      setMessage("");
-    }
-  }, []);
-
-  async function call<T>(url: string, init: RequestInit): Promise<T> {
-    const response = await fetch(url, init);
-    const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
-    if (!response.ok) throw new Error(payload.error ?? "Operação não concluída.");
-    return payload;
-  }
+  const feedback = useCallback((texto: string, kind: TomToast) => setAviso({ texto, tom: kind }), []);
+  const fecharAviso = useCallback(() => setAviso(null), []);
 
   const refreshPreview = useCallback(async () => {
     try {
@@ -167,10 +86,7 @@ export default function NewsletterStudio({
         },
       );
       const { created, updated, ignored, invalid } = result.summary;
-      feedback(
-        `${created} novos, ${updated} atualizados, ${ignored} descartados (caixa automática), ${invalid} inválidos.`,
-        "ok",
-      );
+      feedback(`${created} novos, ${updated} atualizados, ${ignored} descartados (caixa automática), ${invalid} inválidos.`, "ok");
       router.refresh();
     } catch (caught) {
       feedback(caught instanceof Error ? caught.message : "Falha na importação.", "erro");
@@ -212,10 +128,11 @@ export default function NewsletterStudio({
 
   async function saveDraft(): Promise<string | null> {
     const body = JSON.stringify({ ...draft, audienceTags: draft.audienceTags.join(",") });
-    const result = await call<{ campaign: Campaign }>(
-      draft.id ? `/api/newsletter/campaigns/${draft.id}` : "/api/newsletter/campaigns",
-      { method: draft.id ? "PUT" : "POST", headers: { "content-type": "application/json" }, body },
-    );
+    const result = await call<{ campaign: Campaign }>(draft.id ? `/api/newsletter/campaigns/${draft.id}` : "/api/newsletter/campaigns", {
+      method: draft.id ? "PUT" : "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
     setDraft((current) => ({ ...current, id: result.campaign.id }));
     return result.campaign.id;
   }
@@ -252,9 +169,6 @@ export default function NewsletterStudio({
 
   async function handleSend(campaignId?: string) {
     const id = campaignId ?? draft.id;
-    const alvo = campaignId ? "esta campanha" : `${preview.recipients} contatos (${audienceLabel})`;
-    if (!window.confirm(`Enviar para ${alvo}? Não dá para desfazer depois que sair.`)) return;
-
     setBusy(id ?? "send");
     try {
       const target = id ?? (await saveDraft());
@@ -279,6 +193,12 @@ export default function NewsletterStudio({
     }
   }
 
+  function confirmarEnvio() {
+    const pendente = envioPendente;
+    setEnvioPendente(null);
+    if (pendente) void handleSend(pendente.campaignId);
+  }
+
   function toggleTag(tag: string) {
     setDraft((current) => ({
       ...current,
@@ -288,405 +208,139 @@ export default function NewsletterStudio({
     }));
   }
 
+  function irParaImportacao() {
+    setTab("contatos");
+    requestAnimationFrame(() => refEmails.current?.focus());
+  }
+
+  const alvoDoEnvio = envioPendente?.campaignId ? "esta campanha" : `${preview.recipients} contatos (${audienceLabel})`;
+  const { metrics } = overview;
+  const brutoMetricas = { ...metrics };
+
   return (
-    <div className="newsletter-studio">
-      <section className="operations-metrics metric-cards">
-        <article className="operations-metric operations-metric-primary">
-          <span>Inscritos</span>
-          <strong>{overview.metrics.subscribed}</strong>
-          <small>recebem a próxima campanha</small>
-        </article>
-        <article className="operations-metric">
-          <span>Descadastrados</span>
-          <strong>{overview.metrics.unsubscribed}</strong>
-          <small>nunca voltam por importação</small>
-        </article>
-        <article className="operations-metric">
-          <span>Base total</span>
-          <strong>{overview.metrics.total}</strong>
-          <small>contatos registrados</small>
-        </article>
-        <article className="operations-metric">
-          <span>Campanhas enviadas</span>
-          <strong>{overview.metrics.campaignsSent}</strong>
-          <small>motor: {readiness.driver}</small>
-        </article>
-      </section>
+    <div className="flex flex-col gap-6">
+      <GradeMetricas rotulo="Base de contatos">
+        <Metrica
+          rotulo="Inscritos"
+          valor={metrics.subscribed}
+          detalhe="recebem a próxima campanha"
+          tom={metrics.subscribed > 0 ? "bom" : "neutro"}
+          href="#contatos"
+          evidencia={{ rotulo: "Inscritos", origem: ORIGEM, formula: "prisma.newsletterContact.count onde status = SUBSCRIBED", lidoEm, bruto: brutoMetricas }}
+        />
+        <Metrica
+          rotulo="Descadastrados"
+          valor={metrics.unsubscribed}
+          detalhe="nunca voltam por importação"
+          evidencia={{ rotulo: "Descadastrados", origem: ORIGEM, formula: "prisma.newsletterContact.count onde status = UNSUBSCRIBED", lidoEm, bruto: brutoMetricas }}
+        />
+        <Metrica
+          rotulo="Base total"
+          valor={metrics.total}
+          detalhe="contatos registrados"
+          evidencia={{ rotulo: "Base total", origem: ORIGEM, formula: "prisma.newsletterContact.count, qualquer status", lidoEm, bruto: brutoMetricas }}
+        />
+        <Metrica
+          rotulo="Campanhas enviadas"
+          valor={metrics.campaignsSent}
+          detalhe={`motor: ${readiness.driver}`}
+          href="#historico"
+          evidencia={{
+            rotulo: "Campanhas enviadas",
+            origem: ORIGEM,
+            formula: "campanhas com status SENT entre as 25 mais recentes (take: 25)",
+            observacao: "Não é o total histórico: campanhas enviadas além das 25 mais recentes não entram na conta.",
+            lidoEm,
+            bruto: brutoMetricas,
+          }}
+        />
+      </GradeMetricas>
 
       {!readiness.ready ? (
-        <p className="feedback-error">Envio indisponível: {readiness.reason}</p>
-      ) : null}
-      {message ? <p className="feedback-success">{message}</p> : null}
-      {error ? <p className="feedback-error">{error}</p> : null}
-
-      <div className="filter-strip newsletter-tabs">
-        <button
-          type="button"
-          className={tab === "contatos" ? "filter-chip filter-chip-active" : "filter-chip"}
-          onClick={() => setTab("contatos")}
-        >
-          Contatos
-        </button>
-        <button
-          type="button"
-          className={tab === "campanha" ? "filter-chip filter-chip-active" : "filter-chip"}
-          onClick={() => setTab("campanha")}
-        >
-          Nova campanha
-        </button>
-        <button
-          type="button"
-          className={tab === "historico" ? "filter-chip filter-chip-active" : "filter-chip"}
-          onClick={() => setTab("historico")}
-        >
-          Histórico
-        </button>
-      </div>
-
-      {tab === "contatos" ? (
-        <>
-          <section className="operations-panel">
-            <div className="operations-panel-heading">
-              <div>
-                <h2>Importar contatos</h2>
-              </div>
-              <small>{overview.metrics.subscribed} inscritos</small>
-            </div>
-
-            <form className="newsletter-import" onSubmit={importContacts}>
-              <div className="newsletter-import-modes">
-                <label>
-                  <input type="radio" name="mode" value="paste" defaultChecked /> Colar lista
-                </label>
-                <label>
-                  <input type="radio" name="mode" value="clientes" /> Puxar dos clientes do painel
-                </label>
-              </div>
-
-              <label className="full-field">
-                <span>E-mails</span>
-                <textarea
-                  name="raw"
-                  rows={6}
-                  placeholder={"um@cliente.com.br\nNome do Cliente <outro@cliente.com.br>\nterceiro@cliente.com.br"}
-                />
-                <small>Um por linha, vírgula ou o formato “Nome &lt;e-mail&gt;”. Duplicados são unificados.</small>
-              </label>
-
-              <div className="operations-form-grid">
-                <label>
-                  <span>Etiquetas</span>
-                  <input name="tags" placeholder="clientes, saudepet, prospeccao" />
-                </label>
-                <label className="newsletter-checkbox">
-                  <input type="checkbox" name="keepMachineAddresses" />
-                  <span>Manter caixas automáticas (no-reply, notificações)</span>
-                </label>
-              </div>
-
-              <button className="primary-button" type="submit" disabled={busy === "import"}>
-                {busy === "import" ? "Importando…" : "Importar"}
-              </button>
-            </form>
-          </section>
-
-          <section className="operations-panel">
-            <div className="operations-panel-heading">
-              <div>
-                <h2>Públicos disponíveis</h2>
-              </div>
-              <small>{overview.tags.length} etiquetas</small>
-            </div>
-            {overview.tags.length === 0 ? (
-              <p className="muted">Nenhuma etiqueta ainda - importe contatos com etiqueta para segmentar.</p>
-            ) : (
-              <div className="filter-strip">
-                {overview.tags.map((item) => (
-                  <span className="filter-chip" key={item.tag}>
-                    {item.tag} · {item.count}
-                  </span>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="operations-panel">
-            <div className="operations-panel-heading">
-              <div>
-                <h2>Contatos recentes</h2>
-              </div>
-              <small>{overview.contacts.length} exibidos</small>
-            </div>
-
-            {overview.contacts.length === 0 ? (
-              <div className="operations-empty">
-                <span className="empty-index">00</span>
-                <strong>Nenhum contato na base.</strong>
-                <p>Importe a lista de clientes para começar.</p>
-              </div>
-            ) : (
-              <div className="newsletter-contacts">
-                {overview.contacts.map((contact) => (
-                  <article className="newsletter-contact-row" key={contact.id}>
-                    <div>
-                      <strong>{contact.email}</strong>
-                      <small>
-                        {contact.name ?? "-"}
-                        {contact.company ? ` · ${contact.company}` : ""} · {contact.source.toLowerCase()}
-                      </small>
-                    </div>
-                    <div className="newsletter-contact-tags">
-                      {contact.tags.length === 0 ? <small>sem etiqueta</small> : contact.tags.map((tag) => <span key={tag}>{tag}</span>)}
-                    </div>
-                    <span className={`newsletter-status newsletter-status-${contact.status.toLowerCase()}`}>
-                      {STATUS_LABEL[contact.status] ?? contact.status}
-                    </span>
-                    <button
-                      type="button"
-                      className="inline-action"
-                      disabled={busy === contact.id}
-                      onClick={() =>
-                        changeContactStatus(contact, contact.status === "SUBSCRIBED" ? "UNSUBSCRIBED" : "SUBSCRIBED")
-                      }
-                    >
-                      {contact.status === "SUBSCRIBED" ? "Descadastrar" : "Reinscrever"}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
+        <div role="note" className="rounded-xl border border-[color:var(--amber-line)] bg-card p-4 text-[15px] leading-5 min-[821px]:text-sm">
+          Envio indisponível: {readiness.reason}
+        </div>
       ) : null}
 
-      {tab === "campanha" ? (
-        <section className="operations-panel newsletter-composer">
-          <div className="operations-panel-heading">
-            <div>
-              <span className="eyebrow">Composição</span>
-              <h2>{draft.id ? "Editando rascunho" : "Nova campanha"}</h2>
-            </div>
-            <small>{preview.recipients} destinatários · {audienceLabel}</small>
-          </div>
+      <Tabs value={tab} onValueChange={(valor) => setTab(valor as Aba)} className="gap-4">
+        <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] max-[560px]:w-full">
+          <TabsTrigger value="contatos" className="min-h-9 px-4">
+            Contatos
+          </TabsTrigger>
+          <TabsTrigger value="campanha" className="min-h-9 px-4">
+            Nova campanha
+          </TabsTrigger>
+          <TabsTrigger value="historico" className="min-h-9 px-4">
+            Histórico
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="operations-form-grid">
-            <label>
-              <span>Nome interno</span>
-              <input
-                value={draft.name}
-                maxLength={160}
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                placeholder="Ex.: Quem cuida do seu site - agosto"
-              />
-            </label>
-            <label>
-              <span>Assunto do e-mail</span>
-              <input
-                value={draft.subject}
-                maxLength={200}
-                onChange={(event) => setDraft({ ...draft, subject: event.target.value })}
-                placeholder="Você ainda sabe quem cuida do seu site?"
-              />
-            </label>
-          </div>
+        <TabsContent value="contatos" className="flex flex-col gap-6">
+          <ImportarContatos
+            aoEnviar={importContacts}
+            ocupado={busy === "import"}
+            inscritos={metrics.subscribed}
+            tags={overview.tags}
+            refEmails={refEmails}
+          />
+          <ContatosRecentes
+            contacts={overview.contacts}
+            ocupadoEm={busy}
+            lidoEm={lidoEm}
+            aoMudarStatus={changeContactStatus}
+            aoImportar={irParaImportacao}
+          />
+        </TabsContent>
 
-          <label className="full-field">
-            <span>Texto de prévia</span>
-            <input
-              value={draft.previewText}
-              maxLength={300}
-              onChange={(event) => setDraft({ ...draft, previewText: event.target.value })}
-              placeholder="Linha curta que aparece depois do assunto na caixa de entrada"
-            />
-          </label>
+        <TabsContent value="campanha">
+          <ComporCampanha
+            draft={draft}
+            setDraft={setDraft}
+            preview={preview}
+            audienceLabel={audienceLabel}
+            tags={overview.tags}
+            testTo={testTo}
+            setTestTo={setTestTo}
+            readiness={readiness}
+            ocupadoEm={busy}
+            aoEnviarImagem={(file) => void uploadImage(file)}
+            aoToggleTag={toggleTag}
+            aoSalvar={handleSave}
+            aoTestar={handleTest}
+            aoPedirEnvio={() => setEnvioPendente({})}
+          />
+        </TabsContent>
 
-          <div className="filter-strip newsletter-formats">
-            {(["HTML", "TEXT", "IMAGE"] as const).map((format) => (
-              <button
-                key={format}
-                type="button"
-                className={draft.format === format ? "filter-chip filter-chip-active" : "filter-chip"}
-                onClick={() => setDraft({ ...draft, format })}
-              >
-                {FORMAT_LABEL[format]}
-              </button>
-            ))}
-          </div>
+        <TabsContent value="historico">
+          <HistoricoCampanhas
+            campaigns={overview.campaigns}
+            ocupadoEm={busy}
+            readiness={readiness}
+            lidoEm={lidoEm}
+            aoEnviar={(campaignId) => setEnvioPendente({ campaignId })}
+            aoCompor={() => setTab("campanha")}
+          />
+        </TabsContent>
+      </Tabs>
 
-          {draft.format === "HTML" ? (
-            <label className="full-field">
-              <span>HTML da campanha</span>
-              <textarea
-                rows={14}
-                value={draft.html}
-                onChange={(event) => setDraft({ ...draft, html: event.target.value })}
-                placeholder="<!doctype html> … cole aqui o e-mail pronto"
-              />
-              <small>
-                Use <code>{"{{unsubscribe}}"}</code> onde quiser o link de descadastro. Sem o marcador, um rodapé é
-                acrescentado automaticamente.
-              </small>
-            </label>
-          ) : null}
+      <Dialog open={envioPendente !== null} onOpenChange={(aberto) => !aberto && setEnvioPendente(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar campanha?</DialogTitle>
+            <DialogDescription>Enviar para {alvoDoEnvio}? Não dá para desfazer depois que sair.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEnvioPendente(null)} className="min-h-11">
+              Cancelar
+            </Button>
+            <Button type="button" onClick={confirmarEnvio} className="min-h-11">
+              Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          {draft.format === "TEXT" ? (
-            <label className="full-field">
-              <span>Mensagem</span>
-              <textarea
-                rows={12}
-                value={draft.text}
-                onChange={(event) => setDraft({ ...draft, text: event.target.value })}
-                placeholder="Escreva como escreveria um e-mail. Linhas em branco viram parágrafos."
-              />
-            </label>
-          ) : null}
-
-          {draft.format === "IMAGE" ? (
-            <div className="newsletter-image-field">
-              <label className="full-field">
-                <span>Imagem</span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void uploadImage(file);
-                  }}
-                />
-                <small>PNG, JPG, WEBP ou GIF até 8 MB. A imagem fica em endereço público fixo.</small>
-              </label>
-              {draft.imageUrl ? (
-                // A imagem é a mesma URL pública que vai no e-mail: precisa ser
-                // exibida crua, sem o otimizador do next/image no meio.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="newsletter-image-preview" src={draft.imageUrl} alt="Prévia da imagem da campanha" />
-              ) : null}
-              <div className="operations-form-grid">
-                <label>
-                  <span>Texto alternativo</span>
-                  <input
-                    value={draft.imageAlt}
-                    onChange={(event) => setDraft({ ...draft, imageAlt: event.target.value })}
-                    placeholder="Descreva a imagem para quem bloqueia imagens"
-                  />
-                </label>
-                <label>
-                  <span>Link ao clicar</span>
-                  <input
-                    value={draft.imageLinkUrl}
-                    onChange={(event) => setDraft({ ...draft, imageLinkUrl: event.target.value })}
-                    placeholder="https://avilaops.com/…"
-                  />
-                </label>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="newsletter-audience">
-            <span className="eyebrow">Público</span>
-            <div className="filter-strip">
-              <button
-                type="button"
-                className={draft.audienceTags.length === 0 ? "filter-chip filter-chip-active" : "filter-chip"}
-                onClick={() => setDraft({ ...draft, audienceTags: [] })}
-              >
-                Todos os inscritos
-              </button>
-              {overview.tags.map((item) => (
-                <button
-                  key={item.tag}
-                  type="button"
-                  className={draft.audienceTags.includes(item.tag) ? "filter-chip filter-chip-active" : "filter-chip"}
-                  onClick={() => toggleTag(item.tag)}
-                >
-                  {item.tag} · {item.count}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="newsletter-preview">
-            <span className="eyebrow">Prévia - renderizada pelo mesmo código que envia</span>
-            <iframe title="Prévia da campanha" srcDoc={preview.html} sandbox="" />
-          </div>
-
-          <div className="newsletter-actions">
-            <label className="newsletter-test">
-              <span>Enviar teste para</span>
-              <input value={testTo} onChange={(event) => setTestTo(event.target.value)} />
-            </label>
-            <button type="button" className="inline-action" onClick={handleSave} disabled={busy === "save"}>
-              {busy === "save" ? "Salvando…" : "Salvar rascunho"}
-            </button>
-            <button type="button" className="inline-action" onClick={handleTest} disabled={busy === "test" || !readiness.ready}>
-              {busy === "test" ? "Enviando…" : "Enviar teste"}
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => handleSend()}
-              disabled={busy === "send" || !readiness.ready || preview.recipients === 0}
-            >
-              {busy === "send" ? "Enviando…" : `Enviar para ${preview.recipients}`}
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {tab === "historico" ? (
-        <section className="operations-panel">
-          <div className="operations-panel-heading">
-            <div>
-              <h2>Campanhas</h2>
-            </div>
-            <small>{overview.campaigns.length} no histórico</small>
-          </div>
-
-          {overview.campaigns.length === 0 ? (
-            <div className="operations-empty">
-              <span className="empty-index">00</span>
-              <strong>Nenhuma campanha ainda.</strong>
-              <p>Componha a primeira na aba ao lado.</p>
-            </div>
-          ) : (
-            <div className="newsletter-campaigns">
-              {overview.campaigns.map((campaign) => (
-                <article className="newsletter-campaign-row" key={campaign.id}>
-                  <div>
-                    <strong>{campaign.name}</strong>
-                    <small>{campaign.subject}</small>
-                    <small>
-                      {FORMAT_LABEL[campaign.format] ?? campaign.format} ·{" "}
-                      {campaign.audienceTags.length === 0 ? "todos os inscritos" : campaign.audienceTags.join(", ")} ·
-                      criada em {formatDate(campaign.createdAt)}
-                    </small>
-                  </div>
-                  <div className="newsletter-campaign-numbers">
-                    <span>{campaign.sentCount} enviados</span>
-                    <span>{campaign.failedCount} falhas</span>
-                    <span>{campaign.recipientCount} na fila</span>
-                  </div>
-                  <span className={`newsletter-status newsletter-status-${campaign.status.toLowerCase()}`}>
-                    {STATUS_LABEL[campaign.status] ?? campaign.status}
-                  </span>
-                  {campaign.status === "SENT" ? (
-                    <small>{formatDate(campaign.sentAt)}</small>
-                  ) : (
-                    <button
-                      type="button"
-                      className="inline-action"
-                      disabled={busy === campaign.id || !readiness.ready}
-                      onClick={() => handleSend(campaign.id)}
-                    >
-                      {campaign.status === "SENDING" ? "Continuar envio" : "Enviar"}
-                    </button>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      ) : null}
+      {aviso ? <Toast texto={aviso.texto} tom={aviso.tom} aoFechar={fecharAviso} /> : null}
     </div>
   );
 }
