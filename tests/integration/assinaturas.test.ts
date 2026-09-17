@@ -98,11 +98,20 @@ describe("geração de fatura", () => {
   it("dois processos gerando a mesma competência ao mesmo tempo criam uma só", async () => {
     // É o cenário real do cron rodando duas vezes — reinício do servidor no
     // meio, ou alguém executando à mão sem saber que o agendamento já rodou.
-    const resultados = await Promise.allSettled([
-      garantirFatura({ subscriptionId, competencia: "2026-09" }),
-      garantirFatura({ subscriptionId, competencia: "2026-09" }),
-      garantirFatura({ subscriptionId, competencia: "2026-09" }),
-    ]);
+    //
+    // Com três chamadas este teste quase nunca cruzava a janela da corrida:
+    // passava na máquina de quem escreveu e reprovava de vez em quando no CI,
+    // o que o fazia parecer instabilidade de ambiente. Com este número, o
+    // defeito aparecia em toda execução medida. O tratamento determinístico
+    // do P2002 está em tests/unit/fatura-corrida.test.ts; aqui o que se
+    // exercita é o banco de verdade.
+    const CONCORRENTES = 24;
+
+    const resultados = await Promise.allSettled(
+      Array.from({ length: CONCORRENTES }, () =>
+        garantirFatura({ subscriptionId, competencia: "2026-09" })
+      )
+    );
 
     const criadas = await prisma.subscriptionInvoice.findMany({
       where: { subscriptionId, competence: "2026-09" },

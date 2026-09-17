@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   createBoletoCharge,
@@ -478,26 +479,53 @@ export async function garantirFatura(params: {
   const vencimento =
     params.vencimento ?? new Date(Date.UTC(ano, mes - 1, assinatura.billingDay));
 
-  return prisma.subscriptionInvoice.upsert({
-    where: {
-      subscriptionId_competence_kind: {
-        subscriptionId: assinatura.id,
-        competence: params.competencia,
-        kind: tipo,
-      },
-    },
-    update: {},
-    create: {
+  const chave = {
+    subscriptionId_competence_kind: {
       subscriptionId: assinatura.id,
       competence: params.competencia,
       kind: tipo,
-      amount:
-        params.valorCents === undefined ? assinatura.amount : params.valorCents / 100,
-      dueDate: vencimento,
-      status: "OPEN",
     },
-    include: INCLUI_COBRANCAS,
-  });
+  };
+
+  try {
+    return await prisma.subscriptionInvoice.upsert({
+      where: chave,
+      update: {},
+      create: {
+        subscriptionId: assinatura.id,
+        competence: params.competencia,
+        kind: tipo,
+        amount:
+          params.valorCents === undefined ? assinatura.amount : params.valorCents / 100,
+        dueDate: vencimento,
+        status: "OPEN",
+      },
+      include: INCLUI_COBRANCAS,
+    });
+  } catch (erro) {
+    /*
+      P2002 é a chave única `subscriptionId_competence_kind` barrando a
+      segunda gravação.
+
+      Este upsert não vira `INSERT ... ON CONFLICT` no Postgres: o `include`
+      obriga o Prisma a ler antes de gravar, e entre a leitura e a gravação
+      cabe outro processo. Quem perde a corrida recebe P2002 — e o cenário
+      é comum, porque é o do comentário do teste: o cron rodando duas vezes,
+      reinício do servidor no meio, ou execução à mão sem saber que o
+      agendamento já rodou.
+
+      A restrição fez exatamente o que devia: existe UMA fatura. Então este
+      erro não é falha nenhuma — é a confirmação de que o trabalho já está
+      feito. Basta devolver a fatura que o outro processo criou.
+    */
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return prisma.subscriptionInvoice.findUnique({
+        where: chave,
+        include: INCLUI_COBRANCAS,
+      });
+    }
+    throw erro;
+  }
 }
 
 /**
