@@ -4,7 +4,7 @@ import type { TenantContext } from "@avila-ops/ai-core";
 import { PrismaKeyProvider } from "@/lib/ai-core/key-provider";
 import { PrismaSpendGuard } from "@/lib/ai-core/spend-guard";
 import { PrismaTelemetrySink } from "@/lib/ai-core/telemetry-sink";
-import { CAMPOS_DA_IA, campoPorChave, type OrigemCampo } from "./campos";
+import { CAMPOS_DA_IA, campoPorChave, cortarNoTamanho, type OrigemCampo } from "./campos";
 import { valorAtual, type RetratoCadastro } from "./lacunas";
 
 export const MODELO_PADRAO = "gpt-4o-mini";
@@ -168,7 +168,7 @@ export function filtrarSugestoes(
     jaVistos.add(campo.chave);
     aceitas.push({
       campo: campo.chave,
-      valor: valor.slice(0, campo.tamanhoMaximo),
+      valor: cortarNoTamanho(valor, campo.tamanhoMaximo),
       origem,
       confianca,
       justificativa: (bruta.justificativa ?? "").trim().slice(0, 400),

@@ -1,6 +1,6 @@
 import type { TenantContext } from "@avila-ops/ai-core";
 import { prisma } from "@/lib/prisma";
-import { campoPorChave, type CampoCadastro } from "./campos";
+import { campoPorChave, cortarNoTamanho, type CampoCadastro } from "./campos";
 import { analisarCadastro, valorAtual, type AnaliseCadastro, type RetratoCadastro } from "./lacunas";
 import { sugestoesDaReceita } from "./receita";
 import {
@@ -145,9 +145,7 @@ export async function montarPainel(organizationId: string): Promise<PainelCadast
     analise,
     pendentes,
     temPendentesDaIa: pendentes.some((item) => item.origem === "IA"),
-    temDadosDeCnpj: Boolean(
-      organizacao.cnpjData && typeof organizacao.cnpjData === "object",
-    ),
+    temDadosDeCnpj: analise.temConsultaDeCnpj,
   };
 }
 
@@ -338,7 +336,7 @@ export async function decidirSugestoes(
 
     paraGravar.set(campo.chave, {
       campo,
-      valor: registro.suggestedValue.slice(0, campo.tamanhoMaximo),
+      valor: cortarNoTamanho(registro.suggestedValue, campo.tamanhoMaximo),
       id: registro.id,
     });
   }

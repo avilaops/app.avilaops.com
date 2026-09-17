@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAMPOS_CADASTRO, CAMPOS_DA_IA, campoPorChave } from "@/lib/cadastro-ia/campos";
+import { CAMPOS_CADASTRO, CAMPOS_DA_IA, campoPorChave, cortarNoTamanho } from "@/lib/cadastro-ia/campos";
 import { analisarCadastro, valorAtual, type RetratoCadastro } from "@/lib/cadastro-ia/lacunas";
 import { sugestoesDaReceita } from "@/lib/cadastro-ia/receita";
 import {
@@ -215,12 +215,16 @@ describe("filtro das sugestões da IA", () => {
     expect(aceitas[0].valor).toBe("Primeira redação da empresa.");
   });
 
-  it("corta o valor no tamanho máximo da coluna", () => {
+  it("cabe na coluna sem partir palavra", () => {
+    const maximo = campoPorChave("segment")!.tamanhoMaximo;
     const aceitas = filtrarSugestoes(
       [{ ...base, campo: "segment", valor: "Serviços de agrimensura e ".repeat(20) }],
       retrato(),
     );
-    expect(aceitas[0].valor.length).toBe(campoPorChave("segment")!.tamanhoMaximo);
+    // Até 14/09/2026 este teste exigia exatamente `maximo` caracteres, o que
+    // era o defeito: o corte caía no meio da palavra e gravava lixo na ficha.
+    expect(aceitas[0].valor.length).toBeLessThanOrEqual(maximo);
+    expect(aceitas[0].valor.endsWith("e")).toBe(true);
   });
 
   it("normaliza confiança desconhecida para MEDIA", () => {
@@ -283,5 +287,103 @@ describe("contexto enviado ao modelo", () => {
     );
     expect(contexto).not.toContain("companyDescription (");
     expect(contexto).toContain("servicesOffered (");
+  });
+});
+
+/**
+ * Defeitos achados na conferência visual da tela, antes do merge. Os três
+ * viraram teste porque nenhum deles quebra nada em tempo de compilação: a
+ * tela mostra número errado, grava texto mutilado ou oferece botão morto, e
+ * tudo isso passa num `tsc` limpo.
+ */
+describe("corte no tamanho da coluna", () => {
+  it("não parte palavra no meio", () => {
+    // O caso real: descrição de CNAE com 103 caracteres num campo de 80.
+    const cnae = "Fabricação de produtos de padaria e confeitaria com predominância de produção própria";
+    const cortado = cortarNoTamanho(cnae, 80);
+
+    expect(cortado.length).toBeLessThanOrEqual(80);
+    expect(cnae.startsWith(cortado)).toBe(true);
+    // O que o slice cru produzia: "...de produção pr".
+    expect(cortado.endsWith("pr")).toBe(false);
+    expect(cortado).toBe("Fabricação de produtos de padaria e confeitaria com predominância de produção");
+  });
+
+  it("devolve o texto inteiro quando já cabe", () => {
+    expect(cortarNoTamanho("Padaria", 80)).toBe("Padaria");
+  });
+
+  it("corta seco quando não há espaço onde recuar", () => {
+    const palavra = "a".repeat(120);
+    expect(cortarNoTamanho(palavra, 80)).toBe("a".repeat(80));
+  });
+
+  it("não deixa pontuação solta na ponta", () => {
+    expect(cortarNoTamanho("Serviços de agrimensura, topografia e geoprocessamento", 30)).toBe(
+      "Serviços de agrimensura",
+    );
+  });
+});
+
+describe("origens efetivas sem consulta de CNPJ guardada", () => {
+  it("não conta a Receita para quem não tem consulta guardada", () => {
+    const analise = analisarCadastro(retrato());
+
+    expect(analise.temConsultaDeCnpj).toBe(false);
+    // Dizer "9 a Receita resolve" para este cliente prometeria um clique que
+    // não preencheria nada: sem consulta, a Receita não tem o que devolver.
+    expect(analise.preenchiveisPelaReceita).toBe(0);
+  });
+
+  it("joga os campos oficiais para a lista do que se pergunta ao cliente", () => {
+    const analise = analisarCadastro(retrato());
+    const razaoSocial = analise.lacunas.find((l) => l.chave === "legalName")!;
+
+    expect(razaoSocial.origens).toEqual(["CLIENTE"]);
+  });
+
+  it("mantém a IA como origem de campo descritivo mesmo sem CNPJ", () => {
+    const analise = analisarCadastro(retrato());
+    const segmento = analise.lacunas.find((l) => l.chave === "segment")!;
+
+    expect(segmento.origens).toContain("IA");
+    expect(segmento.origens).not.toContain("RECEITA_FEDERAL");
+  });
+
+  it("volta a contar a Receita quando a consulta existe", () => {
+    const analise = analisarCadastro(
+      retrato({
+        organization: {
+          name: "Vale",
+          legalName: null,
+          segment: null,
+          siteUrl: null,
+          cnpjData: { razao_social: "VALE LTDA" },
+        },
+      }),
+    );
+
+    expect(analise.temConsultaDeCnpj).toBe(true);
+    expect(analise.preenchiveisPelaReceita).toBeGreaterThan(0);
+    expect(analise.lacunas.find((l) => l.chave === "legalName")!.origens).toContain(
+      "RECEITA_FEDERAL",
+    );
+  });
+
+  it("toda lacuna cabe em pelo menos uma origem, com ou sem CNPJ", () => {
+    for (const comCnpj of [true, false]) {
+      const analise = analisarCadastro(
+        retrato({
+          organization: {
+            name: "X",
+            legalName: null,
+            segment: null,
+            siteUrl: null,
+            cnpjData: comCnpj ? { razao_social: "X LTDA" } : null,
+          },
+        }),
+      );
+      expect(analise.lacunas.every((l) => l.origens.length > 0)).toBe(true);
+    }
   });
 });

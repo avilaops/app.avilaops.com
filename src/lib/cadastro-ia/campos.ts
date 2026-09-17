@@ -272,3 +272,26 @@ export const CAMPOS_DA_IA: readonly CampoCadastro[] = CAMPOS_CADASTRO.filter((ca
 export function campoAceitaOrigem(chave: string, origem: OrigemCampo): boolean {
   return campoPorChave(chave)?.origens.includes(origem) ?? false;
 }
+
+/**
+ * Corta um valor no tamanho da coluna sem partir palavra.
+ *
+ * A descrição de CNAE da Receita passa de 100 caracteres e o `segment` tem
+ * 80: um `slice` cru grava "...com predominância de produção pr" na ficha do
+ * cliente — texto mutilado que parece defeito do sistema, porque é. Quando o
+ * corte cai no meio de uma palavra, recua até o último espaço; se não houver
+ * espaço nenhum onde recuar (uma palavra só, maior que a coluna), corta no
+ * limite mesmo, que é o único jeito de caber.
+ */
+export function cortarNoTamanho(valor: string, tamanhoMaximo: number): string {
+  const texto = valor.trim();
+  if (texto.length <= tamanhoMaximo) return texto;
+
+  const cortado = texto.slice(0, tamanhoMaximo);
+  const ultimoEspaco = cortado.lastIndexOf(" ");
+  // Recuar até antes de metade da coluna jogaria fora informação demais; aí é
+  // melhor o corte seco do que uma frase sem conteúdo.
+  if (ultimoEspaco < tamanhoMaximo / 2) return cortado.trimEnd();
+
+  return cortado.slice(0, ultimoEspaco).trimEnd().replace(/[,;:.]$/, "");
+}

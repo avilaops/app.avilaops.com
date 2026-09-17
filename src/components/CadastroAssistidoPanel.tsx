@@ -29,6 +29,7 @@ type Analise = {
   preenchiveisPelaReceita: number;
   preenchiveisPelaIa: number;
   somenteComOCliente: number;
+  temConsultaDeCnpj: boolean;
 };
 
 type Sugestao = {
@@ -250,6 +251,16 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
         {analise.lacunas.length === 0
           ? "Nenhuma lacuna nos campos acompanhados."
           : `${analise.lacunas.length} campos vazios · ${analise.preenchiveisPelaReceita} a Receita resolve · ${analise.preenchiveisPelaIa} a IA redige · ${analise.somenteComOCliente} só o cliente responde.`}
+        {analise.lacunas.length > 0 && !analise.temConsultaDeCnpj ? (
+          <>
+            {" "}
+            <strong>
+              Este cliente não tem consulta de CNPJ guardada, então razão social, endereço e
+              contato oficial contam como &quot;só o cliente responde&quot; — a Receita não tem o
+              que devolver aqui.
+            </strong>
+          </>
+        ) : null}
       </p>
 
       {erro ? <p className="cadastro-ia-erro">{erro}</p> : null}
@@ -320,6 +331,7 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
         <div className="cadastro-ia-perguntar">
           <div className="seo-section-heading">
             <h3>Só o cliente responde</h3>
+            <span className="cadastro-ia-contador">{soComOCliente.length} campos</span>
           </div>
           <ul>
             {soComOCliente.map((lacuna) => (

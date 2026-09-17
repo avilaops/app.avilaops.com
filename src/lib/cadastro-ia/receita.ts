@@ -1,5 +1,5 @@
-import { campoPorChave } from "./campos";
-import { valorAtual, type RetratoCadastro } from "./lacunas";
+import { campoPorChave, cortarNoTamanho } from "./campos";
+import { temConsultaDeCnpj, valorAtual, type RetratoCadastro } from "./lacunas";
 import type { SugestaoProposta } from "./sugestoes";
 
 /**
@@ -56,10 +56,9 @@ function logradouro(dados: DadosCnpj): string | null {
  * equipe digitou.
  */
 export function sugestoesDaReceita(retrato: RetratoCadastro): SugestaoProposta[] {
-  const dados = retrato.organization.cnpjData;
-  if (!dados || typeof dados !== "object" || Array.isArray(dados)) return [];
+  if (!temConsultaDeCnpj(retrato)) return [];
 
-  const cnpj = dados as DadosCnpj;
+  const cnpj = retrato.organization.cnpjData as DadosCnpj;
 
   const candidatos: Array<[string, string | null]> = [
     ["legalName", texto(cnpj, "razao_social")],
@@ -87,7 +86,7 @@ export function sugestoesDaReceita(retrato: RetratoCadastro): SugestaoProposta[]
 
     sugestoes.push({
       campo: chave,
-      valor: valor.slice(0, campo.tamanhoMaximo),
+      valor: cortarNoTamanho(valor, campo.tamanhoMaximo),
       origem: "RECEITA_FEDERAL",
       // Fato consultado na fonte oficial, não estimativa — mas a decisão de
       // gravar continua sendo de uma pessoa.

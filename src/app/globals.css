@@ -7026,6 +7026,17 @@ tbody tr:last-child td {
   gap: 8px;
 }
 
+/* `.secondary-button` não tem estado desativado na folha da casa, e aqui os
+   dois botões ficam lado a lado com só um deles vivo: sem isto, "Preencher
+   pela Receita" parece clicável num cliente sem consulta de CNPJ guardada, e
+   o clique não faz nada nem explica por quê. Escopado ao painel de propósito
+   — dar estado desativado a todo botão secundário do app é faxina de design
+   system, não desta feature. */
+.cadastro-ia-acoes button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .cadastro-ia-barra {
   height: 6px;
   border-radius: 99px;
