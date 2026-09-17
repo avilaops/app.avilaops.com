@@ -17,7 +17,7 @@
 | # | Etapa | Como é hoje | Estado |
 |---|---|---|---|
 | 1 | Cadastrar o cliente (organização, contatos, dossiê de 7 abas, CNPJ automático, domínio desejado com verificação) | `/clientes` → `OrganizationForm` → `/clientes/[id]` | **Tela** |
-| 2 | Solicitação pública de acesso → aprovar | `/clientes/solicitacoes` → `POST /api/registration-requests/:id/approve` chama `cliente.avilaops.com/api/service/provision-client` | **Quebrado**: o portal foi apagado do Hetzner em 24/08. Aprovar hoje devolve "Falha ao provisionar" |
+| 2 | Solicitação pública de acesso → aprovar | `/clientes/solicitacoes` → `POST /api/registration-requests/:id/approve` cria a conta em `portal_clients` aqui mesmo e avisa o cliente pelo n8n | **Tela** (corrigido depois de 24/08: a rota não chama mais o portal apagado) |
 | 3 | Marcas do cliente | Só na criação da organização (`brands: { create }` aninhado) | **Meia tela**: não dá para adicionar marca depois |
 | 4 | Projeto, tarefas, entregáveis | `/projetos` → `ProjectForm`, `TaskQuickAdd`, `DeliverableForm` | **Tela** |
 | 5 | Cobrança avulsa do entregável (Pix/boleto Éfi, página pública `/entrega/[token]`) | `DeliverableForm` + `PaymentPanel` + webhook Éfi + n8n "Notificar Pagamento" | **Tela** |
