@@ -141,8 +141,10 @@ export async function POST(request: NextRequest) {
     slug = `${slugBase.slice(0, 58)}-${suffix}`;
     suffix += 1;
   }
+  // Sem `INTERNAL_SITE_BASE_URL` a página interna não tem onde responder, então
+  // o cadastro nasce em rascunho em vez de nascer "no ar" com endereço nenhum.
   const internalUrl = internalSiteUrl(slug);
-  const internalSitePublishedAt = new Date();
+  const internalSitePublishedAt = internalUrl ? new Date() : null;
 
   const organization = await prisma.$transaction(async (transaction) => {
     const created = await transaction.organization.create({
@@ -174,9 +176,10 @@ export async function POST(request: NextRequest) {
             wantsCustomDomain: hasCurrentSite ? false : wantsCustomDomain,
             internalSubdomain: slug,
             internalUrl,
-            // A página interna entra no ar já no cadastro; a página pública
-            // filtra por PUBLISHED e devolveria 404 enquanto ficasse em DRAFT.
-            internalSiteStatus: "PUBLISHED",
+            // Com host configurado a página interna entra no ar já no
+            // cadastro, porque a página pública filtra por PUBLISHED e
+            // devolveria 404 enquanto ficasse em DRAFT.
+            internalSiteStatus: internalUrl ? "PUBLISHED" : "DRAFT",
             internalSitePublishedAt,
             selectedDomainPlanSlug:
               !hasCurrentSite && (wantsCustomDomain || selectedDomainPlanSlug === "domain-none")
@@ -242,7 +245,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (created.webPresence) {
+    if (created.webPresence && internalUrl) {
       await transaction.operationsAuditEvent.create({
         data: {
           actorId: admin.id,

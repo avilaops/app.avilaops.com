@@ -155,6 +155,15 @@ publica o app nem altera o banco de produção.
 O `cliente.avilaops.com` não será construído: a área do cliente vive aqui, em
 `/portal`.
 
+### Página interna do cliente
+
+O dossiê publica uma página por cliente em `<host>/<subdomínio>`. O host era o
+`cliente.avilaops.com`, desligado em 16/09/2026, e hoje vem de
+`INTERNAL_SITE_BASE_URL`. Enquanto a variável estiver vazia, nenhum endereço é
+montado: o cadastro nasce em `DRAFT`, o botão **Publicar** recusa com o motivo
+e a ficha não exibe link. Assim que houver host que responda o subdomínio,
+basta preencher a variável — o endereço é recalculado a cada publicação.
+
 | Papel | Quem é | Onde cai | O que pode |
 |---|---|---|---|
 | `OWNER` | a **plataforma**: Avila Ops (nicolas@avilaops.com) | `/operacao` | tudo, em todas as empresas |
