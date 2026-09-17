@@ -233,3 +233,41 @@ export const abasCelular: AbaCelular[] = [
     ],
   },
 ];
+
+/**
+ * Qual grupo do menu já nasce aberto na folha "Mais" do celular.
+ *
+ * A folha tem 27 itens em 7 grupos: numa lista plana são quase três telas de
+ * rolagem até o último. Com os grupos dobrados o menu inteiro cabe numa tela,
+ * e a pergunta passa a ser qual abrir sozinho.
+ *
+ * A regra olha para a barra de abas, não para o grupo em si:
+ *
+ * - Tela SEM aba própria (SEO, Vagas, Fiscal…): abre o grupo onde ela mora.
+ *   Você está ali e quase sempre quer o vizinho — o Meta depois do SEO.
+ * - Tela COM aba própria (Início, Clientes, Entregas, Financeiro): não abre
+ *   nada. Quem tem aba chega nela por um toque no rodapé; abrir "Mais" é
+ *   justamente o gesto de ir para onde as abas não alcançam.
+ *
+ * Devolve o rótulo do grupo, que é a chave usada na tela, ou null para
+ * "nenhum aberto". É função pura de propósito: a decisão dá para testar sem
+ * montar componente.
+ */
+export function grupoInicialAberto(
+  grupos: GrupoNavegacao[],
+  section: SecaoApp,
+  temAbaPropria: boolean,
+): string | null {
+  if (temAbaPropria) return null;
+
+  const grupo = grupos.find((candidato) =>
+    candidato.items.some((item) => item.section === section),
+  );
+
+  return grupo?.label ?? null;
+}
+
+/** Se esta seção acende alguma aba do rodapé — o outro lado de `maisAtivo`. */
+export function secaoTemAba(abas: AbaCelular[], section: SecaoApp): boolean {
+  return abas.some((aba) => aba.secoes.includes(section));
+}
