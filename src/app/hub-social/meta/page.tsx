@@ -1,5 +1,8 @@
 import { redirect } from "next/navigation";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import MetaBusinessPanel from "@/components/MetaBusinessPanel";
+import MetaClientSelect from "@/components/MetaClientSelect";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
 import { getAdmin } from "@/lib/auth";
 import { getMetaConnectionStatus, metaRedirectUri } from "@/lib/meta";
@@ -14,6 +17,7 @@ export default async function MetaOperationsPage({
   if (!admin) redirect("/login");
 
   const params = await searchParams;
+  const lidoEm = new Date().toISOString();
   const organizations = await prisma.organization.findMany({
     where: { status: { not: "ARCHIVED" } },
     orderBy: { name: "asc" },
@@ -26,27 +30,30 @@ export default async function MetaOperationsPage({
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
 
   return (
-    <>
-      <header className="page-header operations-header">
-        <div>
-          <h1>Meta Business</h1>
-          <p>Contas, formulários e webhooks ligados à operação.</p>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <CabecalhoPagina
+        titulo="Meta Business"
+        subtitulo="Contas, formulários e webhooks ligados à operação."
+        meta={<BadgeStatus status={status.connected ? "connected" : "pending"} />}
+      />
 
       <MetaOperationsNav active="connection" organizationId={selectedOrganizationId} />
 
-      <section className="operations-grid">
-        <MetaBusinessPanel
-          initialStatus={status}
-          organizations={organizations}
-          selectedOrganizationId={selectedOrganizationId}
-          callbackUrl={callbackUrl}
-          webhookUrl={webhookUrl}
-          error={params.error}
-          connected={params.connected === "1"}
-        />
-      </section>
-    </>
+      <MetaClientSelect
+        organizations={organizations}
+        selectedOrganizationId={selectedOrganizationId}
+        action="/hub-social/meta"
+      />
+
+      <MetaBusinessPanel
+        initialStatus={status}
+        selectedOrganizationId={selectedOrganizationId}
+        callbackUrl={callbackUrl}
+        webhookUrl={webhookUrl}
+        error={params.error}
+        connected={params.connected === "1"}
+        lidoEm={lidoEm}
+      />
+    </div>
   );
 }
