@@ -43,7 +43,44 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   processing: { texto: "Processando", tom: "info" },
   skipped: { texto: "Ignorado", tom: "neutro" },
   unknown: { texto: "Desconhecido", tom: "neutro" },
+  // Meta: leads, verificação do Business Manager e account_status das contas de anúncio.
+  new: { texto: "Novo", tom: "atencao" },
+  imported: { texto: "Importado", tom: "bom" },
+  converted: { texto: "Convertido", tom: "bom" },
+  not_verified: { texto: "Não verificado", tom: "atencao" },
+  disabled: { texto: "Desativada", tom: "ruim" },
+  unsettled: { texto: "Pagamento pendente", tom: "ruim" },
+  pending_risk_review: { texto: "Em análise de risco", tom: "atencao" },
+  pending_settlement: { texto: "Acerto pendente", tom: "atencao" },
+  in_grace_period: { texto: "Em período de carência", tom: "atencao" },
+  pending_closure: { texto: "Encerramento pendente", tom: "atencao" },
+  closed: { texto: "Encerrada", tom: "neutro" },
+  any_active: { texto: "Ativa", tom: "bom" },
+  any_closed: { texto: "Encerrada", tom: "neutro" },
 };
+
+/** Objetivo da campanha na Marketing API (ODAX `OUTCOME_*` e os legados). */
+export const OBJETIVO_CAMPANHA: Readonly<Record<string, string>> = {
+  OUTCOME_AWARENESS: "Reconhecimento",
+  OUTCOME_TRAFFIC: "Tráfego",
+  OUTCOME_ENGAGEMENT: "Engajamento",
+  OUTCOME_LEADS: "Leads",
+  OUTCOME_APP_PROMOTION: "Promoção do app",
+  OUTCOME_SALES: "Vendas",
+  BRAND_AWARENESS: "Reconhecimento",
+  REACH: "Alcance",
+  LINK_CLICKS: "Tráfego",
+  POST_ENGAGEMENT: "Engajamento",
+  LEAD_GENERATION: "Leads",
+  CONVERSIONS: "Conversões",
+  MESSAGES: "Mensagens",
+  VIDEO_VIEWS: "Visualizações de vídeo",
+};
+
+export function rotuloObjetivo(codigo: string | null | undefined): string | null {
+  if (!codigo) return null;
+  return OBJETIVO_CAMPANHA[codigo.trim().toUpperCase()] ?? codigo;
+}
 
 function humanizar(codigo: string): string {
   const limpo = codigo.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase();

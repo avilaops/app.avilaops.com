@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAPA_STATUS, rotuloStatus } from "@/lib/status-rotulos";
+import { MAPA_STATUS, rotuloObjetivo, rotuloStatus } from "@/lib/status-rotulos";
 
 describe("rotuloStatus", () => {
   it("traduz os códigos conhecidos com o tom certo", () => {
@@ -35,5 +35,19 @@ describe("rotuloStatus", () => {
       if (texto === "OK") continue;
       expect(texto.slice(1)).not.toMatch(/[A-Z]/);
     }
+  });
+
+  it("códigos da Meta saem em português", () => {
+    expect(rotuloStatus("NEW")).toEqual({ texto: "Novo", tom: "atencao" });
+    expect(rotuloStatus("not_verified").texto).toBe("Não verificado");
+    expect(rotuloStatus("pending_risk_review").tom).toBe("atencao");
+    expect(rotuloStatus("any_active")).toEqual({ texto: "Ativa", tom: "bom" });
+  });
+
+  it("objetivo de campanha vira rótulo; desconhecido volta cru e nulo vira nulo", () => {
+    expect(rotuloObjetivo("OUTCOME_LEADS")).toBe("Leads");
+    expect(rotuloObjetivo("outcome_sales")).toBe("Vendas");
+    expect(rotuloObjetivo("NOVO_OBJETIVO")).toBe("NOVO_OBJETIVO");
+    expect(rotuloObjetivo(null)).toBeNull();
   });
 });
