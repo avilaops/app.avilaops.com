@@ -1,9 +1,19 @@
 import { redirect } from "next/navigation";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
+import EstadoVazio from "@/components/hub-social/EstadoVazio";
+import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
+import TabelaResponsiva, { type LinhaTabela } from "@/components/hub-social/TabelaResponsiva";
+import { brutoSeguro, evidenciaDeRegistro, statusContaAnuncio } from "@/components/meta/evidencia-meta";
+import PainelMeta from "@/components/meta/PainelMeta";
 import MetaClientSelect from "@/components/MetaClientSelect";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
 import { getAdmin } from "@/lib/auth";
+import type { Evidencia } from "@/lib/evidencia";
 import { formatDateTime } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+
+const ARQUIVO = "src/app/hub-social/meta/ativos/page.tsx";
 
 export default async function MetaAssetsPage({
   searchParams,
@@ -14,6 +24,7 @@ export default async function MetaAssetsPage({
   if (!admin) redirect("/login");
 
   const params = await searchParams;
+  const lidoEm = new Date().toISOString();
   const organizations = await prisma.organization.findMany({
     where: { status: { not: "ARCHIVED" } },
     orderBy: { name: "asc" },
@@ -45,14 +56,117 @@ export default async function MetaAssetsPage({
       ])
     : [[], [], [], []];
 
+  const organizationQuery = `organizationId=${encodeURIComponent(selectedOrganizationId)}`;
+  const hrefConexao = `/hub-social/meta?${organizationQuery}`;
+  const acaoConectar = { label: "Conectar ou sincronizar a Meta", href: hrefConexao };
+
+  const evidenciaContagem = (rotulo: string, modelo: string, tabela: string, registros: unknown): Evidencia => ({
+    rotulo,
+    origem: `prisma.${modelo}.findMany em ${ARQUIVO}`,
+    formula: `quantidade de registros de ${tabela} com organizationId do cliente selecionado`,
+    lidoEm,
+    referencia: selectedOrganizationId || null,
+    observacao: "Referência = organizationId usado no filtro.",
+    bruto: brutoSeguro(registros),
+  });
+
+  const linhasPresenca: LinhaTabela[] = [
+    ...pages.map((page) => ({
+      id: `page-${page.id}`,
+      celulas: {
+        tipo: "Página do Facebook",
+        nome: page.name,
+        identificador: page.username ?? page.pageId,
+        vinculo: `${page.instagramAccounts.length} Instagram`,
+        sync: formatDateTime(page.lastSyncedAt),
+      },
+      evidencia: evidenciaDeRegistro({
+        rotulo: page.name,
+        modelo: "metaPage",
+        id: page.id,
+        gravadoEm: page.lastSyncedAt,
+        campoGravadoEm: "lastSyncedAt",
+        lidoEm,
+        registro: page,
+        funcao: "syncMetaBusiness() em src/lib/meta.ts",
+      }),
+    })),
+    ...instagramAccounts.map((account) => ({
+      id: `instagram-${account.id}`,
+      celulas: {
+        tipo: "Instagram",
+        nome: account.name ?? account.username,
+        identificador: `@${account.username}`,
+        vinculo: account.page?.name ?? "Sem página vinculada",
+        sync: formatDateTime(account.lastSyncedAt),
+      },
+      evidencia: evidenciaDeRegistro({
+        rotulo: `@${account.username}`,
+        modelo: "instagramAccount",
+        id: account.id,
+        gravadoEm: account.lastSyncedAt,
+        campoGravadoEm: "lastSyncedAt",
+        lidoEm,
+        registro: account,
+        funcao: "syncMetaBusiness() em src/lib/meta.ts",
+      }),
+    })),
+  ];
+
+  const linhasContas: LinhaTabela[] = adAccounts.map((account) => ({
+    id: account.id,
+    celulas: {
+      conta: account.name,
+      id: account.adAccountId,
+      business: account.businessAccount?.name,
+      moeda: account.currency,
+      status: (
+        <BadgeStatus
+          status={statusContaAnuncio(account.accountStatus, account.status)}
+          titulo={account.accountStatus ? `account_status ${account.accountStatus}` : account.status}
+        />
+      ),
+      sync: formatDateTime(account.lastSyncedAt),
+    },
+    evidencia: evidenciaDeRegistro({
+      rotulo: account.name,
+      modelo: "metaAdAccount",
+      id: account.id,
+      gravadoEm: account.lastSyncedAt,
+      campoGravadoEm: "lastSyncedAt",
+      lidoEm,
+      registro: account,
+      funcao: "syncMetaBusiness() em src/lib/meta.ts",
+    }),
+  }));
+
+  const linhasPortfolios: LinhaTabela[] = businesses.map((business) => ({
+    id: business.id,
+    celulas: {
+      nome: business.name,
+      id: business.businessId,
+      verificacao: business.verificationStatus ? <BadgeStatus status={business.verificationStatus} /> : null,
+      fuso: business.timezone,
+      sync: formatDateTime(business.lastSyncedAt),
+    },
+    evidencia: evidenciaDeRegistro({
+      rotulo: business.name,
+      modelo: "metaBusinessAccount",
+      id: business.id,
+      gravadoEm: business.lastSyncedAt,
+      campoGravadoEm: "lastSyncedAt",
+      lidoEm,
+      registro: business,
+      funcao: "syncMetaBusiness() em src/lib/meta.ts",
+    }),
+  }));
+
   return (
-    <>
-      <header className="page-header operations-header">
-        <div>
-          <h1>Ativos da Meta</h1>
-          <p>Business Managers, páginas, Instagram e contas de anúncio por organização.</p>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <CabecalhoPagina
+        titulo="Ativos da Meta"
+        subtitulo="Portfólios empresariais, páginas, Instagram e contas de anúncio por organização."
+      />
 
       <MetaOperationsNav active="assets" organizationId={selectedOrganizationId} />
       <MetaClientSelect
@@ -61,160 +175,107 @@ export default async function MetaAssetsPage({
         action="/hub-social/meta/ativos"
       />
 
-      <section className="operations-metrics metric-cards">
-        <article className="operations-metric operations-metric-primary">
-          <span>Business Managers</span>
-          <strong>{businesses.length}</strong>
-        </article>
-        <article className="operations-metric">
-          <span>Páginas</span>
-          <strong>{pages.length}</strong>
-        </article>
-        <article className="operations-metric">
-          <span>Instagram</span>
-          <strong>{instagramAccounts.length}</strong>
-        </article>
-        <article className="operations-metric">
-          <span>Ad accounts</span>
-          <strong>{adAccounts.length}</strong>
-        </article>
-      </section>
+      <GradeMetricas rotulo="Ativos importados">
+        <Metrica
+          rotulo="Business Managers"
+          valor={businesses.length}
+          href="#portfolios"
+          evidencia={evidenciaContagem(
+            "Business Managers",
+            "metaBusinessAccount",
+            "meta_business_accounts",
+            businesses,
+          )}
+        />
+        <Metrica
+          rotulo="Páginas"
+          valor={pages.length}
+          href="#presenca"
+          evidencia={evidenciaContagem("Páginas", "metaPage", "meta_pages", pages)}
+        />
+        <Metrica
+          rotulo="Instagram"
+          valor={instagramAccounts.length}
+          href="#presenca"
+          evidencia={evidenciaContagem("Instagram", "instagramAccount", "instagram_accounts", instagramAccounts)}
+        />
+        <Metrica
+          rotulo="Contas de anúncio"
+          valor={adAccounts.length}
+          href="#contas"
+          evidencia={evidenciaContagem("Contas de anúncio", "metaAdAccount", "meta_ad_accounts", adAccounts)}
+        />
+      </GradeMetricas>
 
-      <section className="operations-panel clients-panel">
-        <div className="operations-panel-heading">
-          <div>
-            <h2>Presença conectada</h2>
-          </div>
-          <small>Dados retornados pela Graph API</small>
-        </div>
-
-        {pages.length === 0 && instagramAccounts.length === 0 ? (
-          <div className="operations-empty clients-empty">
-            <span className="empty-index">00</span>
-            <strong>Nenhuma página ou Instagram importado.</strong>
-            <p>Conecte ou sincronize a Meta para preencher este inventário.</p>
-          </div>
+      <PainelMeta id="presenca" titulo="Presença conectada" descricao="Páginas e Instagram retornados pela Graph API.">
+        {linhasPresenca.length === 0 ? (
+          <EstadoVazio
+            compacto
+            titulo="Nenhuma página ou Instagram importado."
+            descricao="Conecte ou sincronize a Meta para preencher este inventário."
+            acao={acaoConectar}
+          />
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Nome</th>
-                  <th>Identificador</th>
-                  <th>Vínculo</th>
-                  <th>Última sync</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pages.map((page) => (
-                  <tr key={page.id}>
-                    <td>Facebook Page</td>
-                    <td>{page.name}</td>
-                    <td>{page.username ?? page.pageId}</td>
-                    <td>{page.instagramAccounts.length} Instagram</td>
-                    <td>{formatDateTime(page.lastSyncedAt)}</td>
-                  </tr>
-                ))}
-                {instagramAccounts.map((account) => (
-                  <tr key={account.id}>
-                    <td>Instagram</td>
-                    <td>{account.name ?? account.username}</td>
-                    <td>@{account.username}</td>
-                    <td>{account.page?.name ?? "Sem página vinculada"}</td>
-                    <td>{formatDateTime(account.lastSyncedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TabelaResponsiva
+            rotulo="Presença conectada"
+            colunas={[
+              { chave: "nome", rotulo: "Nome", principal: true },
+              { chave: "tipo", rotulo: "Tipo" },
+              { chave: "identificador", rotulo: "Identificador", mono: true },
+              { chave: "vinculo", rotulo: "Vínculo" },
+              { chave: "sync", rotulo: "Última sincronização" },
+            ]}
+            linhas={linhasPresenca}
+          />
         )}
-      </section>
+      </PainelMeta>
 
-      <section className="operations-panel clients-panel">
-        <div className="operations-panel-heading">
-          <div>
-            <h2>Contas de anúncio</h2>
-          </div>
-          <small>Base para métricas e campanhas</small>
-        </div>
-
-        {adAccounts.length === 0 ? (
-          <div className="operations-empty clients-empty">
-            <span className="empty-index">00</span>
-            <strong>Nenhuma conta de anúncio importada.</strong>
-            <p>A conta autorizada precisa ter acesso às ad accounts do cliente.</p>
-          </div>
+      <PainelMeta id="contas" titulo="Contas de anúncio" descricao="Base para métricas e campanhas.">
+        {linhasContas.length === 0 ? (
+          <EstadoVazio
+            compacto
+            titulo="Nenhuma conta de anúncio importada."
+            descricao="A conta autorizada precisa ter acesso às contas de anúncio do cliente."
+            acao={acaoConectar}
+          />
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Conta</th>
-                  <th>ID</th>
-                  <th>Business</th>
-                  <th>Moeda</th>
-                  <th>Status</th>
-                  <th>Última sync</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adAccounts.map((account) => (
-                  <tr key={account.id}>
-                    <td>{account.name}</td>
-                    <td>{account.adAccountId}</td>
-                    <td>{account.businessAccount?.name ?? "-"}</td>
-                    <td>{account.currency ?? "-"}</td>
-                    <td>{account.accountStatus ?? account.status}</td>
-                    <td>{formatDateTime(account.lastSyncedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TabelaResponsiva
+            rotulo="Contas de anúncio"
+            colunas={[
+              { chave: "conta", rotulo: "Conta", principal: true },
+              { chave: "id", rotulo: "ID Meta", mono: true },
+              { chave: "business", rotulo: "Portfólio" },
+              { chave: "moeda", rotulo: "Moeda", mono: true },
+              { chave: "status", rotulo: "Status" },
+              { chave: "sync", rotulo: "Última sincronização" },
+            ]}
+            linhas={linhasContas}
+          />
         )}
-      </section>
+      </PainelMeta>
 
-      <section className="operations-panel clients-panel">
-        <div className="operations-panel-heading">
-          <div>
-            <h2>Portfólios empresariais</h2>
-          </div>
-          <small>Origem dos ativos importados</small>
-        </div>
-
-        {businesses.length === 0 ? (
-          <div className="operations-empty clients-empty">
-            <span className="empty-index">00</span>
-            <strong>Nenhum Business Manager importado.</strong>
-          </div>
+      <PainelMeta id="portfolios" titulo="Portfólios empresariais" descricao="Origem dos ativos importados.">
+        {linhasPortfolios.length === 0 ? (
+          <EstadoVazio
+            compacto
+            titulo="Nenhum Business Manager importado."
+            descricao="Conecte ou sincronize a Meta para trazer os portfólios do cliente."
+            acao={acaoConectar}
+          />
         ) : (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>ID Meta</th>
-                  <th>Verificação</th>
-                  <th>Fuso</th>
-                  <th>Última sync</th>
-                </tr>
-              </thead>
-              <tbody>
-                {businesses.map((business) => (
-                  <tr key={business.id}>
-                    <td>{business.name}</td>
-                    <td>{business.businessId}</td>
-                    <td>{business.verificationStatus ?? "-"}</td>
-                    <td>{business.timezone ?? "-"}</td>
-                    <td>{formatDateTime(business.lastSyncedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TabelaResponsiva
+            rotulo="Portfólios empresariais"
+            colunas={[
+              { chave: "nome", rotulo: "Nome", principal: true },
+              { chave: "id", rotulo: "ID Meta", mono: true },
+              { chave: "verificacao", rotulo: "Verificação" },
+              { chave: "fuso", rotulo: "Fuso", mono: true },
+              { chave: "sync", rotulo: "Última sincronização" },
+            ]}
+            linhas={linhasPortfolios}
+          />
         )}
-      </section>
-    </>
+      </PainelMeta>
+    </div>
   );
 }
