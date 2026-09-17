@@ -34,8 +34,8 @@ const ARRASTA: Partial<Record<EtapaKey, EtapaKey>> = {
 };
 
 async function semear(organizationId: string) {
-  const existentes = await prisma.organizationOnboardingStep.count({ where: { organizationId } });
-  if (existentes > 0) return;
+  // Fichas antigas podem ter apenas parte das etapas. Completar as ausentes
+  // preserva o progresso existente, inclusive quando duas ações rodam juntas.
   await prisma.organizationOnboardingStep.createMany({
     data: ETAPAS.map(([stepKey, label], index) => ({
       organizationId,

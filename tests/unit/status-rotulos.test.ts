@@ -44,6 +44,33 @@ describe("rotuloStatus", () => {
     expect(rotuloStatus("any_active")).toEqual({ texto: "Ativa", tom: "bom" });
   });
 
+  /**
+   * O bug que originou este teste: "PROCESSED" — status que o webhook do
+   * WhatsApp grava em toda mensagem tratada — não estava no mapa, caía no
+   * humanizador e aparecia na tela como "Processed", em inglês, ao lado de
+   * "Recebido" e "Erro". Quem grava cada código está em src/lib/whatsapp.ts,
+   * src/lib/meta.ts e nos defaults do schema.prisma.
+   */
+  it("todo status gravado pelas integrações tem rótulo no mapa, não no humanizador", () => {
+    const gravados = [
+      "RECEIVED", // default de IntegrationWebhookEvent
+      "PROCESSED", // whatsapp.ts, ao tratar o evento
+      "FAILED",
+      "ACTIVE", // meta.ts e default de DomainAsset
+      "ERROR",
+      "PENDING",
+      "DISCONNECTED",
+    ];
+    for (const codigo of gravados) {
+      expect(MAPA_STATUS[codigo.toLowerCase()], `${codigo} sem rótulo`).toBeDefined();
+    }
+  });
+
+  it("processado é um bom desfecho, e não se confunde com processando", () => {
+    expect(rotuloStatus("PROCESSED")).toEqual({ texto: "Processado", tom: "bom" });
+    expect(rotuloStatus("processing")).toEqual({ texto: "Processando", tom: "info" });
+  });
+
   it("objetivo de campanha vira rótulo; desconhecido volta cru e nulo vira nulo", () => {
     expect(rotuloObjetivo("OUTCOME_LEADS")).toBe("Leads");
     expect(rotuloObjetivo("outcome_sales")).toBe("Vendas");
