@@ -48,6 +48,8 @@ for (const [nomeFormato, opcoes] of formatos) {
       const resposta = await pagina.goto(BASE + caminho, { waitUntil: "networkidle", timeout: 90_000 });
       const status = resposta?.status() ?? 0;
       if (status >= 400 || new URL(pagina.url()).pathname === "/login") falhas.push(`${caminho} → ${status} ${pagina.url()}`);
+      // Em print de página inteira, barra fixa aparece no meio da imagem: fica no fim do fluxo.
+      await pagina.addStyleTag({ content: ".tab-bar,.mobile-topbar{position:static!important}" });
       await pagina.screenshot({ path: `${SAIDA}/${nomeFormato}-${tema}-${nome}.png`, fullPage: true });
     }
     await contexto.close();

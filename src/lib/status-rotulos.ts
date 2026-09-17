@@ -41,6 +41,7 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   syncing: { texto: "Sincronizando", tom: "info" },
   queued: { texto: "Na fila", tom: "info" },
   processing: { texto: "Processando", tom: "info" },
+  processed: { texto: "Processado", tom: "bom" },
   skipped: { texto: "Ignorado", tom: "neutro" },
   unknown: { texto: "Desconhecido", tom: "neutro" },
   // Meta: leads, verificação do Business Manager e account_status das contas de anúncio.

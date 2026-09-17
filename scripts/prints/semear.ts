@@ -140,10 +140,10 @@ async function main() {
   }
 
   await prisma.organizationIntegrationConnection.upsert({
-    where: { organizationId_provider: { organizationId: aurora.id, provider: "meta_business" } },
+    where: { organizationId_provider: { organizationId: horizonte.id, provider: "meta_business" } },
     update: {},
     create: {
-      organizationId: aurora.id,
+      organizationId: horizonte.id,
       provider: "meta_business",
       status: "ACTIVE",
       accountName: "Pessoa Dona Exemplo",
@@ -156,41 +156,41 @@ async function main() {
   const bm = await prisma.metaBusinessAccount.upsert({
     where: { businessId: "exemplo-bm-1" },
     update: {},
-    create: { organizationId: aurora.id, businessId: "exemplo-bm-1", name: "Padaria Aurora BM", verificationStatus: "not_verified", timezone: "America/Sao_Paulo", lastSyncedAt: haMin(40) },
+    create: { organizationId: horizonte.id, businessId: "exemplo-bm-1", name: "Clínica Horizonte BM", verificationStatus: "not_verified", timezone: "America/Sao_Paulo", lastSyncedAt: haMin(40) },
   });
   const pagina = await prisma.metaPage.upsert({
     where: { pageId: "exemplo-pagina-1" },
     update: {},
-    create: { organizationId: aurora.id, businessAccountRefId: bm.id, pageId: "exemplo-pagina-1", name: "Padaria Aurora", username: "padariaaurora", lastSyncedAt: haMin(40) },
+    create: { organizationId: horizonte.id, businessAccountRefId: bm.id, pageId: "exemplo-pagina-1", name: "Clínica Horizonte", username: "clinicahorizonte", lastSyncedAt: haMin(40) },
   });
   await prisma.instagramAccount.upsert({
     where: { instagramAccountId: "exemplo-ig-1" },
     update: {},
-    create: { organizationId: aurora.id, businessAccountRefId: bm.id, pageRefId: pagina.id, instagramAccountId: "exemplo-ig-1", username: "padariaaurora", name: "Padaria Aurora", followersCount: 2140, lastSyncedAt: haMin(40) },
+    create: { organizationId: horizonte.id, businessAccountRefId: bm.id, pageRefId: pagina.id, instagramAccountId: "exemplo-ig-1", username: "clinicahorizonte", name: "Clínica Horizonte", followersCount: 2140, lastSyncedAt: haMin(40) },
   });
   const conta = await prisma.metaAdAccount.upsert({
     where: { adAccountId: "act_exemplo_1" },
     update: {},
-    create: { organizationId: aurora.id, businessAccountRefId: bm.id, adAccountId: "act_exemplo_1", name: "Aurora — Anúncios", currency: "BRL", accountStatus: "1", lastSyncedAt: haMin(40) },
+    create: { organizationId: horizonte.id, businessAccountRefId: bm.id, adAccountId: "act_exemplo_1", name: "Horizonte — Anúncios", currency: "BRL", accountStatus: "1", lastSyncedAt: haMin(40) },
   });
   if ((await prisma.metaCampaignSnapshot.count()) === 0) {
     await prisma.metaCampaignSnapshot.createMany({
       data: [
-        { organizationId: aurora.id, adAccountRefId: conta.id, campaignId: "c1", campaignName: "Pão de fermentação natural", status: "ACTIVE", objective: "OUTCOME_LEADS", spend: "412.50", impressions: 38120, clicks: 902, leads: 27, capturedAt: haMin(40) },
-        { organizationId: aurora.id, adAccountRefId: conta.id, campaignId: "c2", campaignName: "Café da manhã delivery", status: "PAUSED", objective: "OUTCOME_TRAFFIC", spend: "180.00", impressions: 15400, clicks: 388, leads: 0, capturedAt: haMin(40) },
+        { organizationId: horizonte.id, adAccountRefId: conta.id, campaignId: "c1", campaignName: "Check-up anual", status: "ACTIVE", objective: "OUTCOME_LEADS", spend: "412.50", impressions: 38120, clicks: 902, leads: 27, capturedAt: haMin(40) },
+        { organizationId: horizonte.id, adAccountRefId: conta.id, campaignId: "c2", campaignName: "Agendamento online", status: "PAUSED", objective: "OUTCOME_TRAFFIC", spend: "180.00", impressions: 15400, clicks: 388, leads: 0, capturedAt: haMin(40) },
       ],
     });
   }
   const formulario = await prisma.metaLeadForm.upsert({
     where: { formId: "exemplo-form-1" },
     update: {},
-    create: { organizationId: aurora.id, pageRefId: pagina.id, adAccountRefId: conta.id, formId: "exemplo-form-1", name: "Encomendas para eventos", status: "ACTIVE", questions: [{ key: "full_name" }, { key: "phone_number" }, { key: "data_evento" }], lastSyncedAt: haMin(40) },
+    create: { organizationId: horizonte.id, pageRefId: pagina.id, adAccountRefId: conta.id, formId: "exemplo-form-1", name: "Agendar consulta", status: "ACTIVE", questions: [{ key: "full_name" }, { key: "phone_number" }, { key: "especialidade" }], lastSyncedAt: haMin(40) },
   });
   for (const [i, s] of ["NEW", "NEW", "IMPORTED"].entries()) {
     await prisma.metaLead.upsert({
       where: { leadgenId: `exemplo-lead-${i}` },
       update: {},
-      create: { organizationId: aurora.id, formRefId: formulario.id, pageRefId: pagina.id, adAccountRefId: conta.id, leadgenId: `exemplo-lead-${i}`, createdTime: haMin(30 + i * 200), processingStatus: s, fieldData: [{ name: "full_name", values: ["Pessoa Exemplo"] }, { name: "phone_number", values: ["+55 11 90000-0000"] }] },
+      create: { organizationId: horizonte.id, formRefId: formulario.id, pageRefId: pagina.id, adAccountRefId: conta.id, leadgenId: `exemplo-lead-${i}`, createdTime: haMin(30 + i * 200), processingStatus: s, fieldData: [{ name: "full_name", values: ["Pessoa Exemplo"] }, { name: "phone_number", values: ["+55 11 90000-0000"] }] },
     });
   }
 
