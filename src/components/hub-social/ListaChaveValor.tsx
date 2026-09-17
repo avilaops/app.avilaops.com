@@ -75,8 +75,10 @@ export default function ListaChaveValor({ itens, titulo, descricao, compacto = f
             <dt className="shrink-0 text-[13px] text-muted-foreground min-[560px]:w-[200px] min-[560px]:pt-[3px]">
               {item.rotulo}
             </dt>
-            <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-foreground min-[560px]:text-[14px]">
-              <Valor item={item} />
+            <dd className="flex min-w-0 flex-1 items-center gap-x-2 gap-y-1 text-[15px] text-foreground min-[560px]:text-[14px]">
+              <span className="min-w-0 flex-1">
+                <Valor item={item} />
+              </span>
               {item.status ? <BadgeStatus status={item.status} /> : null}
               {item.copiar ? <BotaoCopiar texto={item.copiar} rotulo={`Copiar ${item.rotulo}`} /> : null}
             </dd>

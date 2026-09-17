@@ -38,3 +38,16 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 }
+
+/*
+ * O shadcn usa `border` sem cor e conta com `* { border-color: var(--border) }`
+ * na camada base. Sem isso o Tailwind v4 pinta a borda com a cor do texto
+ * (preta no claro, branca no escuro). Escopo só nos componentes shadcn, que
+ * carregam data-slot, para não mexer nas bordas das telas antigas.
+ */
+@layer base {
+  [data-slot],
+  [data-slot] * {
+    border-color: var(--color-border);
+  }
+}
