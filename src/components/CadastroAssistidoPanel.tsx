@@ -271,7 +271,13 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
       {!painel.iaDisponivel ? (
         <p className="cadastro-ia-aviso">
           A IA está desligada neste ambiente, então &quot;Redigir com IA&quot; fica indisponível.
-          O preenchimento pela Receita Federal não depende dela e continua valendo.
+          {/* Só apontar para a Receita quando ela tem o que devolver: num
+              cliente sem consulta de CNPJ guardada aquele botão também está
+              desativado, e mandar a pessoa para lá é trocar uma porta
+              fechada por outra. */}
+          {painel.temDadosDeCnpj
+            ? " O preenchimento pela Receita Federal não depende dela e continua valendo."
+            : " Este cliente também não tem consulta de CNPJ guardada, então os campos abaixo precisam vir do cliente."}
         </p>
       ) : null}
 
