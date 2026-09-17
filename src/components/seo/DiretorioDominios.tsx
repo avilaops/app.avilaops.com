@@ -4,7 +4,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
 import { BOTAO, CAMPO, CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK } from "@/components/seo/comum";
-import { BASE, hrefDominio, PAGE_SIZE, type Params, type SeoItem } from "@/components/seo/dados";
+import { hrefDominio, PAGE_SIZE, type Params, type SeoItem } from "@/components/seo/dados";
 import { cn } from "@/lib/utils";
 
 /**
