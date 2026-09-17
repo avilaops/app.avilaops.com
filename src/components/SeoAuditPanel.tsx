@@ -1,17 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import ListaChaveValor, { type ItemChaveValor } from "@/components/hub-social/ListaChaveValor";
+import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
+import { Button } from "@/components/shadcn/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/card";
+import {
+  ACOES,
+  BOTAO,
+  evidenciaConexao,
+  MensagemErro,
+  MensagemStatus,
+  rotuloSeo,
+  tomNota,
+  type ConexaoSeo,
+} from "@/components/seo/comum";
 import type { DomainSeoAuditResult } from "@/lib/seo-audit";
 import type { PageSpeedAuditResult } from "@/lib/pagespeed";
 
-type Connection = {
-  id: string;
-  status: string;
-  lastSyncedAt: string | null;
-  lastSyncStatus: string | null;
-  lastSyncError: string | null;
-  metadata?: unknown;
-} | null;
+type Connection = ConexaoSeo;
 
 export default function SeoAuditPanel({
   fqdn,
@@ -26,6 +34,8 @@ export default function SeoAuditPanel({
   const [lighthouseConnection, setLighthouseConnection] = useState(initialLighthouseConnection);
   const [status, setStatus] = useState<"idle" | "running">("idle");
   const [message, setMessage] = useState("");
+  // Só decide a apresentação da mensagem (status ou alerta); a lógica é a mesma.
+  const [falhou, setFalhou] = useState(false);
 
   const seoData = seoConnection?.metadata as DomainSeoAuditResult | undefined;
   const psiData = lighthouseConnection?.metadata as PageSpeedAuditResult | undefined;
@@ -33,6 +43,7 @@ export default function SeoAuditPanel({
   async function runAudit(targetFqdn?: string) {
     setStatus("running");
     setMessage("");
+    setFalhou(false);
 
     try {
       const target = targetFqdn || fqdn;
@@ -77,6 +88,7 @@ export default function SeoAuditPanel({
       setMessage(`Auditoria técnica e PageSpeed concluídos para ${target}.`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Falha ao executar auditoria.");
+      setFalhou(true);
     } finally {
       setStatus("idle");
     }
@@ -85,6 +97,7 @@ export default function SeoAuditPanel({
   async function runAutoFix() {
     setStatus("running");
     setMessage("");
+    setFalhou(false);
 
     try {
       const res = await fetch("/api/integrations/seo-audit/autofix", {
@@ -102,6 +115,7 @@ export default function SeoAuditPanel({
       await runAudit(fqdn);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Falha no Auto-Fix SEO.");
+      setFalhou(true);
       setStatus("idle");
     }
   }
@@ -111,95 +125,112 @@ export default function SeoAuditPanel({
   const perfMeasured = psiData?.measured !== false && typeof psiData?.performanceScore === "number";
   const perfScore = perfMeasured ? psiData!.performanceScore : null;
 
+  const verificacao = (ok: boolean | undefined, aprovado: string, reprovado: string) => (
+    <BadgeStatus
+      status={ok ? "ok" : seoData ? "fail" : null}
+      texto={ok ? aprovado : reprovado}
+      tom={ok ? "bom" : seoData ? "atencao" : "neutro"}
+    />
+  );
+
+  const checklist: ItemChaveValor[] = [
+    {
+      rotulo: "robots.txt",
+      valor: (
+        <>
+          {verificacao(seoData?.robots.ok, "Aprovado", "Ausente ou com erro")}
+          {seoData?.robots.hasSitemap ? <span className="text-[13px] text-muted-foreground">Sitemap OK</span> : null}
+        </>
+      ),
+    },
+    {
+      rotulo: "sitemap.xml",
+      valor: seoData?.sitemap.ok
+        ? verificacao(true, `Aprovado (${seoData.sitemap.urlCount} URLs)`, "Ausente")
+        : verificacao(false, "Aprovado", "Ausente"),
+    },
+    { rotulo: "llms.txt", valor: verificacao(seoData?.llms.ok, "Aprovado", "Ausente") },
+    { rotulo: "Favicon", valor: verificacao(seoData?.favicon.ok, "Aprovado", "Faltando") },
+    { rotulo: "Manifest.json", valor: verificacao(seoData?.manifest.ok, "Aprovado", "Ausente") },
+    { rotulo: "URL canônica", valor: verificacao(seoData?.homeHtml.hasCanonical, "Aprovada", "Faltando") },
+    {
+      rotulo: "Open Graph",
+      valor: verificacao(
+        Boolean(seoData?.homeHtml.hasOgTitle && seoData?.homeHtml.hasOgDescription),
+        "Aprovado",
+        "Incompleto",
+      ),
+    },
+    { rotulo: "Schema.org / JSON-LD", valor: verificacao(seoData?.homeHtml.hasJsonLd, "Detectado", "Ausente") },
+  ];
+
+  const ocupado = status === "running";
+
   return (
-    <article className="operations-panel">
-      <div className="operations-panel-heading">
-        <div>
-          <span className="eyebrow">DIAGNÓSTICO TÉCNICO</span>
-          <h2>Auditoria de {fqdn}</h2>
-          <p>Verifica indexação, metadados e experiência de carregamento.</p>
-        </div>
-        <div className="panel-actions" style={{ display: "flex", gap: "0.5rem" }}>
-          <button
-            className="secondary-button"
+    <Card className="gap-5 shadow-none">
+      <CardHeader className="px-4 min-[821px]:px-6">
+        <CardTitle className="text-[17px] min-[821px]:text-[15px]">Auditoria de {fqdn}</CardTitle>
+        <CardDescription>Verifica indexação, metadados e experiência de carregamento.</CardDescription>
+        <CardAction>
+          <BadgeStatus {...rotuloSeo(seoConnection?.status, "Sem auditoria")} />
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="space-y-5 px-4 min-[821px]:px-6">
+        <div className={ACOES}>
+          <Button type="button" onClick={() => runAudit(fqdn)} disabled={ocupado} className={BOTAO}>
+            {ocupado ? "Analisando..." : "Executar auditoria"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             onClick={runAutoFix}
-            disabled={status === "running"}
+            disabled={ocupado}
             title="Aplica somente correções automáticas já autorizadas e executa uma nova auditoria"
+            className={BOTAO}
           >
             Aplicar correções seguras
-          </button>
-          <button
-            className="primary-button"
-            onClick={() => runAudit(fqdn)}
-            disabled={status === "running"}
-          >
-            {status === "running" ? "Analisando..." : "Executar auditoria"}
-          </button>
-        </div>
-      </div>
-
-      {message ? <p className="operations-message">{message}</p> : null}
-
-      <div className="audit-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", margin: "1.5rem 0" }}>
-        <div className="metric-box" style={{ background: "var(--surface-color, #1a1a1a)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <span style={{ fontSize: "0.8rem", textTransform: "uppercase", color: "#888" }}>Score SEO Técnico</span>
-          <div style={{ fontSize: "2rem", fontWeight: "bold", color: score !== null ? (score >= 75 ? "#10b981" : score >= 45 ? "#f59e0b" : "#ef4444") : "#aaa" }}>
-            {score !== null ? `${score}/100` : "Pendente"}
-          </div>
+          </Button>
         </div>
 
-        <div className="metric-box" style={{ background: "var(--surface-color, #1a1a1a)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <span style={{ fontSize: "0.8rem", textTransform: "uppercase", color: "#888" }}>Performance (Lighthouse)</span>
-          <div style={{ fontSize: "2rem", fontWeight: "bold", color: perfScore !== null ? (perfScore >= 80 ? "#10b981" : perfScore >= 50 ? "#f59e0b" : "#ef4444") : "#aaa" }}>
-            {perfScore !== null ? `${perfScore}/100` : "Pendente"}
-          </div>
-        </div>
+        {message ? falhou ? <MensagemErro>{message}</MensagemErro> : <MensagemStatus>{message}</MensagemStatus> : null}
 
-        <div className="metric-box" style={{ background: "var(--surface-color, #1a1a1a)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <span style={{ fontSize: "0.8rem", textTransform: "uppercase", color: "#888" }}>LCP (Largest Contentful Paint)</span>
-          <div style={{ fontSize: "1.2rem", fontWeight: "600", marginTop: "0.4rem" }}>
-            {psiData?.lcp ?? "N/A"}
-          </div>
-        </div>
+        <GradeMetricas rotulo="Notas da auditoria">
+          <Metrica
+            rotulo="Score SEO técnico"
+            valor={score !== null ? `${score}/100` : "Pendente"}
+            tom={tomNota(score, 75, 45)}
+            evidencia={evidenciaConexao(
+              "Score SEO técnico",
+              "POST /api/integrations/seo-audit/run",
+              "score de DomainSeoAuditResult (robots, sitemap, llms, favicon, manifest e HTML da página inicial)",
+              seoConnection,
+            )}
+          />
+          <Metrica
+            rotulo="Performance (Lighthouse)"
+            valor={perfScore !== null ? `${perfScore}/100` : "Pendente"}
+            tom={tomNota(perfScore, 80, 50)}
+            evidencia={evidenciaConexao(
+              "Performance (Lighthouse)",
+              "POST /api/integrations/lighthouse/run",
+              "performanceScore do PageSpeed Insights; sem nota quando measured = false",
+              lighthouseConnection,
+            )}
+          />
+        </GradeMetricas>
 
-        <div className="metric-box" style={{ background: "var(--surface-color, #1a1a1a)", padding: "1rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-          <span style={{ fontSize: "0.8rem", textTransform: "uppercase", color: "#888" }}>CLS / INP</span>
-          <div style={{ fontSize: "1rem", fontWeight: "600", marginTop: "0.4rem" }}>
-            CLS: {psiData?.cls ?? "N/A"} | INP: {psiData?.inp ?? "N/A"}
-          </div>
-        </div>
-      </div>
+        <ListaChaveValor
+          titulo="Core Web Vitals"
+          itens={[
+            { rotulo: "Maior conteúdo (LCP)", valor: psiData?.lcp, mono: true, vazio: "Sem medição" },
+            { rotulo: "Estabilidade visual (CLS)", valor: psiData?.cls, mono: true, vazio: "Sem medição" },
+            { rotulo: "Interação (INP)", valor: psiData?.inp, mono: true, vazio: "Sem medição" },
+          ]}
+        />
 
-      <div className="audit-checklist" style={{ background: "var(--surface-color, #111)", padding: "1.2rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-        <h4 style={{ margin: "0 0 1rem 0" }}>Checklist de Saúde Técnica</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.8rem" }}>
-          <div>
-            <strong>robots.txt:</strong> {seoData?.robots.ok ? "Aprovado" : "Ausente ou com erro"}
-            {seoData?.robots.hasSitemap ? " (Sitemap OK)" : ""}
-          </div>
-          <div>
-            <strong>sitemap.xml:</strong> {seoData?.sitemap.ok ? `Aprovado (${seoData.sitemap.urlCount} URLs)` : "Ausente"}
-          </div>
-          <div>
-            <strong>llms.txt:</strong> {seoData?.llms.ok ? "Aprovado" : "Ausente"}
-          </div>
-          <div>
-            <strong>Favicon:</strong> {seoData?.favicon.ok ? "Aprovado" : "Faltando"}
-          </div>
-          <div>
-            <strong>Manifest.json:</strong> {seoData?.manifest.ok ? "Aprovado" : "Ausente"}
-          </div>
-          <div>
-            <strong>URL canônica:</strong> {seoData?.homeHtml.hasCanonical ? "Aprovada" : "Faltando"}
-          </div>
-          <div>
-            <strong>Open Graph:</strong> {seoData?.homeHtml.hasOgTitle && seoData?.homeHtml.hasOgDescription ? "Aprovado" : "Incompleto"}
-          </div>
-          <div>
-            <strong>Schema.org / JSON-LD:</strong> {seoData?.homeHtml.hasJsonLd ? "Detectado" : "Ausente"}
-          </div>
-        </div>
-      </div>
-    </article>
+        <ListaChaveValor titulo="Checklist de saúde técnica" itens={checklist} compacto />
+      </CardContent>
+    </Card>
   );
 }

@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
+import { Button } from "@/components/shadcn/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/card";
+import {
+  ACOES,
+  BOTAO,
+  evidenciaConexao,
+  formatarDataHora,
+  MensagemErro,
+  MensagemStatus,
+  rotuloSeo,
+  type ConexaoSeo,
+} from "@/components/seo/comum";
 
-type Connection = {
-  id: string;
-  status: string;
-  lastSyncedAt: string | null;
-  lastSyncStatus: string | null;
-  lastSyncError: string | null;
-  metadata?: unknown;
-} | null;
+type Connection = ConexaoSeo;
 
 function metadataValue(metadata: unknown, key: string) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
@@ -88,75 +96,75 @@ export default function IndexNowPanel({
   const keyLocation = metadataValue(connection?.metadata, "keyLocation");
   const canonicalHost = metadataValue(connection?.metadata, "canonicalHost");
 
+  const ocupado = status !== "idle";
+  const redirecionado = connection?.lastSyncStatus === "REDIRECT_DOMAIN" && canonicalHost;
+  const arquivoChave = keyLocation || `https://${fqdn}/[INDEXNOW_KEY].txt`;
+
   return (
-    <article className="operations-panel">
-      <div className="operations-panel-heading">
-        <div>
-          <span className="eyebrow">Bing e IndexNow</span>
-          <h2>{fqdn}</h2>
-        </div>
-        <div className="panel-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={submitAllIndexNow}
-            disabled={status !== "idle"}
-          >
-            {status === "sending" ? "Enviando..." : "Enviar todos"}
-          </button>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={submitIndexNow}
-            disabled={status !== "idle"}
-          >
+    <Card className="gap-5 shadow-none">
+      <CardHeader className="px-4 min-[821px]:px-6">
+        <CardTitle className="text-[17px] min-[821px]:text-[15px]">Bing e IndexNow</CardTitle>
+        <CardDescription className="break-all">{fqdn}</CardDescription>
+        <CardAction>
+          <BadgeStatus {...rotuloSeo(connection?.lastSyncStatus, "Nunca enviado")} />
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="space-y-5 px-4 min-[821px]:px-6">
+        <div className={ACOES}>
+          <Button type="button" onClick={submitIndexNow} disabled={ocupado} className={BOTAO}>
             {status === "sending" ? "Enviando..." : "Enviar URLs agora"}
-          </button>
+          </Button>
+          <Button type="button" variant="outline" onClick={submitAllIndexNow} disabled={ocupado} className={BOTAO}>
+            {status === "sending" ? "Enviando..." : "Enviar todos"}
+          </Button>
         </div>
-      </div>
 
-      {message ? (
-        <div className="operations-empty compact-empty">
-          <strong>{connection?.lastSyncStatus === "SUCCESS" ? "Envio concluído." : "Ação necessária."}</strong>
-          <p>{message}</p>
-        </div>
-      ) : null}
+        {message ? (
+          connection?.lastSyncStatus === "SUCCESS" ? (
+            <MensagemStatus>
+              <strong className="font-semibold">Envio concluído.</strong> {message}
+            </MensagemStatus>
+          ) : (
+            <MensagemErro>
+              <strong className="font-semibold">Ação necessária.</strong> {message}
+            </MensagemErro>
+          )
+        ) : null}
 
-      {batchMessage ? (
-        <div className="operations-empty compact-empty">
-          <strong>Envio em lote concluído.</strong>
-          <p>{batchMessage}</p>
-        </div>
-      ) : null}
+        {batchMessage ? (
+          <MensagemStatus>
+            <strong className="font-semibold">Envio em lote concluído.</strong> {batchMessage}
+          </MensagemStatus>
+        ) : null}
 
-      <dl>
-        <div>
-          <dt>Último envio</dt>
-          <dd>
-            {connection?.lastSyncedAt
-              ? new Date(connection.lastSyncedAt).toLocaleString("pt-BR")
-              : "Nunca enviado"}
-          </dd>
-        </div>
-        <div>
-          <dt>Status</dt>
-          <dd className={connection?.lastSyncStatus === "SUCCESS" ? "positive" : ""}>
-            {connection?.lastSyncStatus ?? "-"}
-          </dd>
-        </div>
-        <div>
-          <dt>URLs enviadas</dt>
-          <dd>
-            {connection?.lastSyncStatus === "REDIRECT_DOMAIN" && canonicalHost
-              ? `Canônico: ${canonicalHost}`
-              : submittedCount || "-"}
-          </dd>
-        </div>
-        <div>
-          <dt>Arquivo de chave</dt>
-          <dd>{keyLocation || `https://${fqdn}/[INDEXNOW_KEY].txt`}</dd>
-        </div>
-      </dl>
-    </article>
+        <GradeMetricas rotulo="Envios ao IndexNow">
+          <Metrica
+            rotulo="URLs enviadas"
+            valor={redirecionado ? "—" : submittedCount || "—"}
+            detalhe={redirecionado ? `Canônico: ${canonicalHost}` : undefined}
+            evidencia={evidenciaConexao(
+              "URLs enviadas",
+              "POST /api/integrations/indexnow/submit",
+              "metadata.submittedCount do último envio; domínio redirecionado mostra o host canônico",
+              connection,
+            )}
+          />
+        </GradeMetricas>
+
+        <ListaChaveValor
+          titulo="Último envio"
+          itens={[
+            { rotulo: "Enviado em", valor: formatarDataHora(connection?.lastSyncedAt), vazio: "Nunca enviado" },
+            {
+              rotulo: "Status",
+              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloSeo(connection.lastSyncStatus)} /> : null,
+            },
+            { rotulo: "Arquivo de chave", valor: arquivoChave, mono: true, copiar: arquivoChave },
+            ...(redirecionado ? [{ rotulo: "Host canônico", valor: canonicalHost, mono: true }] : []),
+          ]}
+        />
+      </CardContent>
+    </Card>
   );
 }

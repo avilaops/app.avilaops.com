@@ -1,6 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import EstadoVazio from "@/components/hub-social/EstadoVazio";
+import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
+import { Button } from "@/components/shadcn/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/card";
+import {
+  ACOES,
+  BOTAO,
+  CartaoLista,
+  formatarDataHora,
+  MensagemErro,
+  rotuloSeo,
+  type ConexaoSeo,
+} from "@/components/seo/comum";
 
 type SitemapEntry = {
   path?: string | null;
@@ -9,14 +23,7 @@ type SitemapEntry = {
   errors?: string | null;
 };
 
-type Connection = {
-  id: string;
-  status: string;
-  lastSyncedAt: string | null;
-  lastSyncStatus: string | null;
-  lastSyncError: string | null;
-  metadata?: unknown;
-} | null;
+type Connection = ConexaoSeo;
 
 export default function SearchConsolePanel({
   siteUrl,
@@ -157,106 +164,114 @@ export default function SearchConsolePanel({
     }
   }
 
+  const ocupado = status !== "idle";
+
   return (
-    <article className="operations-panel">
-      <div className="operations-panel-heading">
-        <div>
-          <span className="eyebrow">Google Search Console</span>
-          <h2>{siteUrl}</h2>
-        </div>
-        <div className="panel-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={handleAddSite}
-            disabled={status !== "idle"}
-          >
+    <Card className="gap-5 shadow-none">
+      <CardHeader className="px-4 min-[821px]:px-6">
+        <CardTitle className="text-[17px] min-[821px]:text-[15px]">Google Search Console</CardTitle>
+        <CardDescription className="break-all font-mono text-[13px]">{siteUrl}</CardDescription>
+        <CardAction>
+          <BadgeStatus {...rotuloSeo(connection?.lastSyncStatus, "Nunca sincronizado")} />
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="space-y-5 px-4 min-[821px]:px-6">
+        <div className={ACOES}>
+          <Button type="button" onClick={handleSubmit} disabled={ocupado} className={BOTAO}>
+            {status === "sending" ? "Enviando..." : "Enviar sitemap agora"}
+          </Button>
+          <Button type="button" variant="outline" onClick={handleAddSite} disabled={ocupado} className={BOTAO}>
             {status === "adding" ? "Cadastrando..." : "Cadastrar propriedade"}
-          </button>
-          <button
-            className="secondary-button"
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={handleVerifyDomain}
-            disabled={status !== "idle" || !siteUrl.startsWith("sc-domain:")}
+            disabled={ocupado || !siteUrl.startsWith("sc-domain:")}
+            className={BOTAO}
           >
             {status === "verifying" ? "Verificando..." : "Criar TXT e verificar"}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={handleAuditSitemap}
-            disabled={status !== "idle"}
-          >
+          </Button>
+          <Button type="button" variant="outline" onClick={handleAuditSitemap} disabled={ocupado} className={BOTAO}>
             {status === "auditing" ? "Auditando..." : "Auditar sitemap"}
-          </button>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={handleSubmit}
-            disabled={status !== "idle"}
-          >
-            {status === "sending" ? "Enviando..." : "Enviar sitemap agora"}
-          </button>
+          </Button>
         </div>
-      </div>
 
-      {error ? (
-        <div className="operations-empty compact-empty">
-          <strong>Não foi possível consultar/enviar.</strong>
-          <p>{error}</p>
-          <small>
-            Confirme se a service account tem acesso à propriedade no Search
-            Console e se `GOOGLE_SERVICE_ACCOUNT_JSON` está configurado.
-          </small>
-        </div>
-      ) : null}
+        {error ? (
+          <div className="space-y-1">
+            <MensagemErro>
+              <strong className="font-semibold">Não foi possível consultar/enviar.</strong> {error}
+            </MensagemErro>
+            <p className="text-[13px] leading-5 text-muted-foreground">
+              Confirme se a service account tem acesso à propriedade no Search Console e se{" "}
+              <code className="font-mono text-[12px]">GOOGLE_SERVICE_ACCOUNT_JSON</code> está configurado.
+            </p>
+          </div>
+        ) : null}
 
-      <dl>
-        <div>
-          <dt>Última sincronização</dt>
-          <dd>
-            {connection?.lastSyncedAt
-              ? new Date(connection.lastSyncedAt).toLocaleString("pt-BR")
-              : "Nunca sincronizado"}
-          </dd>
-        </div>
-        <div>
-          <dt>Status</dt>
-          <dd className={connection?.lastSyncStatus === "SUCCESS" ? "positive" : ""}>
-            {connection?.lastSyncStatus ?? "-"}
-          </dd>
-        </div>
-        <div>
-          <dt>Propriedade</dt>
-          <dd>{connection?.status ?? "Não registrada no Ávila OS"}</dd>
-        </div>
-      </dl>
+        <ListaChaveValor
+          titulo="Propriedade"
+          itens={[
+            {
+              rotulo: "Última sincronização",
+              valor: formatarDataHora(connection?.lastSyncedAt),
+              vazio: "Nunca sincronizado",
+            },
+            {
+              rotulo: "Status",
+              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloSeo(connection.lastSyncStatus)} /> : null,
+            },
+            {
+              rotulo: "Propriedade",
+              valor: connection?.status ? <BadgeStatus {...rotuloSeo(connection.status)} /> : null,
+              vazio: "Não registrada no Ávila OS",
+            },
+            { rotulo: "Sitemap", valor: sitemapUrl, mono: true, copiar: sitemapUrl },
+          ]}
+        />
 
-      {sitemaps.length === 0 ? (
-        <div className="operations-empty compact-empty">
-          <strong>Nenhum sitemap registrado ainda no Search Console.</strong>
-          <p>Clique em &quot;Enviar sitemap agora&quot; para registrar.</p>
-        </div>
-      ) : (
-        <div className="attention-list">
-          {sitemaps.map((sitemap) => (
-            <div className="attention-row" key={sitemap.path}>
-              <div>
-                <strong>{sitemap.path}</strong>
-                <small>
-                  {sitemap.isPending ? "Processando" : "Processado"}
-                  {sitemap.errors ? ` · ${sitemap.errors}` : ""}
-                </small>
-              </div>
-              <span className="attention-type">
-                {sitemap.lastSubmitted
-                  ? new Date(sitemap.lastSubmitted).toLocaleDateString("pt-BR")
-                  : "-"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </article>
+        {sitemaps.length === 0 ? (
+          <EstadoVazio
+            compacto
+            titulo="Nenhum sitemap registrado ainda no Search Console."
+            descricao="Envie o sitemap para registrá-lo."
+            acao={
+              <Button type="button" variant="outline" onClick={handleSubmit} disabled={ocupado} className={BOTAO}>
+                {status === "sending" ? "Enviando..." : "Enviar sitemap agora"}
+              </Button>
+            }
+          />
+        ) : (
+          <CartaoLista titulo="Sitemaps no Search Console">
+            <ul className="m-0 list-none p-0">
+              {sitemaps.map((entry) => (
+                <li
+                  key={entry.path}
+                  className="flex min-h-[56px] flex-col gap-1 border-b border-border px-4 py-3 last:border-b-0 min-[821px]:flex-row min-[821px]:items-center min-[821px]:gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all font-mono text-[13px] text-foreground">{entry.path}</p>
+                    {entry.errors ? (
+                      <p className="text-[13px] text-[color:var(--red)]">{entry.errors}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {entry.isPending ? (
+                      <BadgeStatus status="processing" texto="Processando" />
+                    ) : (
+                      <BadgeStatus status="done" texto="Processado" />
+                    )}
+                    <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
+                      {entry.lastSubmitted ? new Date(entry.lastSubmitted).toLocaleDateString("pt-BR") : "—"}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CartaoLista>
+        )}
+      </CardContent>
+    </Card>
   );
 }
