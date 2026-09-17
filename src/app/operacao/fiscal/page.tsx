@@ -50,7 +50,7 @@ export default async function FiscalCommandCenterPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="fiscal">
-      <header className="page-header operations-header">
+      <header className="page-header">
         <div>
           <h1>Notas Fiscais & SEFAZ</h1>
           <p>

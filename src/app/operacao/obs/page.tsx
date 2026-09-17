@@ -116,7 +116,7 @@ export default async function OsbDashboardPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="operations">
-      <header className="page-header operations-header">
+      <header className="page-header">
         <div>
           <h1>Observabilidade</h1>
           <p>Uptime, SEO técnico, Core Web Vitals, links quebrados e vencimento de domínio.</p>
