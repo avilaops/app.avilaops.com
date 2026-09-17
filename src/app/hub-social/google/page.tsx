@@ -12,7 +12,14 @@ export default async function GooglePage() {
   if (!admin) redirect("/login");
 
   const lidoEm = new Date().toISOString();
-  const [locations, ga4] = await Promise.all([listBusinessLocations(), getGa4OverviewMetrics()]);
+  // GA4 indisponível (credencial, cota) não pode derrubar perfis e IA, que não dependem dele.
+  const [locations, ga4] = await Promise.all([
+    listBusinessLocations(),
+    getGa4OverviewMetrics().then(
+      (dados) => ({ dados, erro: null }),
+      (erro: unknown) => ({ dados: null, erro: erro instanceof Error ? erro.message : "Falha ao ler o GA4." }),
+    ),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +33,7 @@ export default async function GooglePage() {
         }
       />
 
-      <GoogleHub locations={locations} ga4={ga4} lidoEm={lidoEm} />
+      <GoogleHub locations={locations} ga4={ga4.dados} erroGa4={ga4.erro} lidoEm={lidoEm} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore, type MouseEvent } from "react";
+import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn/tabs";
 import type { Evidencia } from "@/lib/evidencia";
@@ -13,7 +14,8 @@ import { notaComDuasCasas, OBSERVACAO_GA4, OBSERVACAO_MEU_NEGOCIO, ORIGEM_GA4, O
 
 export type GoogleHubProps = {
   locations: MappedLocation[];
-  ga4: Ga4OverviewMetrics;
+  ga4: Ga4OverviewMetrics | null;
+  erroGa4: string | null;
   lidoEm: string;
 };
 
@@ -55,7 +57,7 @@ function tomDaNota(nota: number | null) {
   return "ruim" as const;
 }
 
-export default function GoogleHub({ locations, ga4, lidoEm }: GoogleHubProps) {
+export default function GoogleHub({ locations, ga4, erroGa4, lidoEm }: GoogleHubProps) {
   const hash = useSyncExternalStore(assinarHash, lerHash, hashNoServidor);
   const [abaEscolhida, setAbaEscolhida] = useState<Aba | null>(null);
   const [localId, setLocalId] = useState(locations[0]?.id ?? "");
@@ -89,8 +91,8 @@ export default function GoogleHub({ locations, ga4, lidoEm }: GoogleHubProps) {
     origem: ORIGEM_GA4,
     formula: "campo realtimeActiveUsers devolvido por getGa4OverviewMetrics()",
     lidoEm,
-    observacao: OBSERVACAO_GA4,
-    bruto: { realtimeActiveUsers: ga4.realtimeActiveUsers, lastUpdated: ga4.lastUpdated },
+    observacao: ga4 ? OBSERVACAO_GA4 : `GA4 indisponível nesta leitura: ${erroGa4 ?? "sem detalhe"}`,
+    bruto: ga4 ? { realtimeActiveUsers: ga4.realtimeActiveUsers, lastUpdated: ga4.lastUpdated } : undefined,
   };
 
   function aoClicarMetrica(evento: MouseEvent<HTMLDivElement>) {
@@ -134,9 +136,9 @@ export default function GoogleHub({ locations, ga4, lidoEm }: GoogleHubProps) {
           />
           <Metrica
             rotulo="GA4 ativos agora"
-            valor={ga4.realtimeActiveUsers.toLocaleString("pt-BR")}
-            detalhe="usuários em tempo real"
-            tom={ga4.realtimeActiveUsers > 0 ? "bom" : "neutro"}
+            valor={ga4 ? ga4.realtimeActiveUsers.toLocaleString("pt-BR") : "—"}
+            detalhe={ga4 ? "usuários em tempo real" : "GA4 indisponível"}
+            tom={!ga4 ? "atencao" : ga4.realtimeActiveUsers > 0 ? "bom" : "neutro"}
             href="#ga4"
             evidencia={evidenciaAtivos}
           />
@@ -163,7 +165,14 @@ export default function GoogleHub({ locations, ga4, lidoEm }: GoogleHubProps) {
         </TabsContent>
 
         <TabsContent value="ga4" id="ga4" className="scroll-mt-4">
-          <Ga4Resumo ga4={ga4} lidoEm={lidoEm} />
+          {ga4 ? (
+            <Ga4Resumo ga4={ga4} lidoEm={lidoEm} />
+          ) : (
+            <EstadoVazio
+              titulo="GA4 indisponível nesta leitura."
+              descricao={erroGa4 ?? "A Analytics Data API não respondeu."}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>
