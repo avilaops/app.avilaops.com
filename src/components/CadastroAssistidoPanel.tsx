@@ -29,6 +29,7 @@ type Analise = {
   preenchiveisPelaReceita: number;
   preenchiveisPelaIa: number;
   somenteComOCliente: number;
+  temConsultaDeCnpj: boolean;
 };
 
 type Sugestao = {
@@ -51,6 +52,7 @@ export type Painel = {
   pendentes: Sugestao[];
   temPendentesDaIa: boolean;
   temDadosDeCnpj: boolean;
+  iaDisponivel: boolean;
 };
 
 type Resposta = {
@@ -233,9 +235,13 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
           <button
             type="button"
             className="secondary-button"
-            disabled={ocupado !== "" || analise.preenchiveisPelaIa === 0}
+            disabled={ocupado !== "" || analise.preenchiveisPelaIa === 0 || !painel.iaDisponivel}
             onClick={() => gerar("IA")}
-            title="Redige os campos descritivos a partir do que o sistema já sabe."
+            title={
+              painel.iaDisponivel
+                ? "Redige os campos descritivos a partir do que o sistema já sabe."
+                : "A IA está desligada neste ambiente (AI_CORE_ENABLED)."
+            }
           >
             {ocupado === "ia" ? "Redigindo…" : "Redigir com IA"}
           </button>
@@ -250,7 +256,30 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
         {analise.lacunas.length === 0
           ? "Nenhuma lacuna nos campos acompanhados."
           : `${analise.lacunas.length} campos vazios · ${analise.preenchiveisPelaReceita} a Receita resolve · ${analise.preenchiveisPelaIa} a IA redige · ${analise.somenteComOCliente} só o cliente responde.`}
+        {analise.lacunas.length > 0 && !analise.temConsultaDeCnpj ? (
+          <>
+            {" "}
+            <strong>
+              Este cliente não tem consulta de CNPJ guardada, então razão social, endereço e
+              contato oficial contam como &quot;só o cliente responde&quot; — a Receita não tem o
+              que devolver aqui.
+            </strong>
+          </>
+        ) : null}
       </p>
+
+      {!painel.iaDisponivel ? (
+        <p className="cadastro-ia-aviso">
+          A IA está desligada neste ambiente, então &quot;Redigir com IA&quot; fica indisponível.
+          {/* Só apontar para a Receita quando ela tem o que devolver: num
+              cliente sem consulta de CNPJ guardada aquele botão também está
+              desativado, e mandar a pessoa para lá é trocar uma porta
+              fechada por outra. */}
+          {painel.temDadosDeCnpj
+            ? " O preenchimento pela Receita Federal não depende dela e continua valendo."
+            : " Este cliente também não tem consulta de CNPJ guardada, então os campos abaixo precisam vir do cliente."}
+        </p>
+      ) : null}
 
       {erro ? <p className="cadastro-ia-erro">{erro}</p> : null}
       {mensagem ? <p className="cadastro-ia-mensagem">{mensagem}</p> : null}
@@ -320,6 +349,7 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
         <div className="cadastro-ia-perguntar">
           <div className="seo-section-heading">
             <h3>Só o cliente responde</h3>
+            <span className="cadastro-ia-contador">{soComOCliente.length} campos</span>
           </div>
           <ul>
             {soComOCliente.map((lacuna) => (

@@ -6664,6 +6664,17 @@ tbody tr:last-child td {
   gap: 8px;
 }
 
+/* `.secondary-button` não tem estado desativado na folha da casa, e aqui os
+   dois botões ficam lado a lado com só um deles vivo: sem isto, "Preencher
+   pela Receita" parece clicável num cliente sem consulta de CNPJ guardada, e
+   o clique não faz nada nem explica por quê. Escopado ao painel de propósito
+   — dar estado desativado a todo botão secundário do app é faxina de design
+   system, não desta feature. */
+.cadastro-ia-acoes button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .cadastro-ia-barra {
   height: 6px;
   border-radius: 99px;
@@ -6701,6 +6712,17 @@ tbody tr:last-child td {
   border: 1px solid var(--red-line);
   border-radius: var(--radius-sm);
   color: var(--red);
+}
+
+/* Estado do ambiente, não resposta a uma ação: fica discreto, ao contrário da
+   mensagem azul, que responde a algo que a pessoa acabou de fazer. */
+.cadastro-ia-aviso {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
 
 .cadastro-ia-fila,

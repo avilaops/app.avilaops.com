@@ -1,6 +1,7 @@
 import type { TenantContext } from "@avila-ops/ai-core";
+import { aiCoreDisponivel } from "@/lib/ai-core/feature-flag";
 import { prisma } from "@/lib/prisma";
-import { campoPorChave, type CampoCadastro } from "./campos";
+import { campoPorChave, cortarNoTamanho, type CampoCadastro } from "./campos";
 import { analisarCadastro, valorAtual, type AnaliseCadastro, type RetratoCadastro } from "./lacunas";
 import { sugestoesDaReceita } from "./receita";
 import {
@@ -44,6 +45,12 @@ export type PainelCadastro = {
   /** Quanto do que a IA poderia propor já está proposto e esperando decisão. */
   temPendentesDaIa: boolean;
   temDadosDeCnpj: boolean;
+  /**
+   * Se o Ávila AI Core está ligado NESTE ambiente. A tela precisa saber antes
+   * de desenhar o botão: sem isto ela oferece "Redigir com IA" num ambiente
+   * com o Core desligado, e a pessoa só descobre depois de clicar.
+   */
+  iaDisponivel: boolean;
 };
 
 const INCLUDE_RETRATO = {
@@ -145,9 +152,8 @@ export async function montarPainel(organizationId: string): Promise<PainelCadast
     analise,
     pendentes,
     temPendentesDaIa: pendentes.some((item) => item.origem === "IA"),
-    temDadosDeCnpj: Boolean(
-      organizacao.cnpjData && typeof organizacao.cnpjData === "object",
-    ),
+    temDadosDeCnpj: analise.temConsultaDeCnpj,
+    iaDisponivel: aiCoreDisponivel(),
   };
 }
 
@@ -338,7 +344,7 @@ export async function decidirSugestoes(
 
     paraGravar.set(campo.chave, {
       campo,
-      valor: registro.suggestedValue.slice(0, campo.tamanhoMaximo),
+      valor: cortarNoTamanho(registro.suggestedValue, campo.tamanhoMaximo),
       id: registro.id,
     });
   }
