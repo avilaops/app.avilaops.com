@@ -9,15 +9,6 @@ export default async function EstudioPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
   const pecas = await listarPecas();
-  return (
-    <>
-      <header className="page-header">
-        <div>
-          <h1>Estúdio</h1>
-          <p>Peças de vídeo e imagem para as redes e o mural, montadas a partir dos templates da casa.</p>
-        </div>
-      </header>
-      <EstudioLista pecas={pecas} />
-    </>
-  );
+  const lidoEm = new Date().toISOString();
+  return <EstudioLista pecas={pecas} lidoEm={lidoEm} />;
 }
