@@ -1,16 +1,20 @@
-name: Prints do Hub Social
-# Captura as telas do Hub Social com dados fictícios, para revisão visual no PR.
+name: Prints do painel
+# Captura as telas do painel com dados fictícios, para revisão visual no PR:
+# desktop e três iPhones (375x812, 390x844, 430x932), claro e escuro.
 # Não publica imagem nem faz deploy; nenhum segredo é usado.
+#
+# Era "Prints do Hub Social" e cobria só aquela área. A varredura mobile
+# (docs/auditoria-mobile-ios.md) precisa ver o painel inteiro, e os dois
+# aparelhos das pontas que a auditoria pede nunca foram capturados.
 on:
   pull_request:
     branches: [main]
     paths:
-      - "src/app/hub-social/**"
+      - "src/app/**"
       - "src/components/**"
-      - "src/app/hub-social.css"
-      - "src/app/globals.css"
+      - "src/lib/navegacao.ts"
       - "scripts/prints/**"
-      - ".github/workflows/prints-hub-social.yml"
+      - ".github/workflows/prints-painel.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,10 +46,20 @@ jobs:
         run: npx tsx scripts/prints/semear.ts
       - name: Build
         run: npx next build
+      # `next.config.ts` usa output: "standalone", e o Next avisa no próprio log
+      # que `next start` não funciona com isso: serve a página mas devolve 404
+      # em parte dos chunks, e a árvore some na hidratação. Print silenciosamente
+      # errado é pior que print ausente, então o app sobe pelo server.js do
+      # bundle, com os estáticos copiados para dentro dele.
       - name: Subir o app
         run: |
-          npx next start -H 127.0.0.1 -p 3000 > next.log 2>&1 &
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          node .next/standalone/server.js > next.log 2>&1 &
           npx --yes wait-on http://127.0.0.1:3000/login --timeout 120000
+        env:
+          HOSTNAME: 127.0.0.1
+          PORT: "3000"
       - name: Playwright
         run: |
           npm install --no-save playwright@1.62.1
@@ -58,6 +72,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: prints-hub-social
+          name: prints-painel
           path: prints/
           retention-days: 14

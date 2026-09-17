@@ -33,14 +33,35 @@ async function main() {
     },
   });
 
+  // O quarto cliente existe por um motivo só: razão social comprida.
+  //
+  // Os três primeiros cabem numa linha em qualquer aparelho, e por isso os
+  // prints nunca mostraram o defeito que se vê no painel de verdade — nome de
+  // cliente quebrando em quatro linhas e estourando o `min-height` de 60px da
+  // linha. Ferramenta de evidência que não consegue exibir o defeito que ela
+  // deveria provar não serve para decidir a correção.
+  //
+  // 50 caracteres, a mesma ordem de grandeza de uma razão social real com
+  // ramo de atividade e tipo societário no nome. Fictício, como todo o resto
+  // desta semeadura.
   const orgs = [
     { slug: "padaria-aurora", name: "Padaria Aurora", segment: "Alimentação" },
     { slug: "clinica-horizonte", name: "Clínica Horizonte", segment: "Saúde" },
     { slug: "oficina-vale", name: "Oficina do Vale", segment: "Serviços automotivos" },
+    {
+      slug: "serra-azul-engenharia",
+      name: "Construtora Serra Azul Engenharia e Topografia LTDA",
+      segment: "Engenharia e topografia",
+    },
   ];
+  // `update: o`, não `update: {}`: o banco local sobrevive entre execuções, e um
+  // `update` vazio deixa a linha antiga como está. Foi assim que dois clientes
+  // semeados com segmento apareceram no print como "Segmento não definido" —
+  // eles existiam de uma semeadura anterior ao campo. No CI o banco nasce do
+  // zero e a diferença não aparece; localmente ela mente calada.
   const organizacoes = [];
   for (const o of orgs) {
-    organizacoes.push(await prisma.organization.upsert({ where: { slug: o.slug }, update: {}, create: o }));
+    organizacoes.push(await prisma.organization.upsert({ where: { slug: o.slug }, update: o, create: o }));
   }
   const [aurora, horizonte, vale] = organizacoes;
 
