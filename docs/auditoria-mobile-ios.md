@@ -231,6 +231,10 @@ Render de componente usa `react-dom/server` — sem jsdom, sem biblioteca extra.
 
 ## 8. O que ficou de fora (próximas telas)
 
-Mesmo padrão, ainda não aplicado: `financeiro/mercadopago`, `projetos`, `vagas`, `operacao/seo`,
-`operacao/meta`, `implantacao`. Todas usam `AppShell`, então já ganham
+Mesmo padrão, ainda não aplicado: `financeiro/mercadopago`, `projetos`, `vagas`,
+`implantacao`. Todas usam `AppShell`, então já ganham
 navegação, safe-area, botões e cantos; falta reorganizar as grades internas.
+
+`operacao/seo` e `operacao/meta` saíram desta lista em 17/09/2026: as duas viraram
+`hub-social/seo` e `hub-social/meta` na refatoração do Hub Social, que aplicou o
+padrão desta auditoria às sete telas de canais. Veja `docs/hub-social.md`.
