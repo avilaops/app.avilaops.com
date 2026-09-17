@@ -447,6 +447,9 @@ model AiCoreEvalRun {
 
 model Organization {
   id        String   @id @default(cuid())
+  /// Número único do cliente (6 dígitos, a partir de 100001), usado fora do
+  /// sistema: atendimento, cobrança, contratos e infraestrutura. Nunca muda.
+  clientNumber Int   @unique @default(autoincrement()) @map("client_number")
   name      String
   slug      String   @unique
   legalName String?  @map("legal_name")
@@ -1371,6 +1374,23 @@ model ServiceHealthCheck {
   latencyMs   Int?     @map("latency_ms")
   errorCode   String?  @map("error_code")
   checkedAt   DateTime @default(now()) @map("checked_at")
+  /// Proveniência (desde 16/09/2026). Linhas antigas ficam com null.
+  requestId     String?   @map("request_id")
+  trigger       String?
+  probeServer   String?   @map("probe_server")
+  probeVersion  String?   @map("probe_version")
+  method        String?
+  finalUrl      String?   @map("final_url")
+  redirects     Int?
+  resolvedIp    String?   @map("resolved_ip")
+  dnsMs         Int?      @map("dns_ms")
+  connectMs     Int?      @map("connect_ms")
+  tlsMs         Int?      @map("tls_ms")
+  ttfbMs        Int?      @map("ttfb_ms")
+  errorCategory String?   @map("error_category")
+  errorMessage  String?   @map("error_message")
+  finishedAt    DateTime? @map("finished_at")
+  persistedAt   DateTime? @default(now()) @map("persisted_at")
 
   @@index([serviceKey, checkedAt])
   @@index([status, checkedAt])
@@ -1391,8 +1411,19 @@ model ServerHealthSnapshot {
   load1               Float    @map("load_1")
   containersRunning   Int      @map("containers_running")
   containersUnhealthy Int      @map("containers_unhealthy")
+  /// Hora usada para ordenar: a da medição no host, ou a de chegada quando o coletor antigo não a envia.
   collectedAt         DateTime @map("collected_at")
   receivedAt          DateTime @default(now()) @map("received_at")
+  /// Proveniência (desde 16/09/2026). Null em leituras do coletor v1.
+  observedAt          DateTime? @map("observed_at")
+  persistedAt         DateTime? @default(now()) @map("persisted_at")
+  requestId           String?   @map("request_id")
+  collectorVersion    String?   @map("collector_version")
+  hostname            String?
+  sourceIp            String?   @map("source_ip")
+  containersTotal     Int?      @map("containers_total")
+  containersStopped   Int?      @map("containers_stopped")
+  raw                 Json?
 
   @@index([serverKey, collectedAt])
   @@map("server_health_snapshots")

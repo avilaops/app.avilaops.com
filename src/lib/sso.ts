@@ -46,33 +46,3 @@ export async function lerSessaoSSO(): Promise<SessaoSSO | null> {
 }
 
 export const NOME_COOKIE_SSO = COOKIE_SSO;
-
-/**
- * Sessão de **cliente**, emitida por `entrar.avilaops.com`.
- *
- * Cookie e emissor diferentes dos da equipe de propósito: um token do `entrar`
- * nunca passa pela verificação de `lerSessaoSSO()`, que exige
- * `issuer: "auth.avilaops.com"`. É o que impede alguém com conta Google
- * `@avilaops.com` de obter papel administrativo sem a senha da equipe.
- */
-const COOKIE_CLIENTE = "avila_cliente";
-
-export function urlLoginCliente(returnTo = "https://app.avilaops.com/api/auth/sso-cliente"): string {
-  const base = process.env.ENTRAR_BASE_URL || "https://entrar.avilaops.com";
-  const p = new URLSearchParams({ app: "cliente", returnTo });
-  return `${base}/login?${p.toString()}`;
-}
-
-export async function lerSessaoCliente(): Promise<SessaoSSO | null> {
-  const segredo = process.env.SSO_JWT_SECRET;
-  if (!segredo) return null;
-
-  const token = (await cookies()).get(COOKIE_CLIENTE)?.value;
-  if (!token) return null;
-
-  try {
-    return jwt.verify(token, segredo, { issuer: "entrar.avilaops.com" }) as SessaoSSO;
-  } catch {
-    return null;
-  }
-}

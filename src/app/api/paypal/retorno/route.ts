@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const ordemId = request.nextUrl.searchParams.get("token");
-  const portal = new URL("/portal", process.env.CLIENT_PORTAL_URL ?? "https://cliente.avilaops.com");
+  const portal = new URL("/portal", process.env.APP_URL ?? "https://app.avilaops.com");
   if (!ordemId) {
     portal.searchParams.set("pagamento", "invalido");
     return NextResponse.redirect(portal);

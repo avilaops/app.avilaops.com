@@ -47,7 +47,7 @@ export async function checkDomainRenewalStatus(fqdn: string): Promise<DomainRene
         `💰 *Valor da Renovação Anual*: R$ ${STANDARD_RENEWAL_FEE.toFixed(2).replace(".", ",")}`,
         ``,
         `Para garantir a continuidade dos serviços e evitar a suspensão do seu site e e-mails, acesse o portal do cliente para efetuar o pagamento via PIX:`,
-        `👉 https://cliente.avilaops.com`,
+        `👉 https://app.avilaops.com/portal`,
       ].join("\n")
     : undefined;
 
