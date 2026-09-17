@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { navegacaoDoPapel, type SecaoApp } from "@/lib/navegacao";
+import { Icone } from "@/components/ui/Icones";
+import { navegacaoDoPapel, tomDoGrupo, type SecaoApp } from "@/lib/navegacao";
 
 export type { SecaoApp };
 
 /**
- * Coluna de navegação do desktop. No celular ela some inteira e quem assume é
- * o `MobileNav` (barra de abas + folha "Mais"); os dois leem o mesmo mapa em
- * `lib/navegacao.ts`.
+ * Coluna do desktop. Mesma lista do celular (`lib/navegacao.ts`), desenhada
+ * com a linguagem nova: sem caixa em volta, item aceso com superfície suave e
+ * ícone na cor do grupo. No celular ela some e quem assume é o `MobileNav`.
  */
 export default function SideNav({ section, papel }: { section: SecaoApp; papel: string }) {
   const grupos = navegacaoDoPapel(papel);
@@ -24,7 +25,12 @@ export default function SideNav({ section, papel }: { section: SecaoApp; papel: 
                 key={item.href}
                 aria-current={ativo ? "page" : undefined}
               >
-                {item.label}
+                {item.icone ? (
+                  <span className={`nav-icone tom-${tomDoGrupo(group.slug)}`} aria-hidden="true">
+                    <Icone nome={item.icone} tamanho={16} />
+                  </span>
+                ) : null}
+                <span className="nav-link-label">{item.label}</span>
               </Link>
             );
           })}

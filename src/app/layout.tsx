@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope } from "next/font/google";
 import { scriptInicial } from "@/lib/tema-noturno";
 import "./globals.css";
+
+/* Manrope e a fonte da identidade; `variable` deixa o CSS decidir onde aplica. */
+const manrope = Manrope({ subsets: ["latin"], display: "swap", variable: "--font-manrope" });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.avilaops.com";
 const description =
@@ -69,7 +73,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" data-theme="light" style={{ colorScheme: "light" }}>
+    <html lang="pt-BR" data-theme="light" className={manrope.variable} style={{ colorScheme: "light" }}>
       <head>
         {/*
           Modo noturno da casa: 18h escurece, 6h clareia. Precisa rodar antes do
