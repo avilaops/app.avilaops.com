@@ -40,9 +40,19 @@ export function disengageGlobalKillSwitch(): void {
   globalKillSwitchEngaged = false;
 }
 
+/**
+ * Se o Core pode ser chamado agora. Serve a dois públicos com a mesma
+ * resposta: a rota, que precisa recusar antes de sair para a rede, e a tela,
+ * que precisa saber disso ANTES de oferecer o botão — senão ela convida a um
+ * clique que já nasce recusado.
+ */
+export function aiCoreDisponivel(): boolean {
+  return isAiCoreEnabled() && !isGlobalKillSwitchEngaged();
+}
+
 /** Chamar no início de toda rota que usa o Core, antes de qualquer outra lógica. */
 export function assertAiCoreAvailable(): void {
-  if (!isAiCoreEnabled() || isGlobalKillSwitchEngaged()) {
+  if (!aiCoreDisponivel()) {
     throw new AiCoreDisabledError();
   }
 }

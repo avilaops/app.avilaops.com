@@ -52,6 +52,7 @@ export type Painel = {
   pendentes: Sugestao[];
   temPendentesDaIa: boolean;
   temDadosDeCnpj: boolean;
+  iaDisponivel: boolean;
 };
 
 type Resposta = {
@@ -234,9 +235,13 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
           <button
             type="button"
             className="secondary-button"
-            disabled={ocupado !== "" || analise.preenchiveisPelaIa === 0}
+            disabled={ocupado !== "" || analise.preenchiveisPelaIa === 0 || !painel.iaDisponivel}
             onClick={() => gerar("IA")}
-            title="Redige os campos descritivos a partir do que o sistema já sabe."
+            title={
+              painel.iaDisponivel
+                ? "Redige os campos descritivos a partir do que o sistema já sabe."
+                : "A IA está desligada neste ambiente (AI_CORE_ENABLED)."
+            }
           >
             {ocupado === "ia" ? "Redigindo…" : "Redigir com IA"}
           </button>
@@ -262,6 +267,13 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
           </>
         ) : null}
       </p>
+
+      {!painel.iaDisponivel ? (
+        <p className="cadastro-ia-aviso">
+          A IA está desligada neste ambiente, então &quot;Redigir com IA&quot; fica indisponível.
+          O preenchimento pela Receita Federal não depende dela e continua valendo.
+        </p>
+      ) : null}
 
       {erro ? <p className="cadastro-ia-erro">{erro}</p> : null}
       {mensagem ? <p className="cadastro-ia-mensagem">{mensagem}</p> : null}

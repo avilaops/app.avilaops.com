@@ -71,6 +71,17 @@ describe("análise de completude", () => {
     expect(painel.pendentes).toEqual([]);
   });
 
+  it("diz que a IA está indisponível quando o Core está desligado no ambiente", async () => {
+    await criarCliente();
+    const painel = await montarPainel(organizationId);
+
+    // A suíte roda sem AI_CORE_ENABLED=true. A tela precisa saber disso antes
+    // de desenhar o botão: até 17/09/2026 ela oferecia "Redigir com IA" num
+    // ambiente com o Core desligado, e a pessoa só descobria depois de clicar.
+    expect(process.env.AI_CORE_ENABLED).not.toBe("true");
+    expect(painel.iaDisponivel).toBe(false);
+  });
+
   it("recusa cliente inexistente em vez de devolver painel vazio", async () => {
     await expect(montarPainel("nao-existe")).rejects.toBeInstanceOf(OrganizacaoNaoEncontradaError);
   });

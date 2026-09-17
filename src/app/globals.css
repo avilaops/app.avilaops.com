@@ -6714,6 +6714,17 @@ tbody tr:last-child td {
   color: var(--red);
 }
 
+/* Estado do ambiente, não resposta a uma ação: fica discreto, ao contrário da
+   mensagem azul, que responde a algo que a pessoa acabou de fazer. */
+.cadastro-ia-aviso {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
 .cadastro-ia-fila,
 .cadastro-ia-perguntar {
   display: grid;
