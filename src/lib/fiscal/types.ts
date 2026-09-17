@@ -81,11 +81,26 @@ export type NFeCompleta = {
     uf: string;
     cep?: string;
   };
+  /**
+   * O destinatário é o próprio cliente: numa nota recebida, este bloco é o
+   * que o fornecedor registrou sobre ele. Antes daqui saíam só CNPJ, razão
+   * social, IE e UF — o endereço e o contato ficavam no XML sem ninguém ler,
+   * embora sejam justamente o que falta na ficha de um cliente sem consulta
+   * de CNPJ guardada.
+   */
   destinatario: {
     cnpj: string;
     razaoSocial: string;
     ie?: string;
     uf: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    municipio?: string;
+    cep?: string;
+    telefone?: string;
+    email?: string;
   };
   itens: NFeItem[];
   cobranca?: {

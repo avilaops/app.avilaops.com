@@ -27,9 +27,11 @@ type Analise = {
   completude: number;
   lacunas: Lacuna[];
   preenchiveisPelaReceita: number;
+  preenchiveisPelaSefaz: number;
   preenchiveisPelaIa: number;
   somenteComOCliente: number;
   temConsultaDeCnpj: boolean;
+  temRetratoDaSefaz: boolean;
 };
 
 type Sugestao = {
@@ -52,6 +54,7 @@ export type Painel = {
   pendentes: Sugestao[];
   temPendentesDaIa: boolean;
   temDadosDeCnpj: boolean;
+  temRetratoDaSefaz: boolean;
   iaDisponivel: boolean;
 };
 
@@ -68,6 +71,7 @@ type Resposta = {
 
 const ROTULO_ORIGEM: Record<string, string> = {
   RECEITA_FEDERAL: "Receita Federal",
+  SEFAZ: "NF-e (SEFAZ)",
   IA: "IA",
   CLIENTE: "Cliente",
 };
@@ -82,7 +86,7 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
   const router = useRouter();
   const [painel, setPainel] = useState(painelInicial);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
-  const [ocupado, setOcupado] = useState<"" | "receita" | "ia" | "decisao">("");
+  const [ocupado, setOcupado] = useState<"" | "receita" | "sefaz" | "ia" | "decisao">("");
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
 
@@ -105,8 +109,8 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
     router.refresh();
   }
 
-  async function gerar(origem: "RECEITA_FEDERAL" | "IA") {
-    setOcupado(origem === "IA" ? "ia" : "receita");
+  async function gerar(origem: "RECEITA_FEDERAL" | "SEFAZ" | "IA") {
+    setOcupado(origem === "IA" ? "ia" : origem === "SEFAZ" ? "sefaz" : "receita");
     setMensagem("");
     setErro("");
 
@@ -202,8 +206,10 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
     }
   }
 
+  // Uma lacuna só é "do cliente" quando nenhuma automação a alcança — não
+  // basta a Receita não resolver.
   const soComOCliente = analise.lacunas.filter(
-    (lacuna) => !lacuna.origens.includes("RECEITA_FEDERAL") && !lacuna.origens.includes("IA"),
+    (lacuna) => lacuna.origens.length === 1 && lacuna.origens[0] === "CLIENTE",
   );
 
   return (
@@ -235,6 +241,21 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
           <button
             type="button"
             className="secondary-button"
+            disabled={
+              ocupado !== "" || !painel.temRetratoDaSefaz || analise.preenchiveisPelaSefaz === 0
+            }
+            onClick={() => gerar("SEFAZ")}
+            title={
+              painel.temRetratoDaSefaz
+                ? "Usa o bloco do destinatário da NF-e mais recente que a sincronização fiscal guardou."
+                : "A sincronização da SEFAZ ainda não guardou nota deste cliente."
+            }
+          >
+            {ocupado === "sefaz" ? "Lendo…" : "Preencher pela NF-e"}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
             disabled={ocupado !== "" || analise.preenchiveisPelaIa === 0 || !painel.iaDisponivel}
             onClick={() => gerar("IA")}
             title={
@@ -255,14 +276,17 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
       <p className="cadastro-ia-resumo">
         {analise.lacunas.length === 0
           ? "Nenhuma lacuna nos campos acompanhados."
-          : `${analise.lacunas.length} campos vazios · ${analise.preenchiveisPelaReceita} a Receita resolve · ${analise.preenchiveisPelaIa} a IA redige · ${analise.somenteComOCliente} só o cliente responde.`}
+          : `${analise.lacunas.length} campos vazios · ${analise.preenchiveisPelaReceita} a Receita resolve · ${analise.preenchiveisPelaSefaz} a NF-e resolve · ${analise.preenchiveisPelaIa} a IA redige · ${analise.somenteComOCliente} só o cliente responde.`}
+        {/* Sem consulta de CNPJ os campos oficiais só caem no colo do cliente
+            quando a NF-e também não os cobre. Afirmar isso olhando apenas para
+            a Receita ficou errado no dia em que a origem SEFAZ nasceu. */}
         {analise.lacunas.length > 0 && !analise.temConsultaDeCnpj ? (
           <>
             {" "}
             <strong>
-              Este cliente não tem consulta de CNPJ guardada, então razão social, endereço e
-              contato oficial contam como &quot;só o cliente responde&quot; — a Receita não tem o
-              que devolver aqui.
+              {analise.temRetratoDaSefaz
+                ? "Este cliente não tem consulta de CNPJ guardada; o que aparece como oficial veio da NF-e mais recente, escrita por um fornecedor — confira antes de aplicar."
+                : "Este cliente não tem consulta de CNPJ nem nota guardada, então razão social, endereço e contato oficial contam como \u201Csó o cliente responde\u201D."}
             </strong>
           </>
         ) : null}
@@ -277,7 +301,9 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
               fechada por outra. */}
           {painel.temDadosDeCnpj
             ? " O preenchimento pela Receita Federal não depende dela e continua valendo."
-            : " Este cliente também não tem consulta de CNPJ guardada, então os campos abaixo precisam vir do cliente."}
+            : painel.temRetratoDaSefaz
+              ? " O preenchimento pela NF-e não depende dela e continua valendo."
+              : " Este cliente também não tem consulta de CNPJ nem nota guardada, então os campos que restam precisam vir do cliente."}
         </p>
       ) : null}
 
@@ -293,7 +319,16 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
 
           <ul className="cadastro-ia-lista">
             {pendentes.map((sugestao) => (
-              <li key={sugestao.id} className={sugestao.origem === "IA" ? "da-ia" : "da-receita"}>
+              <li
+                key={sugestao.id}
+                className={
+                  sugestao.origem === "IA"
+                    ? "da-ia"
+                    : sugestao.origem === "SEFAZ"
+                      ? "da-sefaz"
+                      : "da-receita"
+                }
+              >
                 <label>
                   <input
                     type="checkbox"
@@ -304,9 +339,9 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
                     <strong>{sugestao.rotulo}</strong>
                     <small>
                       {sugestao.grupo} · {ROTULO_ORIGEM[sugestao.origem] ?? sugestao.origem}
-                      {sugestao.origem === "IA"
-                        ? ` · ${ROTULO_CONFIANCA[sugestao.confianca] ?? sugestao.confianca}`
-                        : ""}
+                      {sugestao.origem === "RECEITA_FEDERAL"
+                        ? ""
+                        : ` · ${ROTULO_CONFIANCA[sugestao.confianca] ?? sugestao.confianca}`}
                     </small>
                   </span>
                 </label>

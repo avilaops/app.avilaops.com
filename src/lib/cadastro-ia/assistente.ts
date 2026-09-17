@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { campoPorChave, cortarNoTamanho, type CampoCadastro } from "./campos";
 import { analisarCadastro, valorAtual, type AnaliseCadastro, type RetratoCadastro } from "./lacunas";
 import { sugestoesDaReceita } from "./receita";
+import { sugestoesDaSefaz } from "./sefaz";
 import {
   AGENTE_AI_CORE,
   MODELO_PADRAO,
@@ -45,6 +46,8 @@ export type PainelCadastro = {
   /** Quanto do que a IA poderia propor já está proposto e esperando decisão. */
   temPendentesDaIa: boolean;
   temDadosDeCnpj: boolean;
+  /** Se a sincronização da SEFAZ já guardou o bloco do destinatário. */
+  temRetratoDaSefaz: boolean;
   /**
    * Se o Ávila AI Core está ligado NESTE ambiente. A tela precisa saber antes
    * de desenhar o botão: sem isto ela oferece "Redigir com IA" num ambiente
@@ -65,6 +68,7 @@ type OrganizacaoComRetrato = {
   segment: string | null;
   siteUrl: string | null;
   cnpjData: unknown;
+  sefazData: unknown;
   profile: Record<string, unknown> | null;
   webPresence: Record<string, unknown> | null;
 };
@@ -77,6 +81,7 @@ function montarRetrato(organizacao: OrganizacaoComRetrato): RetratoCadastro {
       segment: organizacao.segment,
       siteUrl: organizacao.siteUrl,
       cnpjData: organizacao.cnpjData,
+      sefazData: organizacao.sefazData,
     },
     profile: organizacao.profile,
     webPresence: organizacao.webPresence,
@@ -153,13 +158,14 @@ export async function montarPainel(organizationId: string): Promise<PainelCadast
     pendentes,
     temPendentesDaIa: pendentes.some((item) => item.origem === "IA"),
     temDadosDeCnpj: analise.temConsultaDeCnpj,
+    temRetratoDaSefaz: analise.temRetratoDaSefaz,
     iaDisponivel: aiCoreDisponivel(),
   };
 }
 
 export type ResumoGeracao = {
   criadas: number;
-  origem: "RECEITA_FEDERAL" | "IA";
+  origem: "RECEITA_FEDERAL" | "SEFAZ" | "IA";
   observacao?: string;
   requestId?: string;
   estimatedCostUsd?: number;
@@ -190,7 +196,7 @@ async function persistirPropostas(
         organizationId,
         field: proposta.campo,
         suggestedValue: proposta.valor,
-        origin: proposta.origem === "IA" ? "IA" : "RECEITA_FEDERAL",
+        origin: proposta.origem,
         confidence: proposta.confianca,
         rationale: proposta.justificativa || null,
         requestId: extras.requestId ?? null,
@@ -229,6 +235,36 @@ export async function gerarPelaReceita(
   }
 
   return { criadas, origem: "RECEITA_FEDERAL" };
+}
+
+/**
+ * Preenchimento a partir do retrato guardado pela sincronização da SEFAZ. Como
+ * a origem Receita: não usa IA, não chama rede e funciona com o Core
+ * desligado. A diferença é a confiança, que a própria proposta carrega.
+ */
+export async function gerarPelaSefaz(
+  organizationId: string,
+  actorId: string,
+): Promise<ResumoGeracao> {
+  const organizacao = await carregarOrganizacao(organizationId);
+  const retrato = montarRetrato(organizacao as OrganizacaoComRetrato);
+  const propostas = sugestoesDaSefaz(retrato);
+  const criadas = await persistirPropostas(organizationId, propostas, {});
+
+  if (criadas > 0) {
+    await prisma.operationsAuditEvent.create({
+      data: {
+        actorId,
+        organizationId,
+        action: "ORGANIZATION_REGISTRATION_SUGGESTIONS_GENERATED",
+        entityType: "Organization",
+        entityId: organizationId,
+        metadata: { origem: "SEFAZ", criadas },
+      },
+    });
+  }
+
+  return { criadas, origem: "SEFAZ" };
 }
 
 /** Propostas de texto comercial, via Ávila AI Core em saída estruturada. */

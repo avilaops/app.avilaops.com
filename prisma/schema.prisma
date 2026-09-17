@@ -455,6 +455,12 @@ model Organization {
   legalName String?  @map("legal_name")
   cpfCnpj   String?  @unique @map("cpf_cnpj")
   cnpjData  Json?    @map("cnpj_data")
+  /// Retrato do próprio cliente conforme registrado por um fornecedor na NF-e
+  /// mais recente recebida por ele (bloco <dest>), gravado pela sincronização
+  /// da SEFAZ. Mesma natureza do `cnpj_data`: dado do cliente sobre o cliente.
+  /// Item de nota, fornecedor e XML NÃO entram aqui — são dado fiscal de
+  /// terceiro e não têm por que morar no cadastro comercial.
+  sefazData Json?    @map("sefaz_data")
   segment   String?
   siteUrl   String?  @map("site_url")
   status    String   @default("ACTIVE")

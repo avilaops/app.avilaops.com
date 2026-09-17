@@ -30,6 +30,8 @@ export type AnaliseCadastro = {
   lacunas: Lacuna[];
   /** Lacunas que a consulta de CNPJ já guardada consegue resolver. */
   preenchiveisPelaReceita: number;
+  /** Lacunas que o retrato guardado da NF-e consegue resolver. */
+  preenchiveisPelaSefaz: number;
   /** Lacunas que a IA pode redigir. */
   preenchiveisPelaIa: number;
   /** Lacunas que só o cliente responde — viram pergunta, não automação. */
@@ -41,6 +43,8 @@ export type AnaliseCadastro = {
    * arbitrária.
    */
   temConsultaDeCnpj: boolean;
+  /** Mesma ideia, para o retrato guardado da NF-e. */
+  temRetratoDaSefaz: boolean;
 };
 
 /** Valor atual de um campo no retrato, normalizado para string ou null. */
@@ -70,20 +74,39 @@ export function temConsultaDeCnpj(retrato: RetratoCadastro): boolean {
 }
 
 /**
+ * Se a sincronização da SEFAZ já guardou o bloco do destinatário deste
+ * cliente. Mesma lógica de `temConsultaDeCnpj`, e pela mesma razão: sem o
+ * retrato, "a SEFAZ resolve" é falso por mais que o registro liste a origem.
+ */
+export function temRetratoDaSefaz(retrato: RetratoCadastro): boolean {
+  const dados = retrato.organization.sefazData;
+  return Boolean(dados && typeof dados === "object" && !Array.isArray(dados));
+}
+
+/**
  * Quem consegue preencher este campo NESTE cliente, que não é o mesmo que o
  * registro permite em tese. Sem consulta de CNPJ guardada, "a Receita
  * resolve" é falso: o dado tem de vir da consulta ou da boca do cliente, e
  * dizer o contrário faz a tela prometer um clique que não preenche nada.
  */
-function origensEfetivas(campo: CampoCadastro, temCnpj: boolean): OrigemCampo[] {
-  if (temCnpj) return [...campo.origens];
-  const restantes = campo.origens.filter((origem) => origem !== "RECEITA_FEDERAL");
+function origensEfetivas(
+  campo: CampoCadastro,
+  disponiveis: { cnpj: boolean; sefaz: boolean },
+): OrigemCampo[] {
+  const restantes = campo.origens.filter((origem) => {
+    if (origem === "RECEITA_FEDERAL") return disponiveis.cnpj;
+    if (origem === "SEFAZ") return disponiveis.sefaz;
+    return true;
+  });
+  // Campo cujas origens automáticas todas caíram continua sendo pergunta para
+  // o cliente — nunca uma lacuna sem dono.
   return restantes.length > 0 ? restantes : ["CLIENTE"];
 }
 
 export function analisarCadastro(retrato: RetratoCadastro): AnaliseCadastro {
   const lacunas: Lacuna[] = [];
   const temCnpj = temConsultaDeCnpj(retrato);
+  const temSefaz = temRetratoDaSefaz(retrato);
 
   for (const campo of CAMPOS_CADASTRO) {
     if (valorAtual(retrato, campo)) continue;
@@ -91,7 +114,7 @@ export function analisarCadastro(retrato: RetratoCadastro): AnaliseCadastro {
       chave: campo.chave,
       rotulo: campo.rotulo,
       grupo: campo.grupo,
-      origens: origensEfetivas(campo, temCnpj),
+      origens: origensEfetivas(campo, { cnpj: temCnpj, sefaz: temSefaz }),
       porque: campo.porque,
     });
   }
@@ -105,13 +128,14 @@ export function analisarCadastro(retrato: RetratoCadastro): AnaliseCadastro {
     completude: totalCampos === 0 ? 100 : Math.round((preenchidos / totalCampos) * 100),
     lacunas,
     preenchiveisPelaReceita: lacunas.filter((l) => l.origens.includes("RECEITA_FEDERAL")).length,
+    preenchiveisPelaSefaz: lacunas.filter((l) => l.origens.includes("SEFAZ")).length,
     preenchiveisPelaIa: lacunas.filter((l) => l.origens.includes("IA")).length,
     // "Só com o cliente" é o que nenhuma das duas automações alcança — é a
     // lista que vira pauta de conversa, não fila de processamento.
-    somenteComOCliente: lacunas.filter(
-      (l) => !l.origens.includes("RECEITA_FEDERAL") && !l.origens.includes("IA"),
-    ).length,
+    somenteComOCliente: lacunas.filter((l) => l.origens.length === 1 && l.origens[0] === "CLIENTE")
+      .length,
     temConsultaDeCnpj: temCnpj,
+    temRetratoDaSefaz: temSefaz,
   };
 }
 

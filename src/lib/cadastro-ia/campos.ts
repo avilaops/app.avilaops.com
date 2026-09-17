@@ -10,6 +10,11 @@
  *
  * - RECEITA_FEDERAL: o dado já veio da consulta de CNPJ guardada em
  *   `organizations.cnpj_data`. É fato, não palpite.
+ * - SEFAZ: o dado é o bloco `<dest>` da NF-e mais recente recebida pelo
+ *   cliente, guardado pela sincronização fiscal. Também é documento, mas vale
+ *   menos que a Receita: quem escreveu foi um fornecedor, não o cliente nem o
+ *   órgão — pode ser endereço de entrega, pode estar desatualizado. Por isso
+ *   entra sempre DEPOIS da Receita na ordem das origens.
  * - IA: campo descritivo, em que redigir bem é o trabalho e não existe
  *   resposta "certa" a ser consultada em lugar nenhum.
  * - CLIENTE: só a pessoa do outro lado sabe. Aparece na lista do que falta
@@ -20,7 +25,7 @@
  * do que um campo vazio, porque parece preenchido.
  */
 
-export type OrigemCampo = "RECEITA_FEDERAL" | "IA" | "CLIENTE";
+export type OrigemCampo = "RECEITA_FEDERAL" | "SEFAZ" | "IA" | "CLIENTE";
 
 export type DestinoCampo = "organization" | "profile" | "webPresence";
 
@@ -48,7 +53,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "organization",
     coluna: "legalName",
     tamanhoMaximo: 160,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
     porque: "Sai em contrato, nota fiscal e cobrança.",
   },
   {
@@ -68,7 +73,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "stateRegistration",
     tamanhoMaximo: 80,
-    origens: ["CLIENTE"],
+    origens: ["SEFAZ", "CLIENTE"],
     porque: "Exigida na emissão de nota para alguns regimes.",
   },
   {
@@ -88,7 +93,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "phone",
     tamanhoMaximo: 60,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
     porque: "Canal de contato registrado do cliente.",
   },
   {
@@ -108,7 +113,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "email",
     tamanhoMaximo: 160,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
     porque: "Destino da fatura e do acesso ao portal.",
   },
   {
@@ -128,7 +133,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "postalCode",
     tamanhoMaximo: 20,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
   },
   {
     chave: "street",
@@ -137,7 +142,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "street",
     tamanhoMaximo: 180,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
   },
   {
     chave: "number",
@@ -146,7 +151,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "number",
     tamanhoMaximo: 40,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
   },
   {
     chave: "district",
@@ -155,7 +160,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "district",
     tamanhoMaximo: 120,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
   },
   {
     chave: "city",
@@ -164,7 +169,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "city",
     tamanhoMaximo: 120,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
   },
   {
     chave: "state",
@@ -173,7 +178,7 @@ export const CAMPOS_CADASTRO: readonly CampoCadastro[] = [
     destino: "profile",
     coluna: "state",
     tamanhoMaximo: 60,
-    origens: ["RECEITA_FEDERAL", "CLIENTE"],
+    origens: ["RECEITA_FEDERAL", "SEFAZ", "CLIENTE"],
   },
   {
     chave: "companyDescription",
