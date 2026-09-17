@@ -1,0 +1,215 @@
+/**
+ * Dados fictícios para os prints do Hub Social no CI. Nenhum cliente real:
+ * nomes inventados e domínios no TLD reservado `.example`.
+ *
+ * Recusa rodar fora de banco local, pela mesma razão de tests/setup.ts: o
+ * banco de verdade é compartilhado com o portal do cliente.
+ */
+import { prisma } from "../../src/lib/prisma";
+
+const url = process.env.DATABASE_URL ?? "";
+if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
+  throw new Error("semear.ts só roda contra banco local descartável.");
+}
+
+const agora = Date.now();
+const haMin = (min: number) => new Date(agora - min * 60_000);
+const haDias = (dias: number) => new Date(agora - dias * 86_400_000);
+const emDias = (dias: number) => new Date(agora + dias * 86_400_000);
+
+export const ADMIN_ID = "prints-owner";
+
+async function main() {
+  await prisma.adminIdentity.upsert({
+    where: { id: ADMIN_ID },
+    update: {},
+    create: {
+      id: ADMIN_ID,
+      nome: "Pessoa Dona Exemplo",
+      email: "dono@avilaops.example",
+      senhaHash: "sem-login-por-senha",
+      senhaProvisoria: false,
+      role: "OWNER",
+    },
+  });
+
+  const orgs = [
+    { slug: "padaria-aurora", name: "Padaria Aurora", segment: "Alimentação" },
+    { slug: "clinica-horizonte", name: "Clínica Horizonte", segment: "Saúde" },
+    { slug: "oficina-vale", name: "Oficina do Vale", segment: "Serviços automotivos" },
+  ];
+  const organizacoes = [];
+  for (const o of orgs) {
+    organizacoes.push(await prisma.organization.upsert({ where: { slug: o.slug }, update: {}, create: o }));
+  }
+  const [aurora, horizonte, vale] = organizacoes;
+
+  const dominios = [
+    { org: aurora, fqdn: "padariaaurora.example", status: "active", plano: "Free Website", sync: 12, dns: 9, expira: 40 },
+    { org: aurora, fqdn: "aurorapaes.example", status: "active", plano: "Free Website", sync: 12, dns: 4, expira: 300 },
+    { org: horizonte, fqdn: "clinicahorizonte.example", status: "active", plano: "Pro Website", sync: 30, dns: 14, expira: 18 },
+    { org: horizonte, fqdn: "agendahorizonte.example", status: "pending", plano: "Free Website", sync: 60 * 26, dns: 2, expira: null },
+    { org: vale, fqdn: "oficinadovale.example", status: "active", plano: "Free Website", sync: 5, dns: 7, expira: 200 },
+  ];
+  for (const [i, d] of dominios.entries()) {
+    const ativo = await prisma.domainAsset.upsert({
+      where: { fqdn: d.fqdn },
+      update: {},
+      create: {
+        organizationId: d.org.id,
+        fqdn: d.fqdn,
+        cloudflareZoneId: `zona-exemplo-${i}`,
+        cloudflareStatus: d.status,
+        cloudflarePlan: d.plano,
+        dnsLastSyncedAt: haMin(d.sync),
+        expiresAt: d.expira === null ? null : emDias(d.expira),
+        autoRenew: i % 2 === 0,
+        registrar: "Registro.br",
+      },
+    });
+    for (let r = 0; r < d.dns; r++) {
+      await prisma.dnsRecord.upsert({
+        where: { cloudflareRecordId: `${d.fqdn}-${r}` },
+        update: {},
+        create: { domainAssetId: ativo.id, cloudflareRecordId: `${d.fqdn}-${r}`, type: r === 0 ? "A" : "CNAME", name: d.fqdn, content: "192.0.2.10" },
+      });
+    }
+  }
+
+  const seo = [
+    { site: "sc-domain:padariaaurora.example", provider: "google_search_console", meta: { verified: true } },
+    { site: "sc-domain:clinicahorizonte.example", provider: "google_search_console", meta: { verified: true } },
+    { site: "padariaaurora.example", provider: "seo_audit", meta: { score: 86, robots: { ok: true }, sitemap: { ok: true }, llms: { ok: false }, homeHtml: { hasCanonical: true } } },
+    { site: "clinicahorizonte.example", provider: "seo_audit", meta: { score: 64, robots: { ok: false }, sitemap: { ok: true }, homeHtml: { hasCanonical: true } } },
+    { site: "padariaaurora.example", provider: "lighthouse", meta: { performanceScore: 91, lcp: "1,8 s", cls: "0,02", inp: "120 ms" } },
+    { site: "clinicahorizonte.example", provider: "lighthouse", meta: { performanceScore: 58, lcp: "4,1 s", cls: "0,18", inp: "310 ms" } },
+  ];
+  for (const s of seo) {
+    await prisma.integrationConnection.upsert({
+      where: { provider_siteUrl: { provider: s.provider, siteUrl: s.site } },
+      update: {},
+      create: { provider: s.provider, siteUrl: s.site, status: "ACTIVE", lastSyncedAt: haMin(90), lastSyncStatus: "SUCCESS", metadata: s.meta },
+    });
+  }
+
+  const contatos = [
+    ["ana@padariaaurora.example", "Ana Lima", "Padaria Aurora", "SUBSCRIBED", ["clientes"]],
+    ["bruno@clinicahorizonte.example", "Bruno Reis", "Clínica Horizonte", "SUBSCRIBED", ["clientes", "saude"]],
+    ["carla@oficinadovale.example", "Carla Souza", "Oficina do Vale", "SUBSCRIBED", ["clientes"]],
+    ["davi@exemplo.example", "Davi Costa", null, "SUBSCRIBED", ["prospeccao"]],
+    ["elisa@exemplo.example", "Elisa Nunes", null, "UNSUBSCRIBED", ["prospeccao"]],
+    ["retorno@exemplo.example", null, null, "BOUNCED", []],
+  ] as const;
+  for (const [i, [email, name, company, status, tags]] of contatos.entries()) {
+    await prisma.newsletterContact.upsert({
+      where: { email },
+      update: {},
+      create: { email, name, company, status, tags: [...tags], source: i < 3 ? "CLIENTES" : "MANUAL", createdAt: haDias(i + 1) },
+    });
+  }
+  if ((await prisma.newsletterCampaign.count()) === 0) {
+    await prisma.newsletterCampaign.createMany({
+      data: [
+        { name: "Novidades de setembro", subject: "O que mudou no seu site este mês", status: "SENT", recipientCount: 3, sentCount: 3, sentAt: haDias(2), createdAt: haDias(3), audienceTags: ["clientes"], format: "TEXT", text: "Olá!" },
+        { name: "Convite para diagnóstico", subject: "Seu site aparece no Google?", status: "DRAFT", createdAt: haDias(1), audienceTags: ["prospeccao"], format: "TEXT", text: "Olá!" },
+      ],
+    });
+  }
+
+  const eventos = [
+    { tipo: "messages", status: "PROCESSED", min: 8 },
+    { tipo: "message_template_status_update", status: "RECEIVED", min: 55 },
+    { tipo: "flow", status: "PROCESSED", min: 60 * 5 },
+    { tipo: "messages", status: "FAILED", min: 60 * 30, erro: "Assinatura inválida" },
+  ];
+  for (const [i, e] of eventos.entries()) {
+    await prisma.integrationWebhookEvent.upsert({
+      where: { idempotencyKey: `whatsapp_business:exemplo:${i}` },
+      update: {},
+      create: {
+        provider: "whatsapp_business",
+        eventType: e.tipo,
+        status: e.status,
+        idempotencyKey: `whatsapp_business:exemplo:${i}`,
+        receivedAt: haMin(e.min),
+        processedAt: e.status === "PROCESSED" ? haMin(e.min - 1) : null,
+        error: e.erro ?? null,
+        payload: { object: "whatsapp_business_account", exemplo: true, entrada: i },
+      },
+    });
+  }
+
+  await prisma.organizationIntegrationConnection.upsert({
+    where: { organizationId_provider: { organizationId: aurora.id, provider: "meta_business" } },
+    update: {},
+    create: {
+      organizationId: aurora.id,
+      provider: "meta_business",
+      status: "ACTIVE",
+      accountName: "Pessoa Dona Exemplo",
+      externalId: "100000000000001",
+      tokenExpiresAt: emDias(5),
+      lastSyncedAt: haMin(40),
+      lastSyncStatus: "SUCCESS",
+    },
+  });
+  const bm = await prisma.metaBusinessAccount.upsert({
+    where: { businessId: "exemplo-bm-1" },
+    update: {},
+    create: { organizationId: aurora.id, businessId: "exemplo-bm-1", name: "Padaria Aurora BM", verificationStatus: "not_verified", timezone: "America/Sao_Paulo", lastSyncedAt: haMin(40) },
+  });
+  const pagina = await prisma.metaPage.upsert({
+    where: { pageId: "exemplo-pagina-1" },
+    update: {},
+    create: { organizationId: aurora.id, businessAccountRefId: bm.id, pageId: "exemplo-pagina-1", name: "Padaria Aurora", username: "padariaaurora", lastSyncedAt: haMin(40) },
+  });
+  await prisma.instagramAccount.upsert({
+    where: { instagramAccountId: "exemplo-ig-1" },
+    update: {},
+    create: { organizationId: aurora.id, businessAccountRefId: bm.id, pageRefId: pagina.id, instagramAccountId: "exemplo-ig-1", username: "padariaaurora", name: "Padaria Aurora", followersCount: 2140, lastSyncedAt: haMin(40) },
+  });
+  const conta = await prisma.metaAdAccount.upsert({
+    where: { adAccountId: "act_exemplo_1" },
+    update: {},
+    create: { organizationId: aurora.id, businessAccountRefId: bm.id, adAccountId: "act_exemplo_1", name: "Aurora — Anúncios", currency: "BRL", accountStatus: "1", lastSyncedAt: haMin(40) },
+  });
+  if ((await prisma.metaCampaignSnapshot.count()) === 0) {
+    await prisma.metaCampaignSnapshot.createMany({
+      data: [
+        { organizationId: aurora.id, adAccountRefId: conta.id, campaignId: "c1", campaignName: "Pão de fermentação natural", status: "ACTIVE", objective: "OUTCOME_LEADS", spend: "412.50", impressions: 38120, clicks: 902, leads: 27, capturedAt: haMin(40) },
+        { organizationId: aurora.id, adAccountRefId: conta.id, campaignId: "c2", campaignName: "Café da manhã delivery", status: "PAUSED", objective: "OUTCOME_TRAFFIC", spend: "180.00", impressions: 15400, clicks: 388, leads: 0, capturedAt: haMin(40) },
+      ],
+    });
+  }
+  const formulario = await prisma.metaLeadForm.upsert({
+    where: { formId: "exemplo-form-1" },
+    update: {},
+    create: { organizationId: aurora.id, pageRefId: pagina.id, adAccountRefId: conta.id, formId: "exemplo-form-1", name: "Encomendas para eventos", status: "ACTIVE", questions: [{ key: "full_name" }, { key: "phone_number" }, { key: "data_evento" }], lastSyncedAt: haMin(40) },
+  });
+  for (const [i, s] of ["NEW", "NEW", "IMPORTED"].entries()) {
+    await prisma.metaLead.upsert({
+      where: { leadgenId: `exemplo-lead-${i}` },
+      update: {},
+      create: { organizationId: aurora.id, formRefId: formulario.id, pageRefId: pagina.id, adAccountRefId: conta.id, leadgenId: `exemplo-lead-${i}`, createdTime: haMin(30 + i * 200), processingStatus: s, fieldData: [{ name: "full_name", values: ["Pessoa Exemplo"] }, { name: "phone_number", values: ["+55 11 90000-0000"] }] },
+    });
+  }
+
+  if ((await prisma.studioPiece.count()) === 0) {
+    const pecas = [
+      { title: "Cartão de chamada", templateId: "cartao-chamada", format: "4:5", kind: "image", status: "DONE", w: 1080, h: 1350 },
+      { title: "Receita da semana (vídeo)", templateId: "cena-personagem", format: "9:16", kind: "video", status: "RUNNING", w: 1080, h: 1920 },
+      { title: "Frase do dia", templateId: "post-frase", format: "1:1", kind: "image", status: "FAILED", w: 1080, h: 1080 },
+      { title: "Anúncio de serviço", templateId: "anuncio-servico", format: "9:16", kind: null, status: null, w: 0, h: 0 },
+    ];
+    for (const [i, p] of pecas.entries()) {
+      const peca = await prisma.studioPiece.create({ data: { title: p.title, templateId: p.templateId, format: p.format, values: {}, createdAt: haDias(i), updatedAt: haDias(i) } });
+      if (p.kind && p.status) {
+        await prisma.studioRender.create({ data: { pieceId: peca.id, kind: p.kind, status: p.status, width: p.w, height: p.h, snapshot: {}, createdAt: haDias(i) } });
+      }
+    }
+  }
+}
+
+main()
+  .then(() => console.log("Dados fictícios prontos."))
+  .finally(() => prisma.$disconnect());

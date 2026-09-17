@@ -1,0 +1,63 @@
+name: Prints do Hub Social
+# Captura as telas do Hub Social com dados fictícios, para revisão visual no PR.
+# Não publica imagem nem faz deploy; nenhum segredo é usado.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/app/hub-social/**"
+      - "src/components/**"
+      - "src/app/hub-social.css"
+      - "src/app/globals.css"
+      - "scripts/prints/**"
+      - ".github/workflows/prints-hub-social.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:55433/cliente_portal_test?schema=public
+      APP_JWT_SECRET: prints-somente-ci
+      APP_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Subir banco descartável
+        run: docker compose -f docker-compose.test.yml up -d --wait
+      - name: Criar papel exigido pelas migrações
+        run: docker compose -f docker-compose.test.yml exec -T db-test psql -U postgres -d cliente_portal_test -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='app_avila') THEN CREATE ROLE app_avila; END IF; END \$\$;"
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Dados fictícios
+        run: npx tsx scripts/prints/semear.ts
+      - name: Build
+        run: npx next build
+      - name: Subir o app
+        run: |
+          npx next start -H 127.0.0.1 -p 3000 > next.log 2>&1 &
+          npx --yes wait-on http://127.0.0.1:3000/login --timeout 120000
+      - name: Playwright
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Capturar
+        run: node scripts/prints/capturar.mjs
+      - name: Log do app
+        if: always()
+        run: tail -n 200 next.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prints-hub-social
+          path: prints/
+          retention-days: 14
