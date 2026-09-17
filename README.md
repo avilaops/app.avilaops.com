@@ -86,7 +86,7 @@ Contrato completo, IDs dos workflows e variáveis de ambiente:
 `criar-assinatura.ts` e `sync-openai-project.ts` foram substituídos por essas
 telas e ficam só por histórico.
 
-## Assistente de cadastro (Receita Federal + IA)
+## Assistente de cadastro (Receita Federal + NF-e + IA)
 
 Acima da ficha, na aba de cadastro, um painel mostra a completude do cliente e
 de onde cada campo vazio pode ser preenchido:
@@ -94,6 +94,11 @@ de onde cada campo vazio pode ser preenchido:
 - **Preencher pela Receita** — lê a consulta de CNPJ já guardada em
   `organizations.cnpj_data` e propõe razão social, segmento, endereço,
   telefone e e-mail. Não faz chamada externa e não depende da IA.
+- **Preencher pela NF-e** — lê o bloco do destinatário da nota mais recente,
+  guardado pela sincronização fiscal em `organizations.sefaz_data`. É a única
+  origem que traz a **inscrição estadual**. Vale menos que a Receita e a tela
+  diz isso: quem escreveu foi um fornecedor, então a confiança é média e a
+  justificativa nomeia a chave da nota e a data.
 - **Redigir com IA** — passa pelo Ávila AI Core em saída estruturada e propõe
   só campos descritivos (descrição, serviços, produtos, diferenciais, área de
   atendimento). Documento, telefone, e-mail e endereço nunca são gerados por

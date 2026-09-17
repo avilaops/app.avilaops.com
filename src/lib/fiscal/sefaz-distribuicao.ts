@@ -6,6 +6,7 @@ import {
   atualizarPonteiroNSU,
   obterCertificadoA1Descriptografado,
 } from "./certificado";
+import { guardarRetratoDoDestinatario } from "./retrato-destinatario";
 
 const URL_SEFAZ_DISTRIBUICAO_PROD =
   "https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx";
@@ -309,6 +310,12 @@ export async function sincronizarNFeOrganizacao(params: {
     maxNSU: maxNSUAtual,
     bloqueadoAte: null,
   });
+
+  // O bloco <dest> das notas é o próprio cliente: fica guardado para o
+  // assistente de cadastro, que hoje não tem de onde tirar inscrição
+  // estadual. Falhar aqui não pode derrubar a sincronização fiscal, que é o
+  // trabalho principal desta função.
+  await guardarRetratoDoDestinatario(params.organizationId, todosDocumentos).catch(() => null);
 
   const notasCompletas = todosDocumentos.filter((d) => d.tipo === "COMPLETA").length;
   const resumos = todosDocumentos.filter((d) => d.tipo === "RESUMO").length;

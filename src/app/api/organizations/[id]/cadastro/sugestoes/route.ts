@@ -9,6 +9,7 @@ import {
   OrganizacaoNaoEncontradaError,
   gerarPelaIa,
   gerarPelaReceita,
+  gerarPelaSefaz,
   montarPainel,
 } from "@/lib/cadastro-ia/assistente";
 
@@ -20,11 +21,12 @@ import {
  * banco, e é a parte da tela que sempre funciona.
  *
  * POST gera propostas novas. `origem=RECEITA_FEDERAL` lê a consulta de CNPJ
- * já guardada e não faz chamada externa nenhuma; `origem=IA` passa pelo
+ * guardada e `origem=SEFAZ` lê o bloco do destinatário que a sincronização
+ * fiscal gravou — nenhuma das duas faz chamada externa. `origem=IA` passa pelo
  * Ávila AI Core e só roda com AI_CORE_ENABLED=true, credencial configurada e
  * orçamento disponível.
  *
- * Nenhuma das duas escreve na ficha: as duas só enfileiram proposta para
+ * Nenhuma das três escreve na ficha: todas só enfileiram proposta para
  * revisão humana em /decidir.
  */
 
@@ -57,11 +59,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { id } = await params;
   const body = (await request.json().catch(() => null)) as { origem?: unknown } | null;
-  const origem = body?.origem === "IA" ? "IA" : "RECEITA_FEDERAL";
+  const origem =
+    body?.origem === "IA" || body?.origem === "SEFAZ" ? body.origem : "RECEITA_FEDERAL";
 
   try {
+    // As duas origens documentais não tocam a rede nem a IA: leem o que outra
+    // rotina já gravou no cadastro.
     if (origem === "RECEITA_FEDERAL") {
       const resumo = await gerarPelaReceita(id, admin.id);
+      return NextResponse.json({ status: "SUCCESS", ...resumo, painel: await montarPainel(id) });
+    }
+
+    if (origem === "SEFAZ") {
+      const resumo = await gerarPelaSefaz(id, admin.id);
       return NextResponse.json({ status: "SUCCESS", ...resumo, painel: await montarPainel(id) });
     }
 

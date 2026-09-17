@@ -108,12 +108,23 @@ export function parseProcNFe(xml: string, nsu: string): NFeCompleta {
     cep: getTagValue(enderEmitBlock, "CEP") || undefined,
   };
 
-  // Destinatário
+  // Destinatário — o cliente. O endereço vive em <enderDest>, não solto em
+  // <dest>: ler a UF do bloco externo funcionava por acaso, porque só existe
+  // uma UF na nota inteira do lado do destinatário.
+  const enderDestBlock = getTagBlock(destBlock, "enderDest");
   const destinatario = {
     cnpj: getTagValue(destBlock, "CNPJ") || getTagValue(destBlock, "CPF"),
     razaoSocial: getTagValue(destBlock, "xNome"),
     ie: getTagValue(destBlock, "IE") || undefined,
-    uf: getTagValue(destBlock, "UF"),
+    uf: getTagValue(enderDestBlock, "UF") || getTagValue(destBlock, "UF"),
+    logradouro: getTagValue(enderDestBlock, "xLgr") || undefined,
+    numero: getTagValue(enderDestBlock, "nro") || undefined,
+    complemento: getTagValue(enderDestBlock, "xCpl") || undefined,
+    bairro: getTagValue(enderDestBlock, "xBairro") || undefined,
+    municipio: getTagValue(enderDestBlock, "xMun") || undefined,
+    cep: getTagValue(enderDestBlock, "CEP") || undefined,
+    telefone: getTagValue(enderDestBlock, "fone") || undefined,
+    email: getTagValue(destBlock, "email") || undefined,
   };
 
   // Itens / Produtos

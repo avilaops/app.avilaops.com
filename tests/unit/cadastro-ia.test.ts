@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CAMPOS_CADASTRO, CAMPOS_DA_IA, campoPorChave, cortarNoTamanho } from "@/lib/cadastro-ia/campos";
 import { analisarCadastro, valorAtual, type RetratoCadastro } from "@/lib/cadastro-ia/lacunas";
 import { sugestoesDaReceita } from "@/lib/cadastro-ia/receita";
+import { sugestoesDaSefaz } from "@/lib/cadastro-ia/sefaz";
 import {
   MAXIMO_SUGESTOES,
   filtrarSugestoes,
@@ -11,7 +12,7 @@ import {
 
 function retrato(parcial: Partial<RetratoCadastro> = {}): RetratoCadastro {
   return {
-    organization: { name: "Topografia Vale", legalName: null, segment: null, siteUrl: null, cnpjData: null },
+    organization: { name: "Topografia Vale", legalName: null, segment: null, siteUrl: null, cnpjData: null, sefazData: null },
     profile: null,
     webPresence: null,
     ...parcial,
@@ -385,5 +386,109 @@ describe("origens efetivas sem consulta de CNPJ guardada", () => {
       );
       expect(analise.lacunas.every((l) => l.origens.length > 0)).toBe(true);
     }
+  });
+});
+
+const RETRATO_SEFAZ = {
+  cnpj: "12345678000190",
+  razaoSocial: "PADARIA AURORA COMERCIO DE ALIMENTOS LTDA",
+  ie: "1234567890",
+  uf: "MG",
+  logradouro: "RUA DAS ACACIAS",
+  numero: "120",
+  bairro: "CENTRO",
+  municipio: "UBERLANDIA",
+  cep: "38400100",
+  telefone: "3432221100",
+  email: "contato@padariaaurora.example",
+  chaveAcesso: "35260912345678000190550010000012341000012345",
+  dataEmissao: "2026-09-10T14:30:00-03:00",
+  capturadoEm: "2026-09-17T06:00:00.000Z",
+};
+
+function comSefaz(extra: Record<string, unknown> = {}): RetratoCadastro {
+  return retrato({
+    organization: {
+      name: "Padaria Aurora",
+      legalName: null,
+      segment: null,
+      siteUrl: null,
+      cnpjData: null,
+      sefazData: RETRATO_SEFAZ,
+      ...extra,
+    },
+  });
+}
+
+describe("origem SEFAZ", () => {
+  it("propõe os campos do bloco do destinatário, formatados", () => {
+    const porCampo = Object.fromEntries(
+      sugestoesDaSefaz(comSefaz()).map((s) => [s.campo, s.valor]),
+    );
+
+    expect(porCampo.legalName).toBe("PADARIA AURORA COMERCIO DE ALIMENTOS LTDA");
+    expect(porCampo.postalCode).toBe("38400-100");
+    expect(porCampo.phone).toBe("(34) 3222-1100");
+    expect(porCampo.city).toBe("UBERLANDIA");
+  });
+
+  it("desbloqueia a inscrição estadual, que nenhuma outra origem alcança", () => {
+    const ie = sugestoesDaSefaz(comSefaz()).find((s) => s.campo === "stateRegistration");
+    expect(ie?.valor).toBe("1234567890");
+    // A Receita não devolve IE e a IA nunca poderia inventá-la.
+    expect(campoPorChave("stateRegistration")!.origens).not.toContain("RECEITA_FEDERAL");
+    expect(campoPorChave("stateRegistration")!.origens).not.toContain("IA");
+  });
+
+  it("marca confiança MEDIA: quem escreveu foi um fornecedor", () => {
+    expect(sugestoesDaSefaz(comSefaz()).every((s) => s.confianca === "MEDIA")).toBe(true);
+  });
+
+  it("nomeia a nota e a data na justificativa", () => {
+    const justificativa = sugestoesDaSefaz(comSefaz())[0].justificativa;
+    expect(justificativa).toContain("10/09/2026");
+    expect(justificativa).toContain("35260912345678000190550010000012341000012345");
+  });
+
+  it("não propõe campo que já tem valor", () => {
+    const sugestoes = sugestoesDaSefaz(comSefaz({ legalName: "Digitado pela equipe" }));
+    expect(sugestoes.some((s) => s.campo === "legalName")).toBe(false);
+  });
+
+  it("devolve vazio sem retrato guardado", () => {
+    expect(sugestoesDaSefaz(retrato())).toEqual([]);
+  });
+
+  it("não quebra a justificativa com data inválida", () => {
+    const sugestoes = sugestoesDaSefaz(
+      comSefaz({ sefazData: { ...RETRATO_SEFAZ, dataEmissao: "sem data" } }),
+    );
+    expect(sugestoes[0].justificativa).not.toContain("Invalid Date");
+  });
+});
+
+describe("origens efetivas com as duas fontes documentais", () => {
+  it("não conta a SEFAZ para quem não tem retrato guardado", () => {
+    const analise = analisarCadastro(retrato());
+    expect(analise.temRetratoDaSefaz).toBe(false);
+    expect(analise.preenchiveisPelaSefaz).toBe(0);
+  });
+
+  it("conta a SEFAZ e tira os campos dela da lista do cliente", () => {
+    const analise = analisarCadastro(comSefaz());
+    expect(analise.temRetratoDaSefaz).toBe(true);
+    expect(analise.preenchiveisPelaSefaz).toBeGreaterThan(0);
+
+    const ie = analise.lacunas.find((l) => l.chave === "stateRegistration")!;
+    expect(ie.origens).toEqual(["SEFAZ", "CLIENTE"]);
+  });
+
+  it("uma lacuna só é do cliente quando nenhuma automação a alcança", () => {
+    const analise = analisarCadastro(comSefaz());
+    const doCliente = analise.lacunas.filter(
+      (l) => l.origens.length === 1 && l.origens[0] === "CLIENTE",
+    );
+    expect(analise.somenteComOCliente).toBe(doCliente.length);
+    expect(doCliente.some((l) => l.chave === "stateRegistration")).toBe(false);
   });
 });
