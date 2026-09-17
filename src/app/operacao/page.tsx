@@ -90,7 +90,7 @@ export default async function OperationsPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="operations">
-      <header className="page-header operations-header">
+      <header className="page-header">
         <div>
           <h1>Visão central</h1>
           <p>O que precisa de decisão agora - prazos, domínios e saldo.</p>

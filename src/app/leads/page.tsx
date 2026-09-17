@@ -28,7 +28,7 @@ export default async function LeadsPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="leads">
-      <header className="page-header operations-header">
+      <header className="page-header">
         <div>
           <h1>Leads</h1>
           <p>Quem pediu contato e ainda não virou cliente.</p>
