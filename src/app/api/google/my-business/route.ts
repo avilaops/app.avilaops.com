@@ -3,8 +3,6 @@ import { getAdmin } from "@/lib/auth";
 import {
   listBusinessLocations,
   generateAiReviewReply,
-  MAPPED_BUSINESSES,
-  type BusinessTone,
 } from "@/lib/google-mybusiness";
 
 export async function GET() {
@@ -15,45 +13,12 @@ export async function GET() {
 
   const locations = await listBusinessLocations();
 
-  // Exemplo de avaliações pendentes para teste de resposta por IA
-  const sampleReviews = [
-    {
-      id: "rev_1",
-      locationId: "loc_brasa_mineira",
-      locationName: "Brasa Mineira",
-      reviewerName: "Carlos Eduardo Silva",
-      starRating: 5,
-      comment: "A comida mineira é fantástica! O torresmo e a feijoada estavam perfeitos, ótimo atendimento.",
-      createTime: new Date(Date.now() - 3600000 * 4).toISOString(),
-      tone: "ACOLHEDOR" as BusinessTone,
-    },
-    {
-      id: "rev_2",
-      locationId: "loc_grb_seguranca",
-      locationName: "GRB Engenharia de Segurança",
-      reviewerName: "Dra. Mariana Costa",
-      starRating: 5,
-      comment: "Excelente consultoria em laudos de segurança do trabalho e NR-12. Equipe muito técnica e pontual.",
-      createTime: new Date(Date.now() - 3600000 * 12).toISOString(),
-      tone: "FORMAL" as BusinessTone,
-    },
-    {
-      id: "rev_3",
-      locationId: "loc_trailers_brasa",
-      locationName: "Trailers (Av. Brasa Mineira)",
-      reviewerName: "Lucas Mendes",
-      starRating: 4,
-      comment: "Lanche muito gostoso e ambiente super descontraído na avenida!",
-      createTime: new Date(Date.now() - 3600000 * 24).toISOString(),
-      tone: "DESCONTRAIDO" as BusinessTone,
-    },
-  ];
-
   return NextResponse.json({
     status: "ok",
     totalLocations: locations.length,
     locations,
-    reviews: sampleReviews,
+    // Sem API de avaliações (ver listBusinessLocations): nenhuma avaliação inventada.
+    reviews: [],
   });
 }
 
