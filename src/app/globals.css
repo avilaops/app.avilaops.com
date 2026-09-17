@@ -4328,13 +4328,70 @@ tbody tr:last-child td {
   margin-top: 14px;
 }
 
+/* Cabeçalho de grupo dobrável na folha "Mais". Em lista plana são 27 itens e
+   quase três telas de rolagem até o Financeiro; dobrado, o menu inteiro cabe
+   numa tela. O título mantém a tipografia de eyebrow que já tinha — o que muda
+   é virar alvo de toque de 56px, com a contagem dizendo o que há lá dentro
+   antes de abrir. */
+.sheet-group-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+/* Aberto, o cabeçalho encosta na lista: os dois viram um bloco só, com uma
+   borda entre eles em vez de duas. */
+.sheet-group-toggle.aberto {
+  margin-bottom: -1px;
+  border-bottom-color: transparent;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.sheet-group-toggle.aberto + .ios-list {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .sheet-group-title {
-  margin: 0 4px 8px;
+  margin: 0;
   color: var(--subtle-text);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.sheet-group-count {
+  margin-left: auto;
+  color: var(--subtle-text);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.sheet-group-toggle .chevron {
+  flex: 0 0 auto;
+  transition: transform 160ms ease;
+}
+
+.sheet-group-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-group-toggle .chevron {
+    transition: none;
+  }
 }
 
 @keyframes sheet-up {

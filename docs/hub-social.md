@@ -130,9 +130,10 @@ tocadas — vale um faxina própria, com o mesmo cuidado do item 1 acima.
   não existe aqui. A `FolhaEvidencia` já entrega origem, fórmula e dado bruto por
   número; falta a visão da resposta inteira.
 - **Aprovação visual do Nicolas.** Os prints de desktop e iPhone, claro e escuro,
-  são gerados pelo CI (`.github/workflows/prints-hub-social.yml`, com dados
-  fictícios e nenhum cliente real) e ficam como artefato do run. A conferência
-  tela a tela a 375 × 812 e 430 × 932 não está feita.
+  são gerados pelo CI (`.github/workflows/prints-painel.yml`, com dados
+  fictícios e nenhum cliente real) e ficam como artefato do run. Desde 17/09/2026
+  o CI captura os três aparelhos — 375 × 812, 390 × 844 e 430 × 932 —, então a
+  imagem existe; a conferência tela a tela por uma pessoa continua não feita.
 - **As quatro automações que iriam para o n8n** (relatório de desempenho agendado,
   sincronização de catálogo, notificações WhatsApp, captura de leads já existente)
   viram backlog do app — a decisão de 16/09/2026 foi deixar o n8n. As telas estão
