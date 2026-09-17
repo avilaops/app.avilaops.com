@@ -35,6 +35,15 @@ export type CompleteStructuredParams<T> = {
   instructions?: string;
   schema: ZodType<T>;
   schemaName: string;
+  /**
+   * JSON Schema já convertido. Quando ausente, o schema zod é convertido
+   * aqui — o que só funciona com a major do zod deste pacote (3.x).
+   * Consumidor em outra major (o app usa a 4.x, cuja árvore interna o
+   * zod-to-json-schema não entende) converte com a própria e passa o
+   * resultado por aqui; a validação em tempo de execução continua sendo o
+   * safeParse do schema recebido, idêntico nas duas majors.
+   */
+  jsonSchema?: Record<string, unknown>;
 };
 
 export type CompleteStructuredResult<T> = {
@@ -127,7 +136,7 @@ export class AiCoreStructuredClient {
             type: "json_schema",
             name: params.schemaName,
             strict: true,
-            schema: zodToJsonSchema(params.schema),
+            schema: params.jsonSchema ?? zodToJsonSchema(params.schema),
           },
         },
       });

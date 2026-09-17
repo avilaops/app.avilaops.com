@@ -6983,3 +6983,222 @@ tbody tr:last-child td {
   .health-sparkline { display: none; }
   .health-latency strong { font-size: .9rem; }
 }
+
+/* Assistente de cadastro: fica acima da ficha do cliente e responde três
+   coisas na ordem — quanto falta, o que dá para preencher automaticamente e o
+   que precisa ser perguntado. A fila de revisão é a única via entre uma
+   sugestão e o banco, então ela tem peso visual de formulário, não de aviso. */
+.cadastro-ia {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.cadastro-ia-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cadastro-ia-topo h2 {
+  margin: 4px 0 0;
+  font-size: 1.375rem;
+  font-weight: 650;
+}
+
+.cadastro-ia-topo h2 small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.cadastro-ia-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cadastro-ia-barra {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.cadastro-ia-barra span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.cadastro-ia-resumo,
+.cadastro-ia-mensagem,
+.cadastro-ia-erro {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.cadastro-ia-resumo {
+  color: var(--muted);
+}
+
+.cadastro-ia-mensagem {
+  padding: 10px 12px;
+  border: 1px solid var(--blue-line);
+  border-radius: var(--radius-sm);
+  background: var(--blue-soft);
+}
+
+.cadastro-ia-erro {
+  padding: 10px 12px;
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+}
+
+.cadastro-ia-fila,
+.cadastro-ia-perguntar {
+  display: grid;
+  gap: 12px;
+}
+
+.cadastro-ia-contador {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.cadastro-ia-lista {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cadastro-ia-lista li {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+}
+
+/* A cor da borda diz a origem: fato consultado e texto redigido por modelo
+   não merecem a mesma dose de conferência. */
+.cadastro-ia-lista li.da-receita {
+  border-left-color: var(--green);
+}
+
+.cadastro-ia-lista li.da-ia {
+  border-left-color: var(--amber);
+}
+
+.cadastro-ia-lista label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.cadastro-ia-lista input[type="checkbox"] {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.cadastro-ia-campo strong {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.cadastro-ia-campo small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.cadastro-ia-valor {
+  margin: 0;
+  padding-left: 28px;
+  color: var(--text);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+}
+
+.cadastro-ia-valor.longo {
+  color: var(--table-text);
+  line-height: 1.55;
+}
+
+.cadastro-ia-justificativa {
+  padding-left: 28px;
+  color: var(--subtle-text);
+  font-size: 0.75rem;
+}
+
+.cadastro-ia-decisao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.cadastro-ia-decisao small {
+  flex: 1 1 260px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.cadastro-ia-perguntar ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cadastro-ia-perguntar li {
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.cadastro-ia-perguntar strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.cadastro-ia-perguntar small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .cadastro-ia {
+    padding: 16px;
+  }
+
+  .cadastro-ia-acoes button {
+    flex: 1 1 auto;
+  }
+}
