@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
-import { internalSiteUrl, resolveInternalSubdomain } from "@/lib/internal-site";
+import { internalSiteBaseUrl, internalSiteUrl, resolveInternalSubdomain } from "@/lib/internal-site";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -36,6 +36,18 @@ export async function POST(
     return NextResponse.json(
       { error: "Não foi possível gerar o endereço interno deste cliente." },
       { status: 400 },
+    );
+  }
+  // Publicar sem host configurado gravaria PUBLISHED apontando para lugar
+  // nenhum — o operador veria "no ar" e o cliente veria erro. Despublicar
+  // continua valendo: é justamente como se tira do ar o que ficou órfão.
+  if (action === "publish" && !internalSiteBaseUrl()) {
+    return NextResponse.json(
+      {
+        error:
+          "A página interna não tem endereço configurado. Defina INTERNAL_SITE_BASE_URL antes de publicar.",
+      },
+      { status: 409 },
     );
   }
   // Recalculado a cada publicação: se o subdomínio mudou no dossiê, o endereço

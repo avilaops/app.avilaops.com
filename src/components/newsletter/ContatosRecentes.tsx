@@ -12,6 +12,10 @@ import type { TomStatus } from "@/lib/status-rotulos";
  * Aba Contatos, parte de baixo: os 200 contatos mais recentes em cartão de
  * andares. Cada linha tem a ação de descadastrar/reinscrever e a evidência
  * (linha do newsletterContact como a API devolveu).
+ *
+ * Abaixo de 561px o e-mail ganha a linha inteira e selo e ações descem para
+ * um andar próprio: lado a lado, sobrava menos de um terço da largura para o
+ * endereço e ele aparecia cortado no meio ("nicolas.ferrei…").
  */
 
 const TOM_POR_STATUS: Record<string, TomStatus> = {
@@ -69,7 +73,7 @@ export default function ContatosRecentes({
               return (
                 <li
                   key={contact.id}
-                  className="flex min-h-14 items-center gap-2 border-b border-border px-4 py-2 last:border-b-0 min-[821px]:gap-3"
+                  className="flex min-h-14 flex-col gap-1.5 border-b border-border px-4 py-2.5 last:border-b-0 min-[561px]:flex-row min-[561px]:items-center min-[561px]:gap-3 min-[561px]:py-2"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-medium text-foreground min-[821px]:text-sm">{contact.email}</p>
@@ -87,24 +91,23 @@ export default function ContatosRecentes({
                           </Badge>
                         ))
                       )}
-                      <span className="min-[561px]:hidden">{badge}</span>
                     </div>
                   </div>
 
-                  <span className="max-[560px]:hidden">{badge}</span>
+                  <div className="-mr-2 flex shrink-0 items-center gap-1 max-[560px]:justify-end min-[561px]:gap-2">
+                    {badge}
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={ocupadoEm === contact.id}
-                    onClick={() => aoMudarStatus(contact, inscrito ? "UNSUBSCRIBED" : "SUBSCRIBED")}
-                    className="min-h-11 px-2 text-[14px] min-[821px]:px-3"
-                  >
-                    {inscrito ? "Descadastrar" : "Reinscrever"}
-                  </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={ocupadoEm === contact.id}
+                      onClick={() => aoMudarStatus(contact, inscrito ? "UNSUBSCRIBED" : "SUBSCRIBED")}
+                      className="min-h-11 px-2 text-[14px] min-[821px]:px-3"
+                    >
+                      {inscrito ? "Descadastrar" : "Reinscrever"}
+                    </Button>
 
-                  <span className="-mr-2">
                     <BotaoEvidencia
                       rotulo={`Evidência de ${contact.email}`}
                       evidencia={{
@@ -117,7 +120,7 @@ export default function ContatosRecentes({
                         bruto: contact,
                       }}
                     />
-                  </span>
+                  </div>
                 </li>
               );
             })}
