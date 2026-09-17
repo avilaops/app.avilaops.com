@@ -1,3 +1,4 @@
+import type { NomeIcone } from "@/components/ui/Icones";
 import { canaisHubSocial } from "@/lib/hub-social";
 
 /**
@@ -6,6 +7,8 @@ import { canaisHubSocial } from "@/lib/hub-social";
  * tela nova registra aqui e ela aparece nos dois lugares.
  */
 export type SecaoApp =
+  /** Telas de menu (/mais e /mais/<grupo>): nenhum item da lista acende. */
+  | "menu"
   | "operations"
   | "clients"
   | "client-requests"
@@ -38,11 +41,25 @@ export type ItemNavegacao = {
   href: string;
   label: string;
   section: SecaoApp;
+  /** Ícone do item nas telas de menu. Sem ícone, a linha mostra só o rótulo. */
+  icone?: NomeIcone;
+  /** Uma linha explicando o destino, no padrão das telas de ajustes do iPhone. */
+  descricao?: string;
   /** Só o dono vê. Dinheiro, segredo e quem entra são dele. */
   somenteDono?: true;
 };
 
-export type GrupoNavegacao = { label: string; items: ItemNavegacao[]; somenteDono?: true };
+export type GrupoNavegacao = {
+  label: string;
+  items: ItemNavegacao[];
+  somenteDono?: true;
+  /** Usado na URL da tela do grupo: /mais/<slug>. */
+  slug?: string;
+  icone?: NomeIcone;
+  descricao?: string;
+  /** Em que bloco da tela "Mais" o grupo aparece. */
+  bloco?: "operacao" | "gestao" | "conta";
+};
 
 /**
  * O menu que este papel enxerga.
@@ -68,21 +85,47 @@ export function abasDoPapel(role: string): AbaCelular[] {
   return role === "OWNER" ? abasCelular : abasCelular.filter((aba) => !aba.somenteDono);
 }
 
+const ICONE_DO_CANAL: Partial<Record<SecaoApp, NomeIcone>> = {
+  seo: "seo",
+  domains: "dominios",
+  "google-suite": "google",
+  meta: "meta",
+  whatsapp: "whatsapp",
+  newsletter: "newsletter",
+  estudio: "estudio",
+};
+
+const DESCRICAO_DO_CANAL: Partial<Record<SecaoApp, string>> = {
+  seo: "Posicionamento e saúde de busca",
+  domains: "Registro, DNS e renovação",
+  "google-suite": "Perfil de empresa e GA4",
+  meta: "Facebook, Instagram e Lead Ads",
+  whatsapp: "Webhooks, flows e eventos",
+  newsletter: "Contatos, campanhas e envios",
+  estudio: "Peças de vídeo e imagem",
+};
+
 export const navegacao: GrupoNavegacao[] = [
   {
     label: "Operação",
+    slug: "operacao",
+    icone: "operacao",
+    descricao: "Clientes, entregas e o que a casa vende",
+    bloco: "operacao",
     items: [
-      { href: "/operacao", label: "Visão central", section: "operations" },
-      { href: "/clientes", label: "Clientes", section: "clients" },
+      { href: "/operacao", label: "Visão central", section: "operations", icone: "inicio", descricao: "O dia da operação num lugar só" },
+      { href: "/clientes", label: "Clientes", section: "clients", icone: "clientes", descricao: "Fichas, contratos e serviços de cada cliente" },
       {
         href: "/clientes/solicitacoes",
         label: "Solicitações",
         section: "client-requests",
+        icone: "fiscal",
+        descricao: "Pedidos de cadastro esperando resposta",
         somenteDono: true,
       },
-      { href: "/leads", label: "Leads", section: "leads" },
-      { href: "/projetos", label: "Entregas", section: "projects" },
-      { href: "/operacao/servicos", label: "Serviços", section: "services" },
+      { href: "/leads", label: "Leads", section: "leads", icone: "hub", descricao: "Quem chegou e ainda não é cliente" },
+      { href: "/projetos", label: "Entregas", section: "projects", icone: "entregas", descricao: "Projetos em andamento e prazos" },
+      { href: "/operacao/servicos", label: "Serviços", section: "services", icone: "config", descricao: "Catálogo de planos e preços" },
     ],
   },
   {
@@ -92,17 +135,25 @@ export const navegacao: GrupoNavegacao[] = [
     // lead → cliente → entrega, então a separação também deixou o grupo mais
     // honesto do que estava.
     label: "Casa",
+    slug: "casa",
+    icone: "casa",
+    descricao: "Assuntos da própria Ávila Ops",
+    bloco: "operacao",
     items: [
-      { href: "/vagas", label: "Vagas", section: "jobs" },
+      { href: "/vagas", label: "Vagas", section: "jobs", icone: "vagas", descricao: "Anúncios e candidaturas" },
       {
         href: "/implantacao",
         label: "Implantação OpenAI",
         section: "partner-network",
+        icone: "automacoes",
+        descricao: "Pilares, roadmap e evidências do programa",
       },
       {
         href: "/operacao/automacoes",
         label: "Automações",
         section: "automacoes",
+        icone: "automacoes",
+        descricao: "Fluxos do n8n e credenciais",
         // Cofre do n8n: chave de terceiro é do dono.
         somenteDono: true,
       },
@@ -115,70 +166,110 @@ export const navegacao: GrupoNavegacao[] = [
     // fora de Operação, /hub-social, e o grupo fechou exatamente nos sete. A
     // ordem é a das abas da área (src/lib/hub-social.ts é a fonte).
     label: "Hub Social",
-    items: canaisHubSocial.map(({ href, label, section }) => ({ href, label, section })),
+    slug: "hub-social",
+    icone: "hub",
+    descricao: "Marketing e presença digital",
+    bloco: "operacao",
+    items: canaisHubSocial.map(({ href, label, section }) => ({
+      href,
+      label,
+      section,
+      icone: ICONE_DO_CANAL[section] ?? "hub",
+      descricao: DESCRICAO_DO_CANAL[section],
+    })),
   },
   {
     label: "Infraestrutura",
+    slug: "infraestrutura",
+    icone: "infra",
+    descricao: "Servidores, serviços e observabilidade",
+    bloco: "gestao",
     items: [
-      { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live" },
-      { href: "/operacao/obs", label: "Observabilidade", section: "obs" },
+      { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live", icone: "saude", descricao: "Disponibilidade e capacidade, medidas agora" },
+      { href: "/operacao/obs", label: "Observabilidade", section: "obs", icone: "operacao", descricao: "Métricas e sinais dos sistemas" },
     ],
   },
   {
     label: "Fiscal",
+    slug: "fiscal",
+    icone: "fiscal",
+    descricao: "Notas e obrigações",
+    bloco: "gestao",
     somenteDono: true,
     items: [
       {
         href: "/operacao/fiscal",
         label: "Notas & SEFAZ",
         section: "fiscal",
+        icone: "fiscal",
+        descricao: "Emissão, consulta e situação na SEFAZ",
         somenteDono: true,
       },
     ],
   },
   {
     label: "Financeiro",
+    slug: "financeiro",
+    icone: "financeiro",
+    descricao: "Cobranças, pagamentos e relatórios",
+    bloco: "gestao",
     somenteDono: true,
     items: [
-      { href: "/financeiro", label: "Visão geral", section: "overview" },
+      { href: "/financeiro", label: "Visão geral", section: "overview", icone: "financeiro", descricao: "Saldo, recebimentos e pendências" },
       {
         href: "/financeiro?status=PENDING",
         label: "Conciliação",
         section: "reconciliation",
+        icone: "fiscal",
+        descricao: "Lançamentos esperando conferência",
       },
       {
         href: "/financeiro/contas",
         label: "Contas a pagar e receber",
         section: "ledger",
+        icone: "credito",
+        descricao: "O que vence e o que entra",
       },
       {
         href: "/financeiro?range=90",
         label: "Movimentações",
         section: "transactions",
+        icone: "operacao",
+        descricao: "Extrato dos últimos 90 dias",
       },
       {
         href: "/financeiro/importar",
         label: "Importar extrato",
         section: "import",
+        icone: "adicionar",
+        descricao: "Subir OFX ou CSV do banco",
       },
       {
         href: "/financeiro/mercadopago",
         label: "Mercado Pago",
         section: "mercadopago",
+        icone: "financeiro",
+        descricao: "Cobranças e extrato da conta CNPJ",
       },
-      { href: "/relatorios", label: "Relatórios", section: "reports" },
+      { href: "/relatorios", label: "Relatórios", section: "reports", icone: "operacao", descricao: "Fechamentos e exportações" },
     ],
   },
   {
     // Score do CPF e do CNPJ junto com o que vence. Grupo próprio porque o
     // "Financeiro" já está nos sete itens que a coluna mostra sem rolar.
     label: "Crédito",
+    slug: "credito",
+    icone: "credito",
+    descricao: "Score e limites",
+    bloco: "gestao",
     somenteDono: true,
     items: [
       {
         href: "/financeiro/credito",
         label: "Score e contas a pagar",
         section: "credito",
+        icone: "credito",
+        descricao: "Situação de crédito do CPF e do CNPJ",
         somenteDono: true,
       },
     ],
@@ -270,4 +361,39 @@ export function grupoInicialAberto(
 /** Se esta seção acende alguma aba do rodapé — o outro lado de `maisAtivo`. */
 export function secaoTemAba(abas: AbaCelular[], section: SecaoApp): boolean {
   return abas.some((aba) => aba.secoes.includes(section));
+}
+
+/** Grupo pela fatia da URL (/mais/<slug>), já filtrado pelo papel. */
+export function grupoPorSlug(role: string, slug: string): GrupoNavegacao | null {
+  return navegacaoDoPapel(role).find((grupo) => grupo.slug === slug) ?? null;
+}
+
+/** Grupos de um bloco da tela "Mais", na ordem em que aparecem. */
+export function blocosDoMenu(role: string): { titulo: string; grupos: GrupoNavegacao[] }[] {
+  const grupos = navegacaoDoPapel(role);
+  const de = (bloco: GrupoNavegacao["bloco"]) => grupos.filter((grupo) => (grupo.bloco ?? "operacao") === bloco);
+  return [
+    { titulo: "Operação", grupos: de("operacao") },
+    { titulo: "Gestão", grupos: de("gestao") },
+  ].filter((bloco) => bloco.grupos.length > 0);
+}
+
+/**
+ * Cor do ícone do grupo. As três cores da marca aparecem em pequenas doses:
+ * azul para operação e infraestrutura, amarelo para o que faz crescer, e
+ * vermelho para o que fala com o cliente. O resto fica neutro.
+ */
+export function tomDoGrupo(slug?: string): "azul" | "vermelho" | "amarelo" | "neutro" {
+  switch (slug) {
+    case "hub-social":
+      return "amarelo";
+    case "casa":
+      return "vermelho";
+    case "credito":
+      return "amarelo";
+    case "fiscal":
+      return "neutro";
+    default:
+      return "azul";
+  }
 }
