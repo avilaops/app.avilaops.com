@@ -491,6 +491,7 @@ model Organization {
   serviceOpportunities     OrganizationServiceOpportunity[]
   assistantDocuments       AssistantDocument[]
   newsletterContacts       NewsletterContact[]
+  registrationSuggestions  OrganizationRegistrationSuggestion[]
 
   @@index([status, createdAt])
   @@map("organizations")
@@ -757,6 +758,43 @@ model OrganizationOnboardingStep {
   @@unique([organizationId, stepKey])
   @@index([organizationId, status, sortOrder])
   @@map("organization_onboarding_steps")
+  @@schema("operations")
+}
+
+/// Sugestão de preenchimento de um campo do cadastro, esperando decisão de
+/// uma pessoa. Nenhuma origem — nem a consulta de CNPJ, nem a IA — escreve
+/// direto na ficha do cliente: toda proposta passa por esta fila e só vira
+/// dado depois de aprovada, com quem aprovou e quando registrados.
+///
+/// `requestId` é o mesmo da AiCoreTelemetry quando a origem é IA, o que
+/// permite ir de um texto gravado na ficha até a chamada que o produziu, com
+/// modelo, tokens, custo e latência.
+model OrganizationRegistrationSuggestion {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  /// Chave do registro de campos (src/lib/cadastro-ia/campos.ts).
+  field          String
+  suggestedValue String    @map("suggested_value")
+  /// RECEITA_FEDERAL (fato consultado) ou IA (texto redigido).
+  origin         String
+  /// ALTA, MEDIA ou BAIXA — orienta a ordem da revisão, não dispensa ela.
+  confidence     String    @default("MEDIA")
+  rationale      String?
+  requestId      String?   @map("request_id")
+  model          String?
+  /// PENDING, APPLIED, DISCARDED ou STALE (campo preenchido por outra via
+  /// antes da decisão, ou proposta substituída por uma rodada mais nova).
+  status         String    @default("PENDING")
+  decidedBy      String?   @map("decided_by")
+  decidedAt      DateTime? @map("decided_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("organization_registration_suggestions")
   @@schema("operations")
 }
 

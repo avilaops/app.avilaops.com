@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import CadastroAssistidoPanel from "@/components/CadastroAssistidoPanel";
 import ClientDossierForm from "@/components/ClientDossierForm";
 import ClientSectionNav from "@/components/ClientSectionNav";
 import BrandsPanel from "@/components/BrandsPanel";
@@ -8,6 +9,7 @@ import OperacaoPanel from "@/components/OperacaoPanel";
 import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
+import { montarPainel } from "@/lib/cadastro-ia/assistente";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
 import { listarCaixasDosDominios } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
@@ -116,12 +118,17 @@ export default async function ClientDossierPage({
   const { subscriptions: _subscriptions, integrationConnections, ...organizacaoParaFicha } = organization;
   void _subscriptions;
 
+  // Só a aba de cadastro usa o assistente; nas outras a consulta extra seria
+  // desperdício em cada carregamento de página.
+  const painelAssistente = section === "registration" ? await montarPainel(id) : null;
+
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="clients">
       <header className="client-workspace-header"><Link href="/clientes" className="seo-back">‹ Clientes</Link><div><span className="eyebrow">ÁREA DE TRABALHO</span><h1>{organization.name}</h1><p>Nº {organization.clientNumber} · {organization.legalName ?? organization.slug} · <span className="seo-state good">{organization.status}</span></p></div></header>
       <ClientSectionNav clientId={id} active={section} />
 
       {section === "summary" ? <ClientSummary organization={organization} /> : null}
+      {section === "registration" && painelAssistente ? <CadastroAssistidoPanel painelInicial={JSON.parse(JSON.stringify(painelAssistente))} /> : null}
       {section === "registration" ? <ClientDossierForm key={`${id}-registration`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab="registration" /> : null}
       {section === "files" ? <ClientDossierForm key={`${id}-files`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab="assets" /> : null}
       {section === "services" ? <ProvisionamentoPanel

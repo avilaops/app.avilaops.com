@@ -86,6 +86,25 @@ Contrato completo, IDs dos workflows e variáveis de ambiente:
 `criar-assinatura.ts` e `sync-openai-project.ts` foram substituídos por essas
 telas e ficam só por histórico.
 
+## Assistente de cadastro (Receita Federal + IA)
+
+Acima da ficha, na aba de cadastro, um painel mostra a completude do cliente e
+de onde cada campo vazio pode ser preenchido:
+
+- **Preencher pela Receita** — lê a consulta de CNPJ já guardada em
+  `organizations.cnpj_data` e propõe razão social, segmento, endereço,
+  telefone e e-mail. Não faz chamada externa e não depende da IA.
+- **Redigir com IA** — passa pelo Ávila AI Core em saída estruturada e propõe
+  só campos descritivos (descrição, serviços, produtos, diferenciais, área de
+  atendimento). Documento, telefone, e-mail e endereço nunca são gerados por
+  modelo, e um teste de unidade trava isso.
+
+Nenhuma das duas escreve na ficha: cada campo proposto entra na fila
+`operations.organization_registration_suggestions` e só vira dado quando uma
+pessoa aprova, com autor, horário e evento de auditoria. Detalhes das
+barreiras, do custo e da ativação:
+[`docs/cadastro-assistido-ia.md`](docs/cadastro-assistido-ia.md).
+
 ## Vagas e recrutamento
 
 As vagas de `jobs.avilaops.com` vivem em `operations.job_postings` e vão para o
