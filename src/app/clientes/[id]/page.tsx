@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import BancoDeDadosPanel from "@/components/banco-cliente/BancoDeDadosPanel";
 import CadastroAssistidoPanel from "@/components/CadastroAssistidoPanel";
 import ClientDossierForm from "@/components/ClientDossierForm";
 import ClientSectionNav from "@/components/ClientSectionNav";
@@ -19,14 +20,15 @@ export default async function ClientDossierPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ section?: string }>;
+  searchParams: Promise<{ section?: string; banco?: string; q?: string; tabela?: string; vazias?: string }>;
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
 
   const { id } = await params;
-  const requestedSection = (await searchParams).section;
-  const section = ["summary", "registration", "services", "finance", "files"].includes(requestedSection ?? "") ? requestedSection! : "summary";
+  const query = await searchParams;
+  const requestedSection = query.section;
+  const section = ["summary", "registration", "services", "finance", "files", "database"].includes(requestedSection ?? "") ? requestedSection! : "summary";
   const [organization, plans] = await Promise.all([
     prisma.organization.findUnique({
       where: { id },
@@ -157,6 +159,8 @@ export default async function ClientDossierPage({
           notes: item.notes,
         }))}
       /> : null}
+
+      {section === "database" ? <BancoDeDadosPanel organizationId={organization.id} filtro={{ banco: query.banco, q: query.q, tabela: query.tabela, vazias: query.vazias === "1" }} /> : null}
 
       {section === "finance" ? <div className="client-finance-only"><OperacaoPanel
         organizationId={organization.id}

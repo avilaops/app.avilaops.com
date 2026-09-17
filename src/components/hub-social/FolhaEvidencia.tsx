@@ -135,6 +135,9 @@ function FolhaAberta({ evidencia, aoFechar }: { evidencia: Evidencia; aoFechar: 
 
   return (
     <Sheet titulo="Detalhes da medição" aoFechar={aoFechar}>
+      {/* Dentro de TabelaResponsiva a folha nasce numa TableCell e herda dela
+          nowrap e alinhamento à direita: texto longo saía cortado e torto. */}
+      <div className="whitespace-normal text-left">
       <p className="mb-3 text-[15px] font-medium leading-5">{evidencia.rotulo}</p>
 
       <dl className="m-0">
@@ -157,6 +160,7 @@ function FolhaAberta({ evidencia, aoFechar }: { evidencia: Evidencia; aoFechar: 
           <Bruto valor={evidencia.bruto} />
         </div>
       </details>
+      </div>
     </Sheet>
   );
 }

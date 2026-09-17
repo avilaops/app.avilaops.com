@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-const sections = [["summary", "Resumo"], ["registration", "Cadastro"], ["services", "Serviços"], ["finance", "Financeiro"], ["files", "Arquivos"]] as const;
+const sections = [["summary", "Resumo"], ["registration", "Cadastro"], ["services", "Serviços"], ["finance", "Financeiro"], ["files", "Arquivos"], ["database", "Banco de dados"]] as const;
 
 export default function ClientSectionNav({ clientId, active }: { clientId: string; active: string }) {
   const router = useRouter();

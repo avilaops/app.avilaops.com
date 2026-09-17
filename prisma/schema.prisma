@@ -498,6 +498,7 @@ model Organization {
   assistantDocuments       AssistantDocument[]
   newsletterContacts       NewsletterContact[]
   registrationSuggestions  OrganizationRegistrationSuggestion[]
+  clientDatabases          ClientDatabase[]
 
   @@index([status, createdAt])
   @@map("organizations")
@@ -1881,5 +1882,96 @@ model StudioRender {
   @@index([status, createdAt])
   @@index([pieceId, createdAt])
   @@map("studio_renders")
+  @@schema("operations")
+}
+
+/// Banco de dados que o cliente opera (ERP, PDV, sistema legado), catalogado
+/// para análise. O Ávila OS não conecta nele: o servidor de produção não está
+/// na rede do cliente. Quem lê a estrutura é um script rodando numa máquina com
+/// acesso, que envia o catálogo para `POST /api/organizations/:id/bancos/sync`.
+model ClientDatabase {
+  id             String    @id @default(cuid())
+  organizationId String    @map("organization_id")
+  /// Identificador estável escolhido por quem sincroniza ("procommerce"). É o
+  /// que casa uma nova sincronização com o cadastro que já existe.
+  key            String
+  name           String
+  /// SQLSERVER | POSTGRES | MYSQL | FIREBIRD | ORACLE | OUTRO
+  engine         String
+  engineVersion  String?   @map("engine_version")
+  host           String?
+  port           Int?
+  databaseName   String    @map("database_name")
+  /// PRODUCTION | TEST — de qual base a estrutura foi lida. Cópia de teste
+  /// antiga tem contagem de linhas que não vale para a operação.
+  environment    String    @default("PRODUCTION")
+  /// Como se chega nele: VPN, rede, quem autoriza. Nunca senha.
+  accessNotes    String?   @map("access_notes")
+  lastSyncedAt   DateTime? @map("last_synced_at")
+  /// Máquina que rodou a última sincronização.
+  syncedFrom     String?   @map("synced_from")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tables       ClientDatabaseTable[]
+
+  @@unique([organizationId, key])
+  @@map("client_databases")
+  @@schema("operations")
+}
+
+model ClientDatabaseTable {
+  id          String   @id @default(cuid())
+  databaseId  String   @map("database_id")
+  schemaName  String   @map("schema_name")
+  name        String
+  rowCount    BigInt?  @map("row_count")
+  /// Anotação da equipe: o que a tabela guarda. A sincronização nunca escreve
+  /// aqui — é o único conteúdo do catálogo que não dá para reler da origem.
+  description String?
+  /// Última sincronização que encontrou a tabela. Anterior ao `lastSyncedAt`
+  /// do banco significa que ela sumiu da origem e só ficou por ter anotação.
+  lastSeenAt  DateTime @map("last_seen_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  database ClientDatabase         @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+  columns  ClientDatabaseColumn[]
+
+  @@unique([databaseId, schemaName, name])
+  @@index([databaseId, rowCount])
+  @@map("client_database_tables")
+  @@schema("operations")
+}
+
+model ClientDatabaseColumn {
+  id               String   @id @default(cuid())
+  tableId          String   @map("table_id")
+  name             String
+  ordinal          Int
+  /// Tipo já formatado como na origem: "varchar(150)", "decimal(18,3)".
+  dataType         String   @map("data_type")
+  nullable         Boolean
+  isPrimaryKey     Boolean  @default(false) @map("is_primary_key")
+  referencesTable  String?  @map("references_table")
+  referencesColumn String?  @map("references_column")
+  /// Estatísticas opcionais, medidas na origem. `filledCount` = linhas não
+  /// nulas. Mínimo e máximo só vêm de colunas numéricas e de data: texto
+  /// carregaria nome e documento de cliente para dentro deste banco.
+  filledCount      BigInt?  @map("filled_count")
+  distinctCount    BigInt?  @map("distinct_count")
+  minValue         String?  @map("min_value")
+  maxValue         String?  @map("max_value")
+  description      String?
+  lastSeenAt       DateTime @map("last_seen_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  table ClientDatabaseTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, name])
+  @@index([name])
+  @@map("client_database_columns")
   @@schema("operations")
 }
