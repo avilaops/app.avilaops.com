@@ -1,5 +1,20 @@
 import { google } from "googleapis";
 
+/**
+ * GA4 das empresas do grupo, lido de verdade pela conta de serviço.
+ *
+ * Até 17/09/2026 esta lib devolvia um bloco fixo ("14 online", 15.420 sessões,
+ * canais inventados) sempre que a página não passava `propertyId`, o que era
+ * sempre, e o "ativos agora" era `Math.random()`. A conta de serviço de
+ * produção (`claude@contatos-424700`) já enxerga as propriedades da conta
+ * AvilaOps no Analytics (16 em 16/09/2026), então agora:
+ *
+ * - sem `propertyId`, os números são a SOMA de todas as propriedades que a
+ *   conta enxerga (taxa de rejeição e duração ponderadas por sessões);
+ * - com `propertyId`, só daquela propriedade;
+ * - se a API falhar, a função lança o erro. Não existe mais número de reserva.
+ */
+
 export interface Ga4OverviewMetrics {
   realtimeActiveUsers: number;
   sessions30Days: number;
@@ -9,86 +24,132 @@ export interface Ga4OverviewMetrics {
   averageSessionDurationSec: number;
   topChannels: { channel: string; users: number; percentage: number }[];
   lastUpdated: string;
+  /** Propriedades somadas, para a tela dizer de onde veio o total. */
+  properties: Ga4Property[];
 }
+
+export type Ga4Property = {
+  /** `properties/123` */
+  id: string;
+  name: string;
+  account: string;
+  realtimeActiveUsers: number;
+  sessions30Days: number;
+  totalUsers30Days: number;
+};
+
+const ESCOPO = ["https://www.googleapis.com/auth/analytics.readonly"];
+/** Evita 40+ chamadas à API a cada abertura da tela. */
+const CACHE_MS = 60_000;
 
 function getGoogleCredentials() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON não configurado no .env");
-  }
-  return JSON.parse(raw);
+  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON não configurado");
+  return JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
 }
 
-export async function getGoogleAnalyticsDataClient() {
-  try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: getGoogleCredentials(),
-      scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
-    });
-    const client = await auth.getClient();
-    return google.analyticsdata({ version: "v1beta", auth: client as never });
-  } catch (err) {
-    console.warn("GA4 Analytics Data API via Service Account em modo demonstrativo:", err instanceof Error ? err.message : String(err));
-    return null;
-  }
+function auth() {
+  return new google.auth.GoogleAuth({ credentials: getGoogleCredentials(), scopes: ESCOPO });
 }
 
-export async function getGa4OverviewMetrics(propertyId?: string): Promise<Ga4OverviewMetrics> {
-  try {
-    const analytics = await getGoogleAnalyticsDataClient();
-    if (analytics && propertyId) {
-      // Quando a propriedade do GA4 estiver configurada no ambiente
-      const response = await analytics.properties.runReport({
-        property: `properties/${propertyId}`,
-        requestBody: {
-          dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
-          metrics: [
-            { name: "activeUsers" },
-            { name: "sessions" },
-            { name: "screenPageViews" },
-            { name: "bounceRate" },
-            { name: "averageSessionDuration" },
-          ],
-        },
-      });
-
-      const row = response.data.rows?.[0]?.metricValues;
-      if (row) {
-        return {
-          realtimeActiveUsers: Math.floor(Math.random() * 15) + 8,
-          sessions30Days: parseInt(row[1]?.value || "12450", 10),
-          totalUsers30Days: parseInt(row[0]?.value || "8920", 10),
-          pageViews30Days: parseInt(row[2]?.value || "34100", 10),
-          bounceRate: parseFloat(row[3]?.value || "0.38") * 100,
-          averageSessionDurationSec: Math.round(parseFloat(row[4]?.value || "142")),
-          topChannels: [
-            { channel: "Organic Search", users: 4850, percentage: 54.3 },
-            { channel: "Direct", users: 2100, percentage: 23.5 },
-            { channel: "Paid Search (Ads)", users: 1250, percentage: 14.0 },
-            { channel: "Social Media", users: 720, percentage: 8.2 },
-          ],
-          lastUpdated: new Date().toISOString(),
-        };
+export async function listGa4Properties(): Promise<{ id: string; name: string; account: string }[]> {
+  const admin = google.analyticsadmin({ version: "v1beta", auth: auth() });
+  const out: { id: string; name: string; account: string }[] = [];
+  let pageToken: string | undefined;
+  do {
+    const r = await admin.accountSummaries.list({ pageSize: 200, pageToken });
+    for (const conta of r.data.accountSummaries ?? []) {
+      for (const p of conta.propertySummaries ?? []) {
+        if (p.property) out.push({ id: p.property, name: p.displayName ?? p.property, account: conta.displayName ?? "" });
       }
     }
-  } catch (err) {
-    console.error("Aviso: Consulta GA4 em fallback estruturado:", err instanceof Error ? err.message : String(err));
-  }
+    pageToken = r.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return out;
+}
 
-  // Fallback com dados demonstrativos estruturados caso a propriedade ainda não esteja vinculada
+const numero = (v: string | null | undefined) => (v ? Number(v) : 0);
+
+async function lerPropriedade(property: { id: string; name: string; account: string }) {
+  const data = google.analyticsdata({ version: "v1beta", auth: auth() });
+  const [agora, resumo, canais] = await Promise.all([
+    data.properties.runRealtimeReport({ property: property.id, requestBody: { metrics: [{ name: "activeUsers" }] } }),
+    data.properties.runReport({
+      property: property.id,
+      requestBody: {
+        dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+        metrics: [
+          { name: "activeUsers" },
+          { name: "sessions" },
+          { name: "screenPageViews" },
+          { name: "bounceRate" },
+          { name: "averageSessionDuration" },
+        ],
+      },
+    }),
+    data.properties.runReport({
+      property: property.id,
+      requestBody: {
+        dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+        dimensions: [{ name: "sessionDefaultChannelGroup" }],
+        metrics: [{ name: "activeUsers" }],
+      },
+    }),
+  ]);
+  const linha = resumo.data.rows?.[0]?.metricValues ?? [];
   return {
-    realtimeActiveUsers: 14,
-    sessions30Days: 15420,
-    totalUsers30Days: 9840,
-    pageViews30Days: 41200,
-    bounceRate: 36.4,
-    averageSessionDurationSec: 158,
-    topChannels: [
-      { channel: "Organic Search (Google)", users: 5320, percentage: 54.0 },
-      { channel: "Direct", users: 2460, percentage: 25.0 },
-      { channel: "Paid Search (Google Ads)", users: 1380, percentage: 14.0 },
-      { channel: "Social Media", users: 680, percentage: 7.0 },
-    ],
-    lastUpdated: new Date().toISOString(),
+    property,
+    realtime: numero(agora.data.rows?.[0]?.metricValues?.[0]?.value),
+    users: numero(linha[0]?.value),
+    sessions: numero(linha[1]?.value),
+    pageViews: numero(linha[2]?.value),
+    bounceRate: numero(linha[3]?.value),
+    avgDuration: numero(linha[4]?.value),
+    channels: (canais.data.rows ?? []).map((r) => ({
+      channel: r.dimensionValues?.[0]?.value ?? "(sem canal)",
+      users: numero(r.metricValues?.[0]?.value),
+    })),
   };
+}
+
+let cache: { chave: string; em: number; valor: Ga4OverviewMetrics } | null = null;
+
+export async function getGa4OverviewMetrics(propertyId?: string): Promise<Ga4OverviewMetrics> {
+  const chave = propertyId ?? "*";
+  if (cache && cache.chave === chave && Date.now() - cache.em < CACHE_MS) return cache.valor;
+
+  const todas = await listGa4Properties();
+  const alvo = propertyId ? todas.filter((p) => p.id === propertyId) : todas;
+  if (propertyId && alvo.length === 0) throw new Error(`Propriedade ${propertyId} não acessível pela conta de serviço`);
+
+  const lidas = await Promise.all(alvo.map(lerPropriedade));
+  const sessions = lidas.reduce((s, p) => s + p.sessions, 0);
+  const users = lidas.reduce((s, p) => s + p.users, 0);
+  const porCanal = new Map<string, number>();
+  for (const p of lidas) for (const c of p.channels) porCanal.set(c.channel, (porCanal.get(c.channel) ?? 0) + c.users);
+  const totalCanais = [...porCanal.values()].reduce((s, v) => s + v, 0);
+
+  const valor: Ga4OverviewMetrics = {
+    realtimeActiveUsers: lidas.reduce((s, p) => s + p.realtime, 0),
+    sessions30Days: sessions,
+    totalUsers30Days: users,
+    pageViews30Days: lidas.reduce((s, p) => s + p.pageViews, 0),
+    // A API devolve fração (0,38); a tela espera porcentagem.
+    bounceRate: sessions ? (lidas.reduce((s, p) => s + p.bounceRate * p.sessions, 0) / sessions) * 100 : 0,
+    averageSessionDurationSec: sessions ? Math.round(lidas.reduce((s, p) => s + p.avgDuration * p.sessions, 0) / sessions) : 0,
+    topChannels: [...porCanal.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([channel, u]) => ({ channel, users: u, percentage: totalCanais ? Math.round((u / totalCanais) * 1000) / 10 : 0 })),
+    lastUpdated: new Date().toISOString(),
+    properties: lidas.map((p) => ({
+      id: p.property.id,
+      name: p.property.name,
+      account: p.property.account,
+      realtimeActiveUsers: p.realtime,
+      sessions30Days: p.sessions,
+      totalUsers30Days: p.users,
+    })),
+  };
+  cache = { chave, em: Date.now(), valor };
+  return valor;
 }

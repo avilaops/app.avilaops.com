@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/shadcn/button";
+import { cn } from "@/lib/utils";
 
 export default function MetaCampaignSyncButton({
   organizationId,
@@ -9,10 +11,12 @@ export default function MetaCampaignSyncButton({
 }) {
   const [state, setState] = useState<"idle" | "syncing" | "done">("idle");
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
 
   async function syncCampaigns() {
     setState("syncing");
     setMessage("");
+    setFailed(false);
 
     try {
       const response = await fetch("/api/integrations/meta/campaigns/sync", {
@@ -33,21 +37,31 @@ export default function MetaCampaignSyncButton({
       setState("done");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falha ao sincronizar campanhas.");
+      setFailed(true);
       setState("idle");
     }
   }
 
   return (
-    <div className="inline-action-stack">
-      <button
-        className="primary-button"
+    <div className="flex w-full flex-col min-[560px]:w-auto min-[560px]:items-end">
+      <Button
         type="button"
         onClick={syncCampaigns}
         disabled={!organizationId || state === "syncing"}
+        className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm"
       >
-        {state === "syncing" ? "Coletando..." : "Coletar campanhas"}
-      </button>
-      {message ? <small>{message}</small> : null}
+        {state === "syncing" ? "Coletando…" : "Coletar campanhas"}
+      </Button>
+      <p
+        role="status"
+        className={cn(
+          "text-[13px] leading-[1.4]",
+          message && "mt-1.5",
+          failed ? "text-[color:var(--red)]" : "text-muted-foreground",
+        )}
+      >
+        {message}
+      </p>
     </div>
   );
 }

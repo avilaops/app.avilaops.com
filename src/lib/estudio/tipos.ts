@@ -39,8 +39,8 @@ export type PecaDTO = {
 };
 
 export const ROTULO_STATUS: Record<StatusRender, string> = {
-  PENDING: "na fila",
-  RUNNING: "renderizando",
-  DONE: "pronto",
-  FAILED: "falhou",
+  PENDING: "Na fila",
+  RUNNING: "Renderizando",
+  DONE: "Pronto",
+  FAILED: "Falhou",
 };

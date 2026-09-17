@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
+import { Button } from "@/components/shadcn/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/card";
+import {
+  ACOES,
+  BOTAO,
+  evidenciaConexao,
+  formatarDataHora,
+  MensagemErro,
+  MensagemStatus,
+  rotuloSeo,
+  type ConexaoSeo,
+} from "@/components/seo/comum";
 
-type Connection = {
-  id: string;
-  status: string;
-  lastSyncedAt: string | null;
-  lastSyncStatus: string | null;
-  lastSyncError: string | null;
-  metadata?: unknown;
-} | null;
+type Connection = ConexaoSeo;
 
 function metadataArrayLength(metadata: unknown, key: string) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
@@ -89,67 +97,71 @@ export default function BingWebmasterPanel({
 
   const submittedCount = metadataArrayLength(connection?.metadata, "urlsSubmitted");
 
+  const ocupado = status !== "idle";
+
   return (
-    <article className="operations-panel">
-      <div className="operations-panel-heading">
-        <div>
-          <span className="eyebrow">Bing Webmaster Tools</span>
-          <h2>{fqdn}</h2>
-        </div>
-        <div className="panel-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={submitAllBing}
-            disabled={status !== "idle"}
-          >
-            {status === "sending" ? "Enviando..." : "Enviar todos"}
-          </button>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={submitBing}
-            disabled={status !== "idle"}
-          >
+    <Card className="gap-5 shadow-none">
+      <CardHeader className="px-4 min-[821px]:px-6">
+        <CardTitle className="text-[17px] min-[821px]:text-[15px]">Bing Webmaster Tools</CardTitle>
+        <CardDescription className="break-all">{fqdn}</CardDescription>
+        <CardAction>
+          <BadgeStatus {...rotuloSeo(connection?.lastSyncStatus, "Nunca enviado")} />
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="space-y-5 px-4 min-[821px]:px-6">
+        <div className={ACOES}>
+          <Button type="button" onClick={submitBing} disabled={ocupado} className={BOTAO}>
             {status === "sending" ? "Enviando..." : "Enviar sitemap agora"}
-          </button>
+          </Button>
+          <Button type="button" variant="outline" onClick={submitAllBing} disabled={ocupado} className={BOTAO}>
+            {status === "sending" ? "Enviando..." : "Enviar todos"}
+          </Button>
         </div>
-      </div>
 
-      {message ? (
-        <div className="operations-empty compact-empty">
-          <strong>{connection?.lastSyncStatus === "SUCCESS" ? "Envio concluído." : "Ação necessária."}</strong>
-          <p>{message}</p>
-        </div>
-      ) : null}
+        {message ? (
+          connection?.lastSyncStatus === "SUCCESS" ? (
+            <MensagemStatus>
+              <strong className="font-semibold">Envio concluído.</strong> {message}
+            </MensagemStatus>
+          ) : (
+            <MensagemErro>
+              <strong className="font-semibold">Ação necessária.</strong> {message}
+            </MensagemErro>
+          )
+        ) : null}
 
-      {batchMessage ? (
-        <div className="operations-empty compact-empty">
-          <strong>Envio em lote concluído.</strong>
-          <p>{batchMessage}</p>
-        </div>
-      ) : null}
+        {batchMessage ? (
+          <MensagemStatus>
+            <strong className="font-semibold">Envio em lote concluído.</strong> {batchMessage}
+          </MensagemStatus>
+        ) : null}
 
-      <dl>
-        <div>
-          <dt>Último envio</dt>
-          <dd>
-            {connection?.lastSyncedAt
-              ? new Date(connection.lastSyncedAt).toLocaleString("pt-BR")
-              : "Nunca enviado"}
-          </dd>
-        </div>
-        <div>
-          <dt>Status</dt>
-          <dd className={connection?.lastSyncStatus === "SUCCESS" ? "positive" : ""}>
-            {connection?.lastSyncStatus ?? "-"}
-          </dd>
-        </div>
-        <div>
-          <dt>URLs enviadas</dt>
-          <dd>{submittedCount ?? "-"}</dd>
-        </div>
-      </dl>
-    </article>
+        <GradeMetricas rotulo="Envios ao Bing">
+          <Metrica
+            rotulo="URLs enviadas"
+            valor={submittedCount ?? "—"}
+            evidencia={evidenciaConexao(
+              "URLs enviadas",
+              "POST /api/integrations/bing-webmaster/run",
+              "tamanho de metadata.urlsSubmitted do último envio",
+              connection,
+            )}
+          />
+        </GradeMetricas>
+
+        <ListaChaveValor
+          titulo="Último envio"
+          itens={[
+            { rotulo: "Enviado em", valor: formatarDataHora(connection?.lastSyncedAt), vazio: "Nunca enviado" },
+            {
+              rotulo: "Status",
+              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloSeo(connection.lastSyncStatus)} /> : null,
+            },
+            ...(connection?.lastSyncError ? [{ rotulo: "Erro", valor: connection.lastSyncError }] : []),
+          ]}
+        />
+      </CardContent>
+    </Card>
   );
 }
