@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import { Button } from "@/components/shadcn/button";
 
 type ConversionState = "idle" | "converting" | "done";
 
@@ -44,20 +46,26 @@ export default function MetaLeadConvertButton({
   }
 
   if (converted || state === "done") {
-    return <span className="status-pill status-active">CRM</span>;
+    return <BadgeStatus status="converted" texto="No CRM" tom="bom" />;
   }
 
   return (
-    <span className="lead-convert-action">
-      <button
-        className="row-action"
+    <span className="flex flex-col items-stretch gap-1 min-[821px]:items-end">
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         disabled={state === "converting"}
         onClick={convertLead}
+        className="min-h-11 text-[15px] min-[821px]:min-h-9 min-[821px]:text-sm"
       >
-        {state === "converting" ? "Convertendo..." : "Converter"}
-      </button>
-      {error ? <small>{error}</small> : null}
+        {state === "converting" ? "Convertendo…" : "Converter"}
+      </Button>
+      {error ? (
+        <span role="alert" className="text-[13px] leading-[1.4] text-[color:var(--red)]">
+          {error}
+        </span>
+      ) : null}
     </span>
   );
 }

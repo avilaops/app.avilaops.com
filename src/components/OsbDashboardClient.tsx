@@ -310,7 +310,7 @@ export default function OsbDashboardClient({
                         ⚡ Auto-Fix
                       </button>
                       <Link
-                        href={`/operacao/seo?domain=${r.fqdn}`}
+                        href={`/hub-social/seo?domain=${r.fqdn}`}
                         style={{ padding: "0.3rem 0.6rem", borderRadius: "4px", background: "#333", color: "#fff", fontSize: "0.75rem", textDecoration: "none" }}
                       >
                         Detalhes

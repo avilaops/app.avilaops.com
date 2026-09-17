@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const organizationId = new URL(request.url).searchParams.get("organizationId");
     if (!organizationId) {
-      const url = new URL("/operacao/meta", appUrl);
+      const url = new URL("/hub-social/meta", appUrl);
       url.searchParams.set("error", "Selecione um cliente antes de conectar a Meta.");
       return NextResponse.redirect(url);
     }
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Configuração Meta incompleta.";
-    const url = new URL("/operacao/meta", appUrl);
+    const url = new URL("/hub-social/meta", appUrl);
     url.searchParams.set("error", message);
     return NextResponse.redirect(url);
   }

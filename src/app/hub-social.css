@@ -1,0 +1,53 @@
+/*
+ * Camada shadcn/ui do Hub Social. Nenhuma cor nasce aqui: cada token aponta
+ * para a variável da casa em globals.css, que já troca claro/escuro por
+ * `data-theme` + classe `.dark` (src/lib/tema-noturno, por horário). Os nomes
+ * curtos do shadcn (--muted, --accent, --border, --radius-*) NÃO são definidos
+ * em :root de propósito — colidem com os da casa, que significam outra coisa.
+ */
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-soft);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--hover-bg);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--red);
+  --color-destructive-foreground: #ffffff;
+  --color-success: var(--green);
+  --color-warning: var(--amber);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--accent);
+  --font-sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--mono);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/*
+ * O shadcn usa `border` sem cor e conta com `* { border-color: var(--border) }`
+ * na camada base. Sem isso o Tailwind v4 pinta a borda com a cor do texto
+ * (preta no claro, branca no escuro). Escopo só nos componentes shadcn, que
+ * carregam data-slot, para não mexer nas bordas das telas antigas.
+ */
+@layer base {
+  [data-slot],
+  [data-slot] * {
+    border-color: var(--color-border);
+  }
+}
