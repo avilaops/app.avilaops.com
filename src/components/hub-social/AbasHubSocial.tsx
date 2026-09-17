@@ -1,14 +1,12 @@
 import Link from "next/link";
+import TiraAbas from "@/components/hub-social/TiraAbas";
 import { canaisHubSocial } from "@/lib/hub-social";
 import { cn } from "@/lib/utils";
 
 // Uma linha só, rolando na horizontal: sete abas quebravam em duas linhas no iPhone.
 export default function AbasHubSocial({ ativo }: { ativo: string | null }) {
   return (
-    <nav
-      aria-label="Canais do Hub Social"
-      className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] min-[821px]:mx-0 min-[821px]:px-0 [&::-webkit-scrollbar]:hidden"
-    >
+    <TiraAbas className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] min-[821px]:mx-0 min-[821px]:px-0 [&::-webkit-scrollbar]:hidden">
       <ul className="m-0 flex w-max list-none gap-2 p-0 min-[821px]:w-fit min-[821px]:gap-1 min-[821px]:rounded-lg min-[821px]:bg-muted min-[821px]:p-[3px]">
         {canaisHubSocial.map((canal) => {
           const atual = canal.chave === ativo;
@@ -32,6 +30,6 @@ export default function AbasHubSocial({ ativo }: { ativo: string | null }) {
           );
         })}
       </ul>
-    </nav>
+    </TiraAbas>
   );
 }
