@@ -1,50 +1,32 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import GoogleHub from "@/components/google/GoogleHub";
+import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
+import { Button } from "@/components/shadcn/button";
 import { getAdmin } from "@/lib/auth";
-import { listBusinessLocations, type BusinessTone } from "@/lib/google-mybusiness";
 import { getGa4OverviewMetrics } from "@/lib/google-analytics";
-import GoogleCommandCenterClient from "./GoogleCommandCenterClient";
+import { listBusinessLocations } from "@/lib/google-mybusiness";
 
-export default async function GoogleCommandCenterPage() {
+export default async function GooglePage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
 
-  const locations = await listBusinessLocations();
-  const ga4Metrics = await getGa4OverviewMetrics();
-
-  const totalReviews = locations.reduce((acc, loc) => acc + loc.reviewCount, 0);
-  const pendingReviewsTotal = locations.reduce((acc, loc) => acc + loc.pendingReviews, 0);
-  const averageRating = (
-    locations.reduce((acc, loc) => acc + loc.rating, 0) / locations.length
-  ).toFixed(2);
+  const lidoEm = new Date().toISOString();
+  const [locations, ga4] = await Promise.all([listBusinessLocations(), getGa4OverviewMetrics()]);
 
   return (
-    <>
-      <header className="page-header">
-        <div>
-          <h1>Google</h1>
-          <p>Google Meu Negócio das empresas do grupo e tráfego do GA4.</p>
-        </div>
-        <div className="page-actions">
-          <Link href="/hub-social/seo" className="secondary-button">
-            SEO & Cloudflare
-          </Link>
-          <Link href="/operacao" className="secondary-button">
-            Voltar à Operação
-          </Link>
-        </div>
-      </header>
-
-      <GoogleCommandCenterClient
-        initialLocations={locations}
-        initialGa4={ga4Metrics}
-        stats={{
-          totalLocations: locations.length,
-          totalReviews,
-          pendingReviewsTotal,
-          averageRating: parseFloat(averageRating),
-        }}
+    <div className="space-y-6">
+      <CabecalhoPagina
+        titulo="Google"
+        subtitulo="Google Meu Negócio das empresas do grupo e tráfego do GA4."
+        acoes={
+          <Button asChild variant="outline" className="min-h-11 px-5 text-[15px] min-[821px]:min-h-9 min-[821px]:text-sm">
+            <Link href="/hub-social/seo">SEO e Search Console</Link>
+          </Button>
+        }
       />
-    </>
+
+      <GoogleHub locations={locations} ga4={ga4} lidoEm={lidoEm} />
+    </div>
   );
 }
