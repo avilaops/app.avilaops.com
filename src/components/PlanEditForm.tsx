@@ -97,6 +97,9 @@ type Campos = {
   price: string;
   currency: string;
   billingCycle: string;
+  /** Plano novo: ciclos marcados, cada um vira um plano com o próprio preço. */
+  ciclos: string[];
+  precos: Record<string, string>;
   status: StatusPlano;
   sortOrder: string;
   description: string;
@@ -107,8 +110,8 @@ type Props = {
   plano: PlanoServico | null;
   tipoInicial: string;
   aoFechar: () => void;
-  /** Recebe o plano como a API gravou, para a lista atualizar sem esperar o servidor. */
-  aoSalvar: (mensagem: string, plano: PlanoServico) => void;
+  /** Recebe os planos como a API gravou, para a lista atualizar sem esperar o servidor. */
+  aoSalvar: (mensagem: string, planos: PlanoServico[]) => void;
 };
 
 /**
@@ -124,6 +127,8 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
     price: precoTexto(plano?.priceCents ?? null),
     currency: plano?.currency ?? "BRL",
     billingCycle: plano?.billingCycle ?? "ONE_TIME",
+    ciclos: ["ONE_TIME"],
+    precos: {},
     status: (statusPlano.some(([codigo]) => codigo === plano?.status)
       ? plano?.status
       : "ACTIVE") as StatusPlano,
@@ -139,38 +144,93 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
     setCampos((atual) => ({ ...atual, [campo]: valor }));
   }
 
+  function alternarCiclo(codigo: string) {
+    setCampos((atual) => {
+      const marcados = atual.ciclos.includes(codigo)
+        ? atual.ciclos.filter((c) => c !== codigo)
+        : [...atual.ciclos, codigo];
+      // Mantém a ordem da lista de ciclos, não a ordem do toque.
+      return {
+        ...atual,
+        ciclos: ciclos.map(([c]) => c as string).filter((c) => marcados.includes(c)),
+      };
+    });
+  }
+
+  async function gravar(url: string, method: string, corpo: object) {
+    const resposta = await fetch(url, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(corpo),
+    });
+    const resultado = (await resposta.json()) as {
+      error?: string;
+      plan?: PlanoServico;
+    };
+    if (!resposta.ok || !resultado.plan) {
+      throw new Error(resultado.error ?? "Não foi possível salvar o plano.");
+    }
+    return resultado.plan;
+  }
+
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (salvando) return;
+    if (!plano && campos.ciclos.length === 0) {
+      setErro("Marque pelo menos um ciclo.");
+      return;
+    }
     setSalvando(true);
     setErro("");
 
-    try {
-      const resposta = await fetch(
-        plano ? `/api/service-plans/${plano.id}` : "/api/service-plans",
-        {
-          method: plano ? "PUT" : "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            ...campos,
-            slug: campos.slug || slugify(campos.name),
-          }),
-        },
-      );
-      const resultado = (await resposta.json()) as {
-        error?: string;
-        plan?: PlanoServico;
-      };
-      if (!resposta.ok || !resultado.plan) {
-        throw new Error(resultado.error ?? "Não foi possível salvar o plano.");
+    const slugBase = campos.slug || slugify(campos.name);
+
+    if (plano) {
+      try {
+        const salvo = await gravar(`/api/service-plans/${plano.id}`, "PUT", {
+          ...campos,
+          slug: slugBase,
+        });
+        aoSalvar("Plano atualizado.", [salvo]);
+      } catch (falha) {
+        setErro(falha instanceof Error ? falha.message : "Não foi possível salvar o plano.");
+        setSalvando(false);
       }
-      aoSalvar(plano ? "Plano atualizado." : "Plano criado.", resultado.plan);
-    } catch (falha) {
-      setErro(
-        falha instanceof Error ? falha.message : "Não foi possível salvar o plano.",
-      );
-      setSalvando(false);
+      return;
     }
+
+    // Um plano por ciclo: mensal e anual têm preço próprio, e o resto do
+    // sistema (assinaturas, cobrança) lê um ciclo por plano. Com mais de um
+    // ciclo, o slug ganha o ciclo no fim para não colidir.
+    const criados: PlanoServico[] = [];
+    for (const ciclo of campos.ciclos) {
+      const slug =
+        campos.ciclos.length > 1 ? `${slugBase}-${slugify(rotuloCiclo(ciclo))}` : slugBase;
+      try {
+        criados.push(
+          await gravar("/api/service-plans", "POST", {
+            ...campos,
+            slug,
+            billingCycle: ciclo,
+            price: campos.precos[ciclo] ?? "",
+          }),
+        );
+      } catch (falha) {
+        const motivo = falha instanceof Error ? falha.message : "Não foi possível salvar o plano.";
+        if (criados.length === 0) {
+          setErro(motivo);
+          setSalvando(false);
+          return;
+        }
+        // Parte já foi gravada: fecha, mostra o que entrou e diz o que faltou.
+        aoSalvar(
+          `${criados.length} de ${campos.ciclos.length} planos criados. ${rotuloCiclo(ciclo)}: ${motivo}`,
+          criados,
+        );
+        return;
+      }
+    }
+    aoSalvar(criados.length === 1 ? "Plano criado." : `${criados.length} planos criados.`, criados);
   }
 
   const titulo = plano ? "Editar plano" : "Novo plano";
@@ -251,6 +311,71 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
           </small>
         </label>
 
+        {plano ? null : (
+          <>
+            <div className="field">
+              <span>Ciclos</span>
+              <div className="chip-group" role="group" aria-label="Ciclos de cobrança">
+                {ciclos.map(([codigo, rotulo]) => (
+                  <button
+                    type="button"
+                    key={codigo}
+                    className="chip-toggle"
+                    aria-pressed={campos.ciclos.includes(codigo)}
+                    onClick={() => alternarCiclo(codigo)}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+              <small className="field-help">
+                Marque mais de um para criar um plano por ciclo, cada um com seu preço.
+              </small>
+            </div>
+
+            <label className="field field-select">
+              <span>Moeda</span>
+              <select
+                value={campos.currency}
+                onChange={(evento) => mudar("currency", evento.target.value)}
+              >
+                {moedas.map(([codigo, rotulo]) => (
+                  <option key={codigo} value={codigo}>
+                    {rotulo}
+                  </option>
+                ))}
+              </select>
+              <Icone nome="chevron" tamanho={16} className="chevron" />
+            </label>
+
+            {campos.ciclos.length ? (
+              <div className="field">
+                <div className="field-grid">
+                  {campos.ciclos.map((ciclo) => (
+                    <label className="field" key={ciclo}>
+                      <span>Preço · {rotuloCiclo(ciclo)}</span>
+                      <span className="input-prefix">
+                        <i aria-hidden="true">{simboloDaMoeda(campos.currency)}</i>
+                        <input
+                          value={campos.precos[ciclo] ?? ""}
+                          onChange={(evento) =>
+                            mudar("precos", { ...campos.precos, [ciclo]: evento.target.value })
+                          }
+                          placeholder="0,00"
+                          inputMode="decimal"
+                          autoComplete="off"
+                        />
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <small className="field-help">Vazio fica como “a definir”.</small>
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {plano ? (
         <div className="field-grid">
           <label className="field">
             <span>Preço</span>
@@ -297,6 +422,7 @@ export default function PlanEditForm({ plano, tipoInicial, aoFechar, aoSalvar }:
             <Icone nome="chevron" tamanho={16} className="chevron" />
           </label>
         </div>
+        ) : null}
 
         <div className="field">
           <span>Status</span>
