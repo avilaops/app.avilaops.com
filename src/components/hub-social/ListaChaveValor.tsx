@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
 import BadgeStatus from "@/components/sistema/Status";
 import { BotaoCopiar } from "@/components/hub-social/BotaoCopiar";
 
@@ -28,12 +27,9 @@ function ehExterno(href: string): boolean {
 
 function Valor({ item }: { item: ItemChaveValor }) {
   const vazio = item.valor === null || item.valor === undefined || item.valor === "";
-  if (vazio) {
-    return <span className="text-muted-foreground">{item.vazio ?? "—"}</span>;
-  }
+  if (vazio) return <span className="kv-vazio">{item.vazio ?? "—"}</span>;
 
-  const classes = cn("min-w-0 break-all", item.mono && "font-mono text-[13px]");
-
+  const classe = item.mono ? "kv-valor mono" : "kv-valor";
   if (item.href) {
     const externo = ehExterno(item.href);
     return (
@@ -41,44 +37,39 @@ function Valor({ item }: { item: ItemChaveValor }) {
         href={item.href}
         target={externo ? "_blank" : undefined}
         rel={externo ? "noopener noreferrer" : undefined}
-        className={cn(classes, "text-foreground underline decoration-border underline-offset-4 hover:decoration-current")}
+        className={`${classe} kv-link`}
       >
         {item.valor}
       </a>
     );
   }
-
-  return <span className={classes}>{item.valor}</span>;
+  return <span className={classe}>{item.valor}</span>;
 }
 
+/**
+ * Rótulo e valor, um por linha, numa superfície só — é o que mostra webhook,
+ * token e id de conta nas telas de integração. Desde 18/09/2026 usa as classes
+ * do sistema, as mesmas das listas do menu: sem contorno, separador fino e o
+ * valor técnico em monoespaçada com botão de copiar ao lado.
+ */
 export default function ListaChaveValor({ itens, titulo, descricao, compacto = false }: ListaChaveValorProps) {
-  const temCabecalho = Boolean(titulo || descricao);
-
   return (
-    <section className="w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card">
-      {temCabecalho ? (
-        <header className="border-b border-border px-4 pt-4 pb-3">
-          {titulo ? <h2 className="text-[15px] font-semibold text-foreground">{titulo}</h2> : null}
-          {descricao ? <p className="mt-0.5 text-[13px] text-muted-foreground">{descricao}</p> : null}
+    <section className="grupo">
+      {titulo || descricao ? (
+        <header className="grupo-cabecalho">
+          <div className="kv-titulo">
+            {titulo ? <h2>{titulo}</h2> : null}
+            {descricao ? <p>{descricao}</p> : null}
+          </div>
         </header>
       ) : null}
 
-      <dl className="divide-y divide-border">
+      <dl className={compacto ? "grupo-superficie kv-lista compacta" : "grupo-superficie kv-lista"}>
         {itens.map((item, indice) => (
-          <div
-            key={`${item.rotulo}-${indice}`}
-            className={cn(
-              "flex min-w-0 flex-col gap-1 px-4 min-[560px]:flex-row min-[560px]:items-start min-[560px]:gap-4",
-              compacto ? "min-h-[44px] py-2" : "min-h-[52px] py-3",
-            )}
-          >
-            <dt className="shrink-0 text-[13px] text-muted-foreground min-[560px]:w-[200px] min-[560px]:pt-[3px]">
-              {item.rotulo}
-            </dt>
-            <dd className="flex min-w-0 flex-1 items-center gap-x-2 gap-y-1 text-[15px] text-foreground min-[560px]:text-[14px]">
-              <span className="min-w-0 flex-1">
-                <Valor item={item} />
-              </span>
+          <div className="kv-linha" key={`${item.rotulo}-${indice}`}>
+            <dt>{item.rotulo}</dt>
+            <dd>
+              <Valor item={item} />
               {item.status ? <BadgeStatus status={item.status} /> : null}
               {item.copiar ? <BotaoCopiar texto={item.copiar} rotulo={`Copiar ${item.rotulo}`} /> : null}
             </dd>

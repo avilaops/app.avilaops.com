@@ -113,6 +113,16 @@ Ordem no celular: saudação com o que pede atenção, atalhos (quatro, conforme
 
 `.detalhes-tecnicos` é um `<details>` fechado: id, código interno, endpoint. O catálogo usa para os códigos `DOMAIN`, `PDF_CATALOG` etc., que saíram do título dos grupos.
 
-## Ponte com o Hub Social
+## Hub Social
 
-As sete telas do Hub Social usam primitivos próprios em Tailwind (`components/hub-social/`). Elas obedecem ao mesmo contrato de superfície por CSS: cartão sem contorno, raio médio, sombra 1, aba ativa como peça clara. Quando forem reescritas, devem passar a usar `Grupo`/`LinhaLink` direto.
+Os primitivos das sete telas (`components/hub-social/`) foram reescritos em 18/09/2026 sobre as classes do sistema — não há mais uma segunda linguagem visual:
+
+| Primitivo | O que virou |
+|---|---|
+| `GradeMetricas` + `Metrica` | uma superfície só (`.metricas`): no celular, uma linha por métrica com o número à direita; no desktop, colunas lado a lado separadas por fio. Acabou o quarto cartão órfão |
+| `ListaChaveValor` | `.kv-lista`: rótulo e valor por linha, valor técnico em monoespaçada com botão de copiar |
+| `EstadoVazio` | `.estado-vazio`: superfície clara, sem borda tracejada, com a ação que resolve |
+| `CabecalhoPagina` | chama `CabecalhoTela`; `eyebrow` e `meta` continuam para o SEO |
+| `AbasHubSocial` | `.abas-hub`: cápsula clara numa linha só, aba ativa como peça branca, rolagem horizontal quando não cabe |
+
+Cartões do shadcn que restam nas telas seguem o contrato por CSS: sem contorno, raio médio, sombra 1. Campos de formulário mantêm um fio no tom do separador.

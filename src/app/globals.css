@@ -7890,3 +7890,381 @@ main [role="tab"][aria-selected="true"] {
   background: var(--superficie);
   box-shadow: var(--sombra-1);
 }
+
+/* =========================================================================
+   Hub Social na linguagem do sistema (18/09/2026)
+   -------------------------------------------------------------------------
+   Métricas, lista chave/valor, estado vazio, abas e eyebrow das sete telas.
+   Substitui as classes utilitárias com borda que vinham do shadcn.
+   ========================================================================= */
+.metricas {
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+@media (min-width: 561px) {
+  .metricas {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .metrica + .metrica {
+    box-shadow: inset 1px 0 0 var(--separador);
+  }
+}
+
+@media (max-width: 560px) {
+  .metrica + .metrica {
+    box-shadow: inset 0 1px 0 var(--separador);
+  }
+}
+
+.metrica {
+  position: relative;
+  min-width: 0;
+}
+
+.metrica-alvo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 56px;
+  align-items: center;
+  gap: 2px var(--e3);
+  padding: var(--e4);
+  color: var(--texto);
+}
+
+a.metrica-alvo {
+  transition: background 120ms ease;
+}
+
+a.metrica-alvo:hover {
+  background: var(--hover-bg);
+}
+
+a.metrica-alvo:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: -2px;
+}
+
+.metrica-rotulo {
+  grid-column: 1;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.metrica-valor {
+  grid-column: 1;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.metrica-valor.destaque {
+  font-size: 1.75rem;
+}
+
+.metrica-valor.tom-bom {
+  color: var(--green);
+}
+
+.metrica-valor.tom-atencao {
+  color: var(--amber);
+}
+
+.metrica-valor.tom-ruim {
+  color: var(--red);
+}
+
+.metrica-detalhe {
+  grid-column: 1;
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+.metrica-alvo .chevron {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  color: var(--texto-terciario);
+}
+
+.metrica-evidencia {
+  position: absolute;
+  top: var(--e2);
+  right: var(--e2);
+  z-index: 1;
+}
+
+/* No celular a métrica vira linha: rótulo à esquerda, número à direita. */
+@media (max-width: 560px) {
+  .metrica-alvo {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    padding: var(--e3) var(--e4);
+  }
+
+  .metrica-rotulo {
+    font-size: 0.9375rem;
+    color: var(--texto);
+  }
+
+  .metrica-valor {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    font-size: 1.0625rem;
+  }
+
+  .metrica-alvo .chevron {
+    grid-column: 3;
+  }
+
+  .metrica-evidencia {
+    position: static;
+    display: grid;
+    align-content: center;
+  }
+
+  .metrica {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+/* ---------- Lista chave/valor ---------- */
+.kv-titulo h2 {
+  margin: 0;
+  color: var(--texto);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.kv-titulo p {
+  margin: 2px 0 0;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.kv-lista {
+  margin: 0;
+}
+
+.kv-linha {
+  display: grid;
+  min-height: 52px;
+  align-content: center;
+  gap: 2px;
+  padding: var(--e3) var(--e4);
+}
+
+.kv-lista.compacta .kv-linha {
+  min-height: 44px;
+  padding: var(--e2) var(--e4);
+}
+
+.kv-linha + .kv-linha {
+  box-shadow: inset 0 1px 0 var(--separador);
+}
+
+.kv-linha dt {
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.kv-linha dd {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+@media (min-width: 561px) {
+  .kv-linha {
+    grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--e4);
+  }
+}
+
+.kv-valor {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kv-valor.mono {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.kv-link {
+  text-decoration: underline;
+  text-decoration-color: var(--separador);
+  text-underline-offset: 4px;
+}
+
+.kv-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.kv-vazio {
+  color: var(--texto-terciario);
+}
+
+/* ---------- Estado vazio ---------- */
+.estado-vazio {
+  display: grid;
+  justify-items: center;
+  gap: var(--e2);
+  padding: var(--e8) var(--e5);
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  text-align: center;
+}
+
+.estado-vazio.compacto {
+  padding: var(--e5) var(--e4);
+}
+
+.estado-vazio strong {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.estado-vazio.compacto strong {
+  font-size: 0.9375rem;
+}
+
+.estado-vazio p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+}
+
+.estado-vazio-icone {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: var(--raio-m);
+  background: var(--superficie-suave);
+  color: var(--texto-secundario);
+}
+
+.estado-vazio-acao {
+  margin-top: var(--e2);
+}
+
+/* ---------- Eyebrow e meta do cabeçalho ---------- */
+.eyebrow-tela {
+  margin: 0 0 var(--e1);
+  color: var(--texto-secundario);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cabecalho-meta {
+  align-self: center;
+  color: var(--texto-terciario);
+  font-size: 0.75rem;
+}
+
+/* ---------- Abas do Hub Social ---------- */
+.abas-hub {
+  display: flex;
+  gap: var(--e1);
+  width: max-content;
+  min-width: 100%;
+  padding: var(--e1);
+  margin: 0 0 var(--e5);
+  border-radius: 999px;
+  background: var(--superficie-suave);
+  list-style: none;
+}
+
+.aba-hub {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 var(--e4);
+  border-radius: 999px;
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.aba-hub:hover {
+  color: var(--texto);
+}
+
+.aba-hub[aria-current="page"] {
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: var(--sombra-1);
+}
+
+.aba-hub:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aba-hub,
+  a.metrica-alvo {
+    transition: none;
+  }
+}
+
+/* Casca rolante das abas: sem barra de rolagem visível, sangrando até a borda
+   no celular para a primeira e a última aba não ficarem coladas. */
+.tira-abas {
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 0 16px;
+  scrollbar-width: none;
+}
+
+.tira-abas::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 821px) {
+  .tira-abas {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Campos do shadcn nas telas do Hub Social: contorno no tom do separador e
+   raio do sistema — a borda existe para dizer "aqui se digita", não para
+   desenhar caixa. */
+main [data-slot="input"],
+main [data-slot="textarea"],
+main [data-slot="select-trigger"] {
+  border-color: var(--separador);
+  border-radius: var(--raio-p);
+}
+
+main [data-slot="input"]:focus-visible,
+main [data-slot="textarea"]:focus-visible,
+main [data-slot="select-trigger"]:focus-visible {
+  border-color: var(--marca-azul);
+}
