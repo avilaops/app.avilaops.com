@@ -62,6 +62,10 @@ jobs:
         run: |
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
+          # Mesmo buraco que a imagem de produção tinha: o rastreamento leva o
+          # pacote de libvips só pela casca, sem o `.so`, e as telas que geram
+          # imagem devolvem 500 — o print sai, mas da tela de erro.
+          cp -r node_modules/@img .next/standalone/node_modules/
           node .next/standalone/server.js > next.log 2>&1 &
           npx --yes wait-on http://127.0.0.1:3000/login --timeout 120000
         env:
