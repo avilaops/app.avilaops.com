@@ -8302,3 +8302,44 @@ main [data-slot="textarea"]:focus-visible,
 main [data-slot="select-trigger"]:focus-visible {
   border-color: var(--marca-azul);
 }
+
+/* Marcadores de escolha múltipla (os ciclos do plano). Pílula clara, sem
+   contorno pesado: marcada fica com a superfície e o azul da marca. */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+}
+
+.chip-toggle {
+  min-height: 40px;
+  padding: 0 var(--e4);
+  border: 0;
+  border-radius: 999px;
+  background: var(--superficie-suave);
+  color: var(--texto-secundario);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.chip-toggle[aria-pressed="true"] {
+  background: var(--marca-azul-suave);
+  color: var(--marca-azul);
+  box-shadow: var(--sombra-1);
+}
+
+.chip-toggle:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-toggle {
+    transition: none;
+  }
+}
