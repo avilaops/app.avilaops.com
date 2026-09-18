@@ -1,6 +1,6 @@
 "use client";
 
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";
 import { Badge } from "@/components/shadcn/badge";

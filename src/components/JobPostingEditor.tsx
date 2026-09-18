@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Confirmacao from "@/components/sistema/Confirmacao";
 import { useState } from "react";
 import {
   CONTRACTS,
@@ -148,14 +149,10 @@ export default function JobPostingEditor({
   const transicao = (acao: "publish" | "pause" | "close", sucesso: string) =>
     chamar(acao, `/api/job-postings/${posting.id}/${acao}`, { method: "POST" }, sucesso);
 
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+
   async function excluir() {
-    if (
-      !window.confirm(
-        "Excluir esta vaga? A ação é definitiva. Para tirar do ar mantendo o histórico, encerre em vez de excluir.",
-      )
-    ) {
-      return;
-    }
+    setConfirmandoExclusao(false);
     setLoading("delete");
     setError("");
     try {
@@ -232,7 +229,7 @@ export default function JobPostingEditor({
           <button
             className="danger-button"
             type="button"
-            onClick={excluir}
+            onClick={() => setConfirmandoExclusao(true)}
             disabled={ocupado || posting.applicationCount > 0}
             title={
               posting.applicationCount > 0
@@ -533,6 +530,18 @@ export default function JobPostingEditor({
           </div>
         </section>
       </div>
+
+      {confirmandoExclusao ? (
+        <Confirmacao
+          titulo="Excluir vaga"
+          alvo={posting.title}
+          descricao="A vaga sai do site e do histórico. Para tirar do ar mantendo o registro, use Encerrar."
+          rotuloConfirmar="Excluir"
+          confirmando={loading === "delete"}
+          aoConfirmar={() => void excluir()}
+          aoCancelar={() => setConfirmandoExclusao(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Confirmacao from "@/components/sistema/Confirmacao";
 
 /**
  * Ações sobre a mensalidade de uma loja.
@@ -28,6 +29,7 @@ export default function AcoesAssinatura({
   const [enviando, comTransicao] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [editandoValor, setEditandoValor] = useState(false);
+  const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false);
   const [valor, setValor] = useState((valorCentavos / 100).toFixed(2).replace(".", ","));
 
   async function executar(acao: Acao, corpo?: Record<string, unknown>) {
@@ -50,7 +52,7 @@ export default function AcoesAssinatura({
   // Cancelar é o único caminho sem volta: o cartão é desvinculado e o lojista
   // precisa cadastrar de novo. Por isso confirma pelo nome da loja.
   function cancelar() {
-    if (!window.confirm(`Cancelar a mensalidade de ${nome}?\n\nO cartão é desvinculado e a loja será suspensa na próxima varredura. Não dá para desfazer - ele terá que assinar de novo.`)) return;
+    setConfirmandoCancelamento(false);
     void executar("cancelar");
   }
 
@@ -71,7 +73,12 @@ export default function AcoesAssinatura({
           <button type="button" className="text-button" disabled={enviando} onClick={() => setEditandoValor((v) => !v)}>
             Valor
           </button>
-          <button type="button" className="danger-button" disabled={enviando} onClick={cancelar}>
+          <button
+            type="button"
+            className="danger-button"
+            disabled={enviando}
+            onClick={() => setConfirmandoCancelamento(true)}
+          >
             Cancelar
           </button>
         </>
@@ -100,6 +107,18 @@ export default function AcoesAssinatura({
           </p>
         </form>
       )}
+
+      {confirmandoCancelamento ? (
+        <Confirmacao
+          titulo="Cancelar a mensalidade"
+          alvo={nome}
+          descricao="O cartão é desvinculado e a loja será suspensa na próxima varredura. Para voltar, o lojista precisa assinar de novo."
+          rotuloConfirmar="Cancelar mensalidade"
+          confirmando={enviando}
+          aoConfirmar={cancelar}
+          aoCancelar={() => setConfirmandoCancelamento(false)}
+        />
+      ) : null}
 
       {erro && <p className="form-error">{erro}</p>}
     </div>

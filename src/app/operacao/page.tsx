@@ -1,276 +1,209 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { Grupo, IconeTile, LinhaInfo, LinhaLink } from "@/components/sistema/Lista";
+import Status from "@/components/sistema/Status";
 import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { getOperationsDashboard } from "@/lib/operations";
 
-function formatAttentionDate(value: Date | null) {
+export const dynamic = "force-dynamic";
+
+function saudacao(hora: number) {
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function prazo(value: Date | null) {
   return value ? formatShortDate(value) : "Sem prazo";
 }
 
-/*
- * A tela mostra o rótulo, nunca o valor cru do banco: "IN_PROGRESS" é dado,
- * "Em andamento" é informação. Valor fora da lista aparece como veio, para
- * ninguém sumir com um estado novo.
+/**
+ * Visão central.
+ *
+ * Reescrita em 17/09/2026 na linguagem do sistema: uma superfície por assunto,
+ * linha por informação, nada de seis cartões com zero dentro. A ordem responde
+ * às perguntas do celular na mesma sequência em que elas aparecem — o que
+ * precisa de mim, o que eu abro todo dia, como está a carteira.
+ *
+ * Todo número vem de `getOperationsDashboard()`; não há métrica de exemplo.
+ * Quando não há o que mostrar, o bloco some ou diz que está vazio.
  */
-const rotuloStatusTarefa: Record<string, string> = {
-  TODO: "A fazer",
-  IN_PROGRESS: "Em andamento",
-  BLOCKED: "Bloqueada",
-};
-
-const rotuloStatusCliente: Record<string, string> = {
-  ACTIVE: "Ativo",
-  ONBOARDING: "Onboarding",
-  PAUSED: "Pausado",
-  ARCHIVED: "Arquivado",
-};
-
 export default async function OperationsPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
   const data = await getOperationsDashboard();
+  const ehDono = admin.role === "OWNER";
 
-  const totalAttention =
-    data.metrics.overdueTaskCount +
-    data.metrics.pendingApprovalCount +
-    data.metrics.domainAttentionCount +
-    data.metrics.financeAttentionCount;
+  const atencao = [
+    ...data.priorityTasks.map((task) => ({
+      chave: `tarefa-${task.id}`,
+      titulo: task.title,
+      descricao: `${task.organization.name}${task.project ? ` · ${task.project.title}` : ""}`,
+      status: task.status,
+      quando: prazo(task.dueAt),
+      href: task.project ? `/projetos/${task.project.id}` : `/clientes/${task.organization.id}`,
+      icone: "entregas" as const,
+    })),
+    ...data.upcomingDomains.map((domain) => ({
+      chave: `dominio-${domain.id}`,
+      titulo: domain.fqdn,
+      descricao: domain.organization.name,
+      status: "renewal_due",
+      quando: prazo(domain.expiresAt),
+      href: `/clientes/${domain.organization.id}`,
+      icone: "dominios" as const,
+    })),
+  ];
 
-  /*
-   * Cada linha leva a algum lugar. Até 10/09/2026 as seis eram `div` sem
-   * destino: o número aparecia e o clique não fazia nada, então a Visão central
-   * mostrava o estado da casa sem deixar agir sobre ele.
-   *
-   * Tarefas e aprovações não têm tela própria: as duas vivem dentro do projeto,
-   * e é para lá que apontam. Enquanto não existir tela de tarefa, mandar para
-   * /projetos é honesto; inventar rota que não existe seria pior que não linkar.
-   */
-  const metrics = [
-    {
-      label: "Clientes ativos",
-      value: data.metrics.organizationCount,
-      detail: `${data.metrics.onboardingCount} em onboarding`,
-      href: "/clientes",
-    },
-    {
-      label: "Projetos abertos",
-      value: data.metrics.activeProjectCount,
-      detail: "Planejamento, execução ou espera",
-      href: "/projetos",
-    },
-    {
-      label: "Tarefas abertas",
-      value: data.metrics.openTaskCount,
-      detail: `${data.metrics.overdueTaskCount} vencidas`,
-      alerta: data.metrics.overdueTaskCount > 0,
-      href: "/projetos",
-    },
-    {
-      label: "Aprovações",
-      value: data.metrics.pendingApprovalCount,
-      detail: "Aguardando decisão",
-      href: "/projetos",
-    },
-    {
-      label: "Leads abertos",
-      value: data.metrics.openLeadCount,
-      detail: "Da entrada à proposta",
-      href: "/leads",
-    },
-    {
-      label: "Domínios em 60 dias",
-      value: data.metrics.domainAttentionCount,
-      detail: "Próximos do vencimento",
-      href: "/hub-social/dominios",
-    },
+  const resumo = [
+    { label: "Clientes ativos", valor: data.metrics.organizationCount, detalhe: `${data.metrics.onboardingCount} em onboarding`, href: "/clientes", icone: "clientes" as const },
+    { label: "Projetos abertos", valor: data.metrics.activeProjectCount, detalhe: "Planejamento, execução ou espera", href: "/projetos", icone: "entregas" as const },
+    { label: "Tarefas abertas", valor: data.metrics.openTaskCount, detalhe: `${data.metrics.overdueTaskCount} vencidas`, href: "/projetos", icone: "operacao" as const },
+    { label: "Aprovações", valor: data.metrics.pendingApprovalCount, detalhe: "Aguardando decisão", href: "/projetos", icone: "fiscal" as const },
+    { label: "Leads abertos", valor: data.metrics.openLeadCount, detalhe: "Da entrada à proposta", href: "/leads", icone: "hub" as const },
+    { label: "Domínios em 60 dias", valor: data.metrics.domainAttentionCount, detalhe: "Próximos do vencimento", href: "/hub-social/dominios", icone: "dominios" as const },
+  ];
+
+  // Atalhos: só destinos que existem e que esta pessoa pode abrir.
+  const atalhos = [
+    { href: "/clientes", label: "Clientes", icone: "clientes" as const, tom: "azul" as const },
+    { href: "/projetos", label: "Entregas", icone: "entregas" as const, tom: "azul" as const },
+    { href: "/hub-social/whatsapp", label: "WhatsApp", icone: "whatsapp" as const, tom: "vermelho" as const },
+    ehDono
+      ? { href: "/financeiro", label: "Financeiro", icone: "financeiro" as const, tom: "azul" as const }
+      : { href: "/hub-social/seo", label: "SEO", icone: "seo" as const, tom: "amarelo" as const },
   ];
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="operations">
-      <header className="page-header">
-        <div>
-          <h1>Visão central</h1>
-          <p>O que precisa de decisão agora - prazos, domínios e saldo.</p>
-        </div>
-        <div className="page-actions">
-          <Link href="/clientes" className="primary-button">
-            Adicionar cliente
-          </Link>
-          <Link href="/financeiro" className="secondary-button">
-            Abrir financeiro
-          </Link>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo={`${saudacao(new Date().getHours())}, ${admin.nome.split(" ")[0]}`}
+        descricao={
+          atencao.length
+            ? `${atencao.length} ${atencao.length === 1 ? "item pede" : "itens pedem"} atenção hoje.`
+            : "Nada vencendo agora."
+        }
+      />
 
-      <section className="command-strip" aria-label="Estado do sistema">
-        <div>
-          <span className="status-dot" />
-          <strong>Operação disponível</strong>
-        </div>
-        <span>
-          Financeiro{" "}
-          <strong className={data.latestBalance ? "positive" : "muted"}>
-            {data.latestBalance ? "sincronizado" : "sem captura"}
-          </strong>
-        </span>
-        <span>
-          Atenções <strong>{totalAttention}</strong>
-        </span>
-      </section>
-
-      {/* Lista, não seis cartões: quase todos os números são zero, e cartão
-          grande para zero enche a tela sem dizer nada. Uma linha por número
-          cabe de uma vez no celular. */}
-      <section className="operations-metrics" aria-label="Resumo operacional">
-        {metrics.map((metric) => (
-          <Link className="operations-metric" href={metric.href} key={metric.label}>
-            <span className="operations-metric-label">{metric.label}</span>
-            <small className={metric.alerta ? "negative" : ""}>{metric.detail}</small>
-            <strong>{metric.value}</strong>
-            <Icone nome="chevron" tamanho={16} className="chevron" />
-          </Link>
-        ))}
-      </section>
-
-      <section className="operations-grid">
-        <article className="operations-panel priority-panel">
-          <div className="operations-panel-heading">
-            <h2>Fila de atenção</h2>
-            <span className="panel-count">
-              {data.priorityTasks.length + data.upcomingDomains.length}
-            </span>
-          </div>
-
-          {data.priorityTasks.length === 0 &&
-          data.upcomingDomains.length === 0 ? (
-            <div className="operations-empty">
-              <strong>Nada urgente por aqui.</strong>
-              <p>A fila mostra tarefas, aprovações e vencimentos reais.</p>
+      <div className="home-grid">
+        <div className="pilha">
+          <Grupo
+            titulo="Atalhos"
+          >
+            <div className="atalhos">
+              {atalhos.map((atalho) => (
+                <Link className="atalho" href={atalho.href} key={atalho.href}>
+                  <IconeTile nome={atalho.icone} tom={atalho.tom} />
+                  <span>{atalho.label}</span>
+                </Link>
+              ))}
             </div>
-          ) : (
-            <div className="attention-list">
-              {/* A tarefa abre onde ela vive: no projeto quando tem projeto, na
-                  ficha do cliente quando é solta. */}
-              {data.priorityTasks.map((task) => (
-                <Link
-                  className="attention-row"
-                  href={
-                    task.project
-                      ? `/projetos/${task.project.id}`
-                      : `/clientes/${task.organization.id}`
+          </Grupo>
+
+          <Grupo titulo="Precisa de atenção">
+            {atencao.length === 0 ? (
+              <LinhaInfo
+                titulo="Nada urgente por aqui"
+                descricao="A fila mostra tarefas com prazo e domínios vencendo."
+                icone="saude"
+                tom="neutro"
+              />
+            ) : (
+              atencao.map((item) => (
+                <LinhaLink
+                  key={item.chave}
+                  href={item.href}
+                  titulo={item.titulo}
+                  descricao={item.descricao}
+                  icone={item.icone}
+                  tom={item.icone === "dominios" ? "amarelo" : "azul"}
+                  valor={
+                    <span className="linha-valor-composto">
+                      <Status status={item.status} />
+                      <time>{item.quando}</time>
+                    </span>
                   }
-                  key={task.id}
-                >
-                  <span
-                    className={`attention-marker marker-${task.priority.toLowerCase()}`}
-                  />
-                  <div>
-                    <strong>{task.title}</strong>
-                    <small>
-                      {task.organization.name}
-                      {task.project ? ` · ${task.project.title}` : ""}
-                    </small>
-                  </div>
-                  <span className="attention-type">
-                    {rotuloStatusTarefa[task.status] ?? task.status}
-                  </span>
-                  <time dateTime={task.dueAt?.toISOString()}>
-                    {formatAttentionDate(task.dueAt)}
-                  </time>
-                </Link>
-              ))}
-              {data.upcomingDomains.map((domain) => (
-                <Link
-                  className="attention-row"
-                  href={`/clientes/${domain.organization.id}`}
-                  key={domain.id}
-                >
-                  <span className="attention-marker marker-domain" />
-                  <div>
-                    <strong>{domain.fqdn}</strong>
-                    <small>{domain.organization.name}</small>
-                  </div>
-                  <span className="attention-type">Domínio</span>
-                  <time dateTime={domain.expiresAt?.toISOString()}>
-                    {formatAttentionDate(domain.expiresAt)}
-                  </time>
-                </Link>
-              ))}
-            </div>
-          )}
-        </article>
+                />
+              ))
+            )}
+          </Grupo>
 
-        <aside className="operations-panel system-balance-panel">
-          <div className="operations-panel-heading">
-            <h2>Saldo disponível</h2>
-          </div>
-          <strong className="system-balance">
-            {formatCurrency(data.latestBalance?.availableBalance.toString())}
-          </strong>
-          <dl>
-            <div>
-              <dt>Conciliações em atenção</dt>
-              <dd>{data.metrics.financeAttentionCount}</dd>
-            </div>
-            <div>
-              <dt>Origem</dt>
-              <dd>Efí</dd>
-            </div>
-          </dl>
-          <Link href="/financeiro" className="secondary-button">
-            Abrir controle financeiro
-          </Link>
-        </aside>
-      </section>
-
-      <section className="operations-panel organizations-preview">
-        <div className="operations-panel-heading">
-          <h2>Clientes recentes</h2>
-          <Link href="/clientes" className="text-link">
-            Ver todos
-          </Link>
+          <Grupo
+            titulo="Clientes recentes"
+            acao={
+              <Link href="/clientes" className="text-link">
+                Ver todos
+              </Link>
+            }
+          >
+            {data.recentOrganizations.length === 0 ? (
+              <LinhaInfo
+                titulo="A carteira ainda está vazia"
+                descricao="Cadastre o primeiro cliente para iniciar o onboarding."
+                icone="clientes"
+                tom="neutro"
+              />
+            ) : (
+              data.recentOrganizations.map((organization) => (
+                <LinhaLink
+                  key={organization.id}
+                  href={`/clientes/${organization.id}`}
+                  titulo={organization.name}
+                  descricao={`${organization.segment ?? "Segmento não definido"} · ${organization._count.projects} projetos · ${organization._count.domains} domínios`}
+                  icone="clientes"
+                  valor={<Status status={organization.status} />}
+                />
+              ))
+            )}
+          </Grupo>
         </div>
 
-        {data.recentOrganizations.length === 0 ? (
-          <div className="operations-empty compact-empty">
-            <strong>A carteira ainda está vazia.</strong>
-            <p>Cadastre o primeiro cliente para iniciar o onboarding.</p>
-            <Link href="/clientes" className="primary-button">
-              Cadastrar primeiro cliente
-            </Link>
-          </div>
-        ) : (
-          <div className="organization-preview-list">
-            {data.recentOrganizations.map((organization) => (
-              <Link
-                className="organization-preview-row"
-                href={`/clientes/${organization.id}`}
-                key={organization.id}
-              >
-                <span>{organization.name.slice(0, 2).toUpperCase()}</span>
-                <div>
-                  <strong>{organization.name}</strong>
-                  <small>{organization.segment ?? "Segmento não definido"}</small>
-                </div>
-                <span
-                  className={`status-pill status-${organization.status.toLowerCase()}`}
-                >
-                  {rotuloStatusCliente[organization.status] ??
-                    organization.status}
-                </span>
-                <small>
-                  {organization._count.projects} projetos ·{" "}
-                  {organization._count.domains} domínios
-                </small>
-                <Icone nome="chevron" tamanho={16} className="chevron" />
-              </Link>
+        <div className="pilha">
+          <Grupo titulo="Resumo">
+            {resumo.map((item) => (
+              <LinhaLink
+                key={item.label}
+                href={item.href}
+                titulo={item.label}
+                descricao={item.detalhe}
+                icone={item.icone}
+                valor={<strong className="linha-numero">{item.valor}</strong>}
+              />
             ))}
-          </div>
-        )}
-      </section>
+          </Grupo>
+
+          {ehDono ? (
+            <Grupo titulo="Financeiro">
+              <LinhaInfo
+                titulo="Saldo disponível"
+                descricao={data.latestBalance ? "Última captura da conta Efí" : "Sem captura da conta Efí ainda"}
+                icone="financeiro"
+                valor={
+                  <strong className="linha-numero">
+                    {data.latestBalance ? formatCurrency(data.latestBalance.availableBalance.toString()) : "—"}
+                  </strong>
+                }
+              />
+              <LinhaLink
+                href="/financeiro?status=PENDING"
+                titulo="Conciliações em atenção"
+                descricao="Lançamentos esperando conferência"
+                icone="fiscal"
+                valor={<strong className="linha-numero">{data.metrics.financeAttentionCount}</strong>}
+              />
+              <LinhaLink href="/financeiro" titulo="Abrir controle financeiro" icone="credito" />
+            </Grupo>
+          ) : null}
+        </div>
+      </div>
+
+      <p className="home-rodape">
+        <Icone nome="saude" tamanho={14} /> Números lidos do banco a cada abertura desta tela.
+      </p>
     </AppShell>
   );
 }

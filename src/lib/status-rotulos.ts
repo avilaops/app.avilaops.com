@@ -44,6 +44,19 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   processed: { texto: "Processado", tom: "bom" },
   skipped: { texto: "Ignorado", tom: "neutro" },
   unknown: { texto: "Desconhecido", tom: "neutro" },
+  // Operação: tarefa, projeto, cliente e lead — os mesmos rótulos que a
+  // Visão central mantinha em mapa próprio até 17/09/2026.
+  todo: { texto: "A fazer", tom: "neutro" },
+  in_progress: { texto: "Em andamento", tom: "info" },
+  blocked: { texto: "Bloqueada", tom: "ruim" },
+  planning: { texto: "Planejamento", tom: "info" },
+  waiting: { texto: "Em espera", tom: "atencao" },
+  qualified: { texto: "Qualificado", tom: "info" },
+  diagnosis: { texto: "Diagnóstico", tom: "info" },
+  proposal: { texto: "Proposta", tom: "info" },
+  won: { texto: "Ganho", tom: "bom" },
+  lost: { texto: "Perdido", tom: "neutro" },
+  renewal_due: { texto: "Renovação próxima", tom: "atencao" },
   // Meta: leads, verificação do Business Manager e account_status das contas de anúncio.
   new: { texto: "Novo", tom: "atencao" },
   imported: { texto: "Importado", tom: "bom" },

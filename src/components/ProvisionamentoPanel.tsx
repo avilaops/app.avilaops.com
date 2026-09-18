@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Cartao, chamar, Pill, rotuloStatus, type Resultado } from "@/components/provisionamento/comum";
+import Confirmacao from "@/components/sistema/Confirmacao";
 import { Icone } from "@/components/ui/Icones";
 import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
@@ -196,8 +197,10 @@ export default function ProvisionamentoPanel({
     );
   }
 
+  const [dominioParaArquivar, setDominioParaArquivar] = useState<string | null>(null);
+
   async function arquivarDominio(fqdn: string, acao: "arquivar" | "reativar") {
-    if (acao === "arquivar" && !window.confirm(`Arquivar ${fqdn}? Ele sai das auditorias e da renovação; nada é apagado.`)) return;
+    setDominioParaArquivar(null);
     await executar(
       "dominio",
       async () => {
@@ -482,7 +485,7 @@ export default function ProvisionamentoPanel({
                       <small>{legenda}</small>
                     </div>
                     <Pill status={arquivado ? "ARCHIVED" : d.cloudflareStatus} />
-                    <button type="button" className={arquivado ? "text-button" : "text-button prov-perigo"} disabled={ocupado === "dominio"} onClick={() => arquivarDominio(d.fqdn, arquivado ? "reativar" : "arquivar")}>
+                    <button type="button" className={arquivado ? "text-button" : "text-button prov-perigo"} disabled={ocupado === "dominio"} onClick={() => (arquivado ? arquivarDominio(d.fqdn, "reativar") : setDominioParaArquivar(d.fqdn))}>
                       {arquivado ? "Reativar" : "Arquivar"}
                     </button>
                   </div>
@@ -983,6 +986,19 @@ export default function ProvisionamentoPanel({
             ) : null}
           </form>
         </Sheet>
+      ) : null}
+
+      {dominioParaArquivar ? (
+        <Confirmacao
+          titulo="Arquivar domínio"
+          alvo={dominioParaArquivar}
+          descricao="Ele sai das auditorias e da renovação automática. Nenhum registro DNS é apagado."
+          rotuloConfirmar="Arquivar"
+          reversivel
+          confirmando={ocupado === "dominio"}
+          aoConfirmar={() => void arquivarDominio(dominioParaArquivar, "arquivar")}
+          aoCancelar={() => setDominioParaArquivar(null)}
+        />
       ) : null}
 
       {aviso ? (
