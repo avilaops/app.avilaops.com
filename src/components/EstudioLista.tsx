@@ -53,12 +53,23 @@ function passaNoFiltro(p: PecaDTO, filtro: Filtro) {
   return ultimo?.status === filtro;
 }
 
-export default function EstudioLista({ pecas, lidoEm }: { pecas: PecaDTO[]; lidoEm: string }) {
+export type ClienteResumo = { id: string; nome: string };
+
+export default function EstudioLista({
+  pecas,
+  clientes,
+  lidoEm,
+}: {
+  pecas: PecaDTO[];
+  clientes: ClienteResumo[];
+  lidoEm: string;
+}) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [templateId, setTemplateId] = useState(TEMPLATES[0].id);
   const [formato, setFormato] = useState<Formato>("9:16");
   const [titulo, setTitulo] = useState("");
+  const [clienteId, setClienteId] = useState("");
   const [criando, setCriando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("TODAS");
@@ -89,7 +100,7 @@ export default function EstudioLista({ pecas, lidoEm }: { pecas: PecaDTO[]; lido
       const r = await fetch("/api/estudio/pecas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId, formato, titulo }),
+        body: JSON.stringify({ templateId, formato, titulo, organizationId: clienteId || null }),
       });
       const dados = await r.json();
       if (!r.ok) throw new Error(dados.error ?? "Não deu para criar a peça.");
@@ -232,7 +243,7 @@ export default function EstudioLista({ pecas, lidoEm }: { pecas: PecaDTO[]; lido
                       </Link>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
                         <span className="truncate">
-                          {t?.nome ?? p.templateId} · {p.formato}
+                          {p.cliente?.nome ?? "Ávila Ops"} · {t?.nome ?? p.templateId} · {p.formato}
                           {ultimo ? ` · ${dataCurta(ultimo.criadoEm)}` : ""}
                         </span>
                         <span className="min-[561px]:hidden">{badge}</span>
@@ -282,6 +293,22 @@ export default function EstudioLista({ pecas, lidoEm }: { pecas: PecaDTO[]; lido
               </label>
             ))}
           </div>
+          <label className="field">
+            <span>Cliente</span>
+            <select value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
+              <option value="">Ávila Ops (peça da casa)</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+            <small className="estudio-ajuda">
+              {clienteId
+                ? "A peça sai com a logo e as cores do cadastro de identidade do cliente."
+                : "Sem cliente, a peça sai com a marca da casa."}
+            </small>
+          </label>
           <label className="field">
             <span>Título (interno)</span>
             <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={templatePorId(templateId)?.nome} maxLength={120} />

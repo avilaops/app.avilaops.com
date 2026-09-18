@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: "standalone",
+  // sharp é binário nativo (.node): empacotar quebra a geração de ícones da
+  // marca no runtime standalone, que carrega o módulo do node_modules.
+  serverExternalPackages: ["sharp"],
   turbopack: {
     root: process.cwd(),
   },

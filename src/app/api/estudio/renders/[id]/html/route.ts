@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const b = Buffer.from(s.token ?? "");
   if (!a.length || a.length !== b.length || !timingSafeEqual(a, b)) return new NextResponse("proibido", { status: 403 });
 
-  const html = htmlDaPeca({ templateId: s.templateId, formato: s.formato, valores: s.valores, duracao: s.duracao });
+  const html = htmlDaPeca({ templateId: s.templateId, formato: s.formato, valores: s.valores, duracao: s.duracao, marca: s.marca });
   if (!html) return new NextResponse("template desconhecido", { status: 410 });
   return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
 }

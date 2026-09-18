@@ -76,3 +76,10 @@ export async function getPrivateObjectUrl(key: string): Promise<string> {
   const command = new GetObjectCommand({ Bucket: bucket(), Key: key });
   return getSignedUrl(client(), command, { expiresIn: 300 });
 }
+
+/** Baixa o objeto para a memória. Só para arquivo pequeno — logo, ícone, PDF de manual. */
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const saida = await client().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+  if (!saida.Body) throw new Error("Objeto sem conteúdo.");
+  return Buffer.from(await saida.Body.transformToByteArray());
+}

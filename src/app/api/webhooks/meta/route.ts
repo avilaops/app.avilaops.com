@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { obterCredencial } from "@/lib/credenciais";
 import {
   META_PROVIDER,
   processMetaWebhookPayload,
@@ -9,15 +10,22 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-function verifySignature(rawBody: string, signature: string | null) {
-  const appSecret = process.env.META_APP_SECRET;
+async function verifySignature(rawBody: string, signature: string | null) {
+  const appSecret = await obterCredencial("META_APP_SECRET");
   if (!signature || !appSecret) return false;
 
   const expected =
     "sha256=" +
     crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
 
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  // timingSafeEqual estoura quando os buffers têm tamanhos diferentes, e
+  // assinatura malformada é justamente o caso comum de quem sonda o endpoint:
+  // sem esta guarda, a rota respondia 500 em vez de 403.
+  const recebida = Buffer.from(signature);
+  const esperada = Buffer.from(expected);
+  if (recebida.length !== esperada.length) return false;
+
+  return crypto.timingSafeEqual(recebida, esperada);
 }
 
 export async function GET(request: NextRequest) {
@@ -26,7 +34,7 @@ export async function GET(request: NextRequest) {
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && challenge && verifyMetaWebhookToken(token)) {
+  if (mode === "subscribe" && challenge && (await verifyMetaWebhookToken(token))) {
     return new NextResponse(challenge, {
       status: 200,
       headers: { "Content-Type": "text/plain" },
@@ -40,7 +48,7 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
 
-  if (!verifySignature(rawBody, signature)) {
+  if (!(await verifySignature(rawBody, signature))) {
     return NextResponse.json({ error: "Assinatura inválida." }, { status: 403 });
   }
 

@@ -446,27 +446,27 @@ model AiCoreEvalRun {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
+  id           String   @id @default(cuid())
   /// Número único do cliente (6 dígitos, a partir de 100001), usado fora do
   /// sistema: atendimento, cobrança, contratos e infraestrutura. Nunca muda.
-  clientNumber Int   @unique @default(autoincrement()) @map("client_number")
-  name      String
-  slug      String   @unique
-  legalName String?  @map("legal_name")
-  cpfCnpj   String?  @unique @map("cpf_cnpj")
-  cnpjData  Json?    @map("cnpj_data")
+  clientNumber Int      @unique @default(autoincrement()) @map("client_number")
+  name         String
+  slug         String   @unique
+  legalName    String?  @map("legal_name")
+  cpfCnpj      String?  @unique @map("cpf_cnpj")
+  cnpjData     Json?    @map("cnpj_data")
   /// Retrato do próprio cliente conforme registrado por um fornecedor na NF-e
   /// mais recente recebida por ele (bloco <dest>), gravado pela sincronização
   /// da SEFAZ. Mesma natureza do `cnpj_data`: dado do cliente sobre o cliente.
   /// Item de nota, fornecedor e XML NÃO entram aqui — são dado fiscal de
   /// terceiro e não têm por que morar no cadastro comercial.
-  sefazData Json?    @map("sefaz_data")
-  segment   String?
-  siteUrl   String?  @map("site_url")
-  status    String   @default("ACTIVE")
-  timezone  String   @default("America/Sao_Paulo")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  sefazData    Json?    @map("sefaz_data")
+  segment      String?
+  siteUrl      String?  @map("site_url")
+  status       String   @default("ACTIVE")
+  timezone     String   @default("America/Sao_Paulo")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   brands                   Brand[]
   projects                 Project[]
@@ -499,6 +499,7 @@ model Organization {
   newsletterContacts       NewsletterContact[]
   registrationSuggestions  OrganizationRegistrationSuggestion[]
   clientDatabases          ClientDatabase[]
+  studioPieces             StudioPiece[]
 
   @@index([status, createdAt])
   @@map("organizations")
@@ -1409,16 +1410,16 @@ model IntegrationConnection {
 /// Medicao curta e imutavel de disponibilidade e latencia. O painel conserva
 /// 24 horas para desenhar tendencia sem transformar o banco operacional em TSDB.
 model ServiceHealthCheck {
-  id          BigInt   @id @default(autoincrement())
-  serviceKey  String   @map("service_key")
-  serviceName String   @map("service_name")
-  serverKey   String   @map("server_key")
-  url         String
-  status      String
-  statusCode  Int?     @map("status_code")
-  latencyMs   Int?     @map("latency_ms")
-  errorCode   String?  @map("error_code")
-  checkedAt   DateTime @default(now()) @map("checked_at")
+  id            BigInt    @id @default(autoincrement())
+  serviceKey    String    @map("service_key")
+  serviceName   String    @map("service_name")
+  serverKey     String    @map("server_key")
+  url           String
+  status        String
+  statusCode    Int?      @map("status_code")
+  latencyMs     Int?      @map("latency_ms")
+  errorCode     String?   @map("error_code")
+  checkedAt     DateTime  @default(now()) @map("checked_at")
   /// Proveniência (desde 16/09/2026). Linhas antigas ficam com null.
   requestId     String?   @map("request_id")
   trigger       String?
@@ -1445,20 +1446,20 @@ model ServiceHealthCheck {
 
 /// Retrato dos recursos do host enviado por um coletor local autenticado.
 model ServerHealthSnapshot {
-  id                  BigInt   @id @default(autoincrement())
-  serverKey           String   @map("server_key")
-  serverName          String   @map("server_name")
-  cpuPercent          Float    @map("cpu_percent")
-  memoryUsedPercent   Float    @map("memory_used_percent")
-  memoryAvailableMb   Int      @map("memory_available_mb")
-  swapUsedPercent     Float    @map("swap_used_percent")
-  diskUsedPercent     Float    @map("disk_used_percent")
-  load1               Float    @map("load_1")
-  containersRunning   Int      @map("containers_running")
-  containersUnhealthy Int      @map("containers_unhealthy")
+  id                  BigInt    @id @default(autoincrement())
+  serverKey           String    @map("server_key")
+  serverName          String    @map("server_name")
+  cpuPercent          Float     @map("cpu_percent")
+  memoryUsedPercent   Float     @map("memory_used_percent")
+  memoryAvailableMb   Int       @map("memory_available_mb")
+  swapUsedPercent     Float     @map("swap_used_percent")
+  diskUsedPercent     Float     @map("disk_used_percent")
+  load1               Float     @map("load_1")
+  containersRunning   Int       @map("containers_running")
+  containersUnhealthy Int       @map("containers_unhealthy")
   /// Hora usada para ordenar: a da medição no host, ou a de chegada quando o coletor antigo não a envia.
-  collectedAt         DateTime @map("collected_at")
-  receivedAt          DateTime @default(now()) @map("received_at")
+  collectedAt         DateTime  @map("collected_at")
+  receivedAt          DateTime  @default(now()) @map("received_at")
   /// Proveniência (desde 16/09/2026). Null em leituras do coletor v1.
   observedAt          DateTime? @map("observed_at")
   persistedAt         DateTime? @default(now()) @map("persisted_at")
@@ -1834,6 +1835,10 @@ model NewsletterDelivery {
 model StudioPiece {
   id         String   @id @default(cuid())
   title      String
+  /// Cliente dono da peça. Nulo = peça da própria casa, que renderiza com a
+  /// MARCA_PADRAO. Com cliente, o Estúdio usa a marca dele (nome, site, logo e
+  /// cores vindas do cadastro de identidade).
+  organizationId String? @map("organization_id")
   templateId String   @map("template_id")
   /// 9:16 | 1:1 | 4:5
   format     String   @default("9:16")
@@ -1848,9 +1853,11 @@ model StudioPiece {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  renders StudioRender[]
+  renders      StudioRender[]
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([updatedAt])
+  @@index([organizationId, updatedAt])
   @@map("studio_pieces")
   @@schema("operations")
 }
@@ -1973,5 +1980,50 @@ model ClientDatabaseColumn {
   @@unique([tableId, name])
   @@index([name])
   @@map("client_database_columns")
+  @@schema("operations")
+}
+
+/// Cofre de credenciais da plataforma.
+///
+/// Guarda o que é segredo **da Ávila Ops**, igual para todos os clientes:
+/// `META_APP_SECRET`, chaves do Mercado Pago, consumer keys do X. É a camada
+/// que até 17/09/2026 vivia copiada em doze arquivos `.env` pelo parque — ver
+/// `docs/inventario-chaves-integracoes.md`.
+///
+/// Não confundir com `OrganizationIntegrationConnection`, que guarda o token
+/// **de cada cliente**. Aquela camada já estava certa e não muda.
+///
+/// Só OWNER lê valor decifrado (`ehDono()`); a equipe vê metadado e máscara.
+model PlatformCredential {
+  id            String    @id @default(cuid())
+  /// Nome da variável de ambiente, tal como o código lê: `META_APP_ID`.
+  chave         String    @unique
+  /// meta | whatsapp | instagram | threads | google | mercadopago | mercadolivre | x | outros
+  categoria     String
+  rotulo        String?
+  descricao     String?
+  /// Falso para o que não é segredo (versão da Graph, redirect URI, escopos):
+  /// esse valor aparece em tela sem precisar de revelação.
+  segredo       Boolean   @default(true)
+  /// AES-256-GCM no formato iv.tag.payload, mesma cifra dos tokens da Meta.
+  /// A chave de cifra é `CREDENCIAIS_ENCRYPTION_KEY`.
+  valorCipher   String?   @map("valor_cipher")
+  /// Máscara mostrada na lista sem decifrar nada: "97ad…ead7".
+  mascara       String?   @map("mascara")
+  /// ATIVO | PENDENTE | APOSENTADA
+  /// PENDENTE = catalogada e ainda sem valor. APOSENTADA = nenhum código lê.
+  status        String    @default("PENDENTE")
+  /// Arquivos que leem esta chave, como apurado pelo inventário. Serve para
+  /// saber o que quebra ao girar a credencial.
+  consumidores  Json?
+  /// De onde o valor veio: "importado:<arquivo>" ou "manual".
+  origem        String?
+  atualizadoPor String?   @map("atualizado_por")
+  rotacionadoEm DateTime? @map("rotacionado_em")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([categoria, status])
+  @@map("platform_credentials")
   @@schema("operations")
 }

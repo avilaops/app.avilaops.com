@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { saveOrganizationBrandAssetFile } from "@/lib/brand-asset-storage";
+import { gravarAtivoDaMarca } from "@/lib/marca/ativos";
 
 const MAX_FILE_SIZE = 12 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
@@ -85,67 +85,16 @@ export async function POST(
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const storageKey = await saveOrganizationBrandAssetFile(
-    id,
+  const asset = await gravarAtivoDaMarca({
+    organizationId: id,
     assetType,
-    file.name,
-    bytes,
-    file.type,
-  );
-
-  const asset = await prisma.$transaction(async (transaction) => {
-    const previousCount = await transaction.organizationBrandAsset.count({
-      where: { organizationId: id, assetType },
-    });
-
-    await transaction.organizationBrandAsset.updateMany({
-      where: { organizationId: id, assetType, isCurrent: true },
-      data: { isCurrent: false },
-    });
-
-    const created = await transaction.organizationBrandAsset.create({
-      data: {
-        organizationId: id,
-        assetType,
-        name: file.name,
-        storageKey,
-        format: extension,
-        mimeType: file.type,
-        dimensions: dimensions || null,
-        sizeBytes: file.size,
-        version: String(previousCount + 1),
-        isCurrent: true,
-        notes: notes || null,
-        uploadedBy: admin.email,
-      },
-      select: {
-        id: true,
-        assetType: true,
-        name: true,
-        mimeType: true,
-        sizeBytes: true,
-        version: true,
-        isCurrent: true,
-      },
-    });
-
-    await transaction.operationsAuditEvent.create({
-      data: {
-        actorId: admin.id,
-        organizationId: id,
-        action: "ORGANIZATION_BRAND_ASSET_UPLOADED",
-        entityType: "OrganizationBrandAsset",
-        entityId: created.id,
-        metadata: {
-          assetType,
-          mimeType: file.type,
-          sizeBytes: file.size,
-          version: created.version,
-        },
-      },
-    });
-
-    return created;
+    fileName: file.name,
+    buffer: bytes,
+    mimeType: file.type,
+    format: extension,
+    dimensions,
+    notes,
+    admin: { id: admin.id, email: admin.email },
   });
 
   return NextResponse.json({ asset }, { status: 201 });

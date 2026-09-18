@@ -26,6 +26,15 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   const corpo = await request.json().catch(() => ({}));
   const dados: Record<string, unknown> = {};
   if (typeof corpo.titulo === "string") dados.title = cleanText(corpo.titulo, 120) || atual.title;
+  // `null` devolve a peça para a casa; string troca de dono.
+  if (corpo.organizationId !== undefined) {
+    const alvo = cleanText(corpo.organizationId, 40) || null;
+    if (alvo) {
+      const existe = await prisma.organization.findUnique({ where: { id: alvo }, select: { id: true } });
+      if (!existe) return NextResponse.json({ error: "Cliente não encontrado." }, { status: 400 });
+    }
+    dados.organizationId = alvo;
+  }
   if (FORMATOS.includes(corpo.formato)) dados.format = corpo.formato;
   if (corpo.valores !== undefined) dados.values = saneiaValores(atual.templateId, corpo.valores);
   if (corpo.duracao !== undefined) {

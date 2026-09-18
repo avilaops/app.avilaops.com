@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       maxAge: 10 * 60,
     });
 
-    return NextResponse.redirect(buildMetaLoginUrl(appUrl, state));
+    return NextResponse.redirect(await buildMetaLoginUrl(appUrl, state));
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Configuração Meta incompleta.";

@@ -4,29 +4,42 @@ import type { Prisma, StudioPiece, StudioRender } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isServiceCall } from "@/lib/service-auth";
 import { publicBaseUrl } from "@/lib/newsletter";
-import { DIMENSOES, MARCA_PADRAO, templatePorId, valoresPadrao, type Formato, type Narracao, type Valores } from "./templates";
+import { DIMENSOES, MARCA_PADRAO, templatePorId, valoresPadrao, type Formato, type Marca, type Narracao, type Valores } from "./templates";
+import { marcaDoCliente } from "./marca";
 import { TRILHA_PADRAO, type PecaDTO, type RenderDTO, type StatusRender, type Trilha } from "./tipos";
 
 export const FORMATOS: Formato[] = ["9:16", "1:1", "4:5"];
 
-type PecaComRenders = StudioPiece & { renders: StudioRender[] };
+type PecaComRenders = StudioPiece & {
+  renders: StudioRender[];
+  organization?: { id: string; name: string } | null;
+};
 
-const comRenders = { renders: { orderBy: { createdAt: "desc" as const }, take: 20 } };
+const comRenders = {
+  renders: { orderBy: { createdAt: "desc" as const }, take: 20 },
+  organization: { select: { id: true, name: true } },
+};
 
 export async function listarPecas(): Promise<PecaDTO[]> {
   const pecas = await prisma.studioPiece.findMany({ orderBy: { updatedAt: "desc" }, include: comRenders });
   return pecas.map(paraDTO);
 }
 
+/**
+ * A peça com a marca já resolvida. A lista não carrega marca de propósito: a
+ * logo vai embutida em base64 e pesaria em cada linha da tela.
+ */
 export async function obterPeca(id: string): Promise<PecaDTO | null> {
   const peca = await prisma.studioPiece.findUnique({ where: { id }, include: comRenders });
-  return peca ? paraDTO(peca) : null;
+  if (!peca) return null;
+  return { ...paraDTO(peca), marca: await marcaDoCliente(peca.organizationId) };
 }
 
 export function paraDTO(p: PecaComRenders): PecaDTO {
   return {
     id: p.id,
     titulo: p.title,
+    cliente: p.organization ? { id: p.organization.id, nome: p.organization.name } : null,
     templateId: p.templateId,
     formato: (FORMATOS.includes(p.format as Formato) ? p.format : "9:16") as Formato,
     valores: (p.values ?? {}) as Valores,
@@ -93,11 +106,18 @@ export function saneiaTrilha(entrada: unknown): Trilha | null {
 }
 
 /** HTML completo de uma peça (ou de um pedido congelado), pronto para iframe ou Chromium. */
-export function htmlDaPeca(dados: { templateId: string; formato: Formato; valores: Valores; duracao: number | null }): string | null {
+export function htmlDaPeca(dados: {
+  templateId: string;
+  formato: Formato;
+  valores: Valores;
+  duracao: number | null;
+  /** Ausente = peça da casa, ou snapshot antigo, anterior à marca por cliente. */
+  marca?: Marca | null;
+}): string | null {
   const t = templatePorId(dados.templateId);
   if (!t) return null;
   const duracao = t.tipo === "video" ? dados.duracao ?? t.duracaoPadrao ?? 5 : 0;
-  return t.html(dados.valores, dados.formato, MARCA_PADRAO, duracao);
+  return t.html(dados.valores, dados.formato, dados.marca ?? MARCA_PADRAO, duracao);
 }
 
 export type Snapshot = {
@@ -108,11 +128,13 @@ export type Snapshot = {
   narracao: Narracao[];
   voz: string;
   trilha: Trilha | null;
+  /** Congelada junto: trocar a logo do cliente não muda o que já está na fila. */
+  marca: Marca;
   token: string;
 };
 
 /** Congela o pedido de renderização a partir da peça como ela está agora. */
-export function montarSnapshot(peca: PecaDTO): { snapshot: Snapshot; kind: "video" | "image"; largura: number; altura: number; duracao: number | null } {
+export async function montarSnapshot(peca: PecaDTO): Promise<{ snapshot: Snapshot; kind: "video" | "image"; largura: number; altura: number; duracao: number | null }> {
   const t = templatePorId(peca.templateId);
   if (!t) throw new Error("Template desconhecido.");
   const { largura, altura } = DIMENSOES[peca.formato];
@@ -132,6 +154,7 @@ export function montarSnapshot(peca: PecaDTO): { snapshot: Snapshot; kind: "vide
       narracao,
       voz: peca.voz || "pm_nicolas",
       trilha: video ? peca.trilha : null,
+      marca: peca.marca ?? (await marcaDoCliente(peca.cliente?.id ?? null)),
       token: crypto.randomBytes(16).toString("hex"),
     },
   };

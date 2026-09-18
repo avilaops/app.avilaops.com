@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sheet from "@/components/ui/Sheet";
 import { Icone } from "@/components/ui/Icones";
+import GeradorDeIcones from "@/components/GeradorDeIcones";
 
 type Plan = {
   id: string;
@@ -1038,6 +1039,19 @@ export default function ClientDossierForm({
       </section>
 
       <section className={activeTab === "assets" ? "dossier-tab active" : "dossier-tab"}>
+        <GeradorDeIcones
+          organizationId={organization.id}
+          organizationName={organization.name}
+          brandAssets={organization.brandAssets.map((item) => ({
+            id: item.id,
+            assetType: item.assetType,
+            name: item.name,
+            mimeType: item.mimeType ?? null,
+            version: item.version,
+            isCurrent: item.isCurrent ?? true,
+          }))}
+        />
+
         <div className="asset-upload-grid">
           {assetTypes.map((assetType) => {
             const versions = organization.brandAssets.filter((item) => item.assetType === assetType);

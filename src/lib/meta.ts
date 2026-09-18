@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { Prisma } from "@prisma/client";
+import { exigirCredencial, obterCredencial } from "@/lib/credenciais";
 import { prisma } from "@/lib/prisma";
 
 export const META_PROVIDER = "meta_business";
@@ -136,8 +137,8 @@ export type MetaConnectionStatus = {
   };
 };
 
-export function metaGraphVersion() {
-  return process.env.META_GRAPH_VERSION || "v25.0";
+export async function metaGraphVersion() {
+  return (await obterCredencial("META_GRAPH_VERSION")) || "v25.0";
 }
 
 function requiredEnv(name: string) {
@@ -150,16 +151,16 @@ function jsonValue(value: unknown): Prisma.InputJsonValue | undefined {
   return value === undefined ? undefined : (value as Prisma.InputJsonValue);
 }
 
-export function metaRedirectUri(origin: string) {
+export async function metaRedirectUri(origin: string) {
   return (
-    process.env.META_REDIRECT_URI ||
+    (await obterCredencial("META_REDIRECT_URI")) ||
     `${origin.replace(/\/$/, "")}/api/integrations/meta/oauth/callback`
   );
 }
 
-export function metaOAuthScopes() {
+export async function metaOAuthScopes() {
   return (
-    process.env.META_OAUTH_SCOPES ||
+    (await obterCredencial("META_OAUTH_SCOPES")) ||
     [
       "business_management",
       "pages_show_list",
@@ -227,9 +228,28 @@ function decryptToken(value: string) {
   ]).toString("utf8");
 }
 
+/**
+ * Assinatura exigida pela Meta quando o app tem "a chave secreta está
+ * incorporada no cliente" ligado. Sem ela toda chamada de servidor volta
+ * `API calls from the server require an appsecret_proof argument` — foi o que
+ * derrubou o Hub Social no app recriado em 17/09/2026.
+ *
+ * Mandar sempre é mais seguro e não atrapalha quando a exigência está
+ * desligada: a Meta simplesmente confere e segue.
+ */
+async function appsecretProof(accessToken: string) {
+  const appSecret = await obterCredencial("META_APP_SECRET");
+  if (!appSecret) return null;
+  return crypto.createHmac("sha256", appSecret).update(accessToken).digest("hex");
+}
+
 async function graphGet<T>(path: string, accessToken: string, params?: Record<string, string>) {
-  const url = new URL(`https://graph.facebook.com/${metaGraphVersion()}${path}`);
+  const url = new URL(`https://graph.facebook.com/${await metaGraphVersion()}${path}`);
   url.searchParams.set("access_token", accessToken);
+
+  const proof = await appsecretProof(accessToken);
+  if (proof) url.searchParams.set("appsecret_proof", proof);
+
   for (const [key, value] of Object.entries(params ?? {})) {
     url.searchParams.set(key, value);
   }
@@ -247,22 +267,22 @@ async function graphGet<T>(path: string, accessToken: string, params?: Record<st
   return data as T;
 }
 
-export function buildMetaLoginUrl(origin: string, state: string) {
-  const appId = requiredEnv("META_APP_ID");
-  const url = new URL(`https://www.facebook.com/${metaGraphVersion()}/dialog/oauth`);
+export async function buildMetaLoginUrl(origin: string, state: string) {
+  const appId = await exigirCredencial("META_APP_ID");
+  const url = new URL(`https://www.facebook.com/${await metaGraphVersion()}/dialog/oauth`);
   url.searchParams.set("client_id", appId);
-  url.searchParams.set("redirect_uri", metaRedirectUri(origin));
+  url.searchParams.set("redirect_uri", await metaRedirectUri(origin));
   url.searchParams.set("state", state);
-  url.searchParams.set("scope", metaOAuthScopes());
+  url.searchParams.set("scope", await metaOAuthScopes());
   url.searchParams.set("response_type", "code");
   return url;
 }
 
 export async function exchangeMetaCode(origin: string, code: string) {
-  const tokenUrl = new URL(`https://graph.facebook.com/${metaGraphVersion()}/oauth/access_token`);
-  tokenUrl.searchParams.set("client_id", requiredEnv("META_APP_ID"));
-  tokenUrl.searchParams.set("client_secret", requiredEnv("META_APP_SECRET"));
-  tokenUrl.searchParams.set("redirect_uri", metaRedirectUri(origin));
+  const tokenUrl = new URL(`https://graph.facebook.com/${await metaGraphVersion()}/oauth/access_token`);
+  tokenUrl.searchParams.set("client_id", await exigirCredencial("META_APP_ID"));
+  tokenUrl.searchParams.set("client_secret", await exigirCredencial("META_APP_SECRET"));
+  tokenUrl.searchParams.set("redirect_uri", await metaRedirectUri(origin));
   tokenUrl.searchParams.set("code", code);
 
   const shortResponse = await fetch(tokenUrl, { cache: "no-store" });
@@ -271,10 +291,10 @@ export async function exchangeMetaCode(origin: string, code: string) {
     throw new Error("Não foi possível trocar o código OAuth da Meta.");
   }
 
-  const longUrl = new URL(`https://graph.facebook.com/${metaGraphVersion()}/oauth/access_token`);
+  const longUrl = new URL(`https://graph.facebook.com/${await metaGraphVersion()}/oauth/access_token`);
   longUrl.searchParams.set("grant_type", "fb_exchange_token");
-  longUrl.searchParams.set("client_id", requiredEnv("META_APP_ID"));
-  longUrl.searchParams.set("client_secret", requiredEnv("META_APP_SECRET"));
+  longUrl.searchParams.set("client_id", await exigirCredencial("META_APP_ID"));
+  longUrl.searchParams.set("client_secret", await exigirCredencial("META_APP_SECRET"));
   longUrl.searchParams.set("fb_exchange_token", shortToken.access_token);
 
   const longResponse = await fetch(longUrl, { cache: "no-store" });
@@ -308,6 +328,7 @@ export async function saveMetaConnection(input: {
   user: MetaUser;
 }) {
   const encryptedAccessToken = encryptToken(input.accessToken);
+  const escopos = await metaOAuthScopes();
 
   return prisma.$transaction(async (transaction) => {
     const connection = await transaction.organizationIntegrationConnection.upsert({
@@ -326,13 +347,13 @@ export async function saveMetaConnection(input: {
         tokenCiphertext: encryptedAccessToken,
         tokenType: input.tokenType,
         tokenExpiresAt: input.tokenExpiresAt,
-        scopes: metaOAuthScopes().split(","),
+        scopes: escopos.split(","),
         lastSyncedAt: new Date(),
         lastSyncStatus: "CONNECTED",
         metadata: {
           userId: input.user.id,
           userName: input.user.name ?? null,
-          graphVersion: metaGraphVersion(),
+          graphVersion: await metaGraphVersion(),
         },
       },
       update: {
@@ -342,14 +363,14 @@ export async function saveMetaConnection(input: {
         tokenCiphertext: encryptedAccessToken,
         tokenType: input.tokenType,
         tokenExpiresAt: input.tokenExpiresAt,
-        scopes: metaOAuthScopes().split(","),
+        scopes: escopos.split(","),
         lastSyncedAt: new Date(),
         lastSyncStatus: "CONNECTED",
         lastSyncError: null,
         metadata: {
           userId: input.user.id,
           userName: input.user.name ?? null,
-          graphVersion: metaGraphVersion(),
+          graphVersion: await metaGraphVersion(),
         },
       },
     });
@@ -947,7 +968,7 @@ export async function getMetaConnectionStatus(organizationId: string | null): Pr
   };
 }
 
-export function verifyMetaWebhookToken(token: string | null) {
-  return Boolean(process.env.META_WEBHOOK_VERIFY_TOKEN) &&
-    token === process.env.META_WEBHOOK_VERIFY_TOKEN;
+export async function verifyMetaWebhookToken(token: string | null) {
+  const esperado = await obterCredencial("META_WEBHOOK_VERIFY_TOKEN");
+  return Boolean(esperado) && token === esperado;
 }
