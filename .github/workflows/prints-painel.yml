@@ -44,8 +44,15 @@ jobs:
       - run: npx prisma migrate deploy
       - name: Dados fictícios
         run: npx tsx scripts/prints/semear.ts
+      # Mesmo teto que o estágio `build` do Dockerfile já recebe. O `next build`
+      # deste projeto passa de 1,9 GB em "Running TypeScript" e o padrão do Node
+      # fica em ~2 GB: sem isto o job morre com "JavaScript heap out of memory"
+      # antes de tirar um print. Fica só neste passo — o app que sobe depois
+      # segue com o limite padrão, como em produção.
       - name: Build
         run: npx next build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
       # `next.config.ts` usa output: "standalone", e o Next avisa no próprio log
       # que `next start` não funciona com isso: serve a página mas devolve 404
       # em parte dos chunks, e a árvore some na hidratação. Print silenciosamente
