@@ -1,5 +1,5 @@
 /** Tipos do Estúdio que trafegam entre servidor e tela (sem prisma, sem node). */
-import type { Formato, Valores } from "./templates";
+import type { Formato, Marca, Valores } from "./templates";
 
 export type Trilha = { bpm: number; semente: number; db: number };
 
@@ -26,6 +26,8 @@ export type RenderDTO = {
 export type PecaDTO = {
   id: string;
   titulo: string;
+  /** Nulo = peça da casa. Com cliente, a peça renderiza com a marca dele. */
+  cliente: { id: string; nome: string } | null;
   templateId: string;
   formato: Formato;
   valores: Valores;
@@ -36,6 +38,8 @@ export type PecaDTO = {
   criadoEm: string;
   atualizadoEm: string;
   renders: RenderDTO[];
+  /** Só em obterPeca(): a lista não carrega a logo em base64. */
+  marca?: Marca;
 };
 
 export const ROTULO_STATUS: Record<StatusRender, string> = {

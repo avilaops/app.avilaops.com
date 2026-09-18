@@ -28,9 +28,12 @@ export default function EstudioEditor({ pecaInicial }: { pecaInicial: PecaDTO })
   const duracao = video ? peca.duracao ?? template?.duracaoPadrao ?? 5 : 0;
 
   /* ---------- pré-visualização ---------- */
+  // A marca vem do servidor já resolvida (logo do cliente embutida em base64).
+  // Sem cliente, ou em peça antiga, cai na marca da casa.
+  const marca = peca.marca ?? MARCA_PADRAO;
   const html = useMemo(
-    () => (template ? template.html(peca.valores, peca.formato, MARCA_PADRAO, duracao) : "<p>template desconhecido</p>"),
-    [template, peca.valores, peca.formato, duracao],
+    () => (template ? template.html(peca.valores, peca.formato, marca, duracao) : "<p>template desconhecido</p>"),
+    [template, peca.valores, peca.formato, marca, duracao],
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const caixaRef = useRef<HTMLDivElement>(null);
@@ -135,7 +138,12 @@ export default function EstudioEditor({ pecaInicial }: { pecaInicial: PecaDTO })
         <div>
           <Link href="/hub-social/estudio" className="estudio-voltar">‹ Estúdio</Link>
           <input className="estudio-titulo" value={peca.titulo} onChange={(e) => mudar({ titulo: e.target.value })} maxLength={120} aria-label="Título da peça" />
-          <p>{template.nome} · {video ? "vídeo" : "imagem"} · {dims.largura}×{dims.altura}</p>
+          {/* De quem é a peça vem primeiro: quem abre precisa saber com qual
+              marca está trabalhando antes de mexer em qualquer campo. */}
+          <p>
+            <strong className="estudio-dono">{peca.cliente?.nome ?? "Ávila Ops"}</strong> · {template.nome} ·{" "}
+            {video ? "vídeo" : "imagem"} · {dims.largura}×{dims.altura}
+          </p>
         </div>
         <div className="estudio-botoes">
           <button type="button" className="secondary-button" onClick={salvar} disabled={salvando || !sujo}>{salvando ? "Salvando…" : sujo ? "Salvar" : "Salvo"}</button>

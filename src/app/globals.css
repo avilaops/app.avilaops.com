@@ -2522,6 +2522,14 @@ tbody tr:last-child td {
   background: var(--input-bg);
 }
 
+/* Item de grade nasce com `min-width: auto`: o <pre> do trecho de <head> tem
+   linhas longas e empurrava o bloco inteiro para além da tela no iPhone,
+   mesmo com `overflow-x: auto` no próprio <pre>. */
+.icon-generator > *,
+.icon-generator-codigo {
+  min-width: 0;
+}
+
 .icon-generator-head {
   display: flex;
   align-items: flex-start;
@@ -2573,6 +2581,7 @@ tbody tr:last-child td {
 }
 
 .icon-generator-check input {
+  flex: none;
   width: 18px;
   height: 18px;
 }
@@ -2594,9 +2603,24 @@ tbody tr:last-child td {
 
 .icon-generator-tipo {
   display: flex;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   padding: 10px;
   border: 1px solid var(--line-soft);
+}
+
+/* Sem tamanho fixo o flex estica a caixa de marcação até a altura do card:
+   três linhas de texto viram um quadrado cinza de 85px ao lado do rótulo. */
+.icon-generator-tipo input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.icon-generator-tipo span {
+  min-width: 0;
+  text-align: left;
 }
 
 .icon-generator-tipo.ativo {
@@ -2637,11 +2661,19 @@ tbody tr:last-child td {
 }
 
 .icon-generator-codigo pre {
+  max-width: 100%;
   overflow-x: auto;
+  margin: 0 0 10px;
   padding: 10px;
   border: 1px solid var(--line-soft);
   font-size: 0.6875rem;
   line-height: 1.5;
+}
+
+/* De quem é a peça, no cabeçalho do editor do Estúdio. */
+.estudio-dono {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .dossier-actions {
@@ -6186,7 +6218,9 @@ tbody tr:last-child td {
 /* ===== Estúdio (/operacao/estudio) ===== */
 .estudio-vazio { color: var(--subtle-text); padding: 16px 0; }
 .estudio-erro { color: #b42318; background: #fee4e2; border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 15px; }
-.estudio-ajuda { display: block; color: var(--subtle-text); font-size: 13px; margin-top: 4px; }
+/* A folga de baixo separa a ajuda do campo seguinte: colada, ela parecia
+   rótulo do próximo campo em vez de explicação do anterior. */
+.estudio-ajuda { display: block; color: var(--subtle-text); font-size: 13px; margin-top: 4px; margin-bottom: 10px; line-height: 1.4; }
 .estudio-templates { display: grid; gap: 10px; margin-bottom: 16px; }
 .estudio-template-card { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); cursor: pointer; }
 .estudio-template-card.ativo { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }

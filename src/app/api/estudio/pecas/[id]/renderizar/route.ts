@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const aberta = peca.renders.find((r) => r.status === "PENDING" || r.status === "RUNNING");
   if (aberta) return NextResponse.json({ error: "Já existe uma renderização em andamento para esta peça.", render: aberta }, { status: 409 });
 
-  const { snapshot, kind, largura, altura, duracao } = montarSnapshot(peca);
+  const { snapshot, kind, largura, altura, duracao } = await montarSnapshot(peca);
   const render = await prisma.studioRender.create({
     data: { pieceId: peca.id, kind, width: largura, height: altura, fps: 24, duration: duracao, snapshot },
   });

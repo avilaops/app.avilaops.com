@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { uploadOrganizationBrandAsset, getPrivateObjectUrl } from "@/lib/r2";
+import { uploadOrganizationBrandAsset, getObjectBuffer, getPrivateObjectUrl } from "@/lib/r2";
 
 function hasR2Config() {
   return Boolean(
@@ -54,9 +54,36 @@ export async function getOrganizationBrandAssetPrivateUrl(key: string): Promise<
 
 export function readLocalOrganizationBrandAsset(key: string) {
   if (!key.startsWith("local:")) return null;
-  const relativeKey = key.slice("local:".length);
-  const absolutePath = path.resolve(storageRoot(), relativeKey);
-  const root = storageRoot();
-  if (!absolutePath.startsWith(root)) return null;
+  const absolutePath = localAssetPath(key);
+  if (!absolutePath) return null;
   return createReadStream(absolutePath);
+}
+
+function localAssetPath(key: string): string | null {
+  const relativeKey = key.slice("local:".length);
+  const root = storageRoot();
+  const absolutePath = path.resolve(root, relativeKey);
+  return absolutePath.startsWith(root) ? absolutePath : null;
+}
+
+/**
+ * Carrega o ativo inteiro na memória, venha ele do disco ou do R2. Usado por
+ * quem precisa reprocessar o arquivo no servidor — a geração de ícones a partir
+ * da logo, por exemplo — e não só servir o download.
+ */
+export async function readOrganizationBrandAssetBuffer(key: string): Promise<Buffer | null> {
+  if (key.startsWith("local:")) {
+    const absolutePath = localAssetPath(key);
+    if (!absolutePath) return null;
+    try {
+      return await readFile(absolutePath);
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return await getObjectBuffer(key);
+  } catch {
+    return null;
+  }
 }

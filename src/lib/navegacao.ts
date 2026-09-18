@@ -24,6 +24,7 @@ export type SecaoApp =
   | "seo"
   | "obs"
   | "health-live"
+  | "credenciais"
   | "meta"
   | "whatsapp"
   | "services"
@@ -187,6 +188,14 @@ export const navegacao: GrupoNavegacao[] = [
     items: [
       { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live", icone: "saude", descricao: "Disponibilidade e capacidade, medidas agora" },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs", icone: "operacao", descricao: "Métricas e sinais dos sistemas" },
+      {
+        href: "/operacao/credenciais",
+        label: "Cofre de credenciais",
+        section: "credenciais",
+        icone: "config",
+        descricao: "Segredos da plataforma, cifrados no banco",
+        somenteDono: true,
+      },
     ],
   },
   {

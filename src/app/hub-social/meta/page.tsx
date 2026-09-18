@@ -26,7 +26,7 @@ export default async function MetaOperationsPage({
   const selectedOrganizationId = params.organizationId || organizations[0]?.id || "";
   const status = await getMetaConnectionStatus(selectedOrganizationId || null);
   const appUrl = process.env.APP_URL || "https://app.avilaops.com";
-  const callbackUrl = metaRedirectUri(appUrl);
+  const callbackUrl = await metaRedirectUri(appUrl);
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
 
   return (

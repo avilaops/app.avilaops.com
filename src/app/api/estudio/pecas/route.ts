@@ -24,9 +24,18 @@ export async function POST(request: NextRequest) {
   const formato = FORMATOS.includes(corpo.formato) ? corpo.formato : "9:16";
   const titulo = cleanText(corpo.titulo, 120) || template.nome;
 
+  // Cliente é opcional: sem ele a peça é da casa. Com ele, confere que existe
+  // antes de gravar — id inventado viraria peça órfã com marca padrão calada.
+  const organizationId = cleanText(corpo.organizationId, 40) || null;
+  if (organizationId) {
+    const existe = await prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } });
+    if (!existe) return NextResponse.json({ error: "Cliente não encontrado." }, { status: 400 });
+  }
+
   const peca = await prisma.studioPiece.create({
     data: {
       title: titulo,
+      organizationId,
       templateId: template.id,
       format: formato,
       values: corpo.valores ? saneiaValores(template.id, corpo.valores) : valoresPadrao(template),
@@ -35,7 +44,7 @@ export async function POST(request: NextRequest) {
       soundtrack: template.tipo === "video" ? TRILHA_PADRAO : undefined,
       createdBy: admin.email,
     },
-    include: { renders: true },
+    include: { renders: true, organization: { select: { id: true, name: true } } },
   });
   return NextResponse.json({ peca: paraDTO(peca) }, { status: 201 });
 }
