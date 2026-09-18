@@ -3970,6 +3970,23 @@ tbody tr:last-child td {
   line-height: 1.5;
 }
 
+/* Procedência da contraparte: o nome que veio do comprovante não é o mesmo
+   tipo de dado que o nome que veio do extrato, e a tela precisa dizer qual é
+   qual sem obrigar a abrir a linha. */
+.party-origem {
+  margin-left: 6px;
+  color: var(--subtle-text);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reference-comprovante {
+  border-bottom: 1px dotted currentcolor;
+  cursor: help;
+  text-decoration: none;
+}
+
 .account-switch {
   display: flex;
   flex-wrap: wrap;
@@ -4245,6 +4262,10 @@ tbody tr:last-child td {
 .sheet {
   display: flex;
   width: 100%;
+  /* A folha nasce dentro da célula que abriu (a coluna de ações alinha à
+     direita) e herdava esse alinhamento: rótulo e texto de apoio saíam
+     encostados na borda errada. Diálogo não herda alinhamento de tabela. */
+  text-align: left;
   max-height: calc(100vh - 40px - env(safe-area-inset-top));
   flex-direction: column;
   border-radius: 20px 20px 0 0;
@@ -4498,6 +4519,44 @@ tbody tr:last-child td {
   display: grid;
   gap: 16px;
   padding-top: 4px;
+}
+
+/* Conciliação pelo comprovante: é o caminho principal da folha quando o Pix
+   chegou sem pagador, então vem numa superfície própria, acima da revisão
+   manual, e não como mais um campo solto na mesma pilha. */
+.comprovante-bloco {
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
+.comprovante-cabecalho h3 {
+  margin: 0 0 6px;
+  font-size: 0.9375rem;
+}
+
+.comprovante-cabecalho p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* Só o identificador em monoespaçada: é o campo que se compara caractere a
+   caractere com o comprovante. Nome de empresa em mono fica ilegível. */
+.campo-identificador input {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.comprovante-separador {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .field {

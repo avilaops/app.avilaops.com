@@ -86,7 +86,6 @@ export async function runEfiSync(options?: {
             txid: item.txid,
             amount: new Prisma.Decimal(item.amount),
             description: item.description,
-            counterpartyName: item.counterpartyName,
             occurredAt: item.occurredAt,
             rawHash: item.rawHash,
           },
@@ -103,6 +102,21 @@ export async function runEfiSync(options?: {
             occurredAt: item.occurredAt,
             rawHash: item.rawHash,
           },
+        });
+
+        // O nome do extrato entra numa passada à parte porque não pode
+        // apagar identificação feita por comprovante: em Pix recebido o Éfi
+        // devolve contraparte nula, e reescrever sem olhar devolveria a linha
+        // identificada à mão para "Não informado" a cada sincronização.
+        await transaction.bankTransaction.updateMany({
+          where: {
+            id: bankTransaction.id,
+            OR: [
+              { counterpartySource: null },
+              { counterpartySource: { not: "COMPROVANTE" } },
+            ],
+          },
+          data: { counterpartyName: item.counterpartyName },
         });
 
         await transaction.reconciliation.upsert({
