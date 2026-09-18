@@ -1,6 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 
 export type CabecalhoPaginaProps = {
   eyebrow?: string;
@@ -11,6 +10,12 @@ export type CabecalhoPaginaProps = {
   meta?: ReactNode;
 };
 
+/**
+ * Cabeçalho das telas do Hub Social. Desde 18/09/2026 é o mesmo componente do
+ * resto do app (`sistema/CabecalhoTela`): título forte, uma linha de
+ * explicação, botão voltar circular e ações à direita. O `eyebrow` e o `meta`
+ * continuam existindo porque o SEO usa os dois.
+ */
 export default function CabecalhoPagina({
   eyebrow,
   titulo,
@@ -19,53 +24,22 @@ export default function CabecalhoPagina({
   voltar,
   meta,
 }: CabecalhoPaginaProps) {
-  const temLadoDireito = Boolean(acoes || meta);
-
   return (
-    <header className="mb-6 flex flex-col gap-4 min-[560px]:flex-row min-[560px]:items-end min-[560px]:justify-between min-[560px]:gap-6">
-      <div className="min-w-0">
-        {voltar ? (
-          <Link
-            href={voltar.href}
-            className="-ml-1 inline-flex min-h-11 items-center gap-1 px-1 text-[15px] text-primary min-[821px]:text-sm"
-          >
-            <span aria-hidden="true">‹</span>
-            {voltar.label}
-          </Link>
-        ) : null}
-
-        {eyebrow ? (
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            {eyebrow}
-          </p>
-        ) : null}
-
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-foreground min-[821px]:text-[22px]">
-          {titulo}
-        </h1>
-
-        {subtitulo ? (
-          <p className="mt-1 max-w-[620px] text-[15px] leading-[1.5] text-muted-foreground min-[821px]:text-sm">
-            {subtitulo}
-          </p>
-        ) : null}
-      </div>
-
-      {temLadoDireito ? (
-        <div className="flex shrink-0 flex-col gap-3 min-[560px]:items-end">
-          {meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null}
-          {acoes ? (
-            <div
-              className={cn(
-                "flex flex-wrap items-center gap-2",
-                "max-[560px]:grid max-[560px]:grid-cols-2 max-[560px]:*:min-h-[50px] max-[560px]:*:w-full max-[560px]:[&>:only-child]:col-span-2",
-              )}
-            >
+    <>
+      {eyebrow ? <p className="eyebrow-tela">{eyebrow}</p> : null}
+      <CabecalhoTela
+        titulo={titulo}
+        descricao={subtitulo}
+        voltar={voltar ? { href: voltar.href, rotulo: voltar.label } : undefined}
+        acoes={
+          meta || acoes ? (
+            <>
+              {meta ? <span className="cabecalho-meta">{meta}</span> : null}
               {acoes}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </header>
+            </>
+          ) : undefined
+        }
+      />
+    </>
   );
 }
