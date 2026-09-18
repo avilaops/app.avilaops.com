@@ -118,7 +118,7 @@ export default function EstudioLista({
   );
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-6 max-[820px]:gap-4">
       <CabecalhoPagina
         titulo="Estúdio"
         subtitulo="Peças de vídeo e imagem para as redes e o mural, montadas a partir dos templates da casa."

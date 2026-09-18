@@ -29,7 +29,7 @@ export default function ResumoDominio({
   const desempenho = typeof perf?.performanceScore === "number" ? perf.performanceScore : null;
 
   return (
-    <div className="grid gap-6 min-[821px]:grid-cols-2 min-[821px]:items-start">
+    <div className="grid gap-6 max-[820px]:gap-4 min-[821px]:grid-cols-2 min-[821px]:items-start">
       <div className="space-y-4">
         <GradeMetricas rotulo="Notas do domínio">
           <Metrica

@@ -4853,7 +4853,7 @@ tbody tr:last-child td {
 .client-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}.client-summary-lead{grid-column:1/-1;padding:28px;border:1px solid var(--blue-line);border-radius:16px;background:var(--blue-soft)}.client-summary-lead h2{margin:6px 0;font-size:1.5rem}.client-summary-lead p{margin:0 0 14px;color:var(--muted)}.client-summary-lead a,.client-summary-section a{color:var(--link-soft);font-weight:650;text-decoration:none}.client-summary-section{min-height:190px;padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.client-summary-section h2{margin:0;font-size:1.05rem}.client-summary-section dl{display:grid;gap:12px;margin:0}.client-summary-section dl>div{display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line-soft);padding-top:12px}.client-summary-section dt{color:var(--muted)}.client-summary-section dd{margin:0;text-align:right}.client-summary-number{display:block;margin-top:18px;font-size:2.4rem;letter-spacing:-.05em}.client-summary-section p{margin:3px 0 12px}.client-summary-section small{color:var(--muted)}
 .client-brands-panel{grid-column:1/-1}.client-brands-panel .seo-section-heading{align-items:flex-start}.client-brands-panel .client-summary-number{margin:0}.client-brands-list{display:grid;gap:8px;margin:16px 0}.client-brand-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line-soft)}.client-brand-row strong,.client-brand-row small{display:block}.client-brand-row small{margin-top:3px;color:var(--muted)}.client-brand-form{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:12px;padding-top:14px;border-top:1px solid var(--line-soft)}.client-brand-form .primary-button{min-height:44px;white-space:nowrap}
 .client-finance-only .prov-grid{align-items:start}.client-finance-only .prov-card{align-self:start}
-@media(max-width:760px) {.client-workspace-header{display:block}.client-workspace-header h1{font-size:2rem}.client-workspace-nav>div{display:none}.client-workspace-nav>label{display:grid;gap:7px;color:var(--muted);font-size:.76rem}.client-workspace-nav select{min-height:48px;padding:0 14px;border:1px solid var(--editor-border);border-radius:11px;background:var(--surface);color:var(--text);font:inherit;font-weight:650}.client-summary-grid{grid-template-columns:1fr}.client-summary-lead{padding:20px}.client-summary-section{min-height:0;padding:18px}.client-summary-section dl>div{display:grid;gap:4px}.client-summary-section dd{text-align:left}}
+@media(max-width:760px) {.client-workspace-header{display:block}.client-workspace-header h1{font-size:2rem}.client-workspace-nav>div{display:none}.client-workspace-nav>label{display:grid;gap:5px;color:var(--muted);font-size:.875rem}.client-workspace-nav select{min-height:48px;padding:0 14px;border:1px solid var(--editor-border);border-radius:11px;background:var(--surface);color:var(--text);font:inherit;font-size:1rem;font-weight:650}.client-summary-grid{grid-template-columns:1fr}.client-summary-lead{padding:20px}.client-summary-section{min-height:0;padding:18px}.client-summary-section dl>div{display:grid;gap:4px}.client-summary-section dd{text-align:left}}
 
 .lg-head,
 .lg-row {
@@ -5200,7 +5200,8 @@ tbody tr:last-child td {
 
   .main-canvas {
     width: 100%;
-    padding: 16px 16px calc(var(--tab-bar-h) + env(safe-area-inset-bottom) + 28px);
+    padding: 14px var(--cel-pad-pagina)
+      calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
   }
 
   /* Título grande, como a navigation bar do iOS antes de rolar. */
@@ -5273,17 +5274,19 @@ tbody tr:last-child td {
     font-weight: 600;
   }
 
-  /* Alvos de toque: 50px para ação principal, 44px para o resto. */
+  /* Alvos de toque: 46px cobre com folga o mínimo de 44px da Apple. 50px com
+     fonte de 16px fazia três botões empilhados ocuparem meia tela. */
   .primary-button,
   .secondary-button {
-    min-height: 50px;
-    padding: 0 18px;
+    min-height: 46px;
+    padding: 0 16px;
     border-radius: 12px;
-    font-size: 1rem;
+    font-size: 0.9375rem;
   }
 
+  /* Ação de linha continua sendo alvo de toque: 44px é o piso da Apple. */
   .row-action {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 14px;
     border-radius: 10px;
     font-size: 0.9375rem;
@@ -5311,14 +5314,17 @@ tbody tr:last-child td {
     min-width: 0;
   }
 
+  /* Só a ação principal (a sincronização, que é a última do HTML) ocupa a
+     faixa inteira. A conciliação automática dividia outra faixa só para ela:
+     três faixas de botão antes do primeiro número da tela. */
   .page-header-actions .sync-control {
-    grid-column: 1 / -1;
     order: -1;
     width: 100%;
     justify-items: stretch;
   }
 
   .page-header-actions .sync-control:last-child {
+    grid-column: 1 / -1;
     order: -2;
   }
 
@@ -5335,11 +5341,19 @@ tbody tr:last-child td {
     min-height: 56px;
   }
 
+  .field {
+    gap: 5px;
+  }
+
   .field input,
   .field select,
   .field textarea {
-    min-height: 48px;
+    min-height: var(--cel-controle);
     border-radius: 12px;
+  }
+
+  .field textarea {
+    min-height: 72px;
   }
 
   .field-select .chevron {
@@ -5504,10 +5518,11 @@ tbody tr:last-child td {
   }
 
   .filter-tabs a,
-  .range-switch a {
+  .range-switch a,
+  .account-switch a {
     display: inline-flex;
     flex: 0 0 auto;
-    min-height: 36px;
+    min-height: 44px;
     align-items: center;
     padding: 0 14px;
     font-size: 0.875rem;
@@ -5527,15 +5542,18 @@ tbody tr:last-child td {
   }
 
   .scope-select {
-    min-height: 36px;
+    min-height: 44px;
     padding: 0 10px;
-    border-radius: 8px;
-    font-size: 0.875rem;
+    border-radius: 10px;
+    font-size: 1rem;
   }
 
-  /* Movimentação vira cartão de três andares. */
+  /* Movimentação vira linha de três andares dentro da própria superfície do
+     painel. Antes cada uma era um cartão com borda e sombra dentro de outro
+     cartão — três molduras para ler um Pix. Agora é o padrão do sistema:
+     uma superfície, várias linhas, um fio entre elas. */
   .tx-list {
-    gap: 10px;
+    gap: 0;
     border-top: 0;
   }
 
@@ -5543,28 +5561,52 @@ tbody tr:last-child td {
     display: none;
   }
 
+  /* Três andares de verdade: o quê + valor, quem + quando, e a linha de
+     decisão (escopo, situação e ação) junta. Antes escopo, situação e ação
+     ocupavam três andares próprios e o cartão passava de 170px para dizer
+     três coisas. */
   .tx-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "kind amount"
-      "party date"
-      "ref ref"
-      "scope actions"
-      "state actions";
-    row-gap: 6px;
-    column-gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    background: var(--surface-raised);
+      "kind kind amount"
+      "party party date"
+      "ref ref ref"
+      "scope state actions";
+    row-gap: var(--e1);
+    column-gap: var(--e2);
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 1px solid var(--separador);
+    border-radius: 0;
+    background: transparent;
   }
 
-  :root[data-theme="light"] .tx-row {
-    background: var(--surface);
+  .tx-row:last-child {
+    border-bottom: 0;
   }
 
+  /* O código cru da movimentação (PIX_SENT) é dado técnico e já está dito em
+     português na linha de cima; no celular ele só roubava um andar. */
+  .tx-kind small {
+    display: none;
+  }
+
+  /* Sem vínculo o andar some — e some inteiro: esconder só o conteúdo deixava
+     uma faixa de zero altura cercada por dois vãos. */
+  .tx-row > .tx-ref:not(:has(.reference)) {
+    display: none;
+  }
+
+  .tx-row:not(:has(.reference)) {
+    grid-template-areas:
+      "kind kind amount"
+      "party party date"
+      "scope state actions";
+  }
+
+  :root[data-theme="light"] .tx-row,
   .tx-row:hover {
-    background: var(--surface-raised);
+    background: transparent;
   }
 
   .tx-kind {
@@ -5573,13 +5615,14 @@ tbody tr:last-child td {
 
   .tx-kind strong {
     font-size: 0.9375rem;
+    line-height: 1.25;
     white-space: normal;
   }
 
   .tx-amount {
     grid-area: amount;
     align-self: start;
-    font-size: 1rem;
+    font-size: 0.9375rem;
   }
 
   .tx-party {
@@ -5602,16 +5645,24 @@ tbody tr:last-child td {
 
   .tx-scope {
     grid-area: scope;
-    padding-top: 4px;
   }
 
   .tx-state {
     grid-area: state;
+    align-self: center;
   }
 
   .tx-actions {
     grid-area: actions;
-    align-self: end;
+    align-self: center;
+  }
+
+  /* Na linha de decisão o botão é ação de linha, não ação de tela. */
+  .tx-actions .secondary-button,
+  .tx-actions .primary-button {
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 0.875rem;
   }
 
 /* Conta a pagar/receber vira cartão: o quê + valor, quem + quando,
@@ -6268,16 +6319,24 @@ tbody tr:last-child td {
    campos (abaixo disso o Safari do iPhone dá zoom sozinho ao focar).
    ========================================================================== */
 @media (max-width: 820px) {
-  /* Uma coluna. O `span-2`/`span-3` do desktop deixaria buraco na grade. */
+  /* Duas colunas que, por padrão, cada campo ocupa inteiras — ou seja, uma
+     coluna na prática. A grade de duas existe para os campos curtos por
+     natureza (CEP, número, cidade, UF): emparelhados, o endereço cai de oito
+     faixas para cinco sem apertar nada. */
   .dossier-grid.two,
   .dossier-grid.three,
   .dossier-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e3);
   }
 
+  .dossier-grid > *,
   .span-2,
   .span-3 {
+    grid-column: span 2;
+  }
+
+  .dossier-grid > .campo-curto {
     grid-column: span 1;
   }
 
@@ -6285,31 +6344,36 @@ tbody tr:last-child td {
      contexto da tela inteira. */
   .dossier-grid input,
   .dossier-grid select,
-  .dossier-grid textarea,
   .client-dossier input,
-  .client-dossier select,
-  .client-dossier textarea {
-    min-height: 48px;
+  .client-dossier select {
+    min-height: var(--cel-controle);
     font-size: 1rem;
   }
 
+  /* Campo de texto nasce com três linhas e cresce quando o conteúdo pedir.
+     96px vazios eram quase dois campos comuns de altura. */
   .dossier-grid textarea,
   .client-dossier textarea {
-    min-height: 96px;
-    padding: 12px;
-    line-height: 1.5;
+    min-height: 72px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    line-height: 1.45;
   }
 
   .dossier-grid label,
   .client-dossier .full-field {
-    gap: 8px;
+    gap: 5px;
     font-size: 0.875rem;
   }
 
-  /* O botão do CEP mora na grade e virava um campo órfão sem rótulo. */
+  /* O botão do CEP mora na grade e não tem rótulo: alinhado pela base, ele
+     encosta no campo do CEP em vez de flutuar acima dele. */
   .cep-button {
-    min-height: 48px;
-    margin-top: 4px;
+    min-height: var(--cel-controle);
+    align-self: end;
+    padding: 0 10px;
+    font-size: 0.875rem;
+    white-space: nowrap;
   }
 
   /* Um cartão de upload por linha: dois lado a lado em 390px deixam o
@@ -6862,12 +6926,15 @@ tbody tr:last-child td {
 }
 
 /* Estado do ambiente, não resposta a uma ação: fica discreto, ao contrário da
-   mensagem azul, que responde a algo que a pessoa acabou de fazer. */
+   mensagem azul, que responde a algo que a pessoa acabou de fazer. O discreto
+   vem do tom da superfície, não de um tracejado — o sistema visual não tem
+   borda tracejada em lugar nenhum. */
 .cadastro-ia-aviso {
   margin: 0;
   padding: 10px 12px;
-  border: 1px dashed var(--line);
+  border: 0;
   border-radius: var(--radius-sm);
+  background: var(--superficie-suave);
   color: var(--muted);
   font-size: 0.8125rem;
 }
@@ -6978,41 +7045,78 @@ tbody tr:last-child td {
   font-size: 0.75rem;
 }
 
-.cadastro-ia-perguntar ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* Uma superfície e um fio entre as linhas — o mesmo desenho dos Ajustes do
+   iPhone que o resto do painel usa. Eram seis cartões tracejados dentro do
+   cartão do assistente, que já está dentro da ficha: cartão em cartão em
+   cartão, justamente o que o sistema visual saiu para matar. */
+.cadastro-ia-perguntar .grupo-superficie {
+  box-shadow: none;
+  outline: 1px solid var(--separador);
+  outline-offset: -1px;
 }
 
-.cadastro-ia-perguntar li {
-  padding: 10px 12px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-sm);
+.cadastro-ia-perguntar .linha {
+  padding: 9px var(--e3);
 }
 
-.cadastro-ia-perguntar strong {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.cadastro-ia-perguntar small {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-@media (max-width: 760px) {
+@media (max-width: 820px) {
   .cadastro-ia {
-    padding: 16px;
+    gap: var(--e3);
+    margin-bottom: var(--cel-gap-secao);
+    padding: var(--cel-pad-cartao);
+    border-radius: var(--cel-raio);
+  }
+
+  /* O painel é um resumo, não uma capa: 22px de título com três botões de
+     50px empilhados embaixo comiam quase uma tela antes do primeiro campo. */
+  .cadastro-ia-topo {
+    gap: var(--e2);
+  }
+
+  .cadastro-ia-topo h2 {
+    margin: 2px 0 0;
+    font-size: 1.125rem;
+  }
+
+  .cadastro-ia-topo h2 small {
+    margin-top: 2px;
+  }
+
+  /* Duas ações por linha, altura de ação de linha. Elas são atalhos de
+     preenchimento, não a ação principal da tela. */
+  .cadastro-ia-acoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e2);
+    width: 100%;
   }
 
   .cadastro-ia-acoes button {
-    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 0.875rem;
+  }
+
+  .cadastro-ia-acoes button:last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
+
+  .cadastro-ia-resumo,
+  .cadastro-ia-aviso,
+  .cadastro-ia-mensagem,
+  .cadastro-ia-erro {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .cadastro-ia-aviso,
+  .cadastro-ia-mensagem,
+  .cadastro-ia-erro {
+    padding: 8px 10px;
+  }
+
+  .cadastro-ia-lista li {
+    padding: 10px 12px;
   }
 }
 
@@ -7206,6 +7310,25 @@ tbody tr:last-child td {
   --fonte: var(--font-manrope), Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
+/* ---------- Densidade do celular (18/09/2026) ----------
+   A escala de espaço acima é a do desktop. No telefone ela sobrava: cinco
+   campos de formulário comiam a tela inteira e um cartão de movimentação
+   gastava 176px para dizer três coisas. Estes tokens são a régua do celular —
+   quem for compactar uma tela nova mexe aqui, não em cada componente. Eles não
+   encolhem alvo de toque (mínimo 44px) nem a fonte dos campos (16px, senão o
+   Safari dá zoom). */
+@media (max-width: 820px) {
+  :root {
+    --cel-pad-pagina: 16px;
+    --cel-gap-secao: 16px;
+    --cel-pad-cartao: 14px;
+    --cel-linha: 52px;
+    --cel-controle: 48px;
+    --cel-raio: 14px;
+    --cel-nav: 64px;
+  }
+}
+
 :root[data-theme="dark"] {
   --marca-azul-suave: rgba(91, 140, 245, 0.16);
   --marca-vermelho-suave: rgba(236, 111, 124, 0.16);
@@ -7302,10 +7425,16 @@ body {
   gap: 2px;
 }
 
+/* Sem corte o título transbordava a célula e passava por cima do valor da
+   direita — a fila da Home mostrava o domínio escrito por cima do selo de
+   renovação. A descrição já era cortada assim; o título passa a ser também. */
 .linha-texto strong {
+  overflow: hidden;
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .linha-texto small {
@@ -7486,7 +7615,7 @@ body {
 @media (max-width: 820px) {
   .tab-bar {
     display: block;
-    padding: 0 var(--e4) calc(var(--e3) + env(safe-area-inset-bottom));
+    padding: 0 var(--e4) calc(var(--e2) + env(safe-area-inset-bottom));
     border-top: 0;
     background: transparent;
     -webkit-backdrop-filter: none;
@@ -7507,7 +7636,7 @@ body {
 
   .tab-item {
     min-height: 48px;
-    border-radius: 22px;
+    border-radius: 20px;
     transition:
       background 160ms ease,
       color 160ms ease;
@@ -7520,11 +7649,42 @@ body {
   }
 
   .main-canvas {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom) + var(--e6));
+    padding-bottom: calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
+  }
+
+  /* 26px: a régua de título de tela no celular. 30px empurrava o primeiro
+     grupo para baixo da dobra em quase toda tela. */
+  .tela-cabecalho {
+    margin-bottom: var(--e4);
   }
 
   .tela-cabecalho h1 {
-    font-size: 1.875rem;
+    font-size: 1.625rem;
+  }
+
+  .tela-cabecalho p {
+    font-size: 0.875rem;
+  }
+
+  .pilha {
+    gap: var(--cel-gap-secao);
+    padding-bottom: var(--e3);
+  }
+
+  /* Linha de lista: 52px quando só tem título, ~58px com descrição. Era 68–70
+     porque o respiro vertical do desktop vinha junto. */
+  .linha {
+    min-height: var(--cel-linha);
+    gap: var(--e3);
+    padding: 9px var(--e4);
+  }
+
+  .linha-texto strong {
+    line-height: 1.3;
+  }
+
+  .linha-texto small {
+    line-height: 1.35;
   }
 }
 
@@ -8258,6 +8418,12 @@ a.metrica-alvo:focus-visible {
 .aba-hub:focus-visible {
   outline: 2px solid var(--marca-azul);
   outline-offset: 2px;
+}
+
+@media (max-width: 820px) {
+  .aba-hub {
+    min-height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
