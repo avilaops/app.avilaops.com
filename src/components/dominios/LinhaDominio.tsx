@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";
 import { frescor, type Evidencia } from "@/lib/evidencia";
 import { cn } from "@/lib/utils";

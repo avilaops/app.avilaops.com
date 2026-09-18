@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Cartao, chamar, dataCurta, dinheiro, Pill, type Resultado } from "@/components/provisionamento/comum";
+import Confirmacao from "@/components/sistema/Confirmacao";
 import { Icone } from "@/components/ui/Icones";
 import Sheet from "@/components/ui/Sheet";
 
@@ -213,8 +214,11 @@ export default function OperacaoPanel({
     );
   }
 
+  const [assinaturaParaCancelar, setAssinaturaParaCancelar] = useState<string | null>(null);
+  const [credencialParaRemover, setCredencialParaRemover] = useState<string | null>(null);
+
   async function agir(assinaturaId: string, acao: "pausar" | "retomar" | "cancelar" | "gerar-fatura") {
-    if (acao === "cancelar" && !window.confirm("Cancelar a assinatura? As faturas em aberto também são canceladas.")) return;
+    setAssinaturaParaCancelar(null);
     await executar(
       "cobranca",
       async () => {
@@ -294,7 +298,7 @@ export default function OperacaoPanel({
   }
 
   async function removerCredencial(provider: string) {
-    if (!window.confirm(`Remover a credencial ${provider}? Não dá para recuperar o segredo depois.`)) return;
+    setCredencialParaRemover(null);
     await executar(
       "cofre",
       async () => {
@@ -394,7 +398,7 @@ export default function OperacaoPanel({
                     </button>
                   ) : null}
                   {a.status !== "CANCELLED" ? (
-                    <button type="button" className="text-button prov-perigo" disabled={ocupado === "cobranca"} onClick={() => agir(a.id, "cancelar")}>
+                    <button type="button" className="text-button prov-perigo" disabled={ocupado === "cobranca"} onClick={() => setAssinaturaParaCancelar(a.id)}>
                       Cancelar
                     </button>
                   ) : null}
@@ -478,7 +482,7 @@ export default function OperacaoPanel({
                     </small>
                   </div>
                   <Pill status={c.temSegredo ? c.status : "PENDING"} />
-                  <button type="button" className="text-button prov-perigo" disabled={ocupado === "cofre"} onClick={() => removerCredencial(c.provider)}>
+                  <button type="button" className="text-button prov-perigo" disabled={ocupado === "cofre"} onClick={() => setCredencialParaRemover(c.provider)}>
                     Remover
                   </button>
                 </div>
@@ -650,6 +654,29 @@ export default function OperacaoPanel({
             ) : null}
           </form>
         </Sheet>
+      ) : null}
+
+      {assinaturaParaCancelar ? (
+        <Confirmacao
+          titulo="Cancelar assinatura"
+          descricao="A assinatura para de gerar cobrança e as faturas em aberto também são canceladas."
+          rotuloConfirmar="Cancelar assinatura"
+          confirmando={ocupado === "cobranca"}
+          aoConfirmar={() => void agir(assinaturaParaCancelar, "cancelar")}
+          aoCancelar={() => setAssinaturaParaCancelar(null)}
+        />
+      ) : null}
+
+      {credencialParaRemover ? (
+        <Confirmacao
+          titulo="Remover credencial"
+          alvo={credencialParaRemover}
+          descricao="O segredo guardado no cofre é apagado e não dá para recuperá-lo; a integração para de funcionar até alguém cadastrar outro."
+          rotuloConfirmar="Remover"
+          confirmando={ocupado === "cofre"}
+          aoConfirmar={() => void removerCredencial(credencialParaRemover)}
+          aoCancelar={() => setCredencialParaRemover(null)}
+        />
       ) : null}
 
       {aviso ? (

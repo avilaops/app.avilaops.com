@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import { Button } from "@/components/shadcn/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/card";

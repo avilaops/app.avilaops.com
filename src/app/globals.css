@@ -2511,6 +2511,139 @@ tbody tr:last-child td {
   border-top: 1px solid var(--line-soft);
 }
 
+/* Gerador de ícones: fica acima da grade de cards porque é o caminho curto
+   para preencher metade deles. */
+.icon-generator {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+}
+
+.icon-generator-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.icon-generator-head h3 {
+  margin: 2px 0 0;
+  font-size: 1rem;
+}
+
+.icon-generator-count {
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.icon-generator-hint,
+.icon-generator-acoes small,
+.icon-generator .field small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.icon-generator-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.icon-generator-fundo {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-generator-fundo input[type="color"] {
+  width: 52px;
+  padding: 2px;
+}
+
+.icon-generator-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.icon-generator-check input {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-generator-tipos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+}
+
+.icon-generator-tipos legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.icon-generator-tipo {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+}
+
+.icon-generator-tipo.ativo {
+  border-color: var(--accent);
+}
+
+.icon-generator-tipo span {
+  display: grid;
+  gap: 2px;
+}
+
+.icon-generator-tipo strong {
+  font-size: 0.8125rem;
+}
+
+.icon-generator-tipo small {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.icon-generator-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-generator-ok {
+  margin: 0;
+  color: var(--green, var(--accent));
+  font-size: 0.8125rem;
+}
+
+.icon-generator-erro {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.8125rem;
+}
+
+.icon-generator-codigo pre {
+  overflow-x: auto;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
 .dossier-actions {
   display: flex;
   justify-content: flex-end;
@@ -6162,6 +6295,23 @@ tbody tr:last-child td {
     min-height: 48px;
   }
 
+  /* Mesma regra do card de upload: duas colunas em 390px cortam o rótulo. */
+  .icon-generator-form,
+  .icon-generator-tipos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .icon-generator select,
+  .icon-generator button,
+  .icon-generator input[type="color"] {
+    min-height: 48px;
+  }
+
+  .icon-generator-acoes {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .asset-type-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -7351,4 +7501,392 @@ body {
   .nav-link {
     transition: none;
   }
+}
+
+/* ---------- Home: duas colunas no desktop, uma pilha no celular ---------- */
+.home-grid {
+  display: grid;
+  gap: var(--e6);
+}
+
+@media (min-width: 1100px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.95fr);
+    align-items: start;
+  }
+}
+
+.home-rodape {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin: var(--e5) 0 0;
+  color: var(--texto-terciario);
+  font-size: 0.75rem;
+}
+
+/* Atalhos: quadrados iguais, sem cartão por atalho. */
+.atalhos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--e1);
+  padding: var(--e3);
+}
+
+@media (max-width: 400px) {
+  .atalhos {
+    gap: 0;
+  }
+}
+
+.atalho {
+  display: grid;
+  min-height: 76px;
+  justify-items: center;
+  align-content: center;
+  gap: var(--e2);
+  padding: var(--e2) var(--e1);
+  border-radius: var(--raio-m);
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  transition: background 120ms ease;
+}
+
+.atalho span {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atalho:hover {
+  background: var(--hover-bg);
+}
+
+.atalho:active {
+  background: var(--active-bg);
+}
+
+.atalho:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: -2px;
+}
+
+/* Valor da linha: número forte ou status + prazo, sem virar coluna de tabela. */
+.linha-numero {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.linha-valor-composto {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.linha-valor-composto time {
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .linha-valor-composto {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+}
+
+/* ---------- Esqueleto de carregamento ---------- */
+.esqueleto {
+  display: block;
+  border-radius: var(--raio-p);
+  background: linear-gradient(90deg, var(--superficie-suave) 25%, var(--hover-bg) 37%, var(--superficie-suave) 63%);
+  background-size: 400% 100%;
+  animation: esqueleto-brilho 1.4s ease infinite;
+}
+
+@keyframes esqueleto-brilho {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
+}
+
+.esqueleto-linha {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e4);
+}
+
+.esqueleto-linha + .esqueleto-linha {
+  box-shadow: inset 0 1px 0 var(--separador);
+}
+
+/* ---------- Estado de erro ---------- */
+.estado-erro {
+  display: grid;
+  justify-items: start;
+  gap: var(--e3);
+  padding: var(--e6);
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.estado-erro h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.estado-erro p {
+  margin: 0;
+  color: var(--texto-secundario);
+  max-width: 60ch;
+}
+
+.estado-erro details {
+  width: 100%;
+  color: var(--texto-terciario);
+  font-size: 0.8125rem;
+}
+
+.estado-erro summary {
+  cursor: pointer;
+}
+
+.estado-erro pre {
+  overflow: auto;
+  margin: var(--e2) 0 0;
+  padding: var(--e3);
+  border-radius: var(--raio-p);
+  background: var(--superficie-suave);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+/* ---------- Diálogo de confirmação ---------- */
+.confirmacao {
+  display: grid;
+  gap: var(--e3);
+}
+
+.confirmacao p {
+  margin: 0;
+  color: var(--texto-secundario);
+}
+
+.confirmacao .confirmacao-alvo {
+  padding: var(--e3);
+  border-radius: var(--raio-p);
+  background: var(--superficie-suave);
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.confirmacao-reversivel {
+  color: var(--texto-terciario);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Catálogo de serviços ---------- */
+.servicos-resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.servicos-resumo > div {
+  display: grid;
+  gap: 2px;
+  padding: var(--e4);
+}
+
+.servicos-resumo > div + div {
+  box-shadow: inset 1px 0 0 var(--separador);
+}
+
+@media (max-width: 560px) {
+  .servicos-resumo > div + div {
+    box-shadow: inset 0 1px 0 var(--separador);
+  }
+}
+
+.servicos-resumo span {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+.servicos-resumo strong {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.barra-ferramentas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.barra-ferramentas .campo-busca {
+  min-width: 200px;
+  flex: 1 1 220px;
+}
+
+.campo-busca input,
+.barra-ferramentas select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--e3);
+  border: 0;
+  border-radius: var(--raio-p);
+  background: var(--superficie);
+  color: var(--texto);
+  box-shadow: var(--sombra-1);
+}
+
+.campo-busca input:focus-visible,
+.barra-ferramentas select:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+/* Linha que só convida a criar algo, dentro da mesma superfície. */
+.linha-vazia {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--texto-secundario);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.linha-vazia .linha-texto strong {
+  color: var(--texto);
+}
+
+.linha-preco {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.linha-preco.indefinido {
+  color: var(--texto-terciario);
+  font-weight: 500;
+}
+
+.primary-button.perigo {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+/* Área técnica: existe, mas não domina a tela. */
+.detalhes-tecnicos {
+  padding: var(--e3) var(--e4);
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.detalhes-tecnicos summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.detalhes-tecnicos dl {
+  display: grid;
+  gap: var(--e1);
+  margin: var(--e3) 0 0;
+}
+
+.detalhes-tecnicos dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e3);
+  padding: var(--e1) 0;
+}
+
+.detalhes-tecnicos dt,
+.detalhes-tecnicos dd {
+  margin: 0;
+}
+
+.detalhes-tecnicos dd.mono {
+  color: var(--texto-terciario);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+/* Rótulo só para leitor de tela. */
+.sr-only {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   Ponte com as telas do Hub Social (shadcn) — 17/09/2026
+   -------------------------------------------------------------------------
+   Aquelas telas já estavam em primitivos próprios, mas ainda com a borda de
+   1px em cada cartão e aba, que é a marca do painel antigo. Em vez de
+   reescrever sete telas de uma vez, a superfície delas passa a obedecer ao
+   mesmo contrato da linguagem nova: sem contorno, raio médio e sombra 1.
+   ========================================================================= */
+[data-slot="card"] {
+  border-color: transparent;
+  border-radius: var(--raio-m);
+  box-shadow: var(--sombra-1);
+}
+
+[data-slot="card"] [data-slot="card"] {
+  box-shadow: none;
+  background: var(--superficie-suave);
+}
+
+/* Métricas e listas chave/valor do Hub Social usam a borda utilitária do
+   Tailwind; aqui elas viram superfície apoiada, como as linhas do sistema. */
+main .border:not([data-tom]):not([role="tablist"]) {
+  border-color: transparent;
+  box-shadow: var(--sombra-1);
+}
+
+main [role="tablist"] {
+  border-color: transparent;
+  background: var(--superficie-suave);
+}
+
+main [role="tab"][data-state="active"],
+main [role="tab"][aria-selected="true"] {
+  border-color: transparent;
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
 }

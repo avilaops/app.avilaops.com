@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Icone, type NomeIcone } from "@/components/ui/Icones";
 
 /**
@@ -67,11 +67,21 @@ function Conteudo({ titulo, descricao, icone, tom, valor, seta }: LinhaProps & {
   );
 }
 
-/** Linha que navega. Um `<a>` de verdade: abre em nova aba, copia link, etc. */
-export function LinhaLink({ href, ...props }: LinhaProps & { href: string }) {
+/**
+ * Linha que navega. Um `<a>` de verdade: abre em nova aba, copia link, etc.
+ * `aoClicar` existe para as telas em que o destino abre numa folha (o plano
+ * do catálogo, por exemplo) — o href continua sendo o endereço real, e o
+ * clique comum é interceptado.
+ */
+export function LinhaLink({
+  href,
+  aoClicar,
+  ...props
+}: LinhaProps & { href: string; aoClicar?: (evento: MouseEvent<HTMLAnchorElement>) => void }) {
   return (
     <Link
       href={href}
+      onClick={aoClicar}
       className={props.ativo ? "linha linha-ativa" : "linha"}
       aria-current={props.ativo ? "page" : undefined}
     >

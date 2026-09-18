@@ -5,38 +5,22 @@ import { useRouter } from "next/navigation";
 import PlanEditForm, {
   dinheiro,
   rotuloCiclo,
-  rotuloStatus,
   tiposServico,
   type PlanoServico,
 } from "@/components/PlanEditForm";
+import { Grupo, LinhaLink } from "@/components/sistema/Lista";
+import Status from "@/components/sistema/Status";
 import { Icone } from "@/components/ui/Icones";
-
-const classeStatus: Record<string, string> = {
-  ACTIVE: "status-active",
-  DRAFT: "status-pending",
-  ARCHIVED: "status-archived",
-};
-
-function agrupar(planos: PlanoServico[]) {
-  const grupos = planos.reduce<Record<string, PlanoServico[]>>((acc, plano) => {
-    acc[plano.serviceType] = acc[plano.serviceType] ?? [];
-    acc[plano.serviceType].push(plano);
-    return acc;
-  }, {});
-  for (const lista of Object.values(grupos)) {
-    lista.sort(
-      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt-BR"),
-    );
-  }
-  return grupos;
-}
 
 type Edicao = { plano: PlanoServico | null; tipo: string };
 
 /**
- * Catálogo como lista agrupada (uma seção por tipo de serviço, uma linha por
- * plano) e edição numa folha. A lista mostra só o que se lê de relance —
- * nome, ciclo, status, preço — e o formulário só abre para quem toca.
+ * Catálogo de serviços.
+ *
+ * Reescrito em 17/09/2026 na linguagem do sistema: resumo em cima, barra com
+ * busca e filtros, e uma superfície por tipo de serviço com uma linha por
+ * plano. O código interno do tipo (`PDF_CATALOG`) saiu do título e virou
+ * detalhe técnico no rodapé da tela — quem opera lê "Catálogo PDF".
  *
  * A lista é otimista: ao salvar, a linha muda na hora com o que a API
  * devolveu, e o `router.refresh()` confirma por trás sem piscar a tela.
@@ -47,10 +31,11 @@ export default function ServicePlansManager({ plans }: { plans: PlanoServico[] }
   const [origem, setOrigem] = useState(plans);
   const [edicao, setEdicao] = useState<Edicao | null>(null);
   const [aviso, setAviso] = useState("");
-  const grupos = useMemo(() => agrupar(lista), [lista]);
+  const [busca, setBusca] = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("");
 
-  // O servidor mandou a lista de novo (refresh): ela passa a valer. Ajuste
-  // durante a renderização, não em efeito — evita o quadro intermediário.
+  // O servidor mandou a lista de novo (refresh): ela passa a valer.
   if (origem !== plans) {
     setOrigem(plans);
     setLista(plans);
@@ -62,94 +47,175 @@ export default function ServicePlansManager({ plans }: { plans: PlanoServico[] }
     return () => window.clearTimeout(timer);
   }, [aviso]);
 
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return lista.filter((plano) => {
+      if (tipoFiltro && plano.serviceType !== tipoFiltro) return false;
+      if (statusFiltro && plano.status !== statusFiltro) return false;
+      if (!termo) return true;
+      return (
+        plano.name.toLowerCase().includes(termo) ||
+        (plano.description ?? "").toLowerCase().includes(termo) ||
+        plano.slug.toLowerCase().includes(termo)
+      );
+    });
+  }, [lista, busca, tipoFiltro, statusFiltro]);
+
+  const grupos = useMemo(() => {
+    const porTipo = new Map<string, PlanoServico[]>();
+    for (const plano of filtrados) {
+      const atual = porTipo.get(plano.serviceType) ?? [];
+      atual.push(plano);
+      porTipo.set(plano.serviceType, atual);
+    }
+    for (const planos of porTipo.values()) {
+      planos.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt-BR"));
+    }
+    return porTipo;
+  }, [filtrados]);
+
+  const ativos = lista.filter((plano) => plano.status === "ACTIVE").length;
+  const semPreco = lista.filter((plano) => plano.priceCents === null).length;
+
   function salvo(mensagem: string, plano: PlanoServico) {
     setLista((atual) => {
       const existe = atual.some((item) => item.id === plano.id);
-      return existe
-        ? atual.map((item) => (item.id === plano.id ? plano : item))
-        : [...atual, plano];
+      return existe ? atual.map((item) => (item.id === plano.id ? plano : item)) : [...atual, plano];
     });
     setEdicao(null);
     setAviso(mensagem);
     router.refresh();
   }
 
+  const filtrando = Boolean(busca || tipoFiltro || statusFiltro);
+
   return (
-    <div className="service-plans-manager">
-      <div className="plans-toolbar">
-        <p>
-          {lista.length} {lista.length === 1 ? "plano" : "planos"} em{" "}
-          {tiposServico.length} tipos de serviço. Toque num plano para editar.
-        </p>
-        <button
-          type="button"
-          className="primary-button"
-          onClick={() => setEdicao({ plano: null, tipo: "PDF_CATALOG" })}
-        >
+    <div className="pilha">
+      <section className="servicos-resumo" aria-label="Resumo do catálogo">
+        <div>
+          <span>Planos</span>
+          <strong>{lista.length}</strong>
+        </div>
+        <div>
+          <span>Tipos de serviço</span>
+          <strong>{tiposServico.length}</strong>
+        </div>
+        <div>
+          <span>Ativos</span>
+          <strong>{ativos}</strong>
+        </div>
+        <div>
+          <span>Sem preço</span>
+          <strong>{semPreco}</strong>
+        </div>
+      </section>
+
+      <div className="barra-ferramentas">
+        <label className="campo-busca">
+          <span className="sr-only">Buscar plano</span>
+          <input
+            type="search"
+            value={busca}
+            onChange={(evento) => setBusca(evento.target.value)}
+            placeholder="Buscar por nome, descrição ou slug"
+          />
+        </label>
+        <label>
+          <span className="sr-only">Filtrar por tipo</span>
+          <select value={tipoFiltro} onChange={(evento) => setTipoFiltro(evento.target.value)}>
+            <option value="">Todos os tipos</option>
+            {tiposServico.map(([codigo, rotulo]) => (
+              <option key={codigo} value={codigo}>
+                {rotulo}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">Filtrar por status</span>
+          <select value={statusFiltro} onChange={(evento) => setStatusFiltro(evento.target.value)}>
+            <option value="">Todos os status</option>
+            <option value="ACTIVE">Ativos</option>
+            <option value="DRAFT">Rascunhos</option>
+            <option value="ARCHIVED">Arquivados</option>
+          </select>
+        </label>
+        <button type="button" className="primary-button" onClick={() => setEdicao({ plano: null, tipo: tipoFiltro || "PDF_CATALOG" })}>
           <Icone nome="adicionar" tamanho={18} />
           Novo plano
         </button>
       </div>
 
       {tiposServico.map(([tipo, rotulo]) => {
-        const planos = grupos[tipo] ?? [];
+        const planos = grupos.get(tipo) ?? [];
+        // Com filtro ativo, tipo sem resultado some em vez de ocupar a tela.
+        if (filtrando && planos.length === 0) return null;
         return (
-          <section className="plan-section" key={tipo} aria-labelledby={`tipo-${tipo}`}>
-            <div className="plan-section-head">
-              <h3 id={`tipo-${tipo}`}>
-                {rotulo}
-                <small>{tipo}</small>
-              </h3>
-              <button
-                type="button"
-                className="text-link plan-add"
-                onClick={() => setEdicao({ plano: null, tipo })}
-              >
+          <Grupo
+            key={tipo}
+            titulo={rotulo}
+            acao={
+              <button type="button" className="text-link" onClick={() => setEdicao({ plano: null, tipo })}>
                 Adicionar
               </button>
-            </div>
-
-            <div className="ios-list">
-              {planos.length === 0 ? (
-                <p className="plan-row-empty">Nenhum plano neste tipo ainda.</p>
-              ) : (
-                planos.map((plano) => (
-                  <button
-                    type="button"
-                    className="ios-row plan-row"
-                    key={plano.id}
-                    onClick={() => setEdicao({ plano, tipo })}
-                    aria-label={`Editar ${plano.name}`}
-                  >
-                    <div className="plan-row-main">
-                      <strong>{plano.name}</strong>
-                      <small>
-                        {rotuloCiclo(plano.billingCycle)}
-                        {plano.description ? ` · ${plano.description}` : ""}
-                      </small>
-                    </div>
-                    <span
-                      className={`status-pill ${classeStatus[plano.status] ?? ""}`}
-                    >
-                      {rotuloStatus(plano.status)}
+            }
+          >
+            {planos.length === 0 ? (
+              <button type="button" className="linha linha-vazia" onClick={() => setEdicao({ plano: null, tipo })}>
+                <span className="linha-texto">
+                  <strong>Nenhum plano aqui ainda</strong>
+                  <small>Toque para criar o primeiro de {rotulo.toLowerCase()}.</small>
+                </span>
+                <Icone nome="adicionar" tamanho={16} className="chevron" />
+              </button>
+            ) : (
+              planos.map((plano) => (
+                <LinhaLink
+                  key={plano.id}
+                  href={`?plano=${plano.slug}`}
+                  titulo={plano.name}
+                  descricao={`${rotuloCiclo(plano.billingCycle)}${plano.description ? ` · ${plano.description}` : ""}`}
+                  valor={
+                    <span className="linha-valor-composto">
+                      <Status status={plano.status} />
+                      <strong className={plano.priceCents === null ? "linha-preco indefinido" : "linha-preco"}>
+                        {dinheiro(plano.priceCents, plano.currency)}
+                      </strong>
                     </span>
-                    <span
-                      className={
-                        plano.priceCents === null
-                          ? "plan-row-price indefinido"
-                          : "plan-row-price"
-                      }
-                    >
-                      {dinheiro(plano.priceCents)}
-                    </span>
-                    <Icone nome="chevron" tamanho={16} className="chevron" />
-                  </button>
-                ))
-              )}
-            </div>
-          </section>
+                  }
+                  aoClicar={(evento) => {
+                    evento.preventDefault();
+                    setEdicao({ plano, tipo });
+                  }}
+                />
+              ))
+            )}
+          </Grupo>
         );
       })}
+
+      {filtrando && filtrados.length === 0 ? (
+        <Grupo>
+          <button type="button" className="linha linha-vazia" onClick={() => { setBusca(""); setTipoFiltro(""); setStatusFiltro(""); }}>
+            <span className="linha-texto">
+              <strong>Nenhum plano com esses filtros</strong>
+              <small>Toque para limpar a busca e os filtros.</small>
+            </span>
+          </button>
+        </Grupo>
+      ) : null}
+
+      <details className="detalhes-tecnicos">
+        <summary>Detalhes técnicos</summary>
+        <dl>
+          {tiposServico.map(([codigo, rotulo]) => (
+            <div key={codigo}>
+              <dt>{rotulo}</dt>
+              <dd className="mono">{codigo}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
 
       {edicao ? (
         <PlanEditForm

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";

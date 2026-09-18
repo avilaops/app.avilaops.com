@@ -73,7 +73,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" data-theme="light" className={manrope.variable} style={{ colorScheme: "light" }}>
+    <html lang="pt-BR" suppressHydrationWarning data-theme="light" className={manrope.variable} style={{ colorScheme: "light" }}>
       <head>
         {/*
           Modo noturno da casa: 18h escurece, 6h clareia. Precisa rodar antes do

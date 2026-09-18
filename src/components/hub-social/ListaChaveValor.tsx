@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import { BotaoCopiar } from "@/components/hub-social/BotaoCopiar";
 
 export { BotaoCopiar };

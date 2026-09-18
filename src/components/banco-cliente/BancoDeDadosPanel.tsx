@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AnotacaoBanco from "@/components/banco-cliente/AnotacaoBanco";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";

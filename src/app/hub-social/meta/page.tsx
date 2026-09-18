@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import MetaBusinessPanel from "@/components/MetaBusinessPanel";
 import MetaClientSelect from "@/components/MetaClientSelect";

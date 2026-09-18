@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";

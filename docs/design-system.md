@@ -81,3 +81,38 @@ Em `src/components/sistema/`:
 ## Alvos de toque
 
 Mínimo de 44px no celular: linha de lista tem 56px, aba tem 48px, botão voltar tem 40px com área de toque de 44px. Campo de formulário tem 16px de fonte abaixo de 820px, para o Safari não dar zoom.
+
+## Estados do sistema
+
+| Estado | Componente | Onde |
+|---|---|---|
+| Carregando | `EsqueletoTela` / `EsqueletoLista` (`components/sistema/Esqueleto.tsx`) | `loading.tsx` de `/operacao`, `/clientes`, `/projetos`, `/leads`, `/hub-social` e `/financeiro` |
+| Erro | `EstadoErro` (`components/sistema/EstadoErro.tsx`) | `error.tsx` das mesmas áreas; mensagem humana, detalhe técnico recolhido e "Tentar de novo" |
+| Vazio | `LinhaInfo` dentro do `Grupo`, ou `EstadoVazio` no Hub Social | Home, catálogo, listas |
+| Destrutivo | `Confirmacao` (`components/sistema/Confirmacao.tsx`) | substituiu os seis `window.confirm`: diz o que acontece, sobre qual item e se dá para desfazer |
+
+O esqueleto tem a forma da tela que vai chegar (ícone, título, valor), não um círculo girando. Com `prefers-reduced-motion` ele para de brilhar.
+
+## Status
+
+Um mapa só: `src/lib/status-rotulos.ts` (status interno → rótulo em português → tom). O componente é `components/sistema/Status.tsx`, usado por 23 telas. Tons: `bom` verde, `atencao` âmbar, `ruim` vermelho, `info` azul, `neutro` cinza. O valor cru (`ACTIVE`, `RECEIVED`) vai para o `title`, nunca para o texto.
+
+## Barra de ferramentas
+
+`.barra-ferramentas` no catálogo de serviços é o padrão: busca à esquerda (cresce), filtros do lado, ação primária à direita. Campo e select têm 40px, sem borda, com sombra 1 e foco azul. Abaixo de 560px a barra quebra em linhas.
+
+## Resumo numérico
+
+`.servicos-resumo` é uma superfície única dividida por separadores internos — não são quatro cartões. Na Home, o mesmo papel é feito por linhas com o número à direita (`.linha-numero`), porque quase todos os valores são pequenos.
+
+## Home
+
+Ordem no celular: saudação com o que pede atenção, atalhos (quatro, conforme o papel), fila de atenção, clientes recentes, resumo e financeiro. No desktop (≥1100px) vira duas colunas: fila e carteira à esquerda, resumo e financeiro à direita. Todo número vem de `getOperationsDashboard()`.
+
+## Área técnica
+
+`.detalhes-tecnicos` é um `<details>` fechado: id, código interno, endpoint. O catálogo usa para os códigos `DOMAIN`, `PDF_CATALOG` etc., que saíram do título dos grupos.
+
+## Ponte com o Hub Social
+
+As sete telas do Hub Social usam primitivos próprios em Tailwind (`components/hub-social/`). Elas obedecem ao mesmo contrato de superfície por CSS: cartão sem contorno, raio médio, sombra 1, aba ativa como peça clara. Quando forem reescritas, devem passar a usar `Grupo`/`LinhaLink` direto.

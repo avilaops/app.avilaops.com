@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Button } from "@/components/shadcn/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/card";
