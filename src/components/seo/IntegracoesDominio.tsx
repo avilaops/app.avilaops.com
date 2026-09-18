@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BingWebmasterPanel from "@/components/BingWebmasterPanel";
 import IndexNowPanel from "@/components/IndexNowPanel";

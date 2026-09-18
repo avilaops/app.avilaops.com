@@ -1,4 +1,4 @@
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import SeoAuditPanel from "@/components/SeoAuditPanel";
 import AbasLink from "@/components/seo/AbasLink";

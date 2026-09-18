@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import ListaChaveValor, { type ItemChaveValor } from "@/components/hub-social/ListaChaveValor";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Button } from "@/components/shadcn/button";

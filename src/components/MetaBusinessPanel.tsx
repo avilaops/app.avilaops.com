@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Info } from "lucide-react";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";
 import ListaChaveValor, { type ItemChaveValor } from "@/components/hub-social/ListaChaveValor";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";

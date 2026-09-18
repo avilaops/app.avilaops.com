@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BadgeStatus from "@/components/hub-social/BadgeStatus";
+import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
