@@ -4,6 +4,7 @@ import {
   consultarDominioBr,
   diasAte,
   limparCacheRegistroBr,
+  respostaEhDoMesmoNome,
   type LeituraRdapBr,
   type RespostaAvail,
 } from "@/lib/registro-br";
@@ -15,6 +16,7 @@ const CONSULTADO_EM = "2026-09-18T12:00:00.000Z";
 const RDAP_UOL: LeituraRdapBr = {
   tipo: "REGISTRADO",
   dados: {
+    ldhName: "uol.com.br",
     status: ["active"],
     events: [
       { eventAction: "registration", eventDate: "1996-04-24T12:00:00Z" },
@@ -114,6 +116,49 @@ describe("consolidar", () => {
     expect(consulta.status).toBe("REGISTRADO");
     expect(consulta.fontes).toEqual(["AVAIL"]);
     expect(consulta.mensagem).toContain("não é uma interface documentada");
+  });
+
+  it("resposta sobre outro nome não vira data deste domínio", () => {
+    // Medido em 18/09/2026: `optica-visao.com.br` devolve 303 para
+    // `opticavisao.com.br`, de outro dono, e o fetch segue sozinho. Gravar
+    // aquela data diria ao cliente que o domínio dele venceu.
+    const avail: RespostaAvail = { status: 3 };
+
+    const consulta = consolidar(
+      "optica-visao.com.br",
+      { tipo: "OUTRO_NOME", ldhName: "opticavisao.com.br" },
+      avail,
+      CONSULTADO_EM,
+    );
+
+    expect(consulta.status).toBe("BLOQUEADO");
+    expect(consulta.expiraEm).toBeNull();
+    expect(consulta.titular).toBeNull();
+    expect(consulta.fontes).toEqual(["AVAIL"]);
+    expect(consulta.mensagem).toContain("opticavisao.com.br");
+  });
+
+  it("outro nome com busca dizendo 'tomado' fica desconhecido, não registrado", () => {
+    const consulta = consolidar(
+      "a-b.com.br",
+      { tipo: "OUTRO_NOME", ldhName: "ab.com.br" },
+      { status: 2, "expires-at": "2030-01-01T00:00:00-03:00" },
+      CONSULTADO_EM,
+    );
+
+    expect(consulta.status).toBe("DESCONHECIDO");
+    expect(consulta.expiraEm).toBeNull();
+  });
+
+  it("nome inválido dá RDAP 400, e a mensagem culpa o nome, não a fonte", () => {
+    // Medido em 18/09/2026: `xn--a-99.com.br` devolve RDAP 400 e avail 4.
+    const avail: RespostaAvail = { status: 4, reasons: ["Domínio inválido"] };
+
+    const consulta = consolidar("xn--a-99.com.br", { tipo: "INDEFINIDO", http: 400 }, avail, CONSULTADO_EM);
+
+    expect(consulta.status).toBe("INVALIDO");
+    expect(consulta.mensagem).toContain("não aceita este nome");
+    expect(consulta.mensagem).not.toContain("RDAP indisponível");
   });
 
   it("sem nenhuma fonte, o resultado é desconhecido, nunca 'livre'", () => {
@@ -254,6 +299,7 @@ describe("filtro de vencimento na tela", () => {
       nextActionAt: null,
       registroBrLidoEm: null,
       registroBrTitular: null,
+      registroBrStatus: null,
     };
   }
 
@@ -277,5 +323,47 @@ describe("filtro de vencimento na tela", () => {
 
     expect(filtrarDominios(dominios, "", "vencendo", agora).map((d) => d.fqdn)).toEqual(["perto.com.br"]);
     expect(filtrarDominios(dominios, "", "todas", agora)).toHaveLength(3);
+  });
+});
+
+describe("respostaEhDoMesmoNome", () => {
+  it("aceita o mesmo nome, com caixa e ponto final diferentes", () => {
+    expect(respostaEhDoMesmoNome("uol.com.br", { ldhName: "UOL.com.br." })).toBe(true);
+    expect(respostaEhDoMesmoNome("uol.com.br", { handle: "uol.com.br" })).toBe(true);
+  });
+
+  it("recusa a resposta que o registro deu sobre outro nome", () => {
+    expect(respostaEhDoMesmoNome("optica-visao.com.br", { ldhName: "opticavisao.com.br" })).toBe(false);
+  });
+
+  it("resposta sem nome nenhum passa: não há com o que discordar", () => {
+    expect(respostaEhDoMesmoNome("uol.com.br", {})).toBe(true);
+  });
+});
+
+describe("linha sem registro no .br", () => {
+  it("o status por linha distingue 'livre' de 'nunca consultado'", () => {
+    const base = {
+      id: "x",
+      fqdn: "marcenaria-luz.com.br",
+      cloudflarePlan: null,
+      cloudflareStatus: "active",
+      dnsLastSyncedAt: null,
+      dnsRecordCount: 0,
+      organizationName: "Marcenaria Luz",
+      organizationId: null,
+      cloudflareZoneId: null,
+      registrar: null,
+      expiresAt: "2026-09-15T12:00:00.000Z",
+      autoRenew: null,
+      nextActionAt: null,
+      registroBrLidoEm: "2026-09-18T12:00:00.000Z",
+      registroBrTitular: null,
+      registroBrStatus: "LIVRE",
+    } satisfies DomainRow;
+
+    expect(base.registroBrStatus).toBe("LIVRE");
+    // A data antiga continua na linha: apagá-la esconderia o problema.
+    expect(base.expiresAt).not.toBeNull();
   });
 });

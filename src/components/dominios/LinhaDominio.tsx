@@ -26,12 +26,12 @@ function lerVencimento(expiresAt: string | null, agora: Date) {
   if (!data) return null;
 
   const dias = diasAteVencer(expiresAt, agora);
-  if (dias === null) return { texto: `expira ${data}`, critico: false, atencao: false };
-  if (dias < 0) return { texto: `venceu ${data}`, critico: true, atencao: false };
-  if (dias === 0) return { texto: `vence hoje (${data})`, critico: true, atencao: false };
+  if (dias === null) return { data, texto: `expira ${data}`, critico: false, atencao: false };
+  if (dias < 0) return { data, texto: `venceu ${data}`, critico: true, atencao: false };
+  if (dias === 0) return { data, texto: `vence hoje (${data})`, critico: true, atencao: false };
 
   const prazo = dias === 1 ? "falta 1 dia" : `faltam ${dias} dias`;
-  return { texto: `expira ${data} · ${prazo}`, critico: dias <= 14, atencao: dias <= JANELA_ATENCAO_DIAS };
+  return { data, texto: `expira ${data} · ${prazo}`, critico: dias <= 14, atencao: dias <= JANELA_ATENCAO_DIAS };
 }
 
 function Separador() {
@@ -49,12 +49,20 @@ export default function LinhaDominio({ dominio, lidoEm }: { dominio: DomainRow; 
   const vencimento = lerVencimento(dominio.expiresAt, agora);
   const registros = dominio.dnsRecordCount === 1 ? "1 registro DNS" : `${dominio.dnsRecordCount} registros DNS`;
 
+  // Domínio nosso que o registro diz não existir é alarme. A data antiga fica
+  // (apagá-la esconderia o problema), mas a linha precisa dizer que ela está
+  // velha, senão o cliente aparece com vencimento de um domínio que caiu.
+  const semRegistro = dominio.registroBrStatus === "LIVRE";
+
   // O vencimento não vem do Cloudflare. Quem o publica é o registro do
   // domínio, e a evidência precisa dizer isso, senão o número parece ter
   // saído da zona.
   const observacoes = [
     dominio.cloudflareZoneId ? `Zona do Cloudflare: ${dominio.cloudflareZoneId}` : null,
     dominio.registroBrTitular ? `Titular no registro: ${dominio.registroBrTitular}` : null,
+    semRegistro
+      ? "O Registro.br não encontrou registro para este domínio na última leitura. A data mostrada é a anterior e não tem mais fonte."
+      : null,
     dominio.registroBrLidoEm
       ? null
       : "Sem leitura do Registro.br para este domínio. Use “Atualizar vencimentos”.",
@@ -112,7 +120,15 @@ export default function LinhaDominio({ dominio, lidoEm }: { dominio: DomainRow; 
           <span className="tabular-nums">{registros}</span>
           <Separador />
           <span>{dominio.dnsLastSyncedAt ? `sync ${sync.texto}` : "nunca sincronizado"}</span>
-          {vencimento ? (
+          {semRegistro ? (
+            <>
+              <Separador />
+              <span className="font-medium text-[color:var(--red)]">
+                sem registro no .br
+                {vencimento ? ` (data de ${vencimento.data}, agora sem fonte)` : ""}
+              </span>
+            </>
+          ) : vencimento ? (
             <>
               <Separador />
               <span

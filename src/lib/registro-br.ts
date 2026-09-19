@@ -147,6 +147,9 @@ type EntidadeRdap = {
 };
 
 type RespostaRdap = {
+  /** Nome que a resposta descreve. Pode não ser o que pedimos. */
+  ldhName?: string;
+  handle?: string;
   events?: EventoRdap[];
   status?: string[];
   nameservers?: { ldhName?: string }[];
@@ -187,7 +190,24 @@ function titularDe(resposta: RespostaRdap): { nome: string | null; documento: st
 export type LeituraRdapBr =
   | { tipo: "REGISTRADO"; dados: RespostaRdap }
   | { tipo: "LIVRE" }
+  /** O registro respondeu sobre OUTRO nome. Ver `respostaEhDoMesmoNome`. */
+  | { tipo: "OUTRO_NOME"; ldhName: string }
   | { tipo: "INDEFINIDO"; http: number };
+
+/**
+ * O registro do `.br` trata hífen como insignificante e responde `303` de
+ * `optica-visao.com.br` para `opticavisao.com.br`, que é de outro dono.
+ * O `fetch` segue o redirecionamento sem avisar, então a resposta chega com
+ * `200` e parece ser do domínio que pedimos. Medido em 18/09/2026.
+ *
+ * Gravar essa data na ficha diria a um cliente que o domínio dele venceu
+ * quando quem venceu foi o de outra pessoa. Por isso o nome da resposta é
+ * conferido antes de qualquer coisa.
+ */
+export function respostaEhDoMesmoNome(fqdn: string, dados: RespostaRdap): boolean {
+  const nome = (dados.ldhName ?? dados.handle ?? "").trim().toLowerCase().replace(/\.$/, "");
+  return nome === "" || nome === fqdn.toLowerCase();
+}
 
 export async function lerRdapBr(fqdn: string): Promise<LeituraRdapBr> {
   const { http, corpo } = await buscarJson(`${RDAP_BASE}/${encodeURIComponent(fqdn)}`);
@@ -195,7 +215,11 @@ export async function lerRdapBr(fqdn: string): Promise<LeituraRdapBr> {
   // 404 no RDAP do registro autoritativo do `.br` significa "não há registro".
   if (http === 404) return { tipo: "LIVRE" };
   if (http === 200 && corpo && typeof corpo === "object") {
-    return { tipo: "REGISTRADO", dados: corpo as RespostaRdap };
+    const dados = corpo as RespostaRdap;
+    if (!respostaEhDoMesmoNome(fqdn, dados)) {
+      return { tipo: "OUTRO_NOME", ldhName: (dados.ldhName ?? dados.handle ?? "").toLowerCase() };
+    }
+    return { tipo: "REGISTRADO", dados };
   }
   return { tipo: "INDEFINIDO", http };
 }
@@ -261,7 +285,8 @@ export function consolidar(
   consultadoEm: string,
 ): ConsultaRegistroBr {
   const fontes: ("RDAP" | "AVAIL")[] = [];
-  if (rdap.tipo !== "INDEFINIDO") fontes.push("RDAP");
+  // Resposta sobre outro nome não é fonte sobre este domínio.
+  if (rdap.tipo === "REGISTRADO" || rdap.tipo === "LIVRE") fontes.push("RDAP");
   if (avail) fontes.push("AVAIL");
 
   const base: ConsultaRegistroBr = {
@@ -307,6 +332,25 @@ export function consolidar(
     };
   }
 
+  if (rdap.tipo === "OUTRO_NOME") {
+    // O registro respondeu sobre outro nome (hífen é insignificante no `.br`).
+    // Nada dessa resposta serve para este domínio: nem data, nem titular. Quem
+    // decide aqui é o `avail`, que foi consultado pelo nome exato.
+    const porAvail = statusDoAvail(avail?.status);
+    const explicacao = `O RDAP respondeu sobre ${rdap.ldhName}, não sobre ${fqdn}: no .br o hífen é insignificante e a consulta é redirecionada. Nada daquela resposta vale para este domínio.`;
+
+    return {
+      ...base,
+      status: porAvail === "REGISTRADO" ? "DESCONHECIDO" : porAvail,
+      mensagem:
+        porAvail === "REGISTRADO"
+          ? `${explicacao} A busca do site diz que o nome está tomado, mas sem dizer por quem. Conferir manualmente.`
+          : base.motivos.length > 0
+            ? `${explicacao} ${base.motivos.join("; ")}.`
+            : explicacao,
+    };
+  }
+
   if (rdap.tipo === "LIVRE") {
     // Sem registro RDAP, mas o `avail` pode dizer que mesmo assim não dá para
     // registrar. Mostrar "livre" nesse caso é mandar a pessoa tentar em vão.
@@ -329,15 +373,23 @@ export function consolidar(
     };
   }
 
-  // RDAP não respondeu: o `avail` sustenta sozinho, dizendo que sustenta.
+  // RDAP não respondeu. O `avail` sustenta sozinho, dizendo que sustenta.
   const porAvail = statusDoAvail(avail?.status);
   if (porAvail !== "DESCONHECIDO") {
+    // Nome inválido não é "RDAP fora do ar": o RDAP devolve 400 justamente
+    // porque o nome não existe como domínio (medido em 18/09/2026 com
+    // `xn--a-99.com.br`). Culpar a fonte aí manda a pessoa tentar de novo.
+    const culpaDoNome = porAvail === "INVALIDO" || porAvail === "BLOQUEADO";
     return {
       ...base,
       status: porAvail,
       expiraEm: isoDe(avail?.["expires-at"]),
       nameservers: avail?.hosts ?? [],
-      mensagem: `RDAP indisponível (HTTP ${rdap.http}); resultado vindo só da busca do site do Registro.br, que não é uma interface documentada.`,
+      mensagem: culpaDoNome
+        ? base.motivos.length > 0
+          ? `O Registro.br não aceita este nome: ${base.motivos.join("; ")}.`
+          : "O Registro.br não aceita este nome."
+        : `RDAP indisponível (HTTP ${rdap.http}); resultado vindo só da busca do site do Registro.br, que não é uma interface documentada.`,
     };
   }
 

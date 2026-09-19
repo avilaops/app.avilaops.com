@@ -22,6 +22,8 @@ export type DomainRow = {
   registroBrLidoEm: string | null;
   /** Titular publicado pelo RDAP do Registro.br, quando houver. */
   registroBrTitular: string | null;
+  /** Último veredito do Registro.br: REGISTRADO, LIVRE, BLOQUEADO, INVALIDO, DESCONHECIDO. */
+  registroBrStatus: string | null;
 };
 
 export type FiltroStatus = "todas" | "ativas" | "pendentes" | "vencendo";

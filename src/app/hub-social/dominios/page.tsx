@@ -39,7 +39,9 @@ export default async function DominiosPage({
       filtroInicial={lerFiltro(params.status)}
       initialDomains={domains.map((domain) => {
         const registroBr = porFqdn.get(domain.fqdn);
-        const titular = (registroBr?.metadata as { titular?: unknown } | null)?.titular;
+        const leitura = registroBr?.metadata as { titular?: unknown; status?: unknown } | null;
+        const titular = leitura?.titular;
+        const statusRegistro = leitura?.status;
 
         return {
           id: domain.id,
@@ -57,6 +59,7 @@ export default async function DominiosPage({
           nextActionAt: domain.nextActionAt?.toISOString() ?? null,
           registroBrLidoEm: registroBr?.lastSyncedAt?.toISOString() ?? null,
           registroBrTitular: typeof titular === "string" ? titular : null,
+          registroBrStatus: typeof statusRegistro === "string" ? statusRegistro : null,
         };
       })}
     />

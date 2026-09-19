@@ -83,6 +83,7 @@ function mesclar(anteriores: DomainRow[], novos: DomainRowApi[]): DomainRow[] {
       nextActionAt: antigo?.nextActionAt ?? null,
       registroBrLidoEm: antigo?.registroBrLidoEm ?? null,
       registroBrTitular: antigo?.registroBrTitular ?? null,
+      registroBrStatus: antigo?.registroBrStatus ?? null,
       ...novo,
       dnsLastSyncedAt: novo.dnsLastSyncedAt ?? null,
     };
@@ -103,6 +104,7 @@ function aplicarRegistroBr(anteriores: DomainRow[], atualizados: DominioRegistro
       registrar: novo.status === "REGISTRADO" ? "Registro.br" : dominio.registrar,
       registroBrLidoEm: novo.status === "DESCONHECIDO" ? dominio.registroBrLidoEm : lidoEm,
       registroBrTitular: novo.titular ?? dominio.registroBrTitular,
+      registroBrStatus: novo.status,
     };
   });
 }
