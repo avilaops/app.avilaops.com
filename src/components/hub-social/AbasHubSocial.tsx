@@ -3,7 +3,7 @@ import TiraAbas from "@/components/hub-social/TiraAbas";
 import { canaisHubSocial } from "@/lib/hub-social";
 
 /**
- * As sete abas dos canais, numa linha só que rola na horizontal quando não
+ * As abas dos canais, numa linha só que rola na horizontal quando não
  * cabe. Desde 18/09/2026 usa as classes do sistema: cápsula clara, aba ativa
  * como peça branca — o mesmo gesto da barra de abas do celular.
  */

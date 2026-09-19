@@ -178,8 +178,10 @@ export const navegacao: GrupoNavegacao[] = [
     // Onde o cliente é encontrado e falado com, mais o Estúdio que produz o que
     // vai nesses canais. Eram "Canais" (6) e "Conteúdo" (Estúdio), separados em
     // 10/09/2026 pelo teto de sete itens; em 16/09/2026 viraram uma área própria
-    // fora de Operação, /hub-social, e o grupo fechou exatamente nos sete. A
-    // ordem é a das abas da área (src/lib/hub-social.ts é a fonte).
+    // fora de Operação, /hub-social. O teto subiu para oito em 18/09/2026, quando
+    // Ícones entrou: ele nasceu de um limite de rolagem, não de uma regra do
+    // produto, e oito ainda cabem na coluna do desktop e na tela "Mais" sem
+    // rolar. A ordem é a das abas da área (src/lib/hub-social.ts é a fonte).
     label: "Hub Social",
     slug: "hub-social",
     icone: "hub",

@@ -24,7 +24,7 @@ function ehLink(acao: EstadoVazioProps["acao"]): acao is AcaoEstadoVazio {
 
 /**
  * Vazio na linguagem do sistema: superfície clara, sem borda tracejada, com
- * a ação que resolve. Uma implementação só para as sete telas do Hub Social —
+ * a ação que resolve. Uma implementação só para as telas do Hub Social —
  * as classes estão no globals.css, junto das outras do sistema.
  */
 export default function EstadoVazio({ titulo, descricao, acao, compacto = false, icone }: EstadoVazioProps) {

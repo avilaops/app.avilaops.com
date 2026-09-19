@@ -175,7 +175,7 @@ Ordem no celular: saudação com o que pede atenção, atalhos (quatro, conforme
 
 ## Hub Social
 
-Os primitivos das sete telas (`components/hub-social/`) foram reescritos em 18/09/2026 sobre as classes do sistema — não há mais uma segunda linguagem visual:
+Os primitivos das telas do Hub Social (`components/hub-social/`) foram reescritos em 18/09/2026 sobre as classes do sistema — não há mais uma segunda linguagem visual:
 
 | Primitivo | O que virou |
 |---|---|
