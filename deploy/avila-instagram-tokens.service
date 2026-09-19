@@ -1,0 +1,17 @@
+[Unit]
+Description=Renova os tokens do Instagram que estao perto de vencer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Mesmo arquivo da coleta de monitoramento: a rota usa MONITORING_INGEST_TOKEN.
+EnvironmentFile=/etc/avila-monitoring.env
+ExecStart=/usr/bin/curl -fsS -m 120 -X POST \
+  -H "Authorization: Bearer ${MONITORING_INGEST_TOKEN}" \
+  https://app.avilaops.com/api/internal/instagram/renovar-tokens
+User=root
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

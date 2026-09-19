@@ -1,0 +1,14 @@
+[Unit]
+Description=Renovacao diaria dos tokens do Instagram
+
+[Timer]
+# De madrugada, uma vez por dia. O token vale 60 dias e a renovacao comeca a
+# tentar 10 dias antes, entao ha 10 chances antes de virar problema do cliente.
+OnCalendar=*-*-* 04:17:00
+RandomizedDelaySec=600
+# Servidor desligado na hora marcada nao perde a passada.
+Persistent=true
+Unit=avila-instagram-tokens.service
+
+[Install]
+WantedBy=timers.target

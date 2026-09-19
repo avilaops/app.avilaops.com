@@ -220,6 +220,106 @@ export async function renovarTokenInstagram(organizationId: string) {
   return { tokenExpiresAt: expiraEm };
 }
 
+/**
+ * Quantos dias antes do vencimento a renovação começa a tentar.
+ *
+ * O token vale 60 dias e a Meta não renova token já vencido: passou do prazo,
+ * o cliente precisa autorizar tudo de novo. Dez dias dá margem para a rotina
+ * falhar várias vezes seguidas (servidor fora, Meta instável, token de rede) e
+ * ainda assim alguém perceber antes de virar trabalho do cliente.
+ */
+const DIAS_ANTES_DE_RENOVAR = 10;
+
+/** A Meta recusa renovar token com menos de 24 horas de vida. */
+const HORAS_MINIMAS_DE_VIDA = 24;
+
+export type ResultadoDaRenovacao = {
+  conferidas: number;
+  renovadas: number;
+  falhas: number;
+  vencidas: string[];
+};
+
+/**
+ * Renova os tokens do Instagram que estão perto de vencer.
+ *
+ * Nunca lança: é rotina de fundo, e rotina de fundo que derruba o processo
+ * leva junto tudo o que ela deveria proteger. Falha vira registro na conexão e
+ * a próxima passada tenta de novo.
+ *
+ * Conexão já vencida entra em `vencidas` e NÃO é tentada: a Meta recusaria, e
+ * insistir todo dia num token morto só enche o log. O que resolve ali é o
+ * cliente autorizar de novo, e por isso o status vai para EXPIRED, que é o que
+ * a tela mostra.
+ */
+export async function manutencaoDosTokensDoInstagram(): Promise<ResultadoDaRenovacao> {
+  const resultado: ResultadoDaRenovacao = {
+    conferidas: 0,
+    renovadas: 0,
+    falhas: 0,
+    vencidas: [],
+  };
+
+  const agora = Date.now();
+  const limite = new Date(agora + DIAS_ANTES_DE_RENOVAR * 86_400_000);
+
+  const conexoes = await prisma.organizationIntegrationConnection.findMany({
+    where: {
+      provider: INSTAGRAM_PROVIDER,
+      status: "ACTIVE",
+      tokenExpiresAt: { not: null, lte: limite },
+    },
+    select: {
+      id: true,
+      organizationId: true,
+      accountName: true,
+      tokenExpiresAt: true,
+      createdAt: true,
+    },
+  });
+
+  resultado.conferidas = conexoes.length;
+
+  for (const conexao of conexoes) {
+    const rotulo = conexao.accountName ?? conexao.organizationId;
+
+    if (conexao.tokenExpiresAt && conexao.tokenExpiresAt.getTime() <= agora) {
+      resultado.vencidas.push(rotulo);
+      await prisma.organizationIntegrationConnection.update({
+        where: { id: conexao.id },
+        data: {
+          status: "EXPIRED",
+          lastSyncStatus: "TOKEN_EXPIRED",
+          lastSyncError: "Token venceu. O cliente precisa autorizar o Instagram de novo.",
+        },
+      });
+      continue;
+    }
+
+    if (agora - conexao.createdAt.getTime() < HORAS_MINIMAS_DE_VIDA * 3_600_000) {
+      continue;
+    }
+
+    try {
+      await renovarTokenInstagram(conexao.organizationId);
+      resultado.renovadas += 1;
+    } catch (erro) {
+      resultado.falhas += 1;
+      // Sem derrubar o laço: um cliente que falha não pode impedir a renovação
+      // dos outros, e justamente hoje pode ser o dia em que outro venceria.
+      await prisma.organizationIntegrationConnection.update({
+        where: { id: conexao.id },
+        data: {
+          lastSyncStatus: "REFRESH_FAILED",
+          lastSyncError: erro instanceof Error ? erro.message : String(erro),
+        },
+      });
+    }
+  }
+
+  return resultado;
+}
+
 export type ConexaoInstagram = {
   actorId: string;
   organizationId: string;
