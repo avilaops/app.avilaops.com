@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CertificadoA1Info, DocumentoDFe } from "@/lib/fiscal/types";
+import { nomeProprio } from "@/lib/format";
 
 type OrganizacaoFiscal = {
   id: string;
@@ -162,7 +163,7 @@ export default function FiscalCommandCenterClient({
           >
             {organizacoes.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name} {org.document ? `(${org.document})` : ""}
+                {nomeProprio(org.name)} {org.document ? `(${org.document})` : ""}
               </option>
             ))}
           </select>

@@ -9,7 +9,7 @@ import VincularCliente from "@/components/lojas/VincularCliente";
 import { Grupo, LinhaLink } from "@/components/sistema/Lista";
 import BadgeStatus from "@/components/sistema/Status";
 import { getAdmin } from "@/lib/auth";
-import { contar, formatShortDate } from "@/lib/format";
+import { contar, formatShortDate, nomeProprio } from "@/lib/format";
 import {
   agruparPorFaixa,
   alertasDaLoja,
@@ -275,7 +275,7 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
                         ),
                         cliente: loja.cliente ? (
                           <Link href={`/clientes/${loja.cliente.id}`} className="text-link">
-                            {loja.cliente.nome}
+                            {nomeProprio(loja.cliente.nome)}
                           </Link>
                         ) : (
                           <span className="text-[color:var(--amber)]">sem vínculo</span>

@@ -4,6 +4,7 @@ import AppShell from "@/components/AppShell";
 import OrganizationForm from "@/components/OrganizationForm";
 import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
+import { nomeProprio } from "@/lib/format";
 import { getOrganizations } from "@/lib/operations";
 
 const statusLabels: Record<string, string> = {
@@ -28,24 +29,28 @@ export default async function ClientsPage() {
         <OrganizationForm />
       </header>
 
+      {/* Quatro números que antes viravam quatro linhas empilhadas no celular
+          — 350px antes do primeiro cliente, quase todos zerados. Viram uma
+          tira de quatro colunas: o mesmo dado, uma linha de altura. */}
       <section className="client-summary-strip">
         <span>
-          Organizações <strong>{organizations.length}</strong>
+          <i>Organizações</i>
+          <strong>{organizations.length}</strong>
         </span>
         <span>
-          Em onboarding{" "}
+          <i>Onboarding</i>
           <strong>
             {organizations.filter((item) => item.status === "ONBOARDING").length}
           </strong>
         </span>
         <span>
-          Marcas{" "}
+          <i>Marcas</i>
           <strong>
             {organizations.reduce((sum, item) => sum + item._count.brands, 0)}
           </strong>
         </span>
         <span>
-          Projetos{" "}
+          <i>Projetos</i>
           <strong>
             {organizations.reduce((sum, item) => sum + item._count.projects, 0)}
           </strong>
@@ -66,52 +71,65 @@ export default async function ClientsPage() {
           </div>
         ) : (
           <div className="clients-list">
-            {organizations.map((organization, index) => (
-              <article className="client-row" key={organization.id}>
-                <span className="client-index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <div className="client-identity">
-                  <span>{organization.name.slice(0, 2).toUpperCase()}</span>
-                  <div>
-                    <Link className="client-name-link" href={`/clientes/${organization.id}`}>
-                      {organization.name}
-                    </Link>
-                    <small>
-                      Nº {organization.clientNumber}
-                      {(organization.legalName ?? organization.segment)
-                        ? ` · ${organization.legalName ?? organization.segment}`
-                        : null}
-                    </small>
+            {organizations.map((organization, index) => {
+              const nome = nomeProprio(organization.name);
+              // `data-zero` é o que some no celular: numa carteira em que quase
+              // todo contador está em 0, "M 0 P 0 T 0 D 2" era ruído ocupando o
+              // espaço do nome. No desktop, onde a grade tem colunas fixas, os
+              // quatro continuam visíveis para comparar um cliente com o outro.
+              const sinais = [
+                { rotulo: "Marcas", unidade: ["marca", "marcas"], valor: organization._count.brands },
+                { rotulo: "Projetos", unidade: ["projeto", "projetos"], valor: organization._count.projects },
+                { rotulo: "Tarefas", unidade: ["tarefa", "tarefas"], valor: organization._count.tasks },
+                { rotulo: "Domínios", unidade: ["domínio", "domínios"], valor: organization._count.domains },
+              ];
+              return (
+                <article className="client-row org-row" key={organization.id}>
+                  <span className="client-index">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className="client-identity">
+                    <span>{nome.slice(0, 2).toLocaleUpperCase("pt-BR")}</span>
+                    <div>
+                      <Link className="client-name-link" href={`/clientes/${organization.id}`}>
+                        {nome}
+                      </Link>
+                      {/* A razão social sai no celular: ela repete o nome com
+                          mais palavras, e o espaço dela na segunda linha é o
+                          que faz caber "3 projetos · 2 domínios" ali. */}
+                      <small>
+                        Nº {organization.clientNumber}
+                        {(organization.legalName ?? organization.segment) ? (
+                          <span className="client-legal">
+                            {` · ${organization.legalName ?? organization.segment}`}
+                          </span>
+                        ) : null}
+                      </small>
+                    </div>
                   </div>
-                </div>
-                {/* `data-sigla` é a marca visual do celular, onde o rótulo por
-                    extenso não cabe; o <dt> continua aqui para o leitor de tela
-                    e volta a aparecer no desktop. */}
-                <dl className="client-signals">
-                  <div data-sigla="M">
-                    <dt>Marcas</dt>
-                    <dd>{organization._count.brands}</dd>
-                  </div>
-                  <div data-sigla="P">
-                    <dt>Projetos</dt>
-                    <dd>{organization._count.projects}</dd>
-                  </div>
-                  <div data-sigla="T">
-                    <dt>Tarefas</dt>
-                    <dd>{organization._count.tasks}</dd>
-                  </div>
-                  <div data-sigla="D">
-                    <dt>Domínios</dt>
-                    <dd>{organization._count.domains}</dd>
-                  </div>
-                </dl>
-                <span className={`status-pill status-${organization.status.toLowerCase()}`}>
-                  {statusLabels[organization.status] ?? organization.status}
-                </span>
-                <Icone nome="chevron" tamanho={16} className="chevron" />
-              </article>
-            ))}
+                  {/* O rótulo aparece por extenso e em minúscula no celular
+                      ("3 projetos"), e volta a ser coluna de tabela no desktop.
+                      A sigla de uma letra que existia aqui só era legível para
+                      quem já sabia o que ela media. */}
+                  <dl className="client-signals org-signals">
+                    {sinais.map((sinal) => (
+                      <div
+                        key={sinal.rotulo}
+                        data-unidade={sinal.unidade[sinal.valor === 1 ? 0 : 1]}
+                        data-zero={sinal.valor === 0 ? "sim" : undefined}
+                      >
+                        <dt>{sinal.rotulo}</dt>
+                        <dd>{sinal.valor}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <span className={`status-pill status-${organization.status.toLowerCase()}`}>
+                    {statusLabels[organization.status] ?? organization.status}
+                  </span>
+                  <Icone nome="chevron" tamanho={16} className="chevron" />
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

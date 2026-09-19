@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/shadcn/button";
 import { Label } from "@/components/shadcn/label";
+import { nomeProprio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,7 +47,7 @@ export default function MetaClientSelect({
           >
             {organizations.map((organization) => (
               <option value={organization.id} key={organization.id}>
-                {organization.name}
+                {nomeProprio(organization.name)}
               </option>
             ))}
           </select>

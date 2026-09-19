@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import ProjectForm from "@/components/ProjectForm";
 import { getAdmin } from "@/lib/auth";
-import { formatShortDate } from "@/lib/format";
+import { formatShortDate, nomeProprio } from "@/lib/format";
 import { getOrganizationsForSelect, getProjects } from "@/lib/projects";
 
 const statusLabels: Record<string, string> = {
@@ -106,7 +106,7 @@ export default async function ProjectsPage({
                   <div>
                     <strong>{project.title}</strong>
                     <small>
-                      {project.organization.name}
+                      {nomeProprio(project.organization.name)}
                       {project.brand ? ` · ${project.brand.name}` : ""}
                     </small>
                   </div>

@@ -13,7 +13,7 @@ import {
   type Performance,
   type SeoItem,
 } from "@/components/seo/dados";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, nomeProprio } from "@/lib/format";
 import { listSitemaps } from "@/lib/search-console";
 
 /** Detalhe de um domínio: cabeçalho com voltar, abas Resumo/Diagnóstico/Integrações. */
@@ -73,7 +73,7 @@ export default async function DetalheDominio({
     <div className="space-y-6">
       <CabecalhoPagina
         voltar={{ href: "/hub-social/seo?view=domains", label: "Domínios" }}
-        eyebrow={item.domain.organization.name}
+        eyebrow={nomeProprio(item.domain.organization.name)}
         titulo={fqdn}
         meta={
           <span className="flex flex-wrap items-center gap-2">

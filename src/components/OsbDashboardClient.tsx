@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { relatoDaEntrega } from "@/lib/entrega/relato";
+import { nomeProprio } from "@/lib/format";
 
 export interface OsbDomainRow {
   id: string;
@@ -244,7 +245,7 @@ export default function OsbDashboardClient({
               {filteredRows.map((r) => (
                 <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                   <td style={{ padding: "0.8rem" }}>
-                    <strong>{r.organizationName}</strong>
+                    <strong>{nomeProprio(r.organizationName)}</strong>
                     <div style={{ fontSize: "0.85rem", color: "#888" }}>{r.fqdn}</div>
                   </td>
                   <td style={{ padding: "0.8rem" }}>

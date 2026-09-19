@@ -110,10 +110,11 @@ export default async function FinancePage({
           <h1>Financeiro</h1>
           <p>Movimentações do Efí, evidências e o que ainda depende de decisão.</p>
         </div>
+        {/* "Contas a pagar e receber" saiu daqui: é destino de navegação, já
+            está no menu do Financeiro, e no celular ocupava uma linha inteira
+            do cabeçalho com um rótulo que quebrava em duas. Ficam as ações
+            que só existem nesta tela. */}
         <div className="page-header-actions">
-          <Link href="/financeiro/contas" className="secondary-button">
-            Contas a pagar e receber
-          </Link>
           <NewLedgerEntryButton />
           <AutoReconcileButton />
           <SyncButton />
@@ -144,12 +145,13 @@ export default async function FinancePage({
             <span className="environment-tag">PRODUÇÃO</span>
           )}
         </div>
-        <span>
-          Última sincronização:{" "}
-          <strong>{formatDateTime(data.account?.lastSyncAt)}</strong>
-        </span>
-        <span>
-          Última execução:{" "}
+        {/* Sincronização e execução numa linha só: eram dois rótulos longos em
+            duas linhas para dois dados que só fazem sentido juntos — quando foi
+            e como terminou. O horário continua completo, que é o que permite
+            conferir contra o extrato. */}
+        <span className="sync-estado">
+          Sincronizado{" "}
+          <strong>{formatDateTime(data.account?.lastSyncAt)}</strong> ·{" "}
           <strong className={`run-${data.latestSync?.status?.toLowerCase() ?? "idle"}`}>
             {data.latestSync?.status === "SUCCESS"
               ? "Concluída"
@@ -232,7 +234,12 @@ export default async function FinancePage({
         </section>
       ) : null}
 
-      <section className="analysis-grid">
+      {/* O painel "O que merece atenção" morava aqui ao lado: quatro linhas
+          com Pendentes, Em revisão, Conciliadas e Ignoradas — exatamente os
+          quatro filtros que já existem embaixo, e que agora carregam o número
+          junto do rótulo. Dois lugares para o mesmo número é um a mais para
+          ficar desatualizado, e no celular custava 176px de rolagem. */}
+      <section className="chart-section">
         <article className="section-panel chart-panel">
           <div className="section-heading">
             <div>
@@ -252,31 +259,6 @@ export default async function FinancePage({
           </div>
           <CashFlowChart points={data.chart} />
         </article>
-
-        <aside className="section-panel health-panel">
-          <h2>O que merece atenção</h2>
-          <dl className="health-list">
-            <div>
-              <dt>Pendentes</dt>
-              <dd>{data.metrics.counts.PENDING ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Em revisão</dt>
-              <dd>{data.metrics.counts.REVIEW ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Conciliadas</dt>
-              <dd>{data.metrics.counts.MATCHED ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Ignoradas</dt>
-              <dd>{data.metrics.counts.IGNORED ?? 0}</dd>
-            </div>
-          </dl>
-          <Link href="/relatorios" className="secondary-button">
-            Ver relatórios executivos
-          </Link>
-        </aside>
       </section>
 
       <section className="section-panel transactions-panel">
@@ -284,6 +266,13 @@ export default async function FinancePage({
           <div>
             <h2>Movimentações bancárias</h2>
           </div>
+        </div>
+
+        {/* Estado e escopo são os dois cortes da mesma lista e agora ficam
+            juntos, cada chip com o seu número — antes eram dois cabeçalhos
+            separados por um parágrafo de explicação, e a lista começava a
+            quase uma tela de distância do título. */}
+        <div className="filter-rows">
           <div className="filter-tabs" aria-label="Filtrar por estado">
             {filters.map((item) => (
               <Link
@@ -292,17 +281,12 @@ export default async function FinancePage({
                 key={item.value}
               >
                 {item.label}
+                {item.value !== "ALL" && data.metrics.counts[item.value]
+                  ? ` · ${data.metrics.counts[item.value]}`
+                  : ""}
               </Link>
             ))}
           </div>
-        </div>
-
-        <div className="section-heading table-heading">
-          <p className="muted scope-explainer">
-            Uma conta só paga o mercado e paga o Porkbun. A separação acontece
-            aqui: o que estiver como Empresa entra no resultado da Ávila,
-            &ldquo;entre contas&rdquo; nunca entra.
-          </p>
           <div className="filter-tabs" aria-label="Filtrar por escopo">
             {scopeFilters.map((item) => (
               <Link
@@ -318,6 +302,17 @@ export default async function FinancePage({
             ))}
           </div>
         </div>
+
+        {/* A explicação do escopo é a regra da casa, não um parágrafo de
+            abertura: fica em detalhe, a um toque de quem precisar. */}
+        <details className="explicacao">
+          <summary>O que muda entre Empresa, Pessoal e A classificar</summary>
+          <p>
+            Uma conta só paga o mercado e paga o Porkbun. A separação acontece
+            aqui: o que estiver como Empresa entra no resultado da Ávila,
+            &ldquo;entre contas&rdquo; nunca entra.
+          </p>
+        </details>
 
         {linhas.length === 0 ? (
           <div className="table-empty">
