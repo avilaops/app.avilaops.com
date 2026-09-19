@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import AutoReconcileButton from "@/components/AutoReconcileButton";
 import BalanceCard from "@/components/BalanceCard";
 import CashFlowChart from "@/components/CashFlowChart";
@@ -105,21 +107,24 @@ export default async function FinancePage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section={activeSection}>
-      <header className="page-header">
-        <div>
-          <h1>Financeiro</h1>
-          <p>Movimentações do Efí, evidências e o que ainda depende de decisão.</p>
-        </div>
-        {/* "Contas a pagar e receber" saiu daqui: é destino de navegação, já
-            está no menu do Financeiro, e no celular ocupava uma linha inteira
-            do cabeçalho com um rótulo que quebrava em duas. Ficam as ações
-            que só existem nesta tela. */}
-        <div className="page-header-actions">
+      <CabecalhoTela
+        titulo="Financeiro"
+        descricao="Movimentações do Efí, evidências e o que ainda depende de decisão."
+        {...contextoDaSecao(activeSection)}
+        acoes={
+          <>
+          {/* "Contas a pagar e receber" saiu daqui: é destino de navegação, já
+              está no menu do Financeiro, e no celular ocupava uma linha inteira
+              do cabeçalho com um rótulo que quebrava em duas. Ficam as ações
+              que só existem nesta tela. */}
+          <div className="page-header-actions">
           <NewLedgerEntryButton />
           <AutoReconcileButton />
           <SyncButton />
-        </div>
-      </header>
+          </div>
+          </>
+        }
+      />
 
       <section className="connection-strip" aria-label="Estado da integração">
         <div className="account-switch" role="group" aria-label="Conta">

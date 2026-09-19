@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import OrganizationForm from "@/components/OrganizationForm";
 import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
@@ -21,13 +23,16 @@ export default async function ClientsPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="clients">
-      <header className="page-header">
-        <div>
-          <h1>Clientes</h1>
-          <p>Organizações, marcas e o que está aberto em cada uma.</p>
-        </div>
-        <OrganizationForm />
-      </header>
+      <CabecalhoTela
+        titulo="Clientes"
+        descricao="Organizações, marcas e o que está aberto em cada uma."
+        {...contextoDaSecao("clients")}
+        acoes={
+          <>
+          <OrganizationForm />
+          </>
+        }
+      />
 
       {/* Quatro números que antes viravam quatro linhas empilhadas no celular
           — 350px antes do primeiro cliente, quase todos zerados. Viram uma

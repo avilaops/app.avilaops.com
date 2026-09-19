@@ -422,3 +422,33 @@ export function tomDoGrupo(slug?: string): "azul" | "vermelho" | "amarelo" | "ne
       return "azul";
   }
 }
+
+/**
+ * De onde a tela veio e com que cara ela se apresenta, a partir da seção.
+ *
+ * Existe porque cada página repetia a mesma decisão à mão — qual ícone, qual
+ * cor, para onde volta o botão do celular — e repetição de decisão é onde a
+ * coerência vaza: em 19/09/2026 havia h1 de 22px numa tela e 28px na vizinha,
+ * e metade das telas antigas não tinha caminho de volta no celular.
+ *
+ * A resposta já estava aqui: o mapa sabe em que grupo cada seção mora, e o
+ * grupo tem ícone, cor e slug. `CabecalhoTela` só precisa receber.
+ */
+export function contextoDaSecao(section: SecaoApp): {
+  icone: NomeIcone;
+  tom: ReturnType<typeof tomDoGrupo>;
+  voltar?: { href: string; rotulo: string };
+} {
+  for (const grupo of navegacao) {
+    const item = grupo.items.find((i) => i.section === section);
+    if (!item) continue;
+    return {
+      icone: item.icone ?? grupo.icone ?? "operacao",
+      tom: tomDoGrupo(grupo.slug),
+      voltar: grupo.slug ? { href: `/mais/${grupo.slug}`, rotulo: `Voltar para ${grupo.label}` } : undefined,
+    };
+  }
+  // Seção que não está no menu (uma subtela, por exemplo) fica sem volta: o
+  // chute seria pior que a ausência, porque levaria para o lugar errado.
+  return { icone: "operacao", tom: "azul" };
+}

@@ -6990,69 +6990,69 @@ tbody tr:last-child td {
 .cred-n8n textarea { width: 100%; min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
 
 /* Saúde em tempo real ----------------------------------------------------- */
-.health-page-header { margin-bottom: 1.25rem; }
-.health-page-header .eyebrow { color: var(--green); font-size: .7rem; letter-spacing: .16em; font-weight: 800; }
-.health-dashboard { display: grid; gap: 1.25rem; padding-bottom: 3rem; }
-.health-hero { position: relative; overflow: hidden; padding: clamp(1.4rem, 3vw, 2.4rem); border: 1px solid rgba(74,222,128,.2); border-radius: 24px; background: radial-gradient(circle at 88% 0%, rgba(34,197,94,.18), transparent 38%), linear-gradient(135deg, rgba(13,31,27,.96), rgba(9,14,20,.96)); }
-.health-hero > div { color: #86efac; font-size: .74rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.health-live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; margin-right: .45rem; box-shadow: 0 0 0 6px rgba(74,222,128,.1); animation: health-pulse 2s infinite; }
-.health-hero > strong { display: block; max-width: 720px; margin-top: 1rem; color: #f8fafc; font-size: clamp(1.7rem, 4vw, 3.2rem); letter-spacing: -.045em; line-height: 1; }
-.health-hero p { max-width: 620px; color: #94a3b8; margin: .85rem 0 0; }
-.health-refresh { position: absolute; right: 1.5rem; bottom: 1.5rem; padding: .72rem 1rem; border: 1px solid rgba(134,239,172,.35); border-radius: 999px; background: rgba(15,23,42,.55); color: #dcfce7; cursor: pointer; font-weight: 750; }
-.health-refresh:disabled { opacity: .6; }
-.health-summary { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); overflow: hidden; }
-.health-summary > div { padding: 1rem 1.2rem; border-right: 1px solid var(--line); }
-.health-summary > div:last-child { border-right: 0; }
-.health-summary span, .health-summary strong { display: block; }
-.health-summary span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
-.health-summary strong { margin-top: .25rem; font-size: 1.45rem; }
-.health-section { border: 1px solid var(--line); border-radius: 20px; background: var(--surface); overflow: hidden; }
-.health-section-title { display: flex; justify-content: space-between; align-items: end; padding: 1.2rem 1.35rem; border-bottom: 1px solid var(--line); }
-.health-section-title span { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: .66rem; font-weight: 800; }
-.health-section-title h2 { margin: .2rem 0 0; font-size: 1.08rem; }
-.health-section-title small { color: var(--muted); }
-.health-service { display: grid; grid-template-columns: 24px minmax(150px, 1.2fr) minmax(140px, 1fr) 100px; align-items: center; gap: 1rem; min-height: 72px; padding: .85rem 1.35rem; border-bottom: 1px solid var(--line); }
-.health-service:last-child { border-bottom: 0; }
-.health-service:hover { background: rgba(148,163,184,.035); }
-.health-orb { width: 12px; height: 12px; border-radius: 50%; background: #64748b; box-shadow: 0 0 0 5px rgba(100,116,139,.1); }
-.health-orb.healthy { background: #22c55e; box-shadow: 0 0 0 5px rgba(34,197,94,.1), 0 0 18px rgba(34,197,94,.35); }
-.health-orb.slow { background: #f59e0b; box-shadow: 0 0 0 5px rgba(245,158,11,.1); }
-.health-orb.down { background: #ef4444; box-shadow: 0 0 0 5px rgba(239,68,68,.1); }
-.health-service-name strong, .health-service-name small, .health-latency strong, .health-latency small { display: block; }
-.health-service-name small, .health-latency small { color: var(--muted); font-size: .74rem; margin-top: .18rem; }
-.health-latency { text-align: right; }
-.health-sparkline { width: 100%; height: 36px; overflow: visible; }
-.health-sparkline polyline { fill: none; stroke: #38bdf8; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.health-no-history { color: var(--muted); font-size: .72rem; }
-.health-server-grid { display: grid; grid-template-columns: repeat(2, 1fr); }
-.health-server { padding: 1.15rem 1.35rem; }
-.health-server + .health-server { border-left: 1px solid var(--line); }
-.health-server header, .health-server footer, .health-gauges span { display: flex; justify-content: space-between; align-items: center; }
-.health-server header small, .health-server footer { color: var(--muted); font-size: .72rem; }
-.health-state { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .35rem; }
-.health-gauges { display: grid; gap: .7rem; margin: 1rem 0; }
-.health-gauges span { color: var(--muted); font-size: .72rem; }
-.health-gauges b { color: var(--foreground); }
-.health-gauges i { display: block; height: 5px; margin-top: .3rem; background: rgba(148,163,184,.12); border-radius: 99px; overflow: hidden; }
-.health-gauges em { display: block; height: 100%; border-radius: inherit; }
-.health-dashboard .good { color: #22c55e; }
-.health-dashboard .warning { color: #f59e0b; }
-.health-dashboard .danger { color: #ef4444; }
-.health-gauges em.good, .health-state.good { background: #22c55e; }
-.health-gauges em.warning, .health-state.warning { background: #f59e0b; }
-.health-gauges em.danger, .health-state.danger { background: #ef4444; }
-.health-error, .health-empty { padding: 1rem 1.25rem; color: #fca5a5; border: 1px solid rgba(239,68,68,.25); border-radius: 14px; background: rgba(239,68,68,.06); }
-@keyframes health-pulse { 50% { box-shadow: 0 0 0 10px rgba(74,222,128,0); } }
-@media (max-width: 760px) {
-  .health-refresh { position: static; margin-top: 1rem; }
-  .health-summary { grid-template-columns: repeat(2, 1fr); }
-  .health-summary > div:nth-child(2) { border-right: 0; }
-  .health-summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-  .health-server-grid { grid-template-columns: 1fr; }
-  .health-server + .health-server { border-left: 0; border-top: 1px solid var(--line); }
-  .health-service { grid-template-columns: 18px 1fr auto; gap: .65rem; padding: .85rem 1rem; }
-  .health-sparkline { display: none; }
-  .health-latency strong { font-size: .9rem; }
+/* =========================================================================
+   Saúde em tempo real (19/09/2026)
+   -------------------------------------------------------------------------
+   A tela tinha linguagem própria: herói escuro com gradiente e brilho verde
+   dentro de um painel claro, quatro cartões de número, uma seção contornada
+   por servidor e uma linha de 72px por serviço. Eram 77 textos abaixo de
+   12px num documento de 3.179px.
+   Agora ela usa o mesmo grupo, a mesma linha dobrável e o mesmo BadgeStatus
+   do resto do painel. Sobrou daqui só o que não existe no sistema: o número
+   clicável que abre a evidência, a sparkline e a barra de ocupação.
+   ========================================================================= */
+
+/* Barra fina de CPU, memória e disco. As cores são as do `capacityLevel`,
+   que é a mesma função que o backend usa para classificar. */
+.health-barra {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 99px;
+  background: var(--superficie-suave);
+  overflow: hidden;
+}
+
+.health-barra em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.health-barra em.good {
+  background: var(--green);
+}
+
+.health-barra em.warning {
+  background: var(--amber);
+}
+
+.health-barra em.danger {
+  background: var(--red);
+}
+
+.health-sparkline {
+  width: 100%;
+  max-width: 160px;
+  height: 28px;
+  overflow: visible;
+}
+
+.health-sparkline polyline {
+  fill: none;
+  stroke: var(--marca-azul);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.health-spark-down {
+  fill: var(--red);
+}
+
+.health-no-history {
+  color: var(--texto-terciario);
+  font-size: 0.75rem;
 }
 
 /* Assistente de cadastro: fica acima da ficha do cliente e responde três
@@ -9661,4 +9661,266 @@ main [data-slot="select-trigger"]:focus-visible {
     flex: 1 1 140px;
     justify-content: center;
   }
+}
+
+/* =========================================================================
+   As primitivas antigas falando a língua do sistema (19/09/2026)
+   -------------------------------------------------------------------------
+   Sobraram 21 telas escritas com as primitivas de antes do redesenho:
+   `.page-header`, `.section-panel`, `.operations-panel`, `.metric-grid`,
+   `.operations-grid`. Elas desenham contorno de 1px em volta de cada caixa,
+   título de 22px e cartão dentro de cartão — a linguagem que o painel
+   abandonou em 17/09.
+   Reescrever as 21 telas uma a uma multiplicaria por 21 a chance de quebrar
+   uma regra de negócio, e deixaria a 22ª (a que ninguém listou) para trás.
+   Então a correção é onde a primitiva é definida, não onde ela é usada:
+   daqui para frente `.section-panel` É uma superfície do sistema, com o
+   mesmo raio, a mesma sombra e sem contorno. Quem escrever tela nova
+   continua usando `Grupo` e `LinhaLink`; quem já escreveu não precisa ser
+   reescrito para ficar coerente.
+   Nada aqui muda estrutura de DOM, dado, rota ou permissão.
+   ========================================================================= */
+
+/* ---- Cabeçalho de tela ---- */
+.page-header h1,
+.operations-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.page-header p,
+.operations-header p {
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+}
+
+/* ---- Superfícies ---- */
+.section-panel,
+.operations-panel,
+.module-card,
+.client-summary-section,
+.dossier-hero-panel {
+  border: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+/* Cartão dentro de cartão: o de dentro perde a sombra e vira só uma área de
+   tom diferente. É o que separa "dois objetos" de "um objeto com uma parte
+   destacada". */
+.section-panel .section-panel,
+.operations-panel .operations-panel,
+.section-panel .module-card,
+.operations-panel .module-card,
+.client-summary-section .module-card {
+  border-radius: var(--raio-p);
+  background: var(--superficie-suave);
+  box-shadow: none;
+}
+
+/* ---- Números do topo: uma superfície dividida, não N cartões ---- */
+.metric-grid {
+  gap: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  overflow: hidden;
+}
+
+.metric-grid > * {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.metric-grid > * + * {
+  box-shadow: inset 1px 0 0 var(--separador);
+}
+
+.metric-grid .metric-label,
+.metric-grid > * > span:first-child {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+/* ---- Fios entre linhas, no lugar de borda em volta ---- */
+.connection-strip,
+.attention-band {
+  border: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+/* ---- Listas antigas: a linha é o objeto, não o cartão ---- */
+.ios-row,
+.client-row,
+.lead-row,
+.project-row {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--separador);
+}
+
+.ios-row:last-child,
+.client-row:last-child,
+.lead-row:last-child,
+.project-row:last-child {
+  box-shadow: none;
+}
+
+/* ---- Tipografia: nada de texto de sistema abaixo de 12px ---- */
+.section-heading small,
+.operations-panel-heading small,
+.metric-grid small,
+.field-help,
+.muted small {
+  font-size: 0.75rem;
+}
+
+@media (max-width: 820px) {
+  /* No celular a grade de quatro números vira duas colunas, e o fio muda de
+     lado junto — senão a segunda linha herda o fio da esquerda e some. */
+  .metric-grid > * + * {
+    box-shadow: inset 1px 0 0 var(--separador);
+  }
+
+  .metric-grid > *:nth-child(2n + 1) {
+    box-shadow: none;
+  }
+
+  .metric-grid > *:nth-child(n + 3) {
+    box-shadow: inset 0 1px 0 var(--separador);
+  }
+
+  .metric-grid > *:nth-child(2n):nth-child(n + 3) {
+    box-shadow: inset 1px 0 0 var(--separador), inset 0 1px 0 var(--separador);
+  }
+
+  .page-header h1,
+  .operations-header h1 {
+    font-size: 1.75rem;
+  }
+}
+
+/* =========================================================================
+   A coluna do desktop, sem contorno (19/09/2026)
+   -------------------------------------------------------------------------
+   A coluna já tinha a estrutura certa — grupos, ícone por item, conta no
+   rodapé — mas ainda se separava do conteúdo por um fio de 1px, e cada
+   grupo por outro. No sistema, o que separa é o tom do fundo e o espaço,
+   não a linha: a coluna divide o fundo cinza da página e o conteúdo é que
+   é a superfície branca.
+   O item aceso passa a ser uma peça branca com sombra 1, o mesmo gesto da
+   cápsula do celular. Antes era só um fundo levemente diferente, que no
+   tema claro quase não se via.
+   A navegação em si não muda: a fonte continua sendo `lib/navegacao.ts`.
+   Nada de favoritos ou atalhos inventados — o que não existe como rota não
+   entra na coluna.
+   ========================================================================= */
+.sidebar {
+  border-right: 0;
+  background: transparent;
+}
+
+.nav-group + .nav-group {
+  margin-top: var(--e5);
+  padding-top: 0;
+  border-top: 0;
+}
+
+.nav-eyebrow {
+  margin: 0 var(--e2) var(--e1);
+  color: var(--texto-terciario);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.side-nav {
+  gap: 2px;
+}
+
+.nav-group {
+  gap: 2px;
+}
+
+.nav-link {
+  min-height: 36px;
+  padding: 0 var(--e2);
+  border-radius: var(--raio-p);
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.nav-link:hover {
+  background: var(--hover-bg);
+  color: var(--texto);
+}
+
+.nav-link-active,
+.nav-link-active:hover {
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.nav-link:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+.sidebar-footer {
+  padding: var(--e3) var(--e2) 0;
+  border-top: 1px solid var(--separador);
+}
+
+.brand-lockup {
+  margin-bottom: var(--e2);
+}
+
+/* =========================================================================
+   Número alinhado e o piso de 12px (19/09/2026)
+   -------------------------------------------------------------------------
+   Duas coisas que a varredura de tipografia achou.
+   1. Valor em dinheiro empilhado numa coluna dançava, porque a Manrope tem
+      largura variável por algarismo: R$ 1.111,00 e R$ 8.888,00 não terminam
+      no mesmo lugar. `tabular-nums` resolve sem trocar a fonte.
+   2. Sobraram dois textos abaixo de 12px, que é onde o texto deixa de ser
+      legível em pé no ônibus: o número do cliente na lista e o rótulo do
+      saldo no financeiro.
+   ========================================================================= */
+
+/* Onde tem número que se compara na vertical. Não vale para texto corrido:
+   `tabular-nums` deixa o "1" com a largura do "8" e isso abre buraco no meio
+   da frase. */
+.tx-amount,
+.tx-amount strong,
+.metric-grid strong,
+.metric-value,
+.metrica-valor,
+.linha-valor,
+.servicos-resumo strong,
+.client-summary-number,
+.system-balance,
+.balance-card strong,
+.kv-linha dd,
+.health-evidence {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Piso de 12px para o que o olho precisa ler. Sobraram estes dois: o número
+   do cliente na lista e o rótulo do saldo no financeiro, os dois em 11px.
+   O título de grupo (`.grupo-cabecalho h2`) fica de fora de propósito: 11px
+   em caixa alta com 0,06em de entreletra é rótulo de seção, o mesmo gesto
+   dos Ajustes do iPhone, e não texto para ler. */
+.client-row small,
+.balance-card-head span {
+  font-size: 0.75rem;
 }
