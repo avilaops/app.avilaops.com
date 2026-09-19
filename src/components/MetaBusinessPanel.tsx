@@ -130,6 +130,7 @@ export default function MetaBusinessPanel({
   const conexao = status.connection;
   const organizationQuery = `organizationId=${encodeURIComponent(selectedOrganizationId)}`;
   const oauthHref = `/api/integrations/meta/oauth/start?${organizationQuery}`;
+  const instagramHref = `/api/integrations/instagram/oauth/start?${organizationQuery}`;
   const hrefAtivos = `/hub-social/meta/ativos?${organizationQuery}`;
   const hrefLeads = `/hub-social/meta/leads?${organizationQuery}`;
 
@@ -268,7 +269,24 @@ export default function MetaBusinessPanel({
             >
               {syncing ? "Sincronizando…" : "Sincronizar agora"}
             </Button>
+            {/*
+              Caminho separado, e não um "conectar" só: pelo Facebook a conta do
+              Instagram só aparece se estiver vinculada a uma Página. Cliente com
+              Instagram e sem Página precisa deste botão, e é o único jeito de
+              ele entrar na plataforma.
+            */}
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm"
+            >
+              <a href={instagramHref}>Conectar Instagram</a>
+            </Button>
           </div>
+          <p className="text-xs text-[var(--color-texto-fraco)]">
+            Use o Instagram quando o cliente não tiver Página no Facebook. Com Página,
+            a conta já vem junto pelo Conectar Meta.
+          </p>
         </div>
 
         <ListaChaveValor

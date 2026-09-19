@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { Prisma } from "@prisma/client";
 import { exigirCredencial, obterCredencial } from "@/lib/credenciais";
+import { cifrarToken, decifrarToken } from "@/lib/token-de-conexao";
 import { prisma } from "@/lib/prisma";
 
 export const META_PROVIDER = "meta_business";
@@ -189,44 +190,11 @@ export function decodeMetaOAuthState(value: string | null) {
 
 export { STATE_COOKIE as META_STATE_COOKIE };
 
-function tokenKey() {
-  return crypto
-    .createHash("sha256")
-    .update(requiredEnv("META_TOKEN_ENCRYPTION_KEY"))
-    .digest();
-}
-
-function encryptToken(token: string) {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", tokenKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-
-  return [
-    iv.toString("base64url"),
-    tag.toString("base64url"),
-    encrypted.toString("base64url"),
-  ].join(".");
-}
-
-function decryptToken(value: string) {
-  const [ivRaw, tagRaw, encryptedRaw] = value.split(".");
-  if (!ivRaw || !tagRaw || !encryptedRaw) {
-    throw new Error("Token Meta armazenado em formato inválido");
-  }
-
-  const decipher = crypto.createDecipheriv(
-    "aes-256-gcm",
-    tokenKey(),
-    Buffer.from(ivRaw, "base64url"),
-  );
-  decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
-
-  return Buffer.concat([
-    decipher.update(Buffer.from(encryptedRaw, "base64url")),
-    decipher.final(),
-  ]).toString("utf8");
-}
+// A cifra saiu daqui para `lib/token-de-conexao.ts` quando o login próprio do
+// Instagram passou a gravar na mesma tabela. Mesma chave, mesmo formato: o que
+// muda é só quem chama.
+const encryptToken = cifrarToken;
+const decryptToken = decifrarToken;
 
 /**
  * Assinatura exigida pela Meta quando o app tem "a chave secreta está
