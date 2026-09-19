@@ -107,7 +107,7 @@ export default function GoogleHub({ locations, ga4, erroGa4, lidoEm }: GoogleHub
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-[820px]:gap-4">
       <div onClickCapture={aoClicarMetrica}>
         <GradeMetricas rotulo="Resumo do Google">
           <Metrica

@@ -154,7 +154,7 @@ export const navegacao: GrupoNavegacao[] = [
         label: "Automações",
         section: "automacoes",
         icone: "automacoes",
-        descricao: "Fluxos do n8n e credenciais",
+        descricao: "Fluxos, execuções e credenciais do n8n",
         // Cofre do n8n: chave de terceiro é do dono.
         somenteDono: true,
       },

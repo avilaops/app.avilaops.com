@@ -77,10 +77,13 @@ export default function ServicePlansManager({ plans }: { plans: PlanoServico[] }
   const ativos = lista.filter((plano) => plano.status === "ACTIVE").length;
   const semPreco = lista.filter((plano) => plano.priceCents === null).length;
 
-  function salvo(mensagem: string, plano: PlanoServico) {
+  // Recebe uma lista porque um "Novo plano" com vários ciclos marcados cria um
+  // plano por ciclo, e a tela precisa mostrar todos de uma vez.
+  function salvo(mensagem: string, planos: PlanoServico[]) {
     setLista((atual) => {
-      const existe = atual.some((item) => item.id === plano.id);
-      return existe ? atual.map((item) => (item.id === plano.id ? plano : item)) : [...atual, plano];
+      const porId = new Map(planos.map((plano) => [plano.id, plano]));
+      const novos = planos.filter((plano) => !atual.some((item) => item.id === plano.id));
+      return [...atual.map((item) => porId.get(item.id) ?? item), ...novos];
     });
     setEdicao(null);
     setAviso(mensagem);

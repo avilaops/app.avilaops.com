@@ -70,10 +70,37 @@ export default function ContatosRecentes({
                   tom={TOM_POR_STATUS[contact.status] ?? "neutro"}
                 />
               );
+              /* No celular cabe uma etiqueta ao lado das ações; o resto vira "+N",
+                 senão a linha quebra e volta a ter três faixas. */
+              const etiquetasCurtas =
+                contact.tags.length === 0 ? (
+                  <span className="text-[12px] text-muted-foreground">sem etiqueta</span>
+                ) : (
+                  <>
+                    <Badge variant="outline" className="h-5 max-w-[12ch] shrink-0 truncate px-1.5 text-[11px]">
+                      {contact.tags[0]}
+                    </Badge>
+                    {contact.tags.length > 1 ? (
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        +{contact.tags.length - 1}
+                      </span>
+                    ) : null}
+                  </>
+                );
+              const etiquetas =
+                contact.tags.length === 0 ? (
+                  <span className="text-[12px] text-muted-foreground">sem etiqueta</span>
+                ) : (
+                  contact.tags.map((tag) => (
+                    <Badge key={tag} variant="outline" className="h-5 px-1.5 text-[11px]">
+                      {tag}
+                    </Badge>
+                  ))
+                );
               return (
                 <li
                   key={contact.id}
-                  className="flex min-h-14 flex-col gap-1.5 border-b border-border px-4 py-2.5 last:border-b-0 min-[561px]:flex-row min-[561px]:items-center min-[561px]:gap-3 min-[561px]:py-2"
+                  className="flex min-h-14 flex-col gap-1 border-b border-border px-4 py-2 last:border-b-0 min-[561px]:flex-row min-[561px]:items-center min-[561px]:gap-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-medium text-foreground min-[821px]:text-sm">{contact.email}</p>
@@ -81,20 +108,18 @@ export default function ContatosRecentes({
                       {contact.name ?? "-"}
                       {contact.company ? ` · ${contact.company}` : ""} · {contact.source.toLowerCase()}
                     </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {contact.tags.length === 0 ? (
-                        <span className="text-[12px] text-muted-foreground">sem etiqueta</span>
-                      ) : (
-                        contact.tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="h-5 px-1.5 text-[11px]">
-                            {tag}
-                          </Badge>
-                        ))
-                      )}
+                    {/* As etiquetas moram com as ações no celular: sozinhas, ganhavam
+                        uma terceira faixa e a linha do contato passava de 139px. No
+                        desktop elas voltam para baixo do nome, onde há largura. */}
+                    <div className="mt-1 hidden flex-wrap items-center gap-1 min-[561px]:flex">
+                      {etiquetas}
                     </div>
                   </div>
 
                   <div className="-mr-2 flex shrink-0 items-center gap-1 max-[560px]:justify-end min-[561px]:gap-2">
+                    <span className="mr-auto flex min-w-0 items-center gap-1 overflow-hidden min-[561px]:hidden">
+                      {etiquetasCurtas}
+                    </span>
                     {badge}
 
                     <Button
