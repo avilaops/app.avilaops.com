@@ -38,6 +38,14 @@ export type PulsoDaTela = {
   versao?: string;
   ultimo_erro?: string | null;
   ultimo_comando?: { id: string | null; comando: string; ok: boolean; em: string } | null;
+  /**
+   * Só no cliente do tipo `agente`: o inventário da LAN que ele alcança.
+   *
+   * É o que faz este painel enxergar a rede do cliente sem entrar nela. A
+   * saúde de cada aparelho não vem aqui porque custa socket do lado de lá —
+   * ela sai no comando `dispositivos`, pedido quando alguém quer.
+   */
+  dispositivos?: Array<{ id: string; tipo: string; recursos: string[] }>;
 };
 
 export type TelaDoAgente = {

@@ -11,7 +11,13 @@ import { enviarComando } from "@/lib/avila-tv";
  * os comandos de operação — os que alguém usa olhando para uma tela que está
  * com problema.
  */
-const PERMITIDOS = new Set(["recarregar", "mensagem", "reiniciar", "dormir", "acordar"]);
+const PERMITIDOS = new Set([
+  "recarregar", "mensagem", "reiniciar", "dormir", "acordar",
+  // Só o cliente do tipo `agente` responde este: é uma leitura do inventário
+  // da LAN. `dispositivo` (executar ação num aparelho) continua de fora — é
+  // operação de outro assunto, e vai nascer onde esse assunto morar.
+  "dispositivos",
+]);
 
 export async function POST(request: NextRequest) {
   const admin = await operadorOuRecusa(request);

@@ -39,6 +39,35 @@ sem rede, com teste.
 | `AVILA_TV_API_URL` | Base do agente. Padrão `https://tv.avilaops.com`. |
 | `AVILA_TV_API_KEY` | Mesmo valor do `AVILAOPS_TV_API_KEY` de lá. Sem ela a tela diz que não está configurada. |
 
+## Agente não é tela
+
+Desde 19/09/2026 o agente da LAN também pareia por aqui (F3-5 no repositório do
+agente): ele fala o mesmo protocolo e chega pela mesma conexão, mas o que há do
+outro lado é diferente — a tela mostra uma página, o agente **alcança a rede do
+cliente**. Tratar os dois igual faria a página dizer "nada no ar" sobre um
+aparelho que está fazendo exatamente o que deve.
+
+O que muda na tela, e por quê:
+
+| Na tela | No agente | Por quê |
+|---|---|---|
+| "exibindo `…/cardapio`" | "2 aparelhos na LAN" | Um agente não exibe nada; o que ele tem para contar é o que alcança |
+| Allowlist do `exibir` | A LAN que ele alcança | `exibir` não existe num agente — cobrar allowlist seria pedir configuração para uma porta que ele não tem |
+| Versão comparada com as outras telas | Fora da conta | Agente e tela são programas diferentes, com numeração própria |
+| Recarregar · Avisar · Revogar | Olhar a LAN · Revogar | Recarregar e avisar voltariam `comando_desconhecido`; botão que sempre falha é pior que botão ausente |
+
+**"Olhar a LAN"** pede o comando `dispositivos` e mostra a saúde de cada
+aparelho. Ela não vem no pulso porque custa um socket em cada aparelho do lado
+de lá — vem quando alguém pergunta. Aparelho que não respondeu aparece com o
+motivo em vez de sumir: sumir faria parecer que ele não existe na instalação.
+
+Mandar ação num aparelho da LAN **não** está aqui. Esta tela responde *"qual
+tela precisa de mim agora?"*; comandar impressora e tomada é operação de outro
+assunto, e vai nascer onde esse assunto morar.
+
+Um agente fora do ar continua sendo erro vermelho, e com razão: é uma LAN
+inteira sem caminho.
+
 ## O que conta como "pedindo atenção"
 
 | Sinal | Gravidade | Régua |

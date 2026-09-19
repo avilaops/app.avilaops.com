@@ -51,6 +51,19 @@ const link: RespostaLink = {
       criadoEm: "2026-07-02T12:00:00Z", tokenTrocadoEm: "2026-09-18T12:00:00Z", vistoEm: "2026-09-19T10:40:00Z",
       revogadoEm: null, conectado: false, estado: "offline", pulso: null, pulsoEm: "2026-09-19T10:40:00Z",
     },
+    {
+      id: "agente", nome: "Agente do Brasa", tenant: "brasa", cliente: { tipo: "agente", versao: "1.0.0" }, origens: [],
+      criadoEm: "2026-09-01T12:00:00Z", tokenTrocadoEm: "2026-09-18T12:00:00Z", vistoEm: "2026-09-19T11:59:00Z",
+      revogadoEm: null, conectado: true, estado: "online",
+      pulso: {
+        uptime_s: 86400, versao: "1.0.0",
+        dispositivos: [
+          { id: "tv-sala", tipo: "samsung-tizen", recursos: ["tela"] },
+          { id: "impressora-cozinha", tipo: "impressora-escpos", recursos: ["impressora"] },
+        ],
+      },
+      pulsoEm: "2026-09-19T11:59:40Z",
+    },
   ],
   pendentes: [
     {
@@ -109,7 +122,9 @@ describe("tela de Telas (Ávila TV)", () => {
 
   it("resume a parede: no ar, atenção, disponibilidade e quedas", async () => {
     const html = await montar();
-    expect(html).toContain("1/2");
+    // Duas telas e um agente: o agente conta, porque um agente fora do ar é
+    // uma LAN inteira sem caminho.
+    expect(html).toContain("2/3");
     expect(html).toContain("95,0%"); // média de 99,9 e 90,0, arredondada
     expect(html).toContain("1 esperando nome");
   });
@@ -127,5 +142,24 @@ describe("tela de Telas (Ávila TV)", () => {
     expect(html).toContain("O agente não respondeu");
     expect(html).toContain("o agente demorou demais para responder");
     expect(html).not.toContain("Telas vinculadas");
+  });
+
+  it("mostra o agente como ponte, e não como tela que não exibe nada", async () => {
+    const html = await montar();
+    expect(html).toContain("Agente do Brasa");
+    expect(html).toContain("2 aparelhos na LAN");
+    // A LAN que ele alcança aparece; a allowlist de `exibir`, não — ele não
+    // tem esse comando, e cobrar configuração para ela seria ruído.
+    expect(html).toContain("A LAN que este agente alcança");
+    expect(html).toContain("tv-sala (samsung-tizen)");
+    expect(html).toContain("impressora-cozinha (impressora-escpos)");
+  });
+
+  it("não oferece ao agente os botões que só uma tela responde", async () => {
+    const html = await montar();
+    // "Olhar a LAN" é dele; "Recarregar"/"Avisar" continuam existindo para as
+    // telas da mesma página, então a prova é a contagem.
+    expect(html).toContain("Olhar a LAN");
+    expect(html.match(/Recarregar/g)?.length).toBe(2);
   });
 });

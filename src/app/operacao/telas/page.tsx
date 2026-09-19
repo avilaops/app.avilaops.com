@@ -6,12 +6,15 @@ import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Grupo, LinhaDobravel, LinhaInfo } from "@/components/sistema/Lista";
 import BadgeStatus from "@/components/sistema/Status";
 import AcoesDaTela from "@/components/telas/AcoesDaTela";
+import AcoesDoAgente from "@/components/telas/AcoesDoAgente";
 import VincularTela from "@/components/telas/VincularTela";
 import { getAdmin } from "@/lib/auth";
 import { AgenteIndisponivel, agenteConfigurado, lerPainelDeTelas } from "@/lib/avila-tv";
 import { formatDateTime } from "@/lib/format";
 import {
   alertasDaTela,
+  aparelhosDoAgente,
+  ehAgente,
   evidenciaDoAgente,
   descricaoDaTela,
   formatarDisponibilidade,
@@ -58,6 +61,11 @@ function rotuloDoEstado(tela: TelaNoPainel): string {
   return tela.estado === "online" ? "No ar" : "Sem pulso";
 }
 
+/** Agente e tela chegam pela mesma conexão; o ícone é o que separa os dois. */
+function iconeDaTela(tela: TelaNoPainel) {
+  return ehAgente(tela) ? ("infra" as const) : ("telas" as const);
+}
+
 /**
  * Um par rótulo/valor da ficha que abre junto com a linha.
  *
@@ -82,7 +90,11 @@ function FichaDaTela({ tela, origensPadrao }: { tela: TelaNoPainel; origensPadra
   const heranca = tela.origens.length ? "própria" : origensPadrao.length ? "herdada do agente" : "nenhuma";
   return (
     <>
-      <Campo rotulo="Exibindo" valor={tela.estado === "online" ? tela.pulso?.exibindo : null} vazio="nada no ar" />
+      {ehAgente(tela) ? (
+        <Campo rotulo="Aparelhos na LAN" valor={aparelhosDoAgente(tela).length || null} vazio="nenhum declarado" />
+      ) : (
+        <Campo rotulo="Exibindo" valor={tela.estado === "online" ? tela.pulso?.exibindo : null} vazio="nada no ar" />
+      )}
       <Campo rotulo="No ar sem reiniciar" valor={formatarUptime(tela.pulso?.uptime_s)} />
       <Campo rotulo="Cliente" valor={tela.cliente ? `${tela.cliente.tipo} ${versaoDaTela(tela) ?? tela.cliente.versao}` : null} vazio="não anunciou" />
       <Campo rotulo="Memória" valor={tela.pulso?.memoria_mb ? `${tela.pulso.memoria_mb} MB` : null} />
@@ -100,12 +112,26 @@ function FichaDaTela({ tela, origensPadrao }: { tela: TelaNoPainel; origensPadra
       <Campo rotulo="Vinculada em" valor={formatDateTime(tela.criadoEm)} />
       <Campo rotulo="Token trocado em" valor={formatDateTime(tela.tokenTrocadoEm)} />
       <Campo rotulo="Identificador" valor={tela.id} mono />
-      <div className="dobra-largura">
-        <span className="rotulo">Allowlist do comando exibir ({heranca})</span>
-        <span className="valor">
-          {tela.origensEfetivas.length ? tela.origensEfetivas.join(" · ") : "nenhuma — exibir vai recusar qualquer endereço"}
-        </span>
-      </div>
+      {ehAgente(tela) ? (
+        /* Um agente não abre endereço nenhum: o que vale mostrar é o que ele
+           alcança. Esta é a lista que o pulso dele carrega, e é ela que prova
+           que a LAN do cliente está visível daqui sem túnel. */
+        <div className="dobra-largura">
+          <span className="rotulo">A LAN que este agente alcança</span>
+          <span className="valor">
+            {aparelhosDoAgente(tela).length
+              ? aparelhosDoAgente(tela).map((a) => `${a.id} (${a.tipo})`).join(" · ")
+              : "o agente ainda não declarou nenhum aparelho"}
+          </span>
+        </div>
+      ) : (
+        <div className="dobra-largura">
+          <span className="rotulo">Allowlist do comando exibir ({heranca})</span>
+          <span className="valor">
+            {tela.origensEfetivas.length ? tela.origensEfetivas.join(" · ") : "nenhuma — exibir vai recusar qualquer endereço"}
+          </span>
+        </div>
+      )}
     </>
   );
 }
@@ -246,7 +272,7 @@ export default async function TelasPage() {
         </Grupo>
       )}
 
-      <Grupo titulo="Telas vinculadas">
+      <Grupo titulo="Telas e agentes vinculados">
         {telas.length === 0 ? (
           <LinhaInfo
             titulo="Nenhuma tela vinculada"
@@ -262,7 +288,7 @@ export default async function TelasPage() {
               <LinhaDobravel
                 key={tela.id}
                 titulo={tela.nome}
-                icone="telas"
+                icone={iconeDaTela(tela)}
                 tom={tom === "cinza" ? "neutro" : tom === "vermelho" ? "vermelho" : tom === "amarelo" ? "amarelo" : "azul"}
                 descricao={descricaoDaTela(tela)}
                 valor={<BadgeStatus status={tela.estado} texto={rotuloDoEstado(tela)} tom={TOM_DO_BADGE[tom]} />}
@@ -288,7 +314,14 @@ export default async function TelasPage() {
 
                 {!tela.revogadoEm && (
                   <div className="dobra-largura">
-                    <AcoesDaTela id={tela.id} nome={tela.nome} online={tela.estado === "online"} />
+                    {ehAgente(tela) ? (
+                      /* Recarregar e avisar são comandos de tela. Num agente
+                         eles voltariam `comando_desconhecido`, e oferecer um
+                         botão que sempre falha é pior que não oferecer. */
+                      <AcoesDoAgente id={tela.id} nome={tela.nome} />
+                    ) : (
+                      <AcoesDaTela id={tela.id} nome={tela.nome} online={tela.estado === "online"} />
+                    )}
                   </div>
                 )}
               </LinhaDobravel>

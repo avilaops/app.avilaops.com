@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { PendenteDoAgente, RespostaLink, RespostaSaude, SaudeDaTela, TelaDoAgente } from "@/lib/avila-tv";
 import {
   alertasDaTela,
+  aparelhosDoAgente,
+  ehAgente,
   compararVersoes,
   descricaoDaTela,
   formatarUptime,
@@ -243,5 +245,66 @@ describe("frases", () => {
     };
     expect(minutosParaExpirar(pendente, AGORA)).toBe(8);
     expect(minutosParaExpirar({ ...pendente, expiraEm: "2026-09-19T11:50:00.000Z" }, AGORA)).toBe(0);
+  });
+});
+
+describe("agente não é tela", () => {
+  const comoAgente = (parcial: Partial<TelaDoAgente> = {}, dispositivos?: Array<{ id: string; tipo: string; recursos: string[] }>) =>
+    montar([
+      tela({
+        id: "agente-brasa",
+        nome: "Agente do Brasa",
+        cliente: { tipo: "agente", versao: "1.0.0" },
+        pulso: { uptime_s: 7200, versao: "1.0.0", ...(dispositivos ? { dispositivos } : {}) },
+        ...parcial,
+      }),
+    ], [], [])[0];
+
+  it("reconhece o agente pelo tipo do cliente que pareou", () => {
+    expect(ehAgente(comoAgente())).toBe(true);
+    expect(ehAgente(uma())).toBe(false);
+  });
+
+  it("não cobra allowlist de quem não tem comando exibir", () => {
+    // A mesma tela sem allowlist alerta; o agente, não.
+    expect(alertasDaTela(montar([tela()], [], [])[0], AGORA).map((a) => a.texto)).toContain(
+      "sem allowlist: o comando exibir vai recusar qualquer endereço",
+    );
+    expect(alertasDaTela(comoAgente(), AGORA)).toEqual([]);
+  });
+
+  it("não compara a versão do agente com a das telas", () => {
+    const telas = montar([
+      tela({ id: "cozinha", pulso: { versao: "2.0.0" } }),
+      tela({ id: "agente", cliente: { tipo: "agente", versao: "1.0.0" }, pulso: { versao: "1.0.0" } }),
+    ]);
+    // A régua de "defasada" sai das telas; o agente é outro programa.
+    expect(versaoMaisNova(telas)).toBe("2.0.0");
+    expect(alertasDaTela(telas[1], AGORA, "2.0.0")).toEqual([]);
+  });
+
+  it("descreve o que o agente alcança, não o que ele exibe", () => {
+    const comLan = comoAgente({}, [
+      { id: "tv-sala", tipo: "samsung-tizen", recursos: ["tela"] },
+      { id: "impressora", tipo: "impressora-escpos", recursos: ["impressora"] },
+    ]);
+    expect(descricaoDaTela(comLan)).toBe("no ar · 2 aparelhos na LAN · v1.0.0");
+    expect(aparelhosDoAgente(comLan)).toHaveLength(2);
+  });
+
+  it("agente sem aparelho nenhum conta zero, em vez de calar", () => {
+    // Zero é informação: é agente instalado onde ainda não há nada na LAN.
+    expect(descricaoDaTela(comoAgente())).toBe("no ar · 0 aparelhos na LAN · v1.0.0");
+    expect(aparelhosDoAgente(comoAgente())).toEqual([]);
+  });
+
+  it("um aparelho só não vira \"1 aparelhos\"", () => {
+    const um = comoAgente({}, [{ id: "impressora", tipo: "impressora-escpos", recursos: ["impressora"] }]);
+    expect(descricaoDaTela(um)).toContain("1 aparelho na LAN");
+  });
+
+  it("agente que caiu continua sendo erro: a LAN inteira ficou sem caminho", () => {
+    const caiu = comoAgente({ estado: "offline", conectado: false, pulsoEm: "2026-09-19T11:30:00.000Z" });
+    expect(alertasDaTela(caiu, AGORA)[0]).toEqual({ gravidade: "erro", texto: "sem pulso há 30 min" });
   });
 });

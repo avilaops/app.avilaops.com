@@ -16,6 +16,19 @@ export type Gravidade = "erro" | "aviso";
 export type Alerta = { gravidade: Gravidade; texto: string };
 export type TomDaTela = "vermelho" | "amarelo" | "azul" | "cinza";
 
+/**
+ * Um agente não é uma tela.
+ *
+ * Os dois falam o mesmo protocolo e chegam pela mesma conexão, mas o que há do
+ * outro lado é diferente: a tela mostra uma página, o agente alcança a LAN de
+ * um cliente. Tratar os dois igual faria o painel dizer "nada no ar" sobre um
+ * aparelho que está fazendo exatamente o que deve — e cobrar dele uma
+ * allowlist de `exibir` que ele nunca vai usar.
+ */
+export function ehAgente(tela: { cliente: { tipo: string } | null }): boolean {
+  return tela.cliente?.tipo === "agente";
+}
+
 export type TelaNoPainel = TelaDoAgente & {
   /** Telemetria da janela pedida. `null` enquanto não houver amostra. */
   saude: SaudeDaTela | null;
@@ -51,7 +64,9 @@ export function juntarTelasComSaude(link: RespostaLink, saude: RespostaSaude | n
  */
 export function versaoMaisNova(telas: TelaNoPainel[]): string | null {
   const versoes = telas
-    .filter((t) => !t.revogadoEm)
+    // Agente e tela são programas diferentes, com numeração própria: a régua
+    // de "defasada" sai errada se as duas entrarem na mesma conta.
+    .filter((t) => !t.revogadoEm && !ehAgente(t))
     .map((t) => t.pulso?.versao ?? t.saude?.versao ?? t.cliente?.versao)
     .filter((v): v is string => Boolean(v));
   if (!versoes.length) return null;
@@ -116,12 +131,14 @@ export function alertasDaTela(tela: TelaNoPainel, agora: Date, maisNova: string 
     }
   }
 
-  if (!tela.origensEfetivas.length) {
+  // Allowlist é a guarda do comando `exibir`, que só existe em tela. Cobrá-la
+  // de um agente seria pedir configuração para uma porta que ele não tem.
+  if (!ehAgente(tela) && !tela.origensEfetivas.length) {
     fora.push({ gravidade: "aviso", texto: "sem allowlist: o comando exibir vai recusar qualquer endereço" });
   }
 
   const versao = versaoDaTela(tela);
-  if (maisNova && versao && compararVersoes(versao, maisNova) < 0) {
+  if (!ehAgente(tela) && maisNova && versao && compararVersoes(versao, maisNova) < 0) {
     fora.push({ gravidade: "aviso", texto: `versão ${versao}, atrás da ${maisNova} que as outras rodam` });
   }
 
@@ -201,8 +218,15 @@ export function formatarUptime(segundos: number | null | undefined): string | nu
 export function descricaoDaTela(tela: TelaNoPainel): string {
   if (tela.revogadoEm) return "revogada — volta ao código de pareamento se reconectar";
   const partes: string[] = [tela.estado === "online" ? "no ar" : "sem pulso"];
-  const exibindo = tela.pulso?.exibindo;
-  if (tela.estado === "online" && exibindo) partes.push(exibindo);
+  if (ehAgente(tela)) {
+    // Um agente não exibe nada: o que ele tem para contar é quantos aparelhos
+    // alcança. Zero é informação — é agente instalado onde ainda não há nada.
+    const n = aparelhosDoAgente(tela).length;
+    partes.push(n === 1 ? "1 aparelho na LAN" : `${n} aparelhos na LAN`);
+  } else {
+    const exibindo = tela.pulso?.exibindo;
+    if (tela.estado === "online" && exibindo) partes.push(exibindo);
+  }
   if (tela.saude?.amostras) partes.push(formatarDisponibilidade(tela.saude.disponibilidade));
   const versao = versaoDaTela(tela);
   if (versao) partes.push(`v${versao}`);
@@ -237,4 +261,9 @@ export function evidenciaDoAgente(
       "Leitura direta do agente Ávila TV a cada carga desta tela. O Ávila OS não guarda cópia do estado das telas: " +
       "o pulso vive na memória do gateway e a telemetria, em arquivo no disco do agente.",
   };
+}
+
+/** O inventário que o pulso do agente carrega, ou vazio. */
+export function aparelhosDoAgente(tela: TelaNoPainel): Array<{ id: string; tipo: string; recursos: string[] }> {
+  return Array.isArray(tela.pulso?.dispositivos) ? tela.pulso.dispositivos : [];
 }
