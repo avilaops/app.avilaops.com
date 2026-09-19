@@ -258,6 +258,9 @@ ganhou os três; sem isso nenhuma destas telas podia ser conferida por imagem.
 | Financeiro | Cabeçalho com quatro ações, uma delas destino de navegação que já está no menu | "Contas a pagar e receber" saiu do cabeçalho |
 | Financeiro | Regra do escopo em texto corrido empurrando a lista para fora da tela | Vira `<details>` (`.explicacao`), a um toque |
 | Folha de conciliação | Dois formulários empilhados e um "Salvar" fixo no rodapé que era o do formulário de baixo: quem preenchia o comprovante e tocava nele gravava a revisão manual e perdia o que digitou | Um caminho por vez ("Pelo comprovante" / "À mão") num `Segmented`, e o rodapé com o botão do caminho aberto |
+| Ficha do cliente | Estado saindo cru na identidade (`ACTIVE`) e slug no lugar da razão social quando ela não existe | `BadgeStatus`, com o rótulo do mapa único; o slug sai |
+| Ficha do cliente | Três cartões de 190px para três números quase sempre em zero, cada um repetindo o destino num link ao lado do título | Uma lista agrupada (`Grupo` + `LinhaLink`), a linha inteira é o link — o mesmo padrão da Visão central |
+| Ficha do cliente | Formulário de nova marca sempre aberto no fim da tela, em três colunas: 90px por campo no celular | A lista usa `LinhaInfo` com o selo de estado, e o cadastro abre em folha |
 
 O nome do cliente passou a ser exibido em caixa de nome próprio
 (`nomeProprio`, em `src/lib/format.ts`): ele entra por três portas — digitado,
@@ -265,3 +268,7 @@ lido do CNPJ na Receita (tudo em caixa alta) e importado — e a lista mostrava
 "VEDASHOW" ao lado de "Alô Barbeiro". É transformação de exibição; o banco
 continua com o que foi gravado, e a razão social segue impressa como está
 registrada.
+
+A ficha do cliente encolheu de 1.506px para 1.074px a 390px; a lista de
+clientes, de 894px para 758px. Nenhuma informação saiu do produto: o que
+mudou foi quantos toques ela custa e quanto espaço ocupa fechada.

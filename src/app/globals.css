@@ -5042,7 +5042,7 @@ tbody tr:last-child td {
 /* Client workspace: one task-oriented section at a time. */
 .client-workspace-header{display:flex;align-items:flex-start;gap:24px;margin-bottom:20px}.client-workspace-header h1{margin:3px 0 5px;font-size:clamp(2rem,4vw,3.25rem);letter-spacing:-.045em}.client-workspace-header p{margin:0;color:var(--muted)}.client-workspace-nav{margin-bottom:24px}.client-workspace-nav>label{display:none}.client-workspace-nav>div{display:flex;width:max-content;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.client-workspace-nav a{display:flex;min-height:40px;padding:0 18px;align-items:center;border-radius:8px;color:var(--muted);font-weight:650;text-decoration:none}.client-workspace-nav a[aria-current=page]{color:var(--text);background:var(--surface-raised);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .client-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}.client-summary-lead{grid-column:1/-1;padding:28px;border:1px solid var(--blue-line);border-radius:16px;background:var(--blue-soft)}.client-summary-lead h2{margin:6px 0;font-size:1.5rem}.client-summary-lead p{margin:0 0 14px;color:var(--muted)}.client-summary-lead a,.client-summary-section a{color:var(--link-soft);font-weight:650;text-decoration:none}.client-summary-section{min-height:190px;padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.client-summary-section h2{margin:0;font-size:1.05rem}.client-summary-section dl{display:grid;gap:12px;margin:0}.client-summary-section dl>div{display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line-soft);padding-top:12px}.client-summary-section dt{color:var(--muted)}.client-summary-section dd{margin:0;text-align:right}.client-summary-number{display:block;margin-top:18px;font-size:2.4rem;letter-spacing:-.05em}.client-summary-section p{margin:3px 0 12px}.client-summary-section small{color:var(--muted)}
-.client-brands-panel{grid-column:1/-1}.client-brands-panel .seo-section-heading{align-items:flex-start}.client-brands-panel .client-summary-number{margin:0}.client-brands-list{display:grid;gap:8px;margin:16px 0}.client-brand-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line-soft)}.client-brand-row strong,.client-brand-row small{display:block}.client-brand-row small{margin-top:3px;color:var(--muted)}.client-brand-form{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:12px;padding-top:14px;border-top:1px solid var(--line-soft)}.client-brand-form .primary-button{min-height:44px;white-space:nowrap}
+.client-brands-panel{grid-column:1/-1}
 .client-finance-only .prov-grid{align-items:start}.client-finance-only .prov-card{align-self:start}
 @media(max-width:760px) {.client-workspace-header{display:block}.client-workspace-header h1{font-size:2rem}.client-workspace-nav>div{display:none}.client-workspace-nav>label{display:grid;gap:5px;color:var(--muted);font-size:.875rem}.client-workspace-nav select{min-height:48px;padding:0 14px;border:1px solid var(--editor-border);border-radius:11px;background:var(--surface);color:var(--text);font:inherit;font-size:1rem;font-weight:650}.client-summary-grid{grid-template-columns:1fr}.client-summary-lead{padding:20px}.client-summary-section{min-height:0;padding:18px}.client-summary-section dl>div{display:grid;gap:4px}.client-summary-section dd{text-align:left}}
 
@@ -9308,15 +9308,6 @@ main [data-slot="select-trigger"]:focus-visible {
 
   .client-workspace-header h1 {
     font-size: 1.625rem;
-  }
-
-  .client-brand-row {
-    padding: 8px 0;
-  }
-
-  .client-brands-list {
-    gap: 4px;
-    margin: 10px 0;
   }
 
   /* ---- Painéis genéricos das telas antigas ---- */

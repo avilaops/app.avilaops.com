@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import Sheet from "@/components/ui/Sheet";
 import type { ClienteCandidato, Sugestao } from "@/lib/lojas-painel";
+import { nomeProprio } from "@/lib/format";
 
 /**
  * "De quem é esta loja?" — a pergunta que a área encontra e não respondia.
@@ -76,7 +77,7 @@ export default function VincularCliente({
         >
           {sugestao ? (
             <p className="field-help">
-              Palpite: <strong>{sugestao.cliente.nome}</strong>. {sugestao.motivo}.
+              Palpite: <strong>{nomeProprio(sugestao.cliente.nome)}</strong>. {sugestao.motivo}.
               {sugestao.forca === "fraco" ? " É um casamento fraco — confira antes." : ""}
             </p>
           ) : (
@@ -99,7 +100,7 @@ export default function VincularCliente({
             {filtrados.map((cliente) => (
               <label key={cliente.id} className={escolhido === cliente.id ? "linha linha-ativa" : "linha"}>
                 <span className="linha-texto">
-                  <strong>{cliente.nome}</strong>
+                  <strong>{nomeProprio(cliente.nome)}</strong>
                   {sugestao?.cliente.id === cliente.id ? <small>sugerido</small> : null}
                 </span>
                 <input

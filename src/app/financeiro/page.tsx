@@ -145,12 +145,13 @@ export default async function FinancePage({
             <span className="environment-tag">PRODUÇÃO</span>
           )}
         </div>
-        <span>
-          Última sincronização:{" "}
-          <strong>{formatDateTime(data.account?.lastSyncAt)}</strong>
-        </span>
-        <span>
-          Última execução:{" "}
+        {/* Sincronização e execução numa linha só: eram dois rótulos longos em
+            duas linhas para dois dados que só fazem sentido juntos — quando foi
+            e como terminou. O horário continua completo, que é o que permite
+            conferir contra o extrato. */}
+        <span className="sync-estado">
+          Sincronizado{" "}
+          <strong>{formatDateTime(data.account?.lastSyncAt)}</strong> ·{" "}
           <strong className={`run-${data.latestSync?.status?.toLowerCase() ?? "idle"}`}>
             {data.latestSync?.status === "SUCCESS"
               ? "Concluída"

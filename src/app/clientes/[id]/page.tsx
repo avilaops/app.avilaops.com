@@ -5,12 +5,14 @@ import BancoDeDadosPanel from "@/components/banco-cliente/BancoDeDadosPanel";
 import CadastroAssistidoPanel from "@/components/CadastroAssistidoPanel";
 import ClientDossierForm from "@/components/ClientDossierForm";
 import ClientSectionNav from "@/components/ClientSectionNav";
+import { Grupo, LinhaInfo, LinhaLink } from "@/components/sistema/Lista";
+import BadgeStatus from "@/components/sistema/Status";
 import BrandsPanel from "@/components/BrandsPanel";
 import OperacaoPanel from "@/components/OperacaoPanel";
 import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
-import { nomeProprio } from "@/lib/format";
+import { contar, nomeProprio } from "@/lib/format";
 import { montarPainel } from "@/lib/cadastro-ia/assistente";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
 import { listarCaixasDosDominios } from "@/lib/mail";
@@ -127,7 +129,21 @@ export default async function ClientDossierPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="clients">
-      <header className="client-workspace-header"><Link href="/clientes" className="seo-back">‹ Clientes</Link><div><span className="eyebrow">ÁREA DE TRABALHO</span><h1>{nomeProprio(organization.name)}</h1><p>Nº {organization.clientNumber} · {organization.legalName ?? organization.slug} · <span className="seo-state good">{organization.status}</span></p></div></header>
+      {/* O estado saía cru ("ACTIVE") e o subtítulo mostrava o slug quando não
+          havia razão social — identificador interno na linha de identidade do
+          cliente. Agora é o selo da casa, com o rótulo do mapa único. */}
+      <header className="client-workspace-header">
+        <Link href="/clientes" className="seo-back">‹ Clientes</Link>
+        <div>
+          <span className="eyebrow">ÁREA DE TRABALHO</span>
+          <h1>{nomeProprio(organization.name)}</h1>
+          <p>
+            Nº {organization.clientNumber}
+            {organization.legalName ? ` · ${organization.legalName}` : ""}{" "}
+            <BadgeStatus status={organization.status} />
+          </p>
+        </div>
+      </header>
       <ClientSectionNav clientId={id} active={section} />
 
       {section === "summary" ? <ClientSummary organization={organization} /> : null}
@@ -193,10 +209,41 @@ function ClientSummary({ organization }: { organization: any }) {
   const total = organization.onboardingSteps.length;
   return <div className="client-summary-grid">
     <section className="client-summary-lead"><span className="eyebrow">PRÓXIMA AÇÃO</span><h2>{pendingStep?.label ?? "Operação em dia"}</h2><p>{pendingStep?.notes ?? (pendingStep ? "Esta é a próxima etapa registrada da implantação." : total ? "Todas as etapas registradas foram concluídas." : "Ainda não há etapas de implantação registradas.")}</p>{pendingStep ? <Link href={`/clientes/${organization.id}?section=services`}>Ver implantação</Link> : null}</section>
-    <section className="client-summary-section"><div className="seo-section-heading"><h2>Essencial</h2><Link href={`/clientes/${organization.id}?section=registration`}>Ver cadastro</Link></div><dl><div><dt>Contato principal</dt><dd>{contact?.name ?? "Não informado"}</dd></div><div><dt>E-mail</dt><dd>{contact?.email ?? "Não informado"}</dd></div><div><dt>Telefone</dt><dd>{contact?.phone ?? contact?.whatsapp ?? "Não informado"}</dd></div></dl></section>
-    <section className="client-summary-section"><div className="seo-section-heading"><h2>Serviços</h2><Link href={`/clientes/${organization.id}?section=services`}>Gerenciar</Link></div><strong className="client-summary-number">{activeSubscriptions.length}</strong><p>{activeSubscriptions.length === 1 ? "serviço recorrente ativo" : "serviços recorrentes ativos"}</p><small>{organization.domains.length} domínios · {organization.organizationIntegrations.length} integrações</small></section>
-    <section className="client-summary-section"><div className="seo-section-heading"><h2>Implantação</h2><Link href={`/clientes/${organization.id}?section=services`}>Ver etapas</Link></div><strong className="client-summary-number">{total ? Math.round(completed / total * 100) : 0}%</strong><p>{completed} de {total} etapas registradas concluídas</p><small>Este indicador mede apenas as etapas cadastradas, não a completude cadastral.</small></section>
-    <section className="client-summary-section"><div className="seo-section-heading"><h2>Financeiro</h2><Link href={`/clientes/${organization.id}?section=finance`}>Ver financeiro</Link></div><strong className="client-summary-number">{organization.subscriptions.length}</strong><p>{organization.subscriptions.length === 1 ? "assinatura cadastrada" : "assinaturas cadastradas"}</p></section>
+
+    {/* Três cartões de 190px para três números quase sempre em zero viraram
+        três linhas de uma lista agrupada — o mesmo padrão da Visão central. A
+        linha inteira é o link, então o "Gerenciar / Ver etapas / Ver
+        financeiro" que repetia o destino ao lado do título sai junto. */}
+    <Grupo titulo="Essencial" acao={<Link href={`/clientes/${organization.id}?section=registration`}>Ver cadastro</Link>}>
+      <LinhaInfo titulo="Contato principal" valor={contact?.name ? nomeProprio(contact.name) : "Não informado"} />
+      <LinhaInfo titulo="E-mail" valor={contact?.email ?? "Não informado"} />
+      <LinhaInfo titulo="Telefone" valor={contact?.phone ?? contact?.whatsapp ?? "Não informado"} />
+    </Grupo>
+
+    <Grupo titulo="Onde este cliente está">
+      <LinhaLink
+        href={`/clientes/${organization.id}?section=services`}
+        titulo="Serviços recorrentes"
+        descricao={`${contar(organization.domains.length, "domínio", "domínios")} · ${contar(organization.organizationIntegrations.length, "integração", "integrações")}`}
+        icone="config"
+        valor={<strong className="linha-numero">{activeSubscriptions.length}</strong>}
+      />
+      <LinhaLink
+        href={`/clientes/${organization.id}?section=services`}
+        titulo="Implantação"
+        descricao={total ? `${completed} de ${total} etapas registradas concluídas` : "Nenhuma etapa registrada ainda"}
+        icone="operacao"
+        valor={<strong className="linha-numero">{total ? Math.round(completed / total * 100) : 0}%</strong>}
+      />
+      <LinhaLink
+        href={`/clientes/${organization.id}?section=finance`}
+        titulo="Financeiro"
+        descricao={contar(organization.subscriptions.length, "assinatura cadastrada", "assinaturas cadastradas")}
+        icone="financeiro"
+        valor={<strong className="linha-numero">{organization.subscriptions.length}</strong>}
+      />
+    </Grupo>
+
     <BrandsPanel organizationId={organization.id} brands={organization.brands} />
   </div>;
 }
