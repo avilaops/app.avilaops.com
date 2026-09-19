@@ -5,6 +5,7 @@ import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import TabelaResponsiva from "@/components/hub-social/TabelaResponsiva";
+import { Grupo, LinhaLink } from "@/components/sistema/Lista";
 import BadgeStatus from "@/components/sistema/Status";
 import { getAdmin } from "@/lib/auth";
 import { formatShortDate } from "@/lib/format";
@@ -148,6 +149,34 @@ export default async function LojasPage() {
               acao={{ label: "Abrir clientes", href: "/clientes" }}
             />
           ) : (
+            <>
+              {/* No celular a tabela virava um cartão de sete andares por loja:
+                  cinco lojas davam cinco telas de rolagem. Aqui cada loja é
+                  uma linha com o que decide — nome, o que está errado e a
+                  situação — e o resto está a um toque, na página da loja. */}
+              <div className="min-[821px]:hidden">
+                <Grupo>
+                  {ordenadas.map((loja) => {
+                    const alertas = alertasDaLoja(loja, agora);
+                    const pior = alertas.find((a) => a.gravidade === "erro") ?? alertas[0];
+                    return (
+                      <LinhaLink
+                        key={loja.slug}
+                        href={`/lojas/${loja.slug}`}
+                        titulo={loja.nome}
+                        descricao={
+                          pior
+                            ? `${pior.titulo}${alertas.length > 1 ? ` · +${alertas.length - 1}` : ""}`
+                            : `${loja.cliente?.nome ?? "sem cliente vinculado"} · ${loja._count.produtos} produto(s)`
+                        }
+                        valor={<BadgeStatus status={loja.status} />}
+                      />
+                    );
+                  })}
+                </Grupo>
+              </div>
+
+              <div className="max-[820px]:hidden">
             <TabelaResponsiva
               rotulo="Lojas dos clientes"
               colunas={[
@@ -209,6 +238,8 @@ export default async function LojasPage() {
                 };
               })}
             />
+              </div>
+            </>
           )}
         </>
       )}
