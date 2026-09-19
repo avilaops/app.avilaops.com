@@ -68,12 +68,18 @@ export default function ProjectEditForm({ projeto }: { projeto: ProjetoEditavel 
           dueAt: form.get("dueAt"),
         }),
       });
-      const resultado = (await resposta.json()) as { ok?: boolean; error?: string };
+      const resultado = (await resposta.json()) as {
+        ok?: boolean;
+        error?: string;
+        semAlteracao?: boolean;
+      };
       if (!resposta.ok || !resultado.ok) {
         throw new Error(resultado.error ?? "Não foi possível salvar o projeto.");
       }
 
-      setMensagem("Projeto atualizado.");
+      // Abrir, reler e fechar sem mexer em nada é uso normal. Dizer "atualizado"
+      // nesse caso seria a tela afirmando uma mudança que não houve.
+      setMensagem(resultado.semAlteracao ? "Nada mudou." : "Projeto atualizado.");
       setAberto(false);
       router.refresh();
     } catch (capturado) {

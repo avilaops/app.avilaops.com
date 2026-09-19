@@ -35,7 +35,16 @@ export async function PATCH(request: NextRequest, contexto: { params: Promise<{ 
 
   const projeto = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, organizationId: true, title: true },
+    select: {
+      id: true,
+      organizationId: true,
+      title: true,
+      description: true,
+      url: true,
+      priority: true,
+      ownerName: true,
+      dueAt: true,
+    },
   });
   if (!projeto) {
     return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 });
@@ -51,6 +60,24 @@ export async function PATCH(request: NextRequest, contexto: { params: Promise<{ 
   } = {};
   const alterados: string[] = [];
 
+  /**
+   * Só entra em `alterados` o campo que mudou de verdade.
+   *
+   * O formulário manda os seis campos toda vez, mudando um ou não mudando
+   * nenhum. Registrar os seis a cada salvamento faria a trilha de auditoria
+   * dizer que tudo mudou quando só o título mudou — e uma trilha que exagera
+   * não serve para auditar nada.
+   */
+  function anotar<T>(campo: string, novo: T, atual: T) {
+    const mesmo =
+      novo instanceof Date && atual instanceof Date
+        ? novo.getTime() === atual.getTime()
+        : novo === atual;
+    if (mesmo) return false;
+    alterados.push(campo);
+    return true;
+  }
+
   if ("title" in corpo) {
     const title = cleanText(corpo.title, 160);
     if (title.length < 3) {
@@ -59,14 +86,14 @@ export async function PATCH(request: NextRequest, contexto: { params: Promise<{ 
         { status: 400 },
       );
     }
-    dados.title = title;
-    alterados.push("title");
+    if (anotar("title", title, projeto.title)) dados.title = title;
   }
 
   if ("description" in corpo) {
-    const description = cleanText(corpo.description, 4000);
-    dados.description = description || null;
-    alterados.push("description");
+    const description = cleanText(corpo.description, 4000) || null;
+    if (anotar("description", description, projeto.description)) {
+      dados.description = description;
+    }
   }
 
   if ("url" in corpo) {
@@ -74,8 +101,7 @@ export async function PATCH(request: NextRequest, contexto: { params: Promise<{ 
     if (!urlDeProjetoValida(url)) {
       return NextResponse.json({ error: ERRO_URL_DE_PROJETO }, { status: 400 });
     }
-    dados.url = url || null;
-    alterados.push("url");
+    if (anotar("url", url || null, projeto.url)) dados.url = url || null;
   }
 
   if ("priority" in corpo) {
@@ -83,32 +109,50 @@ export async function PATCH(request: NextRequest, contexto: { params: Promise<{ 
     if (!PRIORIDADES.has(priority)) {
       return NextResponse.json({ error: "Prioridade inválida." }, { status: 400 });
     }
-    dados.priority = priority;
-    alterados.push("priority");
+    if (anotar("priority", priority, projeto.priority)) dados.priority = priority;
   }
 
   if ("ownerName" in corpo) {
-    const ownerName = cleanText(corpo.ownerName, 100);
-    dados.ownerName = ownerName || null;
-    alterados.push("ownerName");
+    const ownerName = cleanText(corpo.ownerName, 100) || null;
+    if (anotar("ownerName", ownerName, projeto.ownerName)) dados.ownerName = ownerName;
   }
 
   if ("dueAt" in corpo) {
     const bruto = cleanText(corpo.dueAt, 40);
-    if (!bruto) {
-      dados.dueAt = null;
-    } else {
-      const prazo = new Date(bruto);
+    let prazo: Date | null = null;
+    if (bruto) {
+      prazo = new Date(bruto);
       if (Number.isNaN(prazo.getTime())) {
         return NextResponse.json({ error: "Prazo inválido." }, { status: 400 });
       }
+    }
+
+    const atual = projeto.dueAt ?? null;
+    // O campo do formulário é `date`: só sabe dizer o dia. O banco guarda o
+    // instante. Comparar instante com instante acusaria mudança sempre que o
+    // prazo tivesse hora — o operador abria, salvava sem tocar em nada, e a
+    // auditoria registrava "dueAt alterado" enquanto a hora era zerada para a
+    // meia-noite. Por isso a comparação é por dia, na mesma convenção que a
+    // tela usa para preencher o campo.
+    const soData = /^\d{4}-\d{2}-\d{2}$/.test(bruto);
+    const mesmoDia =
+      soData && atual ? atual.toISOString().slice(0, 10) === bruto : false;
+    const mudou = mesmoDia
+      ? false
+      : prazo && atual
+        ? prazo.getTime() !== atual.getTime()
+        : prazo !== atual;
+
+    if (mudou) {
+      alterados.push("dueAt");
       dados.dueAt = prazo;
     }
-    alterados.push("dueAt");
   }
 
+  // Salvar sem mudar nada não é erro: é o operador abrindo, relendo e fechando.
+  // Devolver 400 aqui faria a tela acusar falha de uma ação que deu certo.
   if (!alterados.length) {
-    return NextResponse.json({ error: "Nada para alterar." }, { status: 400 });
+    return NextResponse.json({ ok: true, semAlteracao: true });
   }
 
   const atualizado = await prisma.$transaction(async (transacao) => {
