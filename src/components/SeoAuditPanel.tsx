@@ -12,14 +12,14 @@ import {
   evidenciaConexao,
   MensagemErro,
   MensagemStatus,
-  rotuloSeo,
+  rotuloIntegracao,
   tomNota,
-  type ConexaoSeo,
-} from "@/components/seo/comum";
+  type Conexao,
+} from "@/components/hub-social/comum";
 import type { DomainSeoAuditResult } from "@/lib/seo-audit";
 import type { PageSpeedAuditResult } from "@/lib/pagespeed";
 
-type Connection = ConexaoSeo;
+type Connection = Conexao;
 
 export default function SeoAuditPanel({
   fqdn,
@@ -172,7 +172,7 @@ export default function SeoAuditPanel({
         <CardTitle className="text-[17px] min-[821px]:text-[15px]">Auditoria de {fqdn}</CardTitle>
         <CardDescription>Verifica indexação, metadados e experiência de carregamento.</CardDescription>
         <CardAction>
-          <BadgeStatus {...rotuloSeo(seoConnection?.status, "Sem auditoria")} />
+          <BadgeStatus {...rotuloIntegracao(seoConnection?.status, "Sem auditoria")} />
         </CardAction>
       </CardHeader>
 

@@ -173,6 +173,7 @@ const assetTypes = [
   "Ícone 192x192",
   "Ícone 512x512",
   "Apple Touch Icon",
+  "Ícone maskable 512",
   "Preview image",
   "Open Graph Image",
   "Banner desktop",

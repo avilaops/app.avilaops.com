@@ -68,14 +68,36 @@ async function safeFetch(url: string, accept = "*/*") {
 export async function runSeoAuditForDomain(fqdn: string): Promise<DomainSeoAuditResult> {
   const baseUrl = `https://${fqdn}`;
 
-  const [robotsRes, sitemapRes, llmsRes, faviconRes, manifestRes, homeRes] = await Promise.all([
+  const [robotsRes, sitemapRes, llmsRes, faviconRes, homeRes] = await Promise.all([
     safeFetch(`${baseUrl}/robots.txt`, "text/plain"),
     safeFetch(`${baseUrl}/sitemap.xml`, "application/xml, text/xml"),
     safeFetch(`${baseUrl}/llms.txt`, "text/plain"),
     safeFetch(`${baseUrl}/favicon.ico`),
-    safeFetch(`${baseUrl}/manifest.json`, "application/json"),
     safeFetch(`${baseUrl}/`, "text/html"),
   ]);
+
+  /**
+   * O manifesto é procurado onde o HTML manda, e só depois nos dois nomes
+   * usuais. Antes daqui a busca era fixa em `/manifest.json` — e o trecho que o
+   * próprio painel manda o cliente colar aponta para `/site.webmanifest`. Ou
+   * seja: um site que seguisse a instrução da casa era reprovado com o arquivo
+   * no ar. O módulo de Ícones confere o conteúdo; aqui basta achar.
+   */
+  const declaradoNoHtml = homeRes.text.match(
+    /<link\b[^>]*rel\s*=\s*["'][^"']*\bmanifest\b[^"']*["'][^>]*>/i,
+  );
+  const hrefDeclarado = declaradoNoHtml?.[0].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1] ?? null;
+  const candidatosManifest = [
+    ...(hrefDeclarado ? [new URL(hrefDeclarado, `${baseUrl}/`).toString()] : []),
+    `${baseUrl}/site.webmanifest`,
+    `${baseUrl}/manifest.json`,
+  ].filter((url, i, lista) => lista.indexOf(url) === i);
+
+  let manifestRes = await safeFetch(candidatosManifest[0], "application/manifest+json, application/json");
+  for (const candidato of candidatosManifest.slice(1)) {
+    if (manifestRes.ok && manifestRes.status === 200) break;
+    manifestRes = await safeFetch(candidato, "application/manifest+json, application/json");
+  }
 
   // 1. Robots.txt
   const robotsOk = robotsRes.ok && robotsRes.status === 200;

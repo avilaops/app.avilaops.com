@@ -9,6 +9,7 @@ export type TipoIconeDerivado =
   | "Ícone 192x192"
   | "Ícone 512x512"
   | "Apple Touch Icon"
+  | "Ícone maskable 512"
   | "Preview image"
   | "Open Graph Image";
 
@@ -24,6 +25,12 @@ export type EspecIcone = {
   exigeFundo: boolean;
   /** Logo inteira centralizada numa tela larga (não é ícone quadrado). */
   paisagem: boolean;
+  /**
+   * Folga mínima, em % do lado, que este ícone exige independente da margem
+   * escolhida. Só o maskable usa: o Android recorta num círculo de 80% do
+   * lado, então a marca precisa caber nos 80% do meio para não ser cortada.
+   */
+  margemMinima?: number;
   descricao: string;
 };
 
@@ -68,6 +75,18 @@ export const ICONES_DERIVADOS: readonly EspecIcone[] = [
     exigeFundo: true,
     paisagem: false,
     descricao: "Atalho no iPhone. O iOS não respeita transparência: vai com fundo sólido.",
+  },
+  {
+    assetType: "Ícone maskable 512",
+    arquivo: "icone-maskable-512.png",
+    largura: 512,
+    altura: 512,
+    mimeType: "image/png",
+    // Sem fundo sólido o recorte do Android mostraria buraco nos cantos.
+    exigeFundo: true,
+    paisagem: false,
+    margemMinima: 22,
+    descricao: "Ícone maskable do Android: a marca dentro da zona segura de 80%.",
   },
   {
     assetType: "Preview image",
@@ -146,20 +165,42 @@ export function trechoHtml(base = "/"): string {
   ].join("\n");
 }
 
-/** site.webmanifest com os dois ícones do manifesto. */
+/**
+ * site.webmanifest com os ícones do manifesto.
+ *
+ * Três campos aqui não são enfeite:
+ *
+ * - `start_url`: sem ele o navegador não considera o site instalável, por mais
+ *   completo que seja o jogo de imagens.
+ * - `purpose: "any"` nos dois tamanhos: é a reserva de que o Android precisa
+ *   quando não vai recortar. Um manifesto só com `maskable` faz o sistema
+ *   recortar em círculo de 80% sem ter para onde cair.
+ * - `purpose: "maskable"` num arquivo próprio: é o que preenche o squircle do
+ *   Android. Ele existe separado porque precisa da folga de 22% da zona
+ *   segura, que estragaria os outros ícones (ver `margemMinima`).
+ */
 export function manifesto(nome: string, corTema: string | null, base = "/"): string {
   const prefixo = base.endsWith("/") ? base : `${base}/`;
   return JSON.stringify(
     {
+      id: prefixo,
       name: nome,
       short_name: nome.slice(0, 12),
+      start_url: prefixo,
+      scope: prefixo,
+      display: "standalone",
       icons: [
-        { src: `${prefixo}icone-192.png`, sizes: "192x192", type: "image/png" },
-        { src: `${prefixo}icone-512.png`, sizes: "512x512", type: "image/png" },
+        { src: `${prefixo}icone-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: `${prefixo}icone-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+        {
+          src: `${prefixo}icone-maskable-512.png`,
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
       ],
       theme_color: corTema && HEX.test(corTema) ? corTema.toUpperCase() : BRANCO,
       background_color: BRANCO,
-      display: "standalone",
     },
     null,
     2,

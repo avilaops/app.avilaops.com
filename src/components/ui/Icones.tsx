@@ -25,6 +25,7 @@ export type NomeIcone =
   | "whatsapp"
   | "newsletter"
   | "estudio"
+  | "icones"
   | "vagas"
   | "lojas"
   | "automacoes"
@@ -171,6 +172,13 @@ const caminhos: Record<NomeIcone, React.ReactNode> = {
       <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none" />
       <circle cx="12" cy="7.8" r="1" fill="currentColor" stroke="none" />
       <circle cx="16" cy="10" r="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  /** O squircle que iOS e Android desenham em volta do ícone do atalho. */
+  icones: (
+    <>
+      <path d="M3 12c0-4.2 0-6.4 1.3-7.7C5.6 3 7.8 3 12 3s6.4 0 7.7 1.3C21 5.6 21 7.8 21 12s0 6.4-1.3 7.7C18.4 21 16.2 21 12 21s-6.4 0-7.7-1.3C3 18.4 3 16.2 3 12Z" />
+      <circle cx="12" cy="12" r="3.2" />
     </>
   ),
   vagas: (

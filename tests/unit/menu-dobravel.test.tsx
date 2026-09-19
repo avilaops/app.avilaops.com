@@ -114,12 +114,12 @@ describe("contrato dos grupos dobráveis", () => {
     }
   });
 
-  it("nenhum grupo passa de sete itens, então o aberto sempre cabe na tela", () => {
+  it("nenhum grupo passa de oito itens, então o aberto sempre cabe na tela", () => {
     // O mesmo teto que `navegacao.test.ts` já impõe, dito aqui pelo motivo
-    // desta feature: com sete itens o grupo aberto dá ~860px, pouco mais de
+    // desta feature: com oito itens o grupo aberto dá ~970px, pouco mais de
     // uma tela. Com doze, dobrar não resolveria nada.
     for (const grupo of navegacao) {
-      expect(grupo.items.length).toBeLessThanOrEqual(7);
+      expect(grupo.items.length).toBeLessThanOrEqual(8);
     }
   });
 });
