@@ -10,6 +10,10 @@ const allowedReferenceTypes = new Set([
   // Vínculo com uma conta a pagar/receber — é o que a conciliação automática
   // escreve, e a revisão manual precisa poder confirmar sem trocar o tipo.
   "LEDGER",
+  // Identificador ponta a ponta do comprovante Pix, gravado pela identificação
+  // do pagador. Precisa ser aceito aqui para a revisão poder mexer na nota ou
+  // desfazer a conciliação sem perder de onde ela veio.
+  "COMPROVANTE",
   "MANUAL",
 ]);
 

@@ -146,7 +146,7 @@ export async function importWiseStatement(
                   externalId: movement.externalId,
                 },
               },
-              select: { id: true, scope: true, scopeSource: true },
+              select: { id: true, scope: true, scopeSource: true, counterpartySource: true },
             });
 
             const suggestion = suggestScope({
@@ -167,13 +167,20 @@ export async function importWiseStatement(
             if (movement.direction === "CREDIT") credits += 1;
             else debits += 1;
 
+            // Nome identificado por comprovante também vence a reimportação:
+            // é decisão humana conferida, mesma natureza da etiqueta acima.
+            const counterpartyName =
+              existing?.counterpartySource === "COMPROVANTE"
+                ? undefined
+                : movement.counterpartyName;
+
             const data = {
               endToEndId: null,
               txid: null,
               amount: new Prisma.Decimal(movement.amount),
               currency: movement.currency,
               description: movement.description,
-              counterpartyName: movement.counterpartyName,
+              counterpartyName,
               occurredAt: movement.occurredAt,
               rawHash: movement.rawHash,
               scope,

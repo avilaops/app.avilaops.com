@@ -9,6 +9,9 @@ export type LinhaMovimentacao = {
   description: string;
   transactionType: string;
   counterpartyName: string | null;
+  counterpartyDocument: string | null;
+  counterpartySource: string | null;
+  endToEndId: string | null;
   direction: string;
   amount: string;
   currency: string;
@@ -89,7 +92,27 @@ export default function TransactionList({
             </div>
 
             <span className="tx-party" role="cell">
-              {transacao.counterpartyName ?? (
+              {transacao.counterpartyName ? (
+                // No desktop a coluna corta nomes longos com reticências, e a
+                // etiqueta de origem some junto: o `title` é o que garante que
+                // a procedência continue alcançável nas duas larguras.
+                <span
+                  title={
+                    transacao.counterpartySource === "COMPROVANTE"
+                      ? `${transacao.counterpartyName} — identificado pelo comprovante Pix${
+                          transacao.counterpartyDocument
+                            ? ` (${transacao.counterpartyDocument})`
+                            : ""
+                        }. O extrato do Efí não traz este nome.`
+                      : transacao.counterpartyName
+                  }
+                >
+                  {transacao.counterpartyName}
+                  {transacao.counterpartySource === "COMPROVANTE" ? (
+                    <small className="party-origem">comprovante</small>
+                  ) : null}
+                </span>
+              ) : (
                 <span
                   className="muted"
                   title={
@@ -126,6 +149,16 @@ export default function TransactionList({
                     <Link href="/financeiro/contas?status=ALL&scope=ALL">
                       Conta #{reconciliation.referenceId}
                     </Link>
+                  ) : reconciliation.referenceType === "COMPROVANTE" ? (
+                    // O identificador inteiro não cabe na coluna, e cortado no
+                    // meio não serve para conferir nada: fica no title, onde dá
+                    // para ler e comparar com o comprovante.
+                    <abbr
+                      className="reference-comprovante"
+                      title={`Comprovante Pix ${reconciliation.referenceId}`}
+                    >
+                      Comprovante
+                    </abbr>
                   ) : (
                     `${reconciliation.referenceType} · ${reconciliation.referenceId}`
                   )}
@@ -148,6 +181,10 @@ export default function TransactionList({
                 referenceType={reconciliation?.referenceType}
                 referenceId={reconciliation?.referenceId}
                 note={reconciliation?.note}
+                endToEndId={transacao.endToEndId}
+                counterpartyName={transacao.counterpartyName}
+                counterpartySource={transacao.counterpartySource}
+                scope={transacao.scope}
               />
             </span>
           </div>

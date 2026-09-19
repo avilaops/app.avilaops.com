@@ -99,6 +99,10 @@ model BankTransaction {
   currency         String   @default("BRL")
   description      String
   counterpartyName String?  @map("counterparty_name")
+  /// CPF/CNPJ da contraparte, só dígitos. O extrato do Éfi nunca traz; vem do comprovante.
+  counterpartyDocument String? @map("counterparty_document")
+  /// Quem decidiu a contraparte: nulo/EFI/IMPORTACAO (extrato) ou COMPROVANTE (identificação humana conferida).
+  counterpartySource   String? @map("counterparty_source")
   occurredAt       DateTime @map("occurred_at")
   rawHash          String   @map("raw_hash")
   /// EMPRESA, PESSOAL, INTERNO (troca entre saldos próprios) ou INDEFINIDO.

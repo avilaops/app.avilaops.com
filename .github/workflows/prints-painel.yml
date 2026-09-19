@@ -48,8 +48,15 @@ jobs:
       - run: npx prisma migrate deploy
       - name: Dados fictícios
         run: npx tsx scripts/prints/semear.ts
+      # Mesmo teto que o estágio `build` do Dockerfile já recebe. O `next build`
+      # deste projeto passa de 1,9 GB em "Running TypeScript" e o padrão do Node
+      # fica em ~2 GB: sem isto o job morre com "JavaScript heap out of memory"
+      # antes de tirar um print. Fica só neste passo — o app que sobe depois
+      # segue com o limite padrão, como em produção.
       - name: Build
         run: npx next build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
       # Dois segundos aqui contra cinco minutos de captura: sem esta sonda, um
       # binário nativo que não carrega só aparece como uma tela em 500 no fim
       # do job, com a causa enterrada no log do app.
@@ -64,6 +71,10 @@ jobs:
         run: |
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
+          # Mesmo buraco que a imagem de produção tinha: o rastreamento leva o
+          # pacote de libvips só pela casca, sem o `.so`, e as telas que geram
+          # imagem devolvem 500 — o print sai, mas da tela de erro.
+          cp -r node_modules/@img .next/standalone/node_modules/
           node .next/standalone/server.js > next.log 2>&1 &
           npx --yes wait-on http://127.0.0.1:3000/login --timeout 120000
         env:
