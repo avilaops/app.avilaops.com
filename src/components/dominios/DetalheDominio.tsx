@@ -13,7 +13,7 @@ import {
   type CapacidadesDeEscrita,
   type DominioDaCarteira,
 } from "@/components/dominios/dados";
-import type { RegistroDns } from "@/lib/dominios/dns";
+import { rotuloDoServico, type RegistroDns } from "@/lib/dominios/dns";
 import { cn } from "@/lib/utils";
 
 /**
@@ -87,8 +87,10 @@ export default function DetalheDominio({
           { rotulo: "Titular", valor: dominio.titular, vazio: "não publicado" },
           { rotulo: "Renovação automática", valor: dominio.renovacaoAutomatica ? "ligada" : "desligada" },
           {
-            rotulo: "DNS nesta plataforma",
-            valor: dominio.dnsAqui ? `${dominio.registrosDns} registros` : "não",
+            rotulo: "Serviço de DNS",
+            valor: dominio.dnsAqui
+              ? `${rotuloDoServico(dominio.servicoDns)} · ${dominio.registrosDns} registros`
+              : rotuloDoServico(dominio.servicoDns),
           },
           {
             rotulo: "Última sincronização",

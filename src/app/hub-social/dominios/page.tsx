@@ -9,7 +9,7 @@ import VisaoGeralDominios from "@/components/dominios/VisaoGeralDominios";
 import { BASE, hrefRegistrar, lerFiltro, type Params } from "@/components/dominios/dados";
 import { getAdmin } from "@/lib/auth";
 import { carregarCentral } from "@/lib/dominios/central";
-import { provedorDeDns, type RegistroDns } from "@/lib/dominios/dns";
+import { provedorDeDnsDoDominio, type RegistroDns } from "@/lib/dominios/dns";
 import { prisma } from "@/lib/prisma";
 import type { ChaveCapacidade } from "@/lib/dominios/tipos";
 
@@ -76,8 +76,8 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
       let registros: RegistroDns[] = [];
       let erroDns: string | null = null;
 
-      const dns = provedorDeDns();
-      if (dominio.dnsAqui && !dns.configurado()) {
+      const dns = provedorDeDnsDoDominio({ dnsProvider: dominio.servicoDns });
+      if (dominio.dnsAqui && !dns?.configurado()) {
         // Serviço desligado é estado esperado, não incidente: a tela diz o que
         // é, e o servidor não enche o log com uma pilha de exceção por isso.
         erroDns = "O serviço de DNS não está conectado, então os registros não podem ser lidos agora.";
@@ -88,9 +88,11 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
           where: { fqdn: dominio.fqdn },
           select: { cloudflareZoneId: true },
         });
-        if (zona?.cloudflareZoneId) {
+        // No DNS da casa a zona é o próprio domínio; fora, é o id guardado.
+        const zonaId = dominio.servicoDns === "AVILA" ? dominio.fqdn : zona?.cloudflareZoneId;
+        if (zonaId && dns) {
           try {
-            registros = await dns.listar(zona.cloudflareZoneId);
+            registros = await dns.listar(zonaId);
           } catch (e) {
             // O erro cru cita conector e nome de variável de ambiente. Isso
             // serve ao log do servidor, não à tela de quem administra domínio.
