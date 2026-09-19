@@ -26,6 +26,7 @@ export type NomeIcone =
   | "newsletter"
   | "estudio"
   | "vagas"
+  | "lojas"
   | "automacoes"
   | "saude";
 
@@ -177,6 +178,15 @@ const caminhos: Record<NomeIcone, React.ReactNode> = {
       <rect x="3" y="7" width="18" height="13" rx="2.5" />
       <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
       <path d="M3 12h18" />
+    </>
+  ),
+  // Vitrine: o toldo em três ondas sobre a fachada com a porta.
+  lojas: (
+    <>
+      <path d="M3.5 9.5 5 4h14l1.5 5.5" />
+      <path d="M3.5 9.5a2.8 2.8 0 0 0 5.5 0 2.8 2.8 0 0 0 5.5 0 2.8 2.8 0 0 0 5.5 0" />
+      <path d="M5 11.8V20h14v-8.2" />
+      <path d="M10 20v-4.5h4V20" />
     </>
   ),
   automacoes: <path d="M13 3 5 13.5h5.5L11 21l8-10.5h-5.5L13 3Z" />,

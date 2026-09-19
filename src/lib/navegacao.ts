@@ -12,6 +12,7 @@ export type SecaoApp =
   | "operations"
   | "clients"
   | "client-requests"
+  | "lojas"
   | "leads"
   | "projects"
   | "overview"
@@ -126,6 +127,16 @@ export const navegacao: GrupoNavegacao[] = [
       },
       { href: "/leads", label: "Leads", section: "leads", icone: "hub", descricao: "Quem chegou e ainda não é cliente" },
       { href: "/projetos", label: "Entregas", section: "projects", icone: "entregas", descricao: "Projetos em andamento e prazos" },
+      {
+        // Mora em Operação e não em Casa: a loja é do cliente, não da casa —
+        // o vizinho certo é "Clientes". Com ela o grupo fecha nos sete itens
+        // que a coluna mostra sem rolar.
+        href: "/lojas",
+        label: "Lojas",
+        section: "lojas",
+        icone: "lojas",
+        descricao: "Vitrines e catálogos dos clientes na plataforma",
+      },
       { href: "/operacao/servicos", label: "Serviços", section: "services", icone: "config", descricao: "Catálogo de planos e preços" },
     ],
   },
