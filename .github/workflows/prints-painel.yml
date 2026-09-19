@@ -95,6 +95,12 @@ jobs:
         run: |
           npm install --no-save playwright@1.62.1
           npx playwright install --with-deps chromium
+      # Antes de gastar cinco minutos de captura: as duas apresentações da
+      # mesma lista (linhas no celular, tabela no desktop) não podem aparecer
+      # juntas. Elas apareceram, em toda largura de desktop, e o print não
+      # denunciou — ninguém lê 1.900 px de imagem procurando repetição.
+      - name: Conferir que a lista não sai duplicada
+        run: node scripts/prints/conferir-duplicata.mjs
       - name: Capturar
         run: node scripts/prints/capturar.mjs
       - name: Log do app

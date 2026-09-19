@@ -6,20 +6,27 @@ import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import TabelaResponsiva from "@/components/hub-social/TabelaResponsiva";
 import VincularCliente from "@/components/lojas/VincularCliente";
-import { Grupo, LinhaLink } from "@/components/sistema/Lista";
+import { Grupo, LinhaDobravel, LinhaLink } from "@/components/sistema/Lista";
 import BadgeStatus from "@/components/sistema/Status";
 import { getAdmin } from "@/lib/auth";
-import { contar, formatShortDate } from "@/lib/format";
+import { contar, formatDateTime, formatShortDate } from "@/lib/format";
 import {
   agruparPorFaixa,
   alertasDaLoja,
+  duracaoLegivel,
   enderecoDaLoja,
   evidenciaDaPlataforma,
   faixaDaLoja,
   filtrarLojas,
+  ordenarRotinas,
+  proximaLegivel,
   resumirLojas,
+  resumirRotinas,
   rotuloDoPlano,
+  situacaoDaRotina,
   sugerirCliente,
+  tituloDaRotina,
+  tomDaRotina,
   type LojaNoPainel,
 } from "@/lib/lojas-painel";
 import { montarPainelDeLojas } from "@/lib/lojas-servidor";
@@ -27,6 +34,7 @@ import { montarPainelDeLojas } from "@/lib/lojas-servidor";
 export const dynamic = "force-dynamic";
 
 const CAMINHO = "/api/admin/tenants";
+const CAMINHO_ROTINAS = "/api/admin/rotinas";
 
 /** Se o bloco tem estados diferentes dentro — senão o selo é redundante. */
 function variosEstados(lojas: LojaNoPainel[]): boolean {
@@ -47,6 +55,7 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
   const painel = await montarPainelDeLojas();
   const agora = new Date(painel.lidoEm);
   const resumo = resumirLojas(painel.lojas, agora);
+  const rotinas = resumirRotinas(painel.rotinas);
 
   const busca = ((await searchParams).q ?? "").trim();
   const visiveis = filtrarLojas(painel.lojas, busca);
@@ -180,6 +189,24 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
             </form>
           ) : null}
 
+          {painel.rotinas && !rotinas.agendadorLigado && (
+            <section className="mp-alerta">
+              <h2>O relógio da plataforma está desligado</h2>
+              <p>
+                O container de <code>lojas.avilaops.com</code> respondeu com <code>ROTINAS_AGENDADOR</code>{" "}
+                desligado. Nada roda sozinho: a fila do Mercado Livre não vira pedido, carrinho abandonado não
+                avisa ninguém e a cobrança não suspende quem deixou de pagar.
+              </p>
+            </section>
+          )}
+
+          {rotinas.comProblema > 0 && (
+            <p className="aviso-inline">
+              {contar(rotinas.comProblema, "rotina da plataforma precisa", "rotinas da plataforma precisam")} de
+              gente: {rotinas.problemas.map(tituloDaRotina).join(", ")}. O detalhe está no fim desta página.
+            </p>
+          )}
+
           {resumo.semCliente > 0 && !busca && (
             <p className="aviso-inline">
               {contar(resumo.semCliente, "loja existe", "lojas existem")} na plataforma sem nenhuma ficha do
@@ -200,8 +227,16 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
           ) : (
             <>
               {/* No celular, uma linha por loja, agrupada pelo que ela pede.
-                  O detalhe está a um toque, na página da loja. */}
-              <div className="min-[821px]:hidden pilha">
+                  O detalhe está a um toque, na página da loja.
+
+                  Dois `div` e não um: `globals.css` entra depois do
+                  `@import "tailwindcss"` e sem `@layer`, então qualquer classe
+                  da folha ganha do utilitário na mesma especificidade. Com
+                  `class="min-[821px]:hidden pilha"` o `display:flex` de
+                  `.pilha` vencia o `display:none`, e o desktop listava cada
+                  loja duas vezes — uma aqui e outra na tabela abaixo. */}
+              <div className="min-[821px]:hidden">
+                <div className="pilha">
                 {blocos.map((bloco) => (
                   <Grupo
                     key={bloco.chave}
@@ -243,9 +278,14 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
                     })}
                   </Grupo>
                 ))}
+                </div>
               </div>
 
-              <div className="max-[820px]:hidden">
+              {/* `max-[821px]` e não `max-[820px]`: no Tailwind 4 `max-*` é
+                  exclusivo (`< valor`), então o par 820/821 deixava a largura
+                  de exatamente 820px sem dono — e ali a tela mostrava a lista
+                  e a tabela ao mesmo tempo. 821 nos dois lados é complementar. */}
+              <div className="max-[821px]:hidden">
                 <TabelaResponsiva
                   rotulo="Lojas dos clientes"
                   colunas={[
@@ -308,6 +348,70 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
                 />
               </div>
             </>
+          )}
+
+          {painel.rotinas && (
+            <Grupo
+              titulo={`Rotinas da plataforma · ${rotinas.emPaz} de ${rotinas.total} em paz`}
+              acao={
+                <BotaoEvidencia
+                  evidencia={evidenciaDaPlataforma("Rotinas da plataforma", {
+                    formula:
+                      "resposta de GET /api/admin/rotinas. Quem decide atraso e falha é a plataforma, com a cadência e o fuso dela — esta tela lê e ordena.",
+                    lidoEm: painel.lidoEm,
+                    bruto: painel.rotinas,
+                    caminho: CAMINHO_ROTINAS,
+                    funcao: "lerRotinas()",
+                  })}
+                  rotulo="Evidência das rotinas da plataforma"
+                />
+              }
+            >
+              {ordenarRotinas(painel.rotinas.rotinas).map((rotina) => (
+                <LinhaDobravel
+                  key={rotina.nome}
+                  icone="automacoes"
+                  tom={tomDaRotina(rotina)}
+                  titulo={tituloDaRotina(rotina)}
+                  descricao={situacaoDaRotina(rotina, agora)}
+                  valor={proximaLegivel(rotina, agora) ?? undefined}
+                >
+                  <div>
+                    <span className="rotulo">Rotina</span>
+                    <span className="valor font-mono">{rotina.nome}</span>
+                  </div>
+                  <div>
+                    <span className="rotulo">Cadência</span>
+                    <span className="valor">{rotina.cadencia}</span>
+                  </div>
+                  <div className="col-span-full">
+                    <span className="rotulo">O que faz</span>
+                    <span className="valor">{rotina.descricao}</span>
+                  </div>
+                  <div>
+                    <span className="rotulo">Última execução</span>
+                    <span className="valor">
+                      {rotina.ultimaEm ? formatDateTime(rotina.ultimaEm) : "ainda não rodou"}
+                      {duracaoLegivel(rotina.ultimaDuracaoMs) ? ` · ${duracaoLegivel(rotina.ultimaDuracaoMs)}` : ""}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="rotulo">Execuções</span>
+                    <span className="valor font-mono">{rotina.execucoes.toLocaleString("pt-BR")}</span>
+                  </div>
+                  <div>
+                    <span className="rotulo">Próxima</span>
+                    <span className="valor">{formatDateTime(rotina.proximaEm)}</span>
+                  </div>
+                  {rotina.ultimoErro ? (
+                    <div className="col-span-full">
+                      <span className="rotulo">Último erro</span>
+                      <span className="valor font-mono text-[color:var(--red)]">{rotina.ultimoErro}</span>
+                    </div>
+                  ) : null}
+                </LinhaDobravel>
+              ))}
+            </Grupo>
           )}
         </>
       )}

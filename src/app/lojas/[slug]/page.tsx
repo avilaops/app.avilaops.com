@@ -334,7 +334,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
             </Grupo>
           </div>
 
-          <div className="max-[820px]:hidden">
+          <div className="max-[821px]:hidden">
           <TabelaResponsiva
             rotulo="Catálogo da loja"
             colunas={[
