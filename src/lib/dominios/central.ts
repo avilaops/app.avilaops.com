@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { JANELA_ATENCAO_DIAS, PROVEDOR_REGISTRO_BR } from "@/lib/dominio-vencimento";
 import { diasAte } from "@/lib/registro-br";
-import { provedorDeDns } from "@/lib/dominios/dns";
+import { lerServicoDeDns, provedorDoServico, type ServicoDeDns } from "@/lib/dominios/dns";
 import { provedorDeRegistro } from "@/lib/dominios/registry";
 import {
   avaliarConsulta,
@@ -28,8 +28,10 @@ export type DominioDaCarteira = {
   situacao: SituacaoDominio;
   expiraEm: string | null;
   diasRestantes: number | null;
-  /** Verdadeiro quando o DNS deste domínio é servido pela casa. */
+  /** Verdadeiro quando alguém, casa ou terceiro, serve o DNS deste domínio. */
   dnsAqui: boolean;
+  /** Qual serviço responde pelo DNS: NENHUM, EXTERNO ou AVILA. */
+  servicoDns: ServicoDeDns;
   registrosDns: number;
   sincronizadoEm: string | null;
   /** Último veredito da consulta ao registro, quando houve. */
@@ -46,6 +48,9 @@ export type ResumoCarteira = {
   atencao: number;
   semData: number;
   registrosDns: number;
+  /** Quantos domínios já têm o DNS servido pela casa, e quantos ainda não. */
+  dnsNaCasa: number;
+  dnsExterno: number;
 };
 
 export type Central = {
@@ -108,7 +113,8 @@ export async function carregarCentral(): Promise<Central> {
       situacao: situacaoDe({ status: registro.status, expiraEm, vereditoRegistro: veredito }, agora),
       expiraEm,
       diasRestantes: diasAte(expiraEm, agora),
-      dnsAqui: Boolean(registro.cloudflareZoneId),
+      dnsAqui: lerServicoDeDns(registro.dnsProvider) !== "NENHUM",
+      servicoDns: lerServicoDeDns(registro.dnsProvider),
       registrosDns: registro._count.dnsRecords,
       sincronizadoEm: registro.dnsLastSyncedAt?.toISOString() ?? null,
       vereditoRegistro: veredito,
@@ -119,6 +125,8 @@ export async function carregarCentral(): Promise<Central> {
   });
 
   const comDns = dominios.filter((d) => d.dnsAqui);
+  const naCasa = dominios.filter((d) => d.servicoDns === "AVILA");
+  const externos = dominios.filter((d) => d.servicoDns === "EXTERNO");
   const totalRegistrosDns = dominios.reduce((soma, d) => soma + d.registrosDns, 0);
   const comData = dominios.filter((d) => d.expiraEm).length;
   const vencendo = dominios.filter((d) => d.situacao === "VENCENDO").length;
@@ -135,21 +143,28 @@ export async function carregarCentral(): Promise<Central> {
   );
 
   const registro = provedorDeRegistro();
-  const dns = provedorDeDns();
-  const [diagnosticoRegistro, diagnosticoDns] = await Promise.all([registro.verificar(), dns.verificar()]);
+  // A luz do DNS olha para quem serve a maior parte da carteira hoje. Durante
+  // a migração os dois convivem, e o detalhe da função mostra a divisão.
+  const dns = provedorDoServico(naCasa.length > externos.length ? "AVILA" : "EXTERNO");
+  const [diagnosticoRegistro, diagnosticoDns] = await Promise.all([
+    registro.verificar(),
+    dns ? dns.verificar() : Promise.resolve(null),
+  ]);
   const permissoes = registro.capacidades();
 
   const escrita: CapacidadesDeEscrita = {
     registrar: permissoes.registrar && diagnosticoRegistro.operacional,
     renovar: permissoes.renovar && diagnosticoRegistro.operacional,
     transferir: permissoes.transferir && diagnosticoRegistro.operacional,
-    editarDns: dns.podeEditar(),
+    editarDns: Boolean(dns?.podeEditar()),
   };
 
   const capacidades: Capacidade[] = [
     avaliarRegistro(diagnosticoRegistro, escrita),
     avaliarDns({
-      provedor: diagnosticoDns,
+      provedor: diagnosticoDns ?? undefined,
+      naCasa: naCasa.length,
+      externos: externos.length,
       dominiosComDns: comDns.length,
       totalRegistros: totalRegistrosDns,
       sincronizadoEm,
@@ -184,6 +199,8 @@ export async function carregarCentral(): Promise<Central> {
       atencao,
       semData: dominios.length - comData,
       registrosDns: totalRegistrosDns,
+      dnsNaCasa: naCasa.length,
+      dnsExterno: externos.length,
     },
     lidoEm,
   };

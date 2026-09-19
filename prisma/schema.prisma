@@ -1202,6 +1202,9 @@ model DomainAsset {
   expiresAt        DateTime? @map("expires_at")
   autoRenew        Boolean   @default(false) @map("auto_renew")
   nextActionAt     DateTime? @map("next_action_at")
+  /// Quem serve o DNS deste domínio: NENHUM, EXTERNO ou AVILA. Existe para a
+  /// migração acontecer domínio a domínio, em vez de um interruptor global.
+  dnsProvider      String    @default("NENHUM") @map("dns_provider")
   cloudflareZoneId String?   @unique @map("cloudflare_zone_id")
   cloudflarePlan   String?   @map("cloudflare_plan")
   cloudflareStatus String?   @map("cloudflare_status")
@@ -1216,6 +1219,7 @@ model DomainAsset {
 
   @@index([organizationId, status])
   @@index([expiresAt, status])
+  @@index([dnsProvider])
   @@map("domains")
   @@schema("operations")
 }
