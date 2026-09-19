@@ -79,11 +79,10 @@ export default function ListaDominios({
           />
         </div>
 
-        <div
-          role="group"
-          aria-label="Filtrar domínios"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] min-[821px]:mx-0 min-[821px]:px-0"
-        >
+        {/* `.filter-tabs` é o chip da casa: no celular vira fileira rolável
+            com 44px de alvo. Estilo próprio aqui nasceria com 36px, que é
+            abaixo do mínimo e foi defeito em produção esta semana. */}
+        <div role="group" aria-label="Filtrar domínios" className="filter-tabs min-w-0">
           {FILTROS.map((opcao) => {
             const ativo = filtro === opcao.valor;
             return (
@@ -92,17 +91,10 @@ export default function ListaDominios({
                 type="button"
                 aria-pressed={ativo}
                 onClick={() => aplicarFiltro(opcao.valor)}
-                className={cn(
-                  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium whitespace-nowrap outline-none transition-transform duration-[60ms] active:scale-[0.985] focus-visible:ring-[3px] focus-visible:ring-ring/50 motion-reduce:transition-none",
-                  ativo
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-transparent text-foreground hover:bg-accent",
-                )}
+                className={ativo ? "active" : undefined}
               >
                 {opcao.rotulo}
-                <span className={cn("tabular-nums", ativo ? "opacity-80" : "text-muted-foreground")}>
-                  {contagem[opcao.valor]}
-                </span>
+                <span className="ml-1.5 tabular-nums opacity-70">{contagem[opcao.valor]}</span>
               </button>
             );
           })}
