@@ -3,7 +3,7 @@ import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BadgeStatus from "@/components/sistema/Status";
-import { BOTAO, CartaoLista, LINHA_ITEM, LINHA_LINK, formatarDataHora } from "@/components/hub-social/comum";
+import { CartaoLista, LINHA_ITEM, LINHA_LINK, formatarDataHora } from "@/components/hub-social/comum";
 import PainelDns from "@/components/dominios/PainelDns";
 import {
   BASE,
@@ -177,12 +177,6 @@ export default function DetalheDominio({
           </ul>
         )}
       </CartaoLista>
-
-      <div>
-        <Link href={BASE} className={cn("secondary-button", BOTAO)}>
-          Voltar para Domínios
-        </Link>
-      </div>
     </div>
   );
 }

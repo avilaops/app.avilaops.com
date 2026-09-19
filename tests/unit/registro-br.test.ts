@@ -114,7 +114,7 @@ describe("consolidar", () => {
 
     expect(consulta.status).toBe("REGISTRADO");
     expect(consulta.fontes).toEqual(["AVAIL"]);
-    expect(consulta.mensagem).toContain("não é uma interface documentada");
+    expect(consulta.mensagem).toContain("fonte secundária");
   });
 
   it("resposta sobre outro nome não vira data deste domínio", () => {
@@ -156,8 +156,8 @@ describe("consolidar", () => {
     const consulta = consolidar("xn--a-99.com.br", { tipo: "INDEFINIDO", http: 400 }, avail, CONSULTADO_EM);
 
     expect(consulta.status).toBe("INVALIDO");
-    expect(consulta.mensagem).toContain("não aceita este nome");
-    expect(consulta.mensagem).not.toContain("RDAP indisponível");
+    expect(consulta.mensagem).toContain("não é aceito para registro");
+    expect(consulta.mensagem).not.toContain("fonte principal não respondeu");
   });
 
   it("sem nenhuma fonte, o resultado é desconhecido, nunca 'livre'", () => {

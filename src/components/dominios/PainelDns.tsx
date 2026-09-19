@@ -135,7 +135,11 @@ export default function PainelDns({
     <>
       <CartaoLista
         titulo="DNS"
-        descricao={`${registros.length} ${registros.length === 1 ? "registro" : "registros"} nesta zona.`}
+        descricao={
+          erro
+            ? "Não foi possível ler os registros agora."
+            : `${registros.length} ${registros.length === 1 ? "registro" : "registros"} nesta zona.`
+        }
         acao={
           podeEditar ? (
             <button
@@ -262,9 +266,11 @@ export default function PainelDns({
         ) : null}
 
         {registros.length === 0 ? (
-          <div className="p-4">
-            <EstadoVazio compacto titulo="Nenhum registro nesta zona" />
-          </div>
+          erro ? null : (
+            <div className="p-4">
+              <EstadoVazio compacto titulo="Nenhum registro nesta zona" />
+            </div>
+          )
         ) : (
           <ul className="m-0 list-none p-0">
             {registros.map((registro) => (

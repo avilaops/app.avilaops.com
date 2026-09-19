@@ -8637,9 +8637,23 @@ main [data-slot="select-trigger"]:focus-visible {
     padding-bottom: var(--e4);
   }
 
+  /* As ações ganham a própria linha abaixo do título. Em linha com ele, a
+     190px que sobram espremiam o subtítulo em quatro linhas atrás dos botões:
+     acontece em Domínios, Google e Campanhas, então a correção é aqui. */
   .tela-cabecalho {
+    flex-wrap: wrap;
     gap: var(--e2);
     margin-bottom: var(--e4);
+  }
+
+  .tela-cabecalho-acoes {
+    width: 100%;
+  }
+
+  .tela-cabecalho-acoes > * {
+    flex: 1 1 0;
+    justify-content: center;
+    text-align: center;
   }
 
   .tela-cabecalho h1 {

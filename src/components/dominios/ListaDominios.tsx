@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
+import BotaoAtualizar from "@/components/dominios/BotaoAtualizar";
 import { CAMPO, CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK } from "@/components/hub-social/comum";
 import { Input } from "@/components/shadcn/input";
 import { Label } from "@/components/shadcn/label";
@@ -60,6 +61,7 @@ export default function ListaDominios({
           ? `${dominios.length} sob gestão.`
           : `${visiveis.length} de ${dominios.length}.`
       }
+      acao={<BotaoAtualizar />}
     >
       <div className="flex flex-col gap-3 border-b border-border px-4 py-3 min-[821px]:flex-row min-[821px]:items-center">
         <div className="min-w-0 min-[821px]:w-[300px]">
@@ -142,7 +144,7 @@ export default function ListaDominios({
               <Link href={hrefDominio(dominio.fqdn)} className={cn(LINHA_LINK, "justify-between")}>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-mono text-[15px] font-semibold">{dominio.fqdn}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
+                  <span className="mt-0.5 block text-[13px] leading-[1.35] text-muted-foreground [overflow-wrap:anywhere] min-[821px]:truncate">
                     {resumoDaLinha(dominio)}
                   </span>
                 </span>

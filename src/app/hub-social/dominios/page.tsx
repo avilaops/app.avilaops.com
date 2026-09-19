@@ -76,7 +76,12 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
       let registros: RegistroDns[] = [];
       let erroDns: string | null = null;
 
-      if (dominio.dnsAqui) {
+      const dns = provedorDeDns();
+      if (dominio.dnsAqui && !dns.configurado()) {
+        // Serviço desligado é estado esperado, não incidente: a tela diz o que
+        // é, e o servidor não enche o log com uma pilha de exceção por isso.
+        erroDns = "O serviço de DNS não está conectado, então os registros não podem ser lidos agora.";
+      } else if (dominio.dnsAqui) {
         // A zona é lida ao vivo: a tela de um domínio é onde alguém vai mexer,
         // e mexer no espelho de uma hora atrás é como se edita por engano.
         const zona = await prisma.domainAsset.findUnique({
@@ -85,9 +90,12 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
         });
         if (zona?.cloudflareZoneId) {
           try {
-            registros = await provedorDeDns().listar(zona.cloudflareZoneId);
+            registros = await dns.listar(zona.cloudflareZoneId);
           } catch (e) {
-            erroDns = e instanceof Error ? e.message : "Não foi possível ler os registros de DNS agora.";
+            // O erro cru cita conector e nome de variável de ambiente. Isso
+            // serve ao log do servidor, não à tela de quem administra domínio.
+            console.error("[dominios] falha ao ler DNS de", dominio.fqdn, e);
+            erroDns = "Não foi possível ler os registros de DNS agora. O serviço de DNS não respondeu.";
           }
         }
       }
