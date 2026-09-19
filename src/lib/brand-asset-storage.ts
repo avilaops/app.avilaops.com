@@ -20,7 +20,8 @@ function storageRoot(): string {
 }
 
 function safeSegment(value: string) {
-  return value.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+  const segment = value.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+  return !segment || segment === "." || segment === ".." ? "_" : segment;
 }
 
 export async function saveOrganizationBrandAssetFile(
@@ -37,11 +38,12 @@ export async function saveOrganizationBrandAssetFile(
   const safeAssetType = safeSegment(assetType);
   const safeName = safeSegment(fileName);
   const relativeKey = path.join(
-    organizationId,
+    safeSegment(organizationId),
     safeAssetType,
     `${Date.now()}-${safeName}`,
   );
-  const absolutePath = path.join(storageRoot(), relativeKey);
+  // Dados gravados em runtime no volume configurado; não empacotar uploads.
+  const absolutePath = path.join(/*turbopackIgnore: true*/ storageRoot(), relativeKey);
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, buffer);
   return `local:${relativeKey.replace(/\\/g, "/")}`;
@@ -62,8 +64,9 @@ export function readLocalOrganizationBrandAsset(key: string) {
 function localAssetPath(key: string): string | null {
   const relativeKey = key.slice("local:".length);
   const root = storageRoot();
-  const absolutePath = path.resolve(root, relativeKey);
-  return absolutePath.startsWith(root) ? absolutePath : null;
+  const absolutePath = path.resolve(/*turbopackIgnore: true*/ root, relativeKey);
+  const relative = path.relative(root, absolutePath);
+  return relative && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative) ? absolutePath : null;
 }
 
 /**

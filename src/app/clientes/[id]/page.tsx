@@ -17,6 +17,7 @@ import { montarPainel } from "@/lib/cadastro-ia/assistente";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
 import { listarCaixasDosDominios } from "@/lib/mail";
 import { prisma } from "@/lib/prisma";
+import NucleoDaEmpresa from "@/components/NucleoDaEmpresa";
 
 export default async function ClientDossierPage({
   params,
@@ -147,6 +148,7 @@ export default async function ClientDossierPage({
       <ClientSectionNav clientId={id} active={section} />
 
       {section === "summary" ? <ClientSummary organization={organization} /> : null}
+      {section === "summary" ? <NucleoDaEmpresa identityId={admin.id} organizationId={id} /> : null}
       {section === "registration" && painelAssistente ? <CadastroAssistidoPanel painelInicial={JSON.parse(JSON.stringify(painelAssistente))} /> : null}
       {section === "registration" ? <ClientDossierForm key={`${id}-registration`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab="registration" /> : null}
       {section === "files" ? <ClientDossierForm key={`${id}-files`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab="assets" /> : null}

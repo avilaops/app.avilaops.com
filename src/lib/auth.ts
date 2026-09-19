@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { lerSessaoSSO } from "@/lib/sso";
+import { empresaVigente } from "@/lib/nucleo/acesso";
 
 const SESSION_COOKIE = "avila_ops_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
@@ -93,7 +94,7 @@ export async function autenticarPortal(login: string, password: string) {
     },
   });
 
-  if (!identity || !(await bcrypt.compare(password, identity.senhaHash))) {
+  if (!identity?.ativo || !(await bcrypt.compare(password, identity.senhaHash))) {
     return null;
   }
 
@@ -177,19 +178,22 @@ export async function getSessaoPortal(): Promise<AdminAtual | null> {
       const payload = jwt.verify(token, sessionSecret()) as AdminToken;
       if (payload.sub) {
         const identidade = await prisma.adminIdentity.findFirst({
-          where: { id: payload.sub },
+          where: { id: payload.sub, ativo: true },
           select: { id: true, nome: true, email: true, role: true, organizationId: true },
         });
         // O papel vem do banco, não do token: se alguém deixar de ser ADMIN,
         // o cookie antigo não pode continuar valendo como tal.
-        if (identidade) return identidade;
+        if (identidade) return {
+          ...identidade,
+          organizationId: await empresaVigente(identidade.id, identidade.organizationId),
+        };
       }
     } catch {
       /* token inválido cai para o SSO abaixo */
     }
   }
 
-  return getAdminSSO();
+  return getIdentidadeSSO();
 }
 
 /**
@@ -226,7 +230,7 @@ async function getAdminLocal(): Promise<AdminAtual | null> {
     // O papel vem do banco, não do token: quem deixou de ser da casa perde o
     // acesso mesmo com o cookie antigo na mão.
     return prisma.adminIdentity.findFirst({
-      where: { id: payload.sub, role: { in: [...PAPEIS_DA_CASA] } },
+      where: { id: payload.sub, ativo: true, role: { in: [...PAPEIS_DA_CASA] } },
       select: { id: true, nome: true, email: true, role: true },
     });
   } catch {
@@ -235,8 +239,26 @@ async function getAdminLocal(): Promise<AdminAtual | null> {
 }
 
 async function getAdminSSO(): Promise<AdminAtual | null> {
+  const conta = await getIdentidadeSSO();
+  return conta && ehDaCasa(conta.role) ? conta : null;
+}
+
+async function getIdentidadeSSO(): Promise<AdminAtual | null> {
   const sessao = await lerSessaoSSO();
-  if (!sessao) return null;
+  if (!sessao || typeof sessao.sub !== "string" || !sessao.sub) return null;
+
+  // Um vínculo explicitamente verificado prevalece sobre e-mail e papel do JWT.
+  // Não criar esse vínculo automaticamente: e-mail igual não prova identidade.
+  const link = await prisma.coreIdentityLink.findUnique({
+    where: { issuer_subject: { issuer: "auth.avilaops.com", subject: sessao.sub } },
+    select: { identity: { select: { id: true, nome: true, email: true, role: true, ativo: true, organizationId: true } } },
+  });
+  if (link) {
+    if (!link.identity.ativo) return null;
+    const conta = link.identity;
+    return { id: conta.id, nome: conta.nome, email: conta.email, role: conta.role,
+      organizationId: await empresaVigente(conta.id, conta.organizationId) };
+  }
 
   // O cookie do SSO vale para TODOS os subdomínios: tê-lo só significa que a
   // pessoa logou em algum sistema Avila Ops. Este app é restrito, então o papel
@@ -253,7 +275,7 @@ async function getAdminSSO(): Promise<AdminAtual | null> {
   // pelo SSO viraria um ADMIN comum e perderia o que é exclusivo dele.
   const conta = sessao.email
     ? await prisma.adminIdentity.findFirst({
-        where: { email: { equals: sessao.email, mode: "insensitive" } },
+        where: { email: { equals: sessao.email, mode: "insensitive" }, ativo: true },
         select: { id: true, nome: true, email: true, role: true },
       })
     : null;
