@@ -7486,6 +7486,28 @@ body {
   transition: background 120ms ease;
 }
 
+/* Cada parte na sua coluna, dita por nome e não pela ordem de chegada.
+   Sem isto a colocação automática depende de quantos filhos a linha tem: numa
+   linha sem ícone tudo deslizava uma coluna para a esquerda, o texto caía na
+   coluna de largura automática e o valor na elástica — e a fila de selos
+   saía desalinhada, cada um numa posição conforme o tamanho da descrição.
+   Coluna vazia tem largura zero, então a linha com ícone não muda em nada. */
+.linha > .icone-tile {
+  grid-column: 1;
+}
+
+.linha > .linha-texto {
+  grid-column: 2;
+}
+
+.linha > .linha-valor {
+  grid-column: 3;
+}
+
+.linha > .chevron {
+  grid-column: 4;
+}
+
 .linha + .linha {
   box-shadow: inset 0 1px 0 var(--separador);
 }
@@ -7549,6 +7571,65 @@ body {
 
 .linha .chevron {
   color: var(--texto-terciario);
+}
+
+/* ---------- Linha que abre no lugar ---------- */
+.linha-dobravel + .linha-dobravel,
+.linha-dobravel + .linha,
+.linha + .linha-dobravel {
+  box-shadow: inset 0 1px 0 var(--separador);
+}
+
+/* O triângulo nativo do <summary> some: quem indica o estado é o chevron, que
+   é o mesmo símbolo do resto das listas do painel. */
+.linha-dobravel > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.linha-dobravel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.linha-dobravel > summary .chevron {
+  transition: transform 140ms ease;
+}
+
+.linha-dobravel[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+
+.linha-dobra {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--e2) var(--e4);
+  padding: 0 var(--e4) var(--e4);
+}
+
+.linha-dobra > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.linha-dobra dt,
+.linha-dobra .rotulo {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+.linha-dobra dd,
+.linha-dobra .valor {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linha-dobravel > summary .chevron {
+    transition: none;
+  }
 }
 
 /* ---------- Quadradinho de ícone ---------- */
