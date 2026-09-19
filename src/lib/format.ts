@@ -30,3 +30,16 @@ export function formatShortDate(value: Date | string) {
     timeZone: "America/Sao_Paulo",
   }).format(new Date(value));
 }
+
+/**
+ * "1 loja" / "6 lojas" — o número junto da palavra na forma certa.
+ *
+ * Existe porque `${n} loja(s)` é placeholder de plural chegando ao usuário, e
+ * isso lê como template, não como produto. Quem sabe o número é quem sabe a
+ * forma, então as duas vêm juntas: em português o plural não sai de uma regra
+ * ("útil" → "úteis"), e um pluralizador esperto erraria calado.
+ */
+export function contar(quantidade: number, singular: string, plural: string): string {
+  const n = quantidade.toLocaleString("pt-BR");
+  return `${n} ${Math.abs(quantidade) === 1 ? singular : plural}`;
+}

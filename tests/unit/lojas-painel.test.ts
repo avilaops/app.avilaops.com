@@ -9,6 +9,7 @@ import {
   resumirCatalogo,
   resumirLojas,
   rotuloDoPlano,
+  sugerirCliente,
   type LojaNoPainel,
 } from "@/lib/lojas-painel";
 import type { LojaDaPlataforma, ProdutoDaLoja } from "@/lib/lojas-plataforma";
@@ -270,5 +271,47 @@ describe("paginação", () => {
 
   it("lista vazia tem uma página, não zero", () => {
     expect(paginar([], 1, 50)).toMatchObject({ pagina: 1, paginas: 1, total: 0 });
+  });
+});
+
+describe("quem provavelmente é o dono da loja", () => {
+  const carteira = [
+    { id: "o1", nome: "Brilhax Automotiva LTDA", slug: "brilhax-automotiva" },
+    { id: "o2", nome: "FX Eletrodos", slug: "fx-eletrodos" },
+    { id: "o3", nome: "Padaria Aurora", slug: "padaria-aurora" },
+  ];
+
+  it("slug igual é o casamento mais forte, e diz por quê", () => {
+    const s = sugerirCliente({ slug: "fx-eletrodos", nome: "FX" }, carteira);
+    expect(s?.cliente.id).toBe("o2");
+    expect(s?.forca).toBe("exato");
+    expect(s?.motivo).toContain("fx-eletrodos");
+  });
+
+  it("nome igual casa mesmo com razão social e acento pelo caminho", () => {
+    const s = sugerirCliente({ slug: "aurora", nome: "Padaria Aurora" }, carteira);
+    expect(s?.cliente.id).toBe("o3");
+    expect(s?.forca).toBe("provavel");
+  });
+
+  it("nome contido casa, mas se declara fraco — quem confirma precisa saber", () => {
+    const s = sugerirCliente({ slug: "brilhax", nome: "Brilhax" }, carteira);
+    expect(s?.cliente.id).toBe("o1");
+    expect(s?.forca).toBe("fraco");
+  });
+
+  it("sem candidato devolve nulo: branco é melhor que palpite ruim", () => {
+    expect(sugerirCliente({ slug: "loja-nova", nome: "Mercadinho do Bairro" }, carteira)).toBeNull();
+  });
+
+  it("nome curto não casa por dentro — 'FX' não pode pegar metade da carteira", () => {
+    // Sem o piso de quatro letras, "FX" estaria contido em "FX Eletrodos" e
+    // também em qualquer nome com essas letras: sugestão por acaso.
+    const s = sugerirCliente({ slug: "outra-coisa", nome: "FX" }, carteira);
+    expect(s).toBeNull();
+  });
+
+  it("carteira vazia não quebra nem inventa", () => {
+    expect(sugerirCliente({ slug: "brilhax", nome: "Brilhax" }, [])).toBeNull();
   });
 });

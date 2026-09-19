@@ -108,6 +108,48 @@ export async function createTxtRecord(zoneId: string, name: string, content: str
   return data.result;
 }
 
+export type EntradaDnsRecord = {
+  type: string;
+  name: string;
+  content: string;
+  ttl?: number;
+  proxied?: boolean;
+  priority?: number;
+};
+
+/**
+ * Cria um registro DNS de qualquer tipo. O `createTxtRecord` acima continua
+ * existindo porque a verificação do Search Console só precisa de TXT e chama
+ * por lá; esta é a porta que a central de domínios usa.
+ */
+export async function createDnsRecord(zoneId: string, entrada: EntradaDnsRecord) {
+  const data = await cfFetch<{ result: CloudflareDnsRecord }>(`/zones/${zoneId}/dns_records`, {
+    method: "POST",
+    body: JSON.stringify({ ttl: 1, proxied: false, ...entrada }),
+  });
+  return data.result;
+}
+
+export async function updateDnsRecord(zoneId: string, recordId: string, entrada: EntradaDnsRecord) {
+  const data = await cfFetch<{ result: CloudflareDnsRecord }>(
+    `/zones/${zoneId}/dns_records/${recordId}`,
+    { method: "PUT", body: JSON.stringify({ ttl: 1, proxied: false, ...entrada }) },
+  );
+  return data.result;
+}
+
+export async function deleteDnsRecord(zoneId: string, recordId: string) {
+  await cfFetch<{ result: { id: string } }>(`/zones/${zoneId}/dns_records/${recordId}`, {
+    method: "DELETE",
+  });
+}
+
+/** Verdadeiro quando há credencial configurada. Não faz chamada. */
+export function credencialConfigurada(): boolean {
+  const { CLOUDFLARE_EMAIL, CLOUDFLARE_API_GLOBAL_KEY, CLOUDFLARE_TOKEN } = process.env;
+  return Boolean((CLOUDFLARE_EMAIL && CLOUDFLARE_API_GLOBAL_KEY) || CLOUDFLARE_TOKEN);
+}
+
 /* ---------------------------------------------------------------------------
    Workers: o que publica os arquivos da entrega na borda.
 
