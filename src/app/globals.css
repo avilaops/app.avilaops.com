@@ -9884,3 +9884,43 @@ main [data-slot="select-trigger"]:focus-visible {
 .brand-lockup {
   margin-bottom: var(--e2);
 }
+
+/* =========================================================================
+   Número alinhado e o piso de 12px (19/09/2026)
+   -------------------------------------------------------------------------
+   Duas coisas que a varredura de tipografia achou.
+   1. Valor em dinheiro empilhado numa coluna dançava, porque a Manrope tem
+      largura variável por algarismo: R$ 1.111,00 e R$ 8.888,00 não terminam
+      no mesmo lugar. `tabular-nums` resolve sem trocar a fonte.
+   2. Sobraram dois textos abaixo de 12px, que é onde o texto deixa de ser
+      legível em pé no ônibus: o número do cliente na lista e o rótulo do
+      saldo no financeiro.
+   ========================================================================= */
+
+/* Onde tem número que se compara na vertical. Não vale para texto corrido:
+   `tabular-nums` deixa o "1" com a largura do "8" e isso abre buraco no meio
+   da frase. */
+.tx-amount,
+.tx-amount strong,
+.metric-grid strong,
+.metric-value,
+.metrica-valor,
+.linha-valor,
+.servicos-resumo strong,
+.client-summary-number,
+.system-balance,
+.balance-card strong,
+.kv-linha dd,
+.health-evidence {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Piso de 12px para o que o olho precisa ler. Sobraram estes dois: o número
+   do cliente na lista e o rótulo do saldo no financeiro, os dois em 11px.
+   O título de grupo (`.grupo-cabecalho h2`) fica de fora de propósito: 11px
+   em caixa alta com 0,06em de entreletra é rótulo de seção, o mesmo gesto
+   dos Ajustes do iPhone, e não texto para ler. */
+.client-row small,
+.balance-card-head span {
+  font-size: 0.75rem;
+}
