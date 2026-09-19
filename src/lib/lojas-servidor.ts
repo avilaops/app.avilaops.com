@@ -7,7 +7,12 @@ import {
   type LojaDaPlataforma,
   type ProdutoDaLoja,
 } from "@/lib/lojas-plataforma";
-import { juntarLojasComClientes, type LojaNoPainel, type VinculoDeLoja } from "@/lib/lojas-painel";
+import {
+  juntarLojasComClientes,
+  type ClienteCandidato,
+  type LojaNoPainel,
+  type VinculoDeLoja,
+} from "@/lib/lojas-painel";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -24,6 +29,8 @@ import { prisma } from "@/lib/prisma";
 
 export type PainelDeLojas = {
   lojas: LojaNoPainel[];
+  /** A carteira, para sugerir o dono de uma loja órfã e para a escolha manual. */
+  clientes: ClienteCandidato[];
   /** O que não deu para ler, em linguagem de gente. */
   falhas: string[];
   /** `false` quando falta `LOJAS_ADMIN_TOKEN` — a tela explica em vez de zerar. */
@@ -50,7 +57,7 @@ export async function montarPainelDeLojas(): Promise<PainelDeLojas> {
   const falhas: string[] = [];
   let configurado = true;
 
-  const [daPlataforma, doOs] = await Promise.all([
+  const [daPlataforma, doOs, clientes] = await Promise.all([
     listarLojas().catch((erro) => {
       if (erro instanceof PlataformaIndisponivel) configurado = false;
       else falhas.push(`plataforma de lojas: ${motivo(erro)}`);
@@ -60,10 +67,21 @@ export async function montarPainelDeLojas(): Promise<PainelDeLojas> {
       falhas.push(`vínculos de cliente: ${motivo(erro)}`);
       return [] as VinculoDeLoja[];
     }),
+    prisma.organization
+      .findMany({
+        where: { status: { not: "ARCHIVED" } },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      })
+      .catch((erro) => {
+        falhas.push(`carteira de clientes: ${motivo(erro)}`);
+        return [] as { id: string; name: string; slug: string }[];
+      }),
   ]);
 
   return {
     lojas: juntarLojasComClientes(daPlataforma, doOs),
+    clientes: clientes.map((c) => ({ id: c.id, nome: c.name, slug: c.slug })),
     falhas,
     configurado,
     lidoEm: new Date().toISOString(),
@@ -74,6 +92,8 @@ export type DetalheDaLoja = {
   ficha: FichaDaLoja | null;
   produtos: ProdutoDaLoja[];
   cliente: { id: string; nome: string } | null;
+  /** A carteira, para dizer de quem é a loja quando ninguém reivindicou. */
+  clientes: ClienteCandidato[];
   falhas: string[];
   configurado: boolean;
   lidoEm: string;
@@ -83,7 +103,7 @@ export async function montarDetalheDaLoja(slug: string): Promise<DetalheDaLoja> 
   const falhas: string[] = [];
   let configurado = true;
 
-  const [ficha, produtos, vinculo] = await Promise.all([
+  const [ficha, produtos, vinculo, clientes] = await Promise.all([
     lerLoja(slug).catch((erro) => {
       if (erro instanceof PlataformaIndisponivel) configurado = false;
       else falhas.push(`ficha da loja: ${motivo(erro)}`);
@@ -103,12 +123,20 @@ export async function montarDetalheDaLoja(slug: string): Promise<DetalheDaLoja> 
         falhas.push(`vínculo de cliente: ${motivo(erro)}`);
         return null;
       }),
+    prisma.organization
+      .findMany({
+        where: { status: { not: "ARCHIVED" } },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      })
+      .catch(() => [] as { id: string; name: string; slug: string }[]),
   ]);
 
   return {
     ficha,
     produtos,
     cliente: vinculo ? { id: vinculo.organization.id, nome: vinculo.organization.name } : null,
+    clientes: clientes.map((c) => ({ id: c.id, nome: c.name, slug: c.slug })),
     falhas,
     configurado,
     lidoEm: new Date().toISOString(),
