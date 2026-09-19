@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import ProjectForm from "@/components/ProjectForm";
 import { getAdmin } from "@/lib/auth";
 import { formatShortDate, nomeProprio } from "@/lib/format";
@@ -43,13 +45,16 @@ export default async function ProjectsPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="projects">
-      <header className="page-header">
-        <div>
-          <h1>Entregas</h1>
-          <p>Projetos por cliente, com tarefas, prioridade e prazo.</p>
-        </div>
-        <ProjectForm organizations={organizations} />
-      </header>
+      <CabecalhoTela
+        titulo="Entregas"
+        descricao="Projetos por cliente, com tarefas, prioridade e prazo."
+        {...contextoDaSecao("projects")}
+        acoes={
+          <>
+          <ProjectForm organizations={organizations} />
+          </>
+        }
+      />
 
       <section className="client-summary-strip">
         <span>

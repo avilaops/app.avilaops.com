@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import AiCoreValidateButton from "@/components/AiCoreValidateButton";
 import ApprovalCard from "@/components/ApprovalCard";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import PartnerCaseCard from "@/components/PartnerCaseCard";
 import PartnerDocumentRow from "@/components/PartnerDocumentRow";
 import RoadmapItemToggle from "@/components/RoadmapItemToggle";
@@ -29,12 +31,11 @@ export default async function ImplantacaoPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="partner-network">
-      <header className="page-header">
-        <div>
-          <h1>Implantação OpenAI</h1>
-          <p>Pilares, roadmap de 90 dias, casos-piloto e documentos do dossiê.</p>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo="Implantação OpenAI"
+        descricao="Pilares, roadmap de 90 dias, casos-piloto e documentos do dossiê."
+        {...contextoDaSecao("partner-network")}
+      />
 
       <section className="connection-strip" aria-label="Pontuação geral">
         <div>

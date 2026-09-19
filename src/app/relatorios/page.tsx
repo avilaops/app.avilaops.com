@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { getFinanceDashboard } from "@/lib/dashboard";
 import { formatCurrency, formatDateTime } from "@/lib/format";
@@ -14,15 +16,18 @@ export default async function ReportsPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="reports">
-      <header className="page-header">
-        <div>
-          <h1>Relatórios</h1>
-          <p>Exporte dados conciliados e acompanhe a qualidade da integração.</p>
-        </div>
-        <Link href="/financeiro" className="secondary-button">
+      <CabecalhoTela
+        titulo="Relatórios"
+        descricao="Exporte dados conciliados e acompanhe a qualidade da integração."
+        {...contextoDaSecao("reports")}
+        acoes={
+          <>
+          <Link href="/financeiro" className="secondary-button">
           Voltar ao painel
-        </Link>
-      </header>
+          </Link>
+          </>
+        }
+      />
 
       <section className="report-hero">
         <div>

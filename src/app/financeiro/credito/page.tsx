@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import LedgerList from "@/components/LedgerList";
 import MetaLimparNome from "@/components/MetaLimparNome";
 import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
@@ -53,16 +55,19 @@ export default async function CreditoPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="credito">
-      <header className="page-header">
-        <div>
-          <h1>Score e contas a pagar</h1>
-          <p>O score do CPF e do CNPJ, e o que vence, num lugar só.</p>
-        </div>
-        <div className="page-header-actions">
+      <CabecalhoTela
+        titulo="Score e contas a pagar"
+        descricao="O score do CPF e do CNPJ, e o que vence, num lugar só."
+        {...contextoDaSecao("credito")}
+        acoes={
+          <>
+          <div className="page-header-actions">
           <RegistrarScoreButton />
           <NewLedgerEntryButton />
-        </div>
-      </header>
+          </div>
+          </>
+        }
+      />
 
       <section className="score-grid" aria-label="Score de crédito">
         {resumos.map((resumo) => (
