@@ -69,6 +69,41 @@ existem — é por onde o n8n consulta antes de disparar a geração.
 Toda gravação deixa evento de auditoria `ORGANIZATION_BRAND_ICON_GENERATED` com
 o ativo de origem e as opções usadas.
 
+## O ícone do próprio Ávila OS
+
+O mesmo gerador serve a nossa marca. O mestre é
+`public/marca/simbolo-avilaops.png` — trocar a marca é trocar esse arquivo e
+rodar:
+
+```bash
+npm run marca:icones
+```
+
+`scripts/gerar-icones-do-site.ts` grava em `public/` o conjunto que o
+`src/app/layout.tsx` referencia:
+
+| Arquivo                                 | Tamanho   | Fundo        | Folga | Por quê |
+| --------------------------------------- | --------- | ------------ | ----- | ------- |
+| `favicon.ico`                            | 16/32/48  | transparente | 2%    | a 16 px cada pixel de tinta conta |
+| `favicon-96x96.png`                      | 96×96     | transparente | 2%    | idem, para quem ignora o `.ico` |
+| `favicon.svg`                            | 192 px    | transparente | 2%    | o mesmo PNG embutido num SVG |
+| `apple-touch-icon.png`                   | 180×180   | branco       | 10%   | o iOS pinta alfa de preto |
+| `web-app-manifest-192x192.png`           | 192×192   | branco       | 10%   | `purpose: any` |
+| `web-app-manifest-512x512.png`           | 512×512   | branco       | 10%   | `purpose: any` e splash |
+| `web-app-manifest-maskable-512x512.png`  | 512×512   | branco       | 22%   | `purpose: maskable` |
+
+A folga de 22% do maskable não é estética: o Android recorta o ícone num círculo
+de 80% do lado, e um quadrado centralizado só cabe nesse círculo até ~56% do
+lado (56% × √2 ≈ 79%). Ícone maskable sem essa folga sai com a marca cortada.
+
+Os dois extras do nosso site — o favicon de 96 px e o maskable — não entram em
+`ICONES_DERIVADOS`: essa lista é a dos cards do dossiê do cliente. Como
+`gerarIcone` recebe a especificação por parâmetro, o script descreve os dois
+localmente sem mexer na tela do cliente.
+
+`og-default.png` não sai daqui: é um card composto, com tipografia e texto, não
+um ícone derivado da marca.
+
 ## Conferência visual
 
 Prints dos dois temas em desktop e iPhone, o roteiro do Playwright que os tira e

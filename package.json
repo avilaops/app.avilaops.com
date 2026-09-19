@@ -23,7 +23,8 @@
     "meta:verificar": "tsx scripts/verificar-meta.ts",
     "chaves:inventario": "node scripts/inventario-chaves.mjs",
     "credenciais:importar": "tsx scripts/importar-credenciais.ts",
-    "cofre:verificar": "tsx scripts/verificar-cofre.ts"
+    "cofre:verificar": "tsx scripts/verificar-cofre.ts",
+    "marca:icones": "tsx scripts/gerar-icones-do-site.ts"
   },
   "dependencies": {
     "@avila-ops/ai-core": "workspace:*",
