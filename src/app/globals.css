@@ -9663,3 +9663,146 @@ main [data-slot="select-trigger"]:focus-visible {
   }
 }
 
+/* =========================================================================
+   As primitivas antigas falando a língua do sistema (19/09/2026)
+   -------------------------------------------------------------------------
+   Sobraram 21 telas escritas com as primitivas de antes do redesenho:
+   `.page-header`, `.section-panel`, `.operations-panel`, `.metric-grid`,
+   `.operations-grid`. Elas desenham contorno de 1px em volta de cada caixa,
+   título de 22px e cartão dentro de cartão — a linguagem que o painel
+   abandonou em 17/09.
+   Reescrever as 21 telas uma a uma multiplicaria por 21 a chance de quebrar
+   uma regra de negócio, e deixaria a 22ª (a que ninguém listou) para trás.
+   Então a correção é onde a primitiva é definida, não onde ela é usada:
+   daqui para frente `.section-panel` É uma superfície do sistema, com o
+   mesmo raio, a mesma sombra e sem contorno. Quem escrever tela nova
+   continua usando `Grupo` e `LinhaLink`; quem já escreveu não precisa ser
+   reescrito para ficar coerente.
+   Nada aqui muda estrutura de DOM, dado, rota ou permissão.
+   ========================================================================= */
+
+/* ---- Cabeçalho de tela ---- */
+.page-header h1,
+.operations-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.page-header p,
+.operations-header p {
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+}
+
+/* ---- Superfícies ---- */
+.section-panel,
+.operations-panel,
+.module-card,
+.client-summary-section,
+.dossier-hero-panel {
+  border: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+/* Cartão dentro de cartão: o de dentro perde a sombra e vira só uma área de
+   tom diferente. É o que separa "dois objetos" de "um objeto com uma parte
+   destacada". */
+.section-panel .section-panel,
+.operations-panel .operations-panel,
+.section-panel .module-card,
+.operations-panel .module-card,
+.client-summary-section .module-card {
+  border-radius: var(--raio-p);
+  background: var(--superficie-suave);
+  box-shadow: none;
+}
+
+/* ---- Números do topo: uma superfície dividida, não N cartões ---- */
+.metric-grid {
+  gap: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  overflow: hidden;
+}
+
+.metric-grid > * {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.metric-grid > * + * {
+  box-shadow: inset 1px 0 0 var(--separador);
+}
+
+.metric-grid .metric-label,
+.metric-grid > * > span:first-child {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+/* ---- Fios entre linhas, no lugar de borda em volta ---- */
+.connection-strip,
+.attention-band {
+  border: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+/* ---- Listas antigas: a linha é o objeto, não o cartão ---- */
+.ios-row,
+.client-row,
+.lead-row,
+.project-row {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--separador);
+}
+
+.ios-row:last-child,
+.client-row:last-child,
+.lead-row:last-child,
+.project-row:last-child {
+  box-shadow: none;
+}
+
+/* ---- Tipografia: nada de texto de sistema abaixo de 12px ---- */
+.section-heading small,
+.operations-panel-heading small,
+.metric-grid small,
+.field-help,
+.muted small {
+  font-size: 0.75rem;
+}
+
+@media (max-width: 820px) {
+  /* No celular a grade de quatro números vira duas colunas, e o fio muda de
+     lado junto — senão a segunda linha herda o fio da esquerda e some. */
+  .metric-grid > * + * {
+    box-shadow: inset 1px 0 0 var(--separador);
+  }
+
+  .metric-grid > *:nth-child(2n + 1) {
+    box-shadow: none;
+  }
+
+  .metric-grid > *:nth-child(n + 3) {
+    box-shadow: inset 0 1px 0 var(--separador);
+  }
+
+  .metric-grid > *:nth-child(2n):nth-child(n + 3) {
+    box-shadow: inset 1px 0 0 var(--separador), inset 0 1px 0 var(--separador);
+  }
+
+  .page-header h1,
+  .operations-header h1 {
+    font-size: 1.75rem;
+  }
+}
