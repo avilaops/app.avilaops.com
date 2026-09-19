@@ -15,6 +15,10 @@ on:
       - "src/lib/navegacao.ts"
       - "scripts/prints/**"
       - ".github/workflows/prints-painel.yml"
+      # `next.config.ts` decide o que entra no bundle standalone, e é esse
+      # bundle que serve as capturas. Quando o rastreamento deixou o
+      # libvips do sharp para trás, quem descobriu foi este job.
+      - "next.config.ts"
   workflow_dispatch:
 permissions:
   contents: read
@@ -46,6 +50,11 @@ jobs:
         run: npx tsx scripts/prints/semear.ts
       - name: Build
         run: npx next build
+      # Dois segundos aqui contra cinco minutos de captura: sem esta sonda, um
+      # binário nativo que não carrega só aparece como uma tela em 500 no fim
+      # do job, com a causa enterrada no log do app.
+      - name: Conferir o sharp no bundle
+        run: node scripts/prints/conferir-sharp.mjs
       # `next.config.ts` usa output: "standalone", e o Next avisa no próprio log
       # que `next start` não funciona com isso: serve a página mas devolve 404
       # em parte dos chunks, e a árvore some na hidratação. Print silenciosamente
