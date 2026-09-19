@@ -21,6 +21,7 @@ export async function getProjects(filter: ProjectFilter = {}) {
       _count: {
         select: {
           tasks: { where: { status: { in: OPEN_TASK_STATUSES } } },
+          files: true,
         },
       },
     },
@@ -37,6 +38,7 @@ export async function getProjectDetail(id: string) {
       tasks: {
         orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "asc" }],
       },
+      files: { orderBy: { createdAt: "desc" } },
     },
   });
 }

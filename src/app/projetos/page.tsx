@@ -45,8 +45,8 @@ export default async function ProjectsPage({
     <AppShell adminName={admin.nome} papel={admin.role} section="projects">
       <header className="page-header">
         <div>
-          <h1>Entregas</h1>
-          <p>Projetos por cliente, com tarefas, prioridade e prazo.</p>
+          <h1>Projetos</h1>
+          <p>Projetos por cliente, com descrição, link, mídia, prioridade e prazo.</p>
         </div>
         <ProjectForm organizations={organizations} />
       </header>
@@ -109,12 +109,19 @@ export default async function ProjectsPage({
                       {project.organization.name}
                       {project.brand ? ` · ${project.brand.name}` : ""}
                     </small>
+                    {project.description ? (
+                      <small className="project-description">{project.description}</small>
+                    ) : null}
                   </div>
                 </div>
                 <dl className="client-signals project-signals">
                   <div>
                     <dt>Tarefas abertas</dt>
                     <dd>{project._count.tasks}</dd>
+                  </div>
+                  <div>
+                    <dt>Mídia</dt>
+                    <dd>{project._count.files}</dd>
                   </div>
                   <div>
                     <dt>Responsável</dt>

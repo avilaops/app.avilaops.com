@@ -4,6 +4,7 @@ import AppShell from "@/components/AppShell";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import DeliverableForm from "@/components/DeliverableForm";
 import TaskQuickAdd from "@/components/TaskQuickAdd";
+import ProjectMedia from "@/components/ProjectMedia";
 import TaskStatusControl from "@/components/TaskStatusControl";
 import { getAdmin } from "@/lib/auth";
 import { getDeliverablesForProject } from "@/lib/deliverables";
@@ -54,7 +55,7 @@ export default async function ProjectDetailPage({
         <div>
           <span className="eyebrow">
             <Link href="/projetos" className="text-link">
-              Entregas
+              Projetos
             </Link>{" "}
             · {project.organization.name}
             {project.brand ? ` · ${project.brand.name}` : ""}
@@ -70,6 +71,47 @@ export default async function ProjectDetailPage({
           {statusLabels[project.status] ?? project.status}
         </span>
       </header>
+
+      {project.description || project.url ? (
+        <section className="operations-panel">
+          <div className="operations-panel-heading">
+            <div>
+              <h2>Sobre o projeto</h2>
+            </div>
+          </div>
+          {project.description ? (
+            <p className="projeto-descricao">{project.description}</p>
+          ) : null}
+          {project.url ? (
+            <p className="projeto-link">
+              <a href={project.url} target="_blank" rel="noreferrer" className="text-link">
+                {project.url}
+              </a>
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="operations-panel">
+        <div className="operations-panel-heading">
+          <div>
+            <h2>Mídia do projeto</h2>
+          </div>
+          <span className="panel-count">{project.files.length}</span>
+        </div>
+
+        <ProjectMedia
+          projectId={project.id}
+          arquivosIniciais={project.files.map((arquivo) => ({
+            id: arquivo.id,
+            name: arquivo.name,
+            kind: arquivo.kind,
+            mimeType: arquivo.mimeType,
+            sizeBytes: arquivo.sizeBytes,
+            createdAt: arquivo.createdAt.toISOString(),
+          }))}
+        />
+      </section>
 
       <section className="operations-panel task-panel">
         <div className="operations-panel-heading">

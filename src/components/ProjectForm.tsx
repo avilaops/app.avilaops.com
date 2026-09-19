@@ -27,6 +27,7 @@ export default function ProjectForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [organizationId, setOrganizationId] = useState("");
+  const [arquivos, setArquivos] = useState<File[]>([]);
 
   const brands = useMemo(
     () => organizations.find((item) => item.id === organizationId)?.brands ?? [],
@@ -49,21 +50,42 @@ export default function ProjectForm({
           organizationId: form.get("organizationId"),
           brandId: form.get("brandId"),
           title: form.get("title"),
+          description: form.get("description"),
+          url: form.get("url"),
           priority: form.get("priority"),
           ownerName: form.get("ownerName"),
           dueAt: form.get("dueAt"),
         }),
       });
       const result = (await response.json()) as {
-        project?: { title: string };
+        project?: { id: string; title: string };
         error?: string;
       };
       if (!response.ok) {
         throw new Error(result.error ?? "Não foi possível criar o projeto.");
       }
 
-      setMessage(`${result.project?.title ?? "Projeto"} criado.`);
+      // O upload vem depois da criação porque o arquivo precisa do id do
+      // projeto para saber onde morar. Se falhar, o projeto continua criado: a
+      // mensagem avisa o que faltou em vez de fingir que deu tudo certo.
+      let avisoDeArquivo = "";
+      if (result.project?.id && arquivos.length > 0) {
+        const pacote = new FormData();
+        for (const arquivo of arquivos) pacote.append("file", arquivo);
+
+        const envio = await fetch(`/api/projects/${result.project.id}/arquivos`, {
+          method: "POST",
+          body: pacote,
+        });
+        if (!envio.ok) {
+          const falha = (await envio.json().catch(() => null)) as { error?: string } | null;
+          avisoDeArquivo = ` Os arquivos não subiram: ${falha?.error ?? "falha no envio"}`;
+        }
+      }
+
+      setMessage(`${result.project?.title ?? "Projeto"} criado.${avisoDeArquivo}`);
       formEl.isConnected && formEl.reset();
+      setArquivos([]);
       setOrganizationId("");
       router.refresh();
       window.setTimeout(() => {
@@ -105,7 +127,7 @@ export default function ProjectForm({
         <form className="organization-form" onSubmit={submit}>
           <div className="form-title">
             <div>
-              <h2>Abertura de entrega</h2>
+              <h2>Abertura de projeto</h2>
             </div>
             <span className="status-chip">Dados mínimos</span>
           </div>
@@ -167,6 +189,39 @@ export default function ProjectForm({
             <label>
               Prazo
               <input name="dueAt" type="date" />
+            </label>
+            <label className="campo-largo">
+              Descrição
+              <textarea
+                name="description"
+                rows={4}
+                maxLength={4000}
+                placeholder="O que é o projeto, o escopo combinado, o que precisa estar pronto."
+              />
+            </label>
+            <label className="campo-largo">
+              URL do projeto
+              <input
+                name="url"
+                type="url"
+                maxLength={500}
+                placeholder="https://… site publicado, board, repositório, pasta"
+              />
+            </label>
+            <label className="campo-largo">
+              Mídia do projeto
+              <input
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,video/mp4,video/webm"
+                onChange={(event) => setArquivos(Array.from(event.target.files ?? []))}
+              />
+              <small>
+                Imagem, PDF, MP4 ou WebM. Até 10 arquivos, 25 MB cada.
+                {arquivos.length > 0
+                  ? ` Selecionados: ${arquivos.map((a) => a.name).join(", ")}`
+                  : ""}
+              </small>
             </label>
           </div>
 

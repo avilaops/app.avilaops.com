@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
     organizationId?: unknown;
     brandId?: unknown;
     title?: unknown;
+    description?: unknown;
+    url?: unknown;
     priority?: unknown;
     ownerName?: unknown;
     dueAt?: unknown;
@@ -26,6 +28,8 @@ export async function POST(request: NextRequest) {
   const organizationId = cleanText(body?.organizationId, 40);
   const brandId = cleanText(body?.brandId, 40);
   const title = cleanText(body?.title, 160);
+  const description = cleanText(body?.description, 4000);
+  const url = cleanText(body?.url, 500);
   const ownerName = cleanText(body?.ownerName, 100);
   const priorityInput = cleanText(body?.priority, 10).toUpperCase();
   const priority = ALLOWED_PRIORITIES.has(priorityInput) ? priorityInput : "MEDIUM";
@@ -39,6 +43,23 @@ export async function POST(request: NextRequest) {
       { error: "Informe um título com pelo menos 3 caracteres." },
       { status: 400 },
     );
+  }
+
+  // Link que não é http(s) não serve para nada aqui, e ainda abre espaço para
+  // um `javascript:` ir parar num href da tela.
+  if (url) {
+    let esquema = "";
+    try {
+      esquema = new URL(url).protocol;
+    } catch {
+      esquema = "";
+    }
+    if (esquema !== "http:" && esquema !== "https:") {
+      return NextResponse.json(
+        { error: "Informe uma URL começando com http:// ou https://." },
+        { status: 400 },
+      );
+    }
   }
 
   let dueAt: Date | null = null;
@@ -73,6 +94,8 @@ export async function POST(request: NextRequest) {
         organizationId,
         brandId: brandId || null,
         title,
+        description: description || null,
+        url: url || null,
         priority,
         ownerName: ownerName || null,
         dueAt,
