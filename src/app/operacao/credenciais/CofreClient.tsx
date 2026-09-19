@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Grupo, LinhaDobravel, LinhaInfo } from "@/components/sistema/Lista";
+import BadgeStatus from "@/components/sistema/Status";
 import type { CredencialEmLista } from "@/lib/credenciais";
+import { contar } from "@/lib/format";
 
 const ROTULO_CATEGORIA: Record<string, string> = {
   meta: "Meta / Facebook",
@@ -15,17 +18,24 @@ const ROTULO_CATEGORIA: Record<string, string> = {
   outros: "Outros",
 };
 
-const CORES_STATUS: Record<string, string> = {
-  ATIVO: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-  PENDENTE: "bg-amber-500/10 text-amber-300 border-amber-500/30",
-  APOSENTADA: "bg-gray-500/10 text-gray-400 border-gray-600/40",
-};
-
 const EXPLICACAO_STATUS: Record<string, string> = {
   ATIVO: "Tem valor guardado no cofre.",
   PENDENTE: "Alguma parte do código lê esta chave, e ela ainda não tem valor.",
   APOSENTADA: "Nenhum código lê esta chave. É anotação, não configuração.",
 };
+
+/**
+ * Data sem `toLocaleDateString()`: o formatador do Node e o do navegador não
+ * chegam sempre ao mesmo texto, e o que o servidor escreve precisa bater letra
+ * a letra com o que o cliente escreve, senão a hidratação quebra a tela
+ * inteira. Fuso fixo em São Paulo, que é onde a chave foi girada.
+ */
+const DATA_CURTA = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "America/Sao_Paulo",
+});
 
 export default function CofreClient({
   credenciaisIniciais,
@@ -134,187 +144,192 @@ export default function CofreClient({
   }
 
   return (
-    <div className="space-y-5 w-full">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Indicador rotulo="Chaves no cofre" valor={resumo.total} />
-        <Indicador rotulo="Com valor" valor={resumo.ativas} tom="text-emerald-300" />
-        <Indicador rotulo="Pendentes" valor={resumo.pendentes} tom="text-amber-300" />
-        <Indicador rotulo="Sem consumidor" valor={resumo.aposentadas} tom="text-gray-400" />
+    <div className="pilha">
+      <div className="servicos-resumo" role="group" aria-label="Resumo do cofre">
+        <div>
+          <span>Chaves no cofre</span>
+          <strong>{resumo.total}</strong>
+        </div>
+        <div>
+          <span>Com valor</span>
+          <strong>{resumo.ativas}</strong>
+        </div>
+        <div>
+          <span>Pendentes</span>
+          <strong>{resumo.pendentes}</strong>
+        </div>
+        <div>
+          <span>Sem consumidor</span>
+          <strong>{resumo.aposentadas}</strong>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 p-4 bg-gray-900 border border-gray-800 rounded-xl">
-        <input
-          type="search"
-          value={busca}
-          onChange={(evento) => setBusca(evento.target.value)}
-          placeholder="Buscar chave (ex.: META_APP)"
-          className="flex-1 min-w-[220px] bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200"
-        />
-        <select
-          value={categoria}
-          onChange={(evento) => setCategoria(evento.target.value)}
-          className="bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200"
-        >
-          <option value="todas">Todas as categorias</option>
-          {categorias.map((valor) => (
-            <option key={valor} value={valor}>
-              {ROTULO_CATEGORIA[valor] ?? valor}
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-sm text-gray-300">
+      <div className="barra-ferramentas">
+        <label className="campo-busca">
+          <span className="sr-only">Buscar chave</span>
           <input
-            type="checkbox"
-            checked={somentePendentes}
-            onChange={(evento) => setSomentePendentes(evento.target.checked)}
+            type="search"
+            value={busca}
+            onChange={(evento) => setBusca(evento.target.value)}
+            placeholder="Buscar chave (ex.: META_APP)"
           />
-          Só pendentes
         </label>
+        <label>
+          <span className="sr-only">Categoria</span>
+          <select value={categoria} onChange={(evento) => setCategoria(evento.target.value)}>
+            <option value="todas">Todas as categorias</option>
+            {categorias.map((valor) => (
+              <option key={valor} value={valor}>
+                {ROTULO_CATEGORIA[valor] ?? valor}
+              </option>
+            ))}
+          </select>
+        </label>
+        {/* Interruptor, não caixa de marcar: a caixa nativa dá 13px de alvo. */}
+        <button
+          type="button"
+          className={somentePendentes ? "chip-filtro chip-filtro-ativo" : "chip-filtro"}
+          aria-pressed={somentePendentes}
+          onClick={() => setSomentePendentes((atual) => !atual)}
+        >
+          Só pendentes
+        </button>
       </div>
 
       {erro ? (
-        <p className="px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
-          {erro}
-        </p>
+        <Grupo>
+          <LinhaInfo titulo="Não deu" descricao={erro} icone="fechar" tom="vermelho" />
+        </Grupo>
       ) : null}
 
       {porCategoria.length === 0 ? (
-        <p className="text-center py-12 text-gray-400">
-          Nenhuma chave com esse filtro. O cofre começa vazio — rode{" "}
-          <code className="text-gray-300">npx tsx scripts/importar-credenciais.ts --aplicar</code>{" "}
-          para carregar o inventário.
-        </p>
+        <Grupo>
+          <LinhaInfo
+            titulo="Nenhuma chave com esse filtro"
+            descricao="Se o cofre está vazio, rode scripts/importar-credenciais.ts --aplicar para carregar o inventário."
+          />
+        </Grupo>
       ) : null}
 
       {porCategoria.map(([nome, itens]) => (
-        <section key={nome} className="space-y-2">
-          <h2 className="text-xs uppercase font-semibold text-gray-400 tracking-wider">
-            {ROTULO_CATEGORIA[nome] ?? nome} · {itens.length}
-          </h2>
+        <Grupo key={nome} titulo={`${ROTULO_CATEGORIA[nome] ?? nome} · ${itens.length}`}>
+          {itens.map((credencial) => {
+            const emEdicao = editando === credencial.chave;
+            const revelada = reveladas[credencial.chave];
+            const trabalhando = ocupado === credencial.chave;
 
-          <div className="border border-gray-800 rounded-xl overflow-hidden divide-y divide-gray-800">
-            {itens.map((credencial) => {
-              const emEdicao = editando === credencial.chave;
-              const revelada = reveladas[credencial.chave];
-              const trabalhando = ocupado === credencial.chave;
-
-              return (
-                <div key={credencial.chave} className="p-4 bg-gray-900 space-y-2">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <code className="text-sm text-gray-200 font-mono">{credencial.chave}</code>
-                    <span
-                      title={EXPLICACAO_STATUS[credencial.status]}
-                      className={`text-[11px] px-2 py-0.5 rounded-full border ${
-                        CORES_STATUS[credencial.status] ?? CORES_STATUS.APOSENTADA
-                      }`}
-                    >
-                      {credencial.status}
-                    </span>
-                    {!credencial.segredo ? (
-                      <span className="text-[11px] text-gray-500">público</span>
-                    ) : null}
-                    <span className="text-xs text-gray-500 ml-auto">
-                      {credencial.consumidores.length === 0
-                        ? "nenhum código lê"
-                        : `${credencial.consumidores.length} consumidor(es)`}
+            return (
+              <LinhaDobravel
+                key={credencial.chave}
+                titulo={credencial.chave}
+                descricao={credencial.mascara ?? "sem valor"}
+                valor={
+                  <BadgeStatus
+                    status={credencial.status}
+                    titulo={EXPLICACAO_STATUS[credencial.status]}
+                  />
+                }
+              >
+                <div>
+                  <span className="rotulo">Valor</span>
+                  <span className="valor font-mono">
+                    {revelada ?? credencial.mascara ?? "— sem valor —"}
+                  </span>
+                </div>
+                <div>
+                  <span className="rotulo">Quem lê</span>
+                  <span className="valor">
+                    {credencial.consumidores.length === 0
+                      ? "nenhum código lê"
+                      : contar(credencial.consumidores.length, "consumidor", "consumidores")}
+                  </span>
+                </div>
+                <div>
+                  <span className="rotulo">Sigilo</span>
+                  <span className="valor">
+                    {credencial.segredo ? "segredo, sai mascarado" : "público, sai inteiro"}
+                  </span>
+                </div>
+                {credencial.origem ? (
+                  <div>
+                    <span className="rotulo">Origem</span>
+                    <span className="valor">{credencial.origem}</span>
+                  </div>
+                ) : null}
+                {credencial.rotacionadoEm ? (
+                  <div>
+                    <span className="rotulo">Girada em</span>
+                    <span className="valor">
+                      {DATA_CURTA.format(new Date(credencial.rotacionadoEm))}
                     </span>
                   </div>
+                ) : null}
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <code className="text-xs text-gray-400 font-mono break-all">
-                      {revelada ?? credencial.mascara ?? "— sem valor —"}
-                    </code>
-
+                <div className="dobra-largura">
+                  <div className="dobra-acoes">
                     {credencial.segredo && credencial.preenchida ? (
                       <button
                         type="button"
+                        className="secondary-button"
                         disabled={trabalhando}
                         onClick={() =>
                           revelada ? esconder(credencial.chave) : revelar(credencial.chave)
                         }
-                        className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-300 hover:border-gray-500"
                       >
                         {revelada ? "Esconder" : "Revelar"}
                       </button>
                     ) : null}
-
                     <button
                       type="button"
+                      className="secondary-button"
                       onClick={() => {
                         setEditando(emEdicao ? null : credencial.chave);
                         setRascunho("");
                       }}
-                      className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-300 hover:border-gray-500"
                     >
                       {emEdicao ? "Cancelar" : credencial.preenchida ? "Trocar" : "Preencher"}
                     </button>
                   </div>
 
-                  {credencial.consumidores.length > 0 ? (
-                    <details className="text-xs text-gray-500">
-                      <summary className="cursor-pointer hover:text-gray-400">
-                        Quem quebra se esta chave girar
-                      </summary>
-                      <ul className="mt-1 space-y-0.5 font-mono">
-                        {credencial.consumidores.map((arquivo) => (
-                          <li key={arquivo}>{arquivo}</li>
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null}
-
                   {emEdicao ? (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <input
-                        type={credencial.segredo ? "password" : "text"}
-                        value={rascunho}
-                        onChange={(evento) => setRascunho(evento.target.value)}
-                        placeholder="Novo valor"
-                        autoComplete="off"
-                        className="flex-1 min-w-[240px] bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-200 font-mono"
-                      />
+                    <div className="dobra-acoes">
+                      <label className="campo-busca">
+                        <span className="sr-only">Novo valor de {credencial.chave}</span>
+                        <input
+                          type={credencial.segredo ? "password" : "text"}
+                          value={rascunho}
+                          onChange={(evento) => setRascunho(evento.target.value)}
+                          placeholder="Cole o novo valor"
+                          autoComplete="off"
+                        />
+                      </label>
                       <button
                         type="button"
+                        className="primary-button"
                         disabled={trabalhando}
                         onClick={() => salvar(credencial.chave)}
-                        className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg text-white"
                       >
                         {trabalhando ? "Salvando…" : "Salvar"}
                       </button>
                     </div>
                   ) : null}
 
-                  {credencial.origem ? (
-                    <p className="text-[11px] text-gray-600">
-                      origem: {credencial.origem}
-                      {credencial.rotacionadoEm
-                        ? ` · girada em ${new Date(credencial.rotacionadoEm).toLocaleDateString("pt-BR")}`
-                        : ""}
-                    </p>
+                  {credencial.consumidores.length > 0 ? (
+                    <details className="detalhes-tecnicos">
+                      <summary>Quem quebra se esta chave girar</summary>
+                      <ul>
+                        {credencial.consumidores.map((arquivo) => (
+                          <li key={arquivo}>{arquivo}</li>
+                        ))}
+                      </ul>
+                    </details>
                   ) : null}
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              </LinhaDobravel>
+            );
+          })}
+        </Grupo>
       ))}
-    </div>
-  );
-}
-
-function Indicador({
-  rotulo,
-  valor,
-  tom = "text-white",
-}: {
-  rotulo: string;
-  valor: number;
-  tom?: string;
-}) {
-  return (
-    <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-      <p className="text-xs text-gray-400">{rotulo}</p>
-      <p className={`text-2xl font-semibold ${tom}`}>{valor}</p>
     </div>
   );
 }

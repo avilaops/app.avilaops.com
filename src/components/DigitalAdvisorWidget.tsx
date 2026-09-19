@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { relatoDaEntrega } from "@/lib/entrega/relato";
 import type { DigitalRecommendation } from "@/lib/digital-advisor";
 
 export default function DigitalAdvisorWidget({
@@ -25,10 +26,16 @@ export default function DigitalAdvisorWidget({
           body: JSON.stringify({ fqdn }),
         });
         const data = await res.json();
-        if (data.success) {
-          setMessage(`✅ Auto-Fix concluído com sucesso para ${fqdn}!`);
-          setItems(items.filter((i) => i.id !== rec.id));
+        if (!res.ok || !data.success) {
+          setMessage(data.error || "Falha no Auto-Fix.");
+          return;
         }
+        // A recomendação só sai da lista quando os arquivos estão mesmo no ar.
+        // Antes ela sumia em qualquer resposta com `success`, inclusive quando
+        // o domínio nem passa pela borda — e voltava na próxima auditoria.
+        const relato = relatoDaEntrega(data.result.entrega);
+        setMessage(relato.texto);
+        if (relato.ok) setItems(items.filter((i) => i.id !== rec.id));
       } catch (err) {
         setMessage(err instanceof Error ? err.message : "Falha na ação.");
       }

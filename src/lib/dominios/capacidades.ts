@@ -102,8 +102,11 @@ export function avaliarRegistro(
 
 export type EntradaDns = {
   provedor?: EntradaProvedor;
-  /** Domínios que têm DNS espelhado aqui. */
+  /** Domínios que têm DNS servido por alguém, casa ou terceiro. */
   dominiosComDns: number;
+  /** Divisão da migração: quantos já estão no DNS da casa e quantos fora. */
+  naCasa?: number;
+  externos?: number;
   totalRegistros: number;
   /** ISO 8601 da sincronização mais recente entre todos os domínios. */
   sincronizadoEm: string | null;
@@ -129,6 +132,19 @@ export function avaliarDns(entrada: EntradaDns): Capacidade {
     resumo = "Última sincronização falhou";
   }
 
+  const naCasa = entrada.naCasa ?? 0;
+  const externos = entrada.externos ?? 0;
+  const migracao =
+    naCasa + externos > 0
+      ? [
+          {
+            rotulo: "Servidos pela Ávila Ops",
+            valor: `${naCasa} de ${naCasa + externos}`,
+          },
+          { rotulo: "Ainda em serviço externo", valor: String(externos) },
+        ]
+      : [];
+
   return {
     chave: "dns",
     nome: NOME_CAPACIDADE.dns,
@@ -138,7 +154,8 @@ export function avaliarDns(entrada: EntradaDns): Capacidade {
     erro: provedor.erro,
     detalhes: [
       { rotulo: "Situação", valor: rotuloEstado(estado) },
-      { rotulo: "Domínios com DNS aqui", valor: String(entrada.dominiosComDns) },
+      { rotulo: "Domínios com DNS gerenciado", valor: String(entrada.dominiosComDns) },
+      ...migracao,
       { rotulo: "Registros espelhados", valor: String(entrada.totalRegistros) },
       { rotulo: "Edição de registros", valor: entrada.podeEditar ? "liberada" : "somente leitura" },
     ],
