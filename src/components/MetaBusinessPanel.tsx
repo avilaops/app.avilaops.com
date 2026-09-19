@@ -77,6 +77,7 @@ export default function MetaBusinessPanel({
   connected,
   lidoEm,
   instagram,
+  instagramPronto,
 }: {
   initialStatus: MetaConnectionStatus;
   selectedOrganizationId: string;
@@ -86,6 +87,8 @@ export default function MetaBusinessPanel({
   connected?: boolean;
   lidoEm: string;
   instagram: EstadoDoInstagram | null;
+  /** Cofre já tem INSTAGRAM_APP_ID e INSTAGRAM_APP_SECRET. */
+  instagramPronto: boolean;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [message, setMessage] = useState(
@@ -480,6 +483,20 @@ export default function MetaBusinessPanel({
         </CartaoAviso>
       ) : null}
 
+      {!instagramPronto ? (
+        <CartaoAviso tom="atencao">
+          <strong className="font-semibold">Instagram ainda não configurado.</strong> Preencha{" "}
+          <code className="font-mono text-[13px]">INSTAGRAM_APP_ID</code> e{" "}
+          <code className="font-mono text-[13px]">INSTAGRAM_APP_SECRET</code> em{" "}
+          <a href="/operacao/credenciais" className="underline">
+            Credenciais
+          </a>
+          . Elas só existem depois de adicionar o produto “API do Instagram com login do
+          Instagram” no painel da Meta — é outro app, com credenciais próprias, separadas do
+          App ID do Facebook.
+        </CartaoAviso>
+      ) : null}
+
       <div className="grid gap-4 min-[821px]:grid-cols-2">
         <div className="flex flex-col gap-4">
           <div>
@@ -535,9 +552,20 @@ export default function MetaBusinessPanel({
               variant="outline"
               className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm"
             >
-              <a href={instagramHref}>
-                {conexaoIg ? "Reconectar Instagram" : "Conectar Instagram"}
-              </a>
+              {instagramPronto ? (
+                <a href={instagramHref}>
+                  {conexaoIg ? "Reconectar Instagram" : "Conectar Instagram"}
+                </a>
+              ) : (
+                <a
+                  aria-disabled="true"
+                  tabIndex={-1}
+                  className="pointer-events-none opacity-50"
+                  title="Preencha INSTAGRAM_APP_ID e INSTAGRAM_APP_SECRET em Credenciais."
+                >
+                  {conexaoIg ? "Reconectar Instagram" : "Conectar Instagram"}
+                </a>
+              )}
             </Button>
           </div>
           <p className="text-xs text-[var(--color-texto-fraco)]">

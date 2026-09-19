@@ -330,6 +330,26 @@ export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
 }
 
 /**
+ * O login próprio já tem o que precisa para abrir o consentimento?
+ *
+ * A tela pergunta antes de oferecer o botão. Sem isto o operador clica,
+ * atravessa o redirecionamento e volta com "INSTAGRAM_APP_ID não configurado" —
+ * um erro correto, na hora errada, quando já não dá para fazer nada a respeito.
+ *
+ * Consulta o cofre, não o `process.env`: é de lá que as duas chaves vêm, e a
+ * resposta precisa mudar assim que alguém as preencher, sem esperar deploy.
+ * `META_TOKEN_ENCRYPTION_KEY` entra na conta porque sem ela o token até chega,
+ * mas não tem como ser gravado.
+ */
+export async function instagramConfigurado() {
+  const [appId, appSecret] = await Promise.all([
+    obterCredencial("INSTAGRAM_APP_ID"),
+    obterCredencial("INSTAGRAM_APP_SECRET"),
+  ]);
+  return Boolean(appId && appSecret && process.env.META_TOKEN_ENCRYPTION_KEY);
+}
+
+/**
  * Relê o perfil no Instagram e atualiza o que a tela mostra.
  *
  * Por que existe: a conta é gravada uma vez, no consentimento, e depois disso

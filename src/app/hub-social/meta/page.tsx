@@ -5,7 +5,7 @@ import MetaBusinessPanel from "@/components/MetaBusinessPanel";
 import MetaClientSelect from "@/components/MetaClientSelect";
 import MetaOperationsNav from "@/components/MetaOperationsNav";
 import { getAdmin } from "@/lib/auth";
-import { estadoDoInstagram } from "@/lib/instagram";
+import { estadoDoInstagram, instagramConfigurado } from "@/lib/instagram";
 import { getMetaConnectionStatus, metaRedirectUri } from "@/lib/meta";
 import { prisma } from "@/lib/prisma";
 
@@ -26,7 +26,10 @@ export default async function MetaOperationsPage({
   });
   const selectedOrganizationId = params.organizationId || organizations[0]?.id || "";
   const status = await getMetaConnectionStatus(selectedOrganizationId || null);
-  const instagram = await estadoDoInstagram(selectedOrganizationId);
+  const [instagram, instagramPronto] = await Promise.all([
+    estadoDoInstagram(selectedOrganizationId),
+    instagramConfigurado(),
+  ]);
   const appUrl = process.env.APP_URL || "https://app.avilaops.com";
   const callbackUrl = await metaRedirectUri(appUrl);
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
@@ -56,6 +59,7 @@ export default async function MetaOperationsPage({
         connected={params.connected === "1"}
         lidoEm={lidoEm}
         instagram={instagram}
+        instagramPronto={instagramPronto}
       />
     </div>
   );

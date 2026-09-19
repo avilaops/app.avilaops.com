@@ -51,6 +51,32 @@ ambiente do servidor, nunca no Git, no `.env.example` ou nesta página.
 valor — é de propósito: OAuth com credencial vazia falha lá na Meta, com
 mensagem que não diz nada para quem está olhando a tela.
 
+## O que a tela mostra, e de onde vem
+
+O bloco "Instagram (login próprio)" na aba Conexão de `/hub-social/meta`:
+
+| Linha | Origem |
+| --- | --- |
+| Conta conectada | `account_name` da conexão |
+| Validade do token | `token_expires_at`, com os dias que faltam |
+| Última renovação | `last_synced_at` |
+| Status técnico | `last_sync_status` |
+| Seguidores e publicações | `instagram_accounts`, **com a hora da leitura ao lado** |
+
+Seguidor e publicação são lidos no consentimento e a cada **Sincronizar
+Instagram** (`POST /api/integrations/instagram/sync`, só admin). Não há leitura
+contínua — por isso a data aparece colada ao número, e não escondida na folha
+de evidência: valor de dois meses atrás com cara de agora é pior do que valor
+nenhum.
+
+Leitura que falha não reescreve número: o erro vai para a conexão como
+`SYNC_FAILED` e a tela mostra. Cada releitura grava `INSTAGRAM_ACCOUNT_SYNCED`
+na auditoria.
+
+Enquanto `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` não existirem no cofre, a
+tela avisa antes do clique e o botão de conectar fica desligado — em vez de
+deixar o operador atravessar o redirecionamento para voltar com um erro.
+
 ## Renovação do token — a rotina diária
 
 O token vale **60 dias** e a Meta **não renova token vencido**: passou da data,
@@ -113,6 +139,12 @@ Corpo vazio roda em todos os clientes; `{"organizationId":"..."}` roda em um só
 Admin logado também pode chamar — é o botão "Renovar token agora" da tela, que
 executa exatamente a mesma rotina.
 
+Uma ressalva para quem trocar o agendador: a porta do **admin** exige mesma
+origem, porque sessão de admin é cookie e cookie viaja sozinho. A porta do
+**serviço** não exige, porque quem chama de servidor não manda `Origin`. Se o
+novo agendador mandar um `Origin` de outro domínio **e** não mandar a chave de
+serviço, a resposta será 403 — e é isso mesmo.
+
 Rodar mais de uma vez no dia não faz mal: quem está em dia é pulado, e o retorno
 diz o desfecho de cada conexão.
 
@@ -143,7 +175,7 @@ novo, pelo mesmo caminho de conectar. A linha da conexão é reaproveitada
 
 | Parte | Estado |
 | --- | --- |
-| Código do login próprio, renovação, auditoria e painel | implementado e em produção |
+| Código do login próprio, renovação, releitura do perfil, auditoria e painel | implementado |
 | Workflow diário no n8n | criado e configurado (`FfwwEVYxIMRZu4hf`) |
 | Produto "API do Instagram com login do Instagram" no painel da Meta | **pendente** — exige acesso manual à conta Meta |
 | `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` no cofre | **pendente** — só existem depois do produto acima |
