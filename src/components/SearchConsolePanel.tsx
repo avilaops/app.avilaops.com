@@ -12,9 +12,9 @@ import {
   CartaoLista,
   formatarDataHora,
   MensagemErro,
-  rotuloSeo,
-  type ConexaoSeo,
-} from "@/components/seo/comum";
+  rotuloIntegracao,
+  type Conexao,
+} from "@/components/hub-social/comum";
 
 type SitemapEntry = {
   path?: string | null;
@@ -23,7 +23,7 @@ type SitemapEntry = {
   errors?: string | null;
 };
 
-type Connection = ConexaoSeo;
+type Connection = Conexao;
 
 export default function SearchConsolePanel({
   siteUrl,
@@ -172,7 +172,7 @@ export default function SearchConsolePanel({
         <CardTitle className="text-[17px] min-[821px]:text-[15px]">Google Search Console</CardTitle>
         <CardDescription className="break-all font-mono text-[13px]">{siteUrl}</CardDescription>
         <CardAction>
-          <BadgeStatus {...rotuloSeo(connection?.lastSyncStatus, "Nunca sincronizado")} />
+          <BadgeStatus {...rotuloIntegracao(connection?.lastSyncStatus, "Nunca sincronizado")} />
         </CardAction>
       </CardHeader>
 
@@ -220,11 +220,11 @@ export default function SearchConsolePanel({
             },
             {
               rotulo: "Status",
-              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloSeo(connection.lastSyncStatus)} /> : null,
+              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloIntegracao(connection.lastSyncStatus)} /> : null,
             },
             {
               rotulo: "Propriedade",
-              valor: connection?.status ? <BadgeStatus {...rotuloSeo(connection.status)} /> : null,
+              valor: connection?.status ? <BadgeStatus {...rotuloIntegracao(connection.status)} /> : null,
               vazio: "Não registrada no Ávila OS",
             },
             { rotulo: "Sitemap", valor: sitemapUrl, mono: true, copiar: sitemapUrl },

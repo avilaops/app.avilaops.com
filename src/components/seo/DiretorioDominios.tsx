@@ -3,7 +3,7 @@ import BadgeStatus from "@/components/sistema/Status";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
-import { BOTAO, CAMPO, CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK } from "@/components/seo/comum";
+import { BOTAO, CAMPO, CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK } from "@/components/hub-social/comum";
 import { hrefDominio, PAGE_SIZE, type Params, type SeoItem } from "@/components/seo/dados";
 import { cn } from "@/lib/utils";
 

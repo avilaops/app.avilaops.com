@@ -6,11 +6,17 @@ import type { TomMetrica } from "@/components/hub-social/Metricas";
 import { cn } from "@/lib/utils";
 
 /**
- * Peças pequenas do SEO usadas tanto pelos componentes de servidor quanto
- * pelos quatro painéis de cliente. Sem estado e sem "use client".
+ * Peças pequenas compartilhadas pelos módulos do Hub Social: medidas da casa,
+ * cartão de lista agrupada, evidência de número e rótulo de estado de
+ * integração. Sem estado e sem "use client".
+ *
+ * Nasceram no SEO e moraram em `components/seo/comum.tsx` enquanto ele era o
+ * único módulo com auditoria. O módulo de Ícones precisa das mesmas peças, e
+ * copiar 150 linhas para um segundo lugar seria começar a segunda linguagem
+ * visual que o sistema saiu para matar.
  */
 
-export type ConexaoSeo = {
+export type Conexao = {
   id: string;
   status: string;
   lastSyncedAt: string | null;
@@ -39,10 +45,10 @@ export function formatarDataHora(valor: string | Date | null | undefined): strin
 }
 
 /**
- * Códigos que as rotas de SEO gravam em status/lastSyncStatus e que o mapa
- * geral (status-rotulos) não conhece ou traduz de outro jeito.
+ * Códigos que as rotas de integração gravam em status/lastSyncStatus e que o
+ * mapa geral (status-rotulos) não conhece ou traduz de outro jeito.
  */
-const ROTULOS_SEO: Record<string, { texto: string; tom: TomStatus }> = {
+const ROTULOS_INTEGRACAO: Record<string, { texto: string; tom: TomStatus }> = {
   SUCCESS: { texto: "Concluído", tom: "bom" },
   ACTIVE: { texto: "Ativo", tom: "bom" },
   WARNING: { texto: "Atenção", tom: "atencao" },
@@ -52,10 +58,10 @@ const ROTULOS_SEO: Record<string, { texto: string; tom: TomStatus }> = {
   UNKNOWN: { texto: "Sem medição", tom: "neutro" },
 };
 
-/** Props para BadgeStatus: texto e tom locais quando o código é do SEO. */
-export function rotuloSeo(codigo: string | null | undefined, vazio = "Não configurado") {
+/** Props para BadgeStatus: texto e tom locais quando o código é de integração. */
+export function rotuloIntegracao(codigo: string | null | undefined, vazio = "Não configurado") {
   if (!codigo) return { status: null, texto: vazio, tom: "neutro" as TomStatus };
-  const conhecido = ROTULOS_SEO[codigo.toUpperCase()];
+  const conhecido = ROTULOS_INTEGRACAO[codigo.toUpperCase()];
   return conhecido ? { status: codigo, ...conhecido } : { status: codigo };
 }
 

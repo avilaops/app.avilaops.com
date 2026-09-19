@@ -37,6 +37,7 @@ export type SecaoApp =
   | "fiscal"
   | "credito"
   | "estudio"
+  | "icones"
   | "automacoes";
 
 export type ItemNavegacao = {
@@ -95,6 +96,7 @@ const ICONE_DO_CANAL: Partial<Record<SecaoApp, NomeIcone>> = {
   whatsapp: "whatsapp",
   newsletter: "newsletter",
   estudio: "estudio",
+  icones: "icones",
 };
 
 const DESCRICAO_DO_CANAL: Partial<Record<SecaoApp, string>> = {
@@ -105,6 +107,7 @@ const DESCRICAO_DO_CANAL: Partial<Record<SecaoApp, string>> = {
   whatsapp: "Webhooks, flows e eventos",
   newsletter: "Contatos, campanhas e envios",
   estudio: "Peças de vídeo e imagem",
+  icones: "Favicon, atalho e manifesto",
 };
 
 export const navegacao: GrupoNavegacao[] = [

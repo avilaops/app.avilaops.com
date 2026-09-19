@@ -2,7 +2,7 @@ import Link from "next/link";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Button } from "@/components/shadcn/button";
-import { CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK, MensagemStatus } from "@/components/seo/comum";
+import { CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK, MensagemStatus } from "@/components/hub-social/comum";
 import { BASE, hrefDominio, P, type SeoItem } from "@/components/seo/dados";
 import { cn } from "@/lib/utils";
 

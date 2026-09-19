@@ -5,7 +5,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BingWebmasterPanel from "@/components/BingWebmasterPanel";
 import IndexNowPanel from "@/components/IndexNowPanel";
 import SearchConsolePanel from "@/components/SearchConsolePanel";
-import { CartaoLista, Chevron, formatarDataHora, LINHA_ITEM, LINHA_LINK, rotuloSeo } from "@/components/seo/comum";
+import { CartaoLista, Chevron, formatarDataHora, LINHA_ITEM, LINHA_LINK, rotuloIntegracao } from "@/components/hub-social/comum";
 import { connectionData, property, sitemap, type Connection, type SeoItem } from "@/components/seo/dados";
 import type { listSitemaps } from "@/lib/search-console";
 import { cn } from "@/lib/utils";
@@ -60,13 +60,13 @@ export default function IntegracoesDominio({
     {
       chave: "indexnow",
       nome: "IndexNow",
-      badge: <BadgeStatus {...rotuloSeo(indexNowConnection?.lastSyncStatus)} />,
+      badge: <BadgeStatus {...rotuloIntegracao(indexNowConnection?.lastSyncStatus)} />,
       connection: indexNowConnection,
     },
     {
       chave: "bing",
       nome: "Bing Webmaster Tools",
-      badge: <BadgeStatus {...rotuloSeo(bingConnection?.lastSyncStatus)} />,
+      badge: <BadgeStatus {...rotuloIntegracao(bingConnection?.lastSyncStatus)} />,
       connection: bingConnection,
     },
   ];
