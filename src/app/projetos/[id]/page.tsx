@@ -5,6 +5,7 @@ import CopyLinkButton from "@/components/CopyLinkButton";
 import DeliverableForm from "@/components/DeliverableForm";
 import TaskQuickAdd from "@/components/TaskQuickAdd";
 import ProjectMedia from "@/components/ProjectMedia";
+import ProjectEditForm from "@/components/ProjectEditForm";
 import TaskStatusControl from "@/components/TaskStatusControl";
 import { getAdmin } from "@/lib/auth";
 import { getDeliverablesForProject } from "@/lib/deliverables";
@@ -72,25 +73,35 @@ export default async function ProjectDetailPage({
         </span>
       </header>
 
-      {project.description || project.url ? (
-        <section className="operations-panel">
-          <div className="operations-panel-heading">
-            <div>
-              <h2>Sobre o projeto</h2>
-            </div>
+      <section className="operations-panel">
+        <div className="operations-panel-heading">
+          <div>
+            <h2>Sobre o projeto</h2>
           </div>
-          {project.description ? (
-            <p className="projeto-descricao">{project.description}</p>
-          ) : null}
-          {project.url ? (
-            <p className="projeto-link">
-              <a href={project.url} target="_blank" rel="noreferrer" className="text-link">
-                {project.url}
-              </a>
-            </p>
-          ) : null}
-        </section>
-      ) : null}
+          <ProjectEditForm
+            projectId={project.id}
+            descricaoInicial={project.description ?? ""}
+            urlInicial={project.url ?? ""}
+          />
+        </div>
+
+        {project.description ? (
+          <p className="projeto-descricao">{project.description}</p>
+        ) : null}
+        {project.url ? (
+          <p className="projeto-link">
+            <a href={project.url} target="_blank" rel="noreferrer" className="text-link">
+              {project.url}
+            </a>
+          </p>
+        ) : null}
+        {!project.description && !project.url ? (
+          <div className="operations-empty compact-empty">
+            <strong>Sem descrição.</strong>
+            <p>Escreva o escopo combinado e o link principal do projeto.</p>
+          </div>
+        ) : null}
+      </section>
 
       <section className="operations-panel">
         <div className="operations-panel-heading">
