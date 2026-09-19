@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { relatoDaEntrega } from "@/lib/entrega/relato";
 
 export interface OsbDomainRow {
   id: string;
@@ -108,8 +109,12 @@ export default function OsbDashboardClient({
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Falha no Auto-Fix.");
 
-      setMessage(`⚡ Auto-Fix SEO aplicado para ${fqdn}!`);
-      window.location.reload();
+      // Recarregar a página apaga a mensagem; só vale a pena quando a nota da
+      // linha mudou de fato, ou seja, quando os arquivos entraram no ar.
+      const relato = relatoDaEntrega(data.result.entrega);
+      setMessage(relato.texto);
+      if (relato.ok) window.location.reload();
+      else setStatus("idle");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Erro no Auto-Fix.");
       setStatus("idle");

@@ -19,11 +19,14 @@ function authHeaders(): HeadersInit {
 }
 
 async function cfFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  // FormData monta o próprio Content-Type com a fronteira; declarar JSON por
+  // cima quebraria o upload do Worker.
+  const ehFormulario = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       ...authHeaders(),
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.body && !ehFormulario ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
   });
@@ -103,4 +106,75 @@ export async function createTxtRecord(zoneId: string, name: string, content: str
   );
 
   return data.result;
+}
+
+/* ---------------------------------------------------------------------------
+   Workers: o que publica os arquivos da entrega na borda.
+
+   Exige um token com "Workers Scripts:Edit" na conta e "Workers Routes:Edit"
+   na zona — a chave global de leitura que a sincronização de domínios usa não
+   basta. Sem `CLOUDFLARE_ACCOUNT_ID` não há onde publicar o script.
+   --------------------------------------------------------------------------- */
+
+export type RotaWorker = { id: string; pattern: string; script: string };
+
+function contaOuErro(): string {
+  const conta = process.env.CLOUDFLARE_ACCOUNT_ID;
+  if (!conta) {
+    throw new Error(
+      "CLOUDFLARE_ACCOUNT_ID não configurado: sem conta não há onde publicar o Worker.",
+    );
+  }
+  return conta;
+}
+
+/** Sobe (ou substitui) o script do Worker na conta. */
+export async function publicarScriptWorker(nome: string, fonte: string): Promise<void> {
+  const conta = contaOuErro();
+  const corpo = new FormData();
+  corpo.append(
+    "metadata",
+    new Blob(
+      [
+        JSON.stringify({
+          main_module: "worker.js",
+          // Data fixa: a semântica do runtime não pode mudar sozinha embaixo
+          // de um script que serve site de cliente.
+          compatibility_date: "2026-09-01",
+        }),
+      ],
+      { type: "application/json" },
+    ),
+  );
+  corpo.append(
+    "worker.js",
+    new Blob([fonte], { type: "application/javascript+module" }),
+    "worker.js",
+  );
+
+  await cfFetch(`/accounts/${conta}/workers/scripts/${encodeURIComponent(nome)}`, {
+    method: "PUT",
+    body: corpo,
+  });
+}
+
+export async function listarRotasWorker(zoneId: string): Promise<RotaWorker[]> {
+  const data = await cfFetch<{ result: RotaWorker[] }>(`/zones/${zoneId}/workers/routes`);
+  return data.result ?? [];
+}
+
+export async function criarRotaWorker(
+  zoneId: string,
+  pattern: string,
+  script: string,
+): Promise<RotaWorker> {
+  const data = await cfFetch<{ result: RotaWorker }>(`/zones/${zoneId}/workers/routes`, {
+    method: "POST",
+    body: JSON.stringify({ pattern, script }),
+  });
+  return data.result;
+}
+
+export async function apagarRotaWorker(zoneId: string, rotaId: string): Promise<void> {
+  await cfFetch(`/zones/${zoneId}/workers/routes/${rotaId}`, { method: "DELETE" });
 }
