@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { listarCredenciais } from "@/lib/credenciais";
 import CofreClient from "./CofreClient";
@@ -23,27 +24,20 @@ export default async function CredenciaisPage() {
 
   return (
     <AppShell adminName={admin.nome} section="credenciais" papel={admin.role}>
-      <header className="page-header">
-        <div>
-          <h1>Cofre de credenciais</h1>
-          <p>
-            Segredos da plataforma, cifrados no banco. O token de cada cliente
-            continua na conexão da organização — aqui fica só o que é da Ávila Ops.
-          </p>
-        </div>
-        <div className="page-actions">
+      <CabecalhoTela
+        titulo="Cofre de credenciais"
+        descricao="Segredos da plataforma, cifrados no banco. O token de cada cliente continua na conexão da organização."
+        voltar={{ href: "/mais/infraestrutura", rotulo: "Voltar para Infraestrutura" }}
+        icone="config"
+        tom="azul"
+        acoes={
           <Link href="/hub-social/meta" className="secondary-button">
             Hub Social
           </Link>
-          <Link href="/operacao" className="secondary-button">
-            Voltar à Operação
-          </Link>
-        </div>
-      </header>
+        }
+      />
 
-      <section className="operations-grid">
-        <CofreClient credenciaisIniciais={credenciais} />
-      </section>
+      <CofreClient credenciaisIniciais={credenciais} />
     </AppShell>
   );
 }

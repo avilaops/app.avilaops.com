@@ -9457,3 +9457,93 @@ main [data-slot="select-trigger"]:focus-visible {
     flex: 1 1 100%;
   }
 }
+
+/* =========================================================================
+   Cofre de credenciais na linguagem do sistema (19/09/2026)
+   -------------------------------------------------------------------------
+   A tela era a última escrita em Tailwind de tema escuro fixo
+   (`bg-gray-900`, `text-gray-200`, `text-[11px]`): fundo preto num painel
+   claro, 153 textos abaixo de 12px e 74 alvos de toque abaixo de 44px, num
+   documento de 11.376px no celular. Cada chave era um cartão aberto com
+   máscara, botões, consumidores e origem à mostra o tempo todo.
+   Agora é o mesmo padrão do resto: uma superfície por categoria, uma linha
+   dobrável por chave. Fechada, a linha diz o nome, a máscara e o estado; o
+   resto fica a um toque. As classes abaixo são só o que faltava.
+   ========================================================================= */
+
+/* Interruptor de filtro. Existe porque `<input type=checkbox>` nativo dá 13px
+   de alvo, e a barra de ferramentas é tocada no celular. */
+.chip-filtro {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 var(--e4);
+  border: 0;
+  border-radius: var(--raio-p);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.chip-filtro:hover {
+  color: var(--texto);
+}
+
+.chip-filtro-ativo {
+  background: var(--marca-azul-suave);
+  color: var(--marca-azul);
+  font-weight: 600;
+}
+
+.chip-filtro:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+/* Dentro da dobra, o que não é par de rótulo e valor ocupa a linha inteira:
+   a dobra é uma grade de colunas automáticas, e botão espremido numa coluna
+   de 140px quebra o texto no meio. */
+.dobra-largura {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  grid-column: 1 / -1;
+  gap: var(--e2);
+}
+
+.dobra-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.dobra-acoes .campo-busca {
+  min-width: 180px;
+  flex: 1 1 220px;
+}
+
+.dobra-acoes .primary-button,
+.dobra-acoes .secondary-button {
+  min-height: 40px;
+  padding: 0 var(--e4);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 820px) {
+  .chip-filtro,
+  .dobra-acoes .primary-button,
+  .dobra-acoes .secondary-button {
+    min-height: 44px;
+  }
+
+  /* O alvo de toque manda: no celular a ação ocupa a linha toda em vez de
+     dividir 390px com outra. */
+  .dobra-acoes .primary-button,
+  .dobra-acoes .secondary-button {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+}
