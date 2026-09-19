@@ -111,6 +111,11 @@ export default async function FinancePage({
           <p>Movimentações do Efí, evidências e o que ainda depende de decisão.</p>
         </div>
         <div className="page-header-actions">
+          {/* Esta tela responde caixa; o resultado por competência mora ao
+              lado, e quem procura "quanto sobrou" tem que achar o caminho. */}
+          <Link href="/financeiro/dre" className="secondary-button">
+            Resultado (DRE)
+          </Link>
           <Link href="/financeiro/contas" className="secondary-button">
             Contas a pagar e receber
           </Link>

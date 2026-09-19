@@ -64,6 +64,7 @@ const telas = [
   ["vagas", "/vagas"],
   ["implantacao", "/implantacao"],
   ["financeiro", "/financeiro"],
+  ["financeiro-dre", "/financeiro/dre"],
   ["financeiro-mercadopago", "/financeiro/mercadopago"],
   // Lojas: a lista, a ficha com o catálogo, e o catálogo filtrado por defeito
   // — que é a tela mais densa da área e a que aperta primeiro no celular.

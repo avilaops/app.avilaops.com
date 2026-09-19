@@ -9547,3 +9547,67 @@ main [data-slot="select-trigger"]:focus-visible {
     justify-content: center;
   }
 }
+
+/* Encadeamento do DRE -------------------------------------------------------
+   O demonstrativo é uma conta que se lê de cima para baixo: cada linha usa o
+   resultado da anterior. Por isso as linhas de subtotal ("= Receita líquida",
+   "= Resultado operacional") têm peso próprio e um fio acima — sem isso a
+   pessoa lê nove valores soltos e tem que refazer a conta de cabeça.
+
+   Mesmo desenho das listas do sistema: superfície única, fio quase invisível
+   entre linhas, valor em monoespaçada à direita para as casas alinharem. */
+.dre-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: var(--cel-linha, 52px);
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) var(--e4);
+  border-bottom: 1px solid var(--separador);
+}
+
+.dre-linha:last-child {
+  border-bottom: 0;
+}
+
+.dre-linha-texto {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dre-linha-texto strong {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.dre-linha-texto small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.dre-valor {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dre-valor.negativo {
+  color: var(--red);
+}
+
+/* Subtotal: o que a pessoa procura quando bate o olho. */
+.dre-linha-destaque {
+  border-top: 1px solid var(--linha-forte, var(--separador));
+  background: var(--surface-soft);
+}
+
+.dre-linha-destaque .dre-linha-texto strong {
+  font-weight: 600;
+}
+
+.dre-linha-destaque .dre-valor {
+  font-size: 1.0625rem;
+}

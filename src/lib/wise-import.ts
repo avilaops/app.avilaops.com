@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { isFinanceScope, suggestScope } from "@/lib/finance-escopo";
+import { contaSugerida } from "@/lib/plano-de-contas";
 import { prisma } from "@/lib/prisma";
 import { parseWiseCsv, type WiseMovement } from "@/lib/wise-csv";
 
@@ -146,7 +147,7 @@ export async function importWiseStatement(
                   externalId: movement.externalId,
                 },
               },
-              select: { id: true, scope: true, scopeSource: true, counterpartySource: true },
+              select: { id: true, scope: true, scopeSource: true, counterpartySource: true, accountCode: true },
             });
 
             const suggestion = suggestScope({
@@ -174,7 +175,18 @@ export async function importWiseStatement(
                 ? undefined
                 : movement.counterpartyName;
 
+            // A conta contábil aproveita a categoria que a regra acabou de
+            // decidir; conta já gravada nunca é reescrita, porque pode ter
+            // sido posta à mão — mesma proteção da etiqueta de escopo.
+            const accountCode =
+              existing?.accountCode ??
+              contaSugerida({
+                categoria: suggestion.category ?? movement.category,
+                direcao: movement.direction === "CREDIT" ? "CREDIT" : "DEBIT",
+              });
+
             const data = {
+              accountCode,
               endToEndId: null,
               txid: null,
               amount: new Prisma.Decimal(movement.amount),

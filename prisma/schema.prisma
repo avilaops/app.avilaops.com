@@ -88,31 +88,33 @@ model BalanceSnapshot {
 }
 
 model BankTransaction {
-  id               BigInt   @id @default(autoincrement())
-  accountId        String   @map("account_id")
-  externalId       String   @map("external_id")
-  endToEndId       String?  @map("end_to_end_id")
-  txid             String?
-  direction        String
-  transactionType  String   @map("transaction_type")
-  amount           Decimal  @db.Decimal(14, 2)
-  currency         String   @default("BRL")
-  description      String
-  counterpartyName String?  @map("counterparty_name")
+  id                   BigInt   @id @default(autoincrement())
+  accountId            String   @map("account_id")
+  externalId           String   @map("external_id")
+  endToEndId           String?  @map("end_to_end_id")
+  txid                 String?
+  direction            String
+  transactionType      String   @map("transaction_type")
+  amount               Decimal  @db.Decimal(14, 2)
+  currency             String   @default("BRL")
+  description          String
+  counterpartyName     String?  @map("counterparty_name")
   /// CPF/CNPJ da contraparte, só dígitos. O extrato do Éfi nunca traz; vem do comprovante.
-  counterpartyDocument String? @map("counterparty_document")
+  counterpartyDocument String?  @map("counterparty_document")
   /// Quem decidiu a contraparte: nulo/EFI/IMPORTACAO (extrato) ou COMPROVANTE (identificação humana conferida).
-  counterpartySource   String? @map("counterparty_source")
-  occurredAt       DateTime @map("occurred_at")
-  rawHash          String   @map("raw_hash")
+  counterpartySource   String?  @map("counterparty_source")
+  occurredAt           DateTime @map("occurred_at")
+  rawHash              String   @map("raw_hash")
   /// EMPRESA, PESSOAL, INTERNO (troca entre saldos próprios) ou INDEFINIDO.
-  scope            String   @default("INDEFINIDO")
+  scope                String   @default("INDEFINIDO")
   /// Quem decidiu o escopo: REGRA, MANUAL ou IMPORTACAO.
-  scopeSource      String?  @map("scope_source")
+  scopeSource          String?  @map("scope_source")
   /// Categoria de origem (a do extrato) preservada para auditoria.
-  category         String?
-  importedAt       DateTime @default(now()) @map("imported_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  category             String?
+  /// Conta do plano de contas. Movimentação sem lançamento entra no DRE por ela.
+  accountCode          String?  @map("account_code")
+  importedAt           DateTime @default(now()) @map("imported_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   account        BankAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   reconciliation Reconciliation?
@@ -183,24 +185,30 @@ model FinanceAuditEvent {
 }
 
 model LedgerEntry {
-  id            BigInt    @id @default(autoincrement())
-  direction     String
-  status        String    @default("OPEN")
-  description   String
-  counterparty  String?
-  amount        Decimal   @db.Decimal(14, 2)
-  currency      String    @default("BRL")
+  id               BigInt    @id @default(autoincrement())
+  direction        String
+  status           String    @default("OPEN")
+  description      String
+  counterparty     String?
+  amount           Decimal   @db.Decimal(14, 2)
+  currency         String    @default("BRL")
   /// EMPRESA ou PESSOAL: o que separa o caixa da Ávila do caixa do Nicolas.
-  scope         String    @default("EMPRESA")
-  dueDate       DateTime  @map("due_date")
-  paidAt        DateTime? @map("paid_at")
-  category      String?
-  referenceType String?   @map("reference_type")
-  referenceId   String?   @map("reference_id")
-  note          String?
-  createdBy     String?   @map("created_by")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  scope            String    @default("EMPRESA")
+  dueDate          DateTime  @map("due_date")
+  paidAt           DateTime? @map("paid_at")
+  category         String?
+  /// Conta do plano de contas (src/lib/plano-de-contas.ts). É o que agrupa o DRE.
+  accountCode      String?   @map("account_code")
+  /// Primeiro mês de competência. Nulo = o próprio vencimento.
+  competenceStart  DateTime? @map("competence_start")
+  /// Em quantos meses o valor se distribui. Nulo ou 1 = mês único.
+  competenceMonths Int?      @map("competence_months")
+  referenceType    String?   @map("reference_type")
+  referenceId      String?   @map("reference_id")
+  note             String?
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@index([direction, status, dueDate])
   @@index([scope, status, dueDate])
@@ -1841,25 +1849,25 @@ model NewsletterDelivery {
 /// de src/lib/estudio/templates.ts. Os valores dos campos ficam em JSON porque
 /// cada template tem os seus.
 model StudioPiece {
-  id         String   @id @default(cuid())
-  title      String
+  id             String   @id @default(cuid())
+  title          String
   /// Cliente dono da peça. Nulo = peça da própria casa, que renderiza com a
   /// MARCA_PADRAO. Com cliente, o Estúdio usa a marca dele (nome, site, logo e
   /// cores vindas do cadastro de identidade).
-  organizationId String? @map("organization_id")
-  templateId String   @map("template_id")
+  organizationId String?  @map("organization_id")
+  templateId     String   @map("template_id")
   /// 9:16 | 1:1 | 4:5
-  format     String   @default("9:16")
-  values     Json
+  format         String   @default("9:16")
+  values         Json
   /// segundos; só vídeo
-  duration   Float?
-  narration  Boolean  @default(true)
-  voice      String   @default("pm_nicolas")
+  duration       Float?
+  narration      Boolean  @default(true)
+  voice          String   @default("pm_nicolas")
   /// { bpm, semente, db } ou nulo = sem trilha
-  soundtrack Json?
-  createdBy  String?  @map("created_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  soundtrack     Json?
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   renders      StudioRender[]
   organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
