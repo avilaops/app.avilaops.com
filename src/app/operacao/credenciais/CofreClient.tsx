@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Grupo, LinhaDobravel, LinhaInfo } from "@/components/sistema/Lista";
 import BadgeStatus from "@/components/sistema/Status";
+import { LogoSocial, type MarcaSocial } from "@/components/ui/LogoSocial";
 import type { CredencialEmLista } from "@/lib/credenciais";
 import { contar } from "@/lib/format";
 
@@ -16,6 +17,21 @@ const ROTULO_CATEGORIA: Record<string, string> = {
   mercadolivre: "Mercado Livre",
   x: "X (Twitter)",
   outros: "Outros",
+};
+
+/*
+ * Logotipo do provedor de cada categoria. Mercado Pago, Mercado Livre e
+ * "Outros" ficam de fora porque não há arquivo com procedência para eles em
+ * `public/marca/social/`: categoria sem marca mostra só o título, que é
+ * melhor do que a marca errada.
+ */
+const MARCA_CATEGORIA: Record<string, MarcaSocial> = {
+  meta: "facebook",
+  whatsapp: "whatsapp",
+  instagram: "instagram",
+  threads: "threads",
+  google: "google",
+  x: "x",
 };
 
 const EXPLICACAO_STATUS: Record<string, string> = {
@@ -212,7 +228,13 @@ export default function CofreClient({
       ) : null}
 
       {porCategoria.map(([nome, itens]) => (
-        <Grupo key={nome} titulo={`${ROTULO_CATEGORIA[nome] ?? nome} · ${itens.length}`}>
+        <Grupo
+          key={nome}
+          titulo={`${ROTULO_CATEGORIA[nome] ?? nome} · ${itens.length}`}
+          marca={
+            MARCA_CATEGORIA[nome] ? <LogoSocial marca={MARCA_CATEGORIA[nome]} tamanho={16} /> : undefined
+          }
+        >
           {itens.map((credencial) => {
             const emEdicao = editando === credencial.chave;
             const revelada = reveladas[credencial.chave];
