@@ -409,9 +409,16 @@ export async function sincronizarInstagram(actorId: string, organizationId: stri
         profilePictureUrl: perfil.profile_picture_url ?? null,
         followersCount: perfil.followers_count ?? null,
         mediaCount: perfil.media_count ?? null,
+        // A origem entra também na atualização, senão uma linha que chegou
+        // antes pelo Facebook continuaria marcada assim e sumiria do bloco do
+        // login próprio, que filtra por `origem`.
+        origem: ORIGEM_LOGIN_PROPRIO,
         lastSyncedAt: agora,
         rawMetadata: perfil as object,
       },
+      // `organizationId` fica de fora de propósito, ao contrário de
+      // `salvarConexaoInstagram`: mudar a conta de cliente é consequência de um
+      // consentimento novo, nunca de uma releitura de perfil.
     });
 
     await transacao.organizationIntegrationConnection.update({
