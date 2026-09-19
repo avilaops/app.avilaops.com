@@ -327,8 +327,8 @@ export function consolidar(
         .filter((ns): ns is string => typeof ns === "string"),
       statusRdap: rdap.dados.status ?? [],
       mensagem: expiraEm
-        ? `Registrado no Registro.br${nome ? ` por ${nome}` : ""}.`
-        : `Registrado no Registro.br${nome ? ` por ${nome}` : ""}, sem data de expiração publicada${avail?.exempt ? " (domínio isento)" : ""}.`,
+        ? `Registrado${nome ? `, titular ${nome}` : ""}.`
+        : `Registrado${nome ? `, titular ${nome}` : ""}, sem data de expiração publicada${avail?.exempt ? " (domínio isento de pagamento)" : ""}.`,
     };
   }
 
@@ -337,14 +337,14 @@ export function consolidar(
     // Nada dessa resposta serve para este domínio: nem data, nem titular. Quem
     // decide aqui é o `avail`, que foi consultado pelo nome exato.
     const porAvail = statusDoAvail(avail?.status);
-    const explicacao = `O RDAP respondeu sobre ${rdap.ldhName}, não sobre ${fqdn}: no .br o hífen é insignificante e a consulta é redirecionada. Nada daquela resposta vale para este domínio.`;
+    const explicacao = `A consulta foi redirecionada para ${rdap.ldhName}, que é outro domínio: no .br o hífen é insignificante. Nada daquela resposta vale para ${fqdn}.`;
 
     return {
       ...base,
       status: porAvail === "REGISTRADO" ? "DESCONHECIDO" : porAvail,
       mensagem:
         porAvail === "REGISTRADO"
-          ? `${explicacao} A busca do site diz que o nome está tomado, mas sem dizer por quem. Conferir manualmente.`
+          ? `${explicacao} A fonte secundária diz que o nome está tomado, sem dizer por quem. Conferir manualmente.`
           : base.motivos.length > 0
             ? `${explicacao} ${base.motivos.join("; ")}.`
             : explicacao,
@@ -362,14 +362,14 @@ export function consolidar(
         mensagem:
           base.motivos.length > 0
             ? `Sem registro, mas indisponível: ${base.motivos.join("; ")}.`
-            : "Sem registro, mas o Registro.br não aceita este nome.",
+            : "Sem registro, mas este nome não é aceito para registro.",
       };
     }
 
     return {
       ...base,
       status: "LIVRE",
-      mensagem: "Nenhum registro no Registro.br. Confirmar o preço final antes de contratar.",
+      mensagem: "Nenhum registro encontrado. Confirmar o preço final antes de contratar.",
     };
   }
 
@@ -387,15 +387,15 @@ export function consolidar(
       nameservers: avail?.hosts ?? [],
       mensagem: culpaDoNome
         ? base.motivos.length > 0
-          ? `O Registro.br não aceita este nome: ${base.motivos.join("; ")}.`
-          : "O Registro.br não aceita este nome."
-        : `RDAP indisponível (HTTP ${rdap.http}); resultado vindo só da busca do site do Registro.br, que não é uma interface documentada.`,
+          ? `Este nome não é aceito para registro: ${base.motivos.join("; ")}.`
+          : "Este nome não é aceito para registro."
+        : `A fonte principal não respondeu (HTTP ${rdap.http}). O resultado veio de uma fonte secundária, que não é documentada e pode mudar sem aviso.`,
     };
   }
 
   return {
     ...base,
-    mensagem: `Não foi possível consultar o Registro.br agora (RDAP HTTP ${rdap.http}). Conferir manualmente.`,
+    mensagem: `Não foi possível consultar o registro agora (HTTP ${rdap.http}). Conferir manualmente.`,
   };
 }
 

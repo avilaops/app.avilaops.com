@@ -672,21 +672,30 @@ a {
 }
 
 .range-switch a,
-.filter-tabs a {
+/* `button` junto de `a` porque nem todo filtro navega: a carteira de
+   domínios troca o recorte no cliente, e um chip sem estilo da casa nasceria
+   com outro tamanho e outro alvo de toque. */
+.filter-tabs a,
+.filter-tabs button {
   padding: 5px 10px;
+  border: 0;
+  background: transparent;
   border-radius: 999px;
   color: var(--muted);
   font-size: 0.8125rem;
+  cursor: pointer;
 }
 
 .range-switch a:hover,
-.filter-tabs a:hover {
+.filter-tabs a:hover,
+.filter-tabs button:hover {
   background: var(--hover-bg);
   color: var(--text);
 }
 
 .range-switch a.active,
-.filter-tabs a.active {
+.filter-tabs a.active,
+.filter-tabs button.active {
   background: var(--active-bg);
   color: var(--text);
   font-weight: 600;
@@ -5614,6 +5623,7 @@ tbody tr:last-child td {
   }
 
   .filter-tabs a,
+  .filter-tabs button,
   .range-switch a,
   .account-switch a {
     display: inline-flex;
@@ -8718,9 +8728,23 @@ main [data-slot="select-trigger"]:focus-visible {
     padding-bottom: var(--e4);
   }
 
+  /* As ações ganham a própria linha abaixo do título. Em linha com ele, a
+     190px que sobram espremiam o subtítulo em quatro linhas atrás dos botões:
+     acontece em Domínios, Google e Campanhas, então a correção é aqui. */
   .tela-cabecalho {
+    flex-wrap: wrap;
     gap: var(--e2);
     margin-bottom: var(--e4);
+  }
+
+  .tela-cabecalho-acoes {
+    width: 100%;
+  }
+
+  .tela-cabecalho-acoes > * {
+    flex: 1 1 0;
+    justify-content: center;
+    text-align: center;
   }
 
   .tela-cabecalho h1 {

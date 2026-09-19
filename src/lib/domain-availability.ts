@@ -64,7 +64,7 @@ export async function checkDomainAvailability(domainInput: string): Promise<Doma
         domain,
         status: "AVAILABLE",
         source: "RDAP",
-        message: "Nenhum registro RDAP encontrado. Confirmar preço final no provedor antes da contratação.",
+        message: "Nenhum registro encontrado. Confirmar o preço final antes de contratar.",
         expiresAt: null,
         holder: null,
       };
@@ -75,7 +75,7 @@ export async function checkDomainAvailability(domainInput: string): Promise<Doma
         domain,
         status: "UNAVAILABLE",
         source: "RDAP",
-        message: "Domínio já possui registro público.",
+        message: "Domínio já tem registro público.",
         expiresAt: null,
         holder: null,
       };
@@ -85,14 +85,14 @@ export async function checkDomainAvailability(domainInput: string): Promise<Doma
       domain,
       status: "UNKNOWN",
       source: "RDAP",
-      message: `RDAP retornou HTTP ${response.status}. Confirmar manualmente no provedor.`,
+      message: `A consulta devolveu HTTP ${response.status}. Conferir manualmente.`,
     };
   } catch {
     return {
       domain,
       status: "UNKNOWN",
       source: "RDAP",
-      message: "Não foi possível consultar o RDAP agora. Confirmar manualmente no provedor.",
+      message: "Não foi possível consultar o registro agora. Conferir manualmente.",
     };
   } finally {
     clearTimeout(timeout);
