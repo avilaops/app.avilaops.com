@@ -7,6 +7,7 @@ import MetaOperationsNav from "@/components/MetaOperationsNav";
 import { getAdmin } from "@/lib/auth";
 import { getMetaConnectionStatus, metaRedirectUri } from "@/lib/meta";
 import { prisma } from "@/lib/prisma";
+import { obterCredencial } from "@/lib/credenciais";
 
 export default async function MetaOperationsPage({
   searchParams,
@@ -25,6 +26,13 @@ export default async function MetaOperationsPage({
   });
   const selectedOrganizationId = params.organizationId || organizations[0]?.id || "";
   const status = await getMetaConnectionStatus(selectedOrganizationId || null);
+  const [instagramApp, instagramSecret, instagramConnection] = await Promise.all([
+    obterCredencial("INSTAGRAM_APP_ID"), obterCredencial("INSTAGRAM_APP_SECRET"),
+    prisma.organizationIntegrationConnection.findUnique({
+      where: { organizationId_provider: { organizationId: selectedOrganizationId, provider: "instagram_login" } },
+      select: { accountName: true, status: true, tokenExpiresAt: true },
+    }),
+  ]);
   const appUrl = process.env.APP_URL || "https://app.avilaops.com";
   const callbackUrl = await metaRedirectUri(appUrl);
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
@@ -34,7 +42,7 @@ export default async function MetaOperationsPage({
       <CabecalhoPagina
         titulo="Meta Business"
         subtitulo="Contas, formulários e webhooks ligados à operação."
-        meta={<BadgeStatus status={status.connected ? "connected" : "pending"} />}
+        meta={<BadgeStatus status={status.connected || (instagramConnection?.status === "ACTIVE" && (!instagramConnection.tokenExpiresAt || instagramConnection.tokenExpiresAt > new Date())) ? "connected" : "pending"} />}
       />
 
       <MetaOperationsNav active="connection" organizationId={selectedOrganizationId} />
@@ -46,7 +54,10 @@ export default async function MetaOperationsPage({
       />
 
       <MetaBusinessPanel
+        key={selectedOrganizationId}
         initialStatus={status}
+        instagramConfigured={Boolean(instagramApp && instagramSecret)}
+        instagramAccount={instagramConnection?.status === "ACTIVE" && (!instagramConnection.tokenExpiresAt || instagramConnection.tokenExpiresAt > new Date()) ? instagramConnection.accountName : null}
         selectedOrganizationId={selectedOrganizationId}
         callbackUrl={callbackUrl}
         webhookUrl={webhookUrl}

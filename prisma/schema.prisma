@@ -1035,6 +1035,8 @@ model MetaPage {
 }
 
 model InstagramAccount {
+  accountType          String?   @map("account_type")
+  origem               String    @default("facebook")
   id                   String    @id @default(cuid())
   organizationId       String?   @map("organization_id")
   businessAccountRefId String?   @map("business_account_ref_id")
@@ -1059,6 +1061,7 @@ model InstagramAccount {
   @@index([businessAccountRefId])
   @@index([pageRefId])
   @@map("instagram_accounts")
+  @@index([origem])
   @@schema("operations")
 }
 

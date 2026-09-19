@@ -54,6 +54,8 @@ function CartaoAviso({ tom, children }: Aviso) {
 
 export default function MetaBusinessPanel({
   initialStatus,
+  instagramConfigured = false,
+  instagramAccount = null,
   selectedOrganizationId,
   callbackUrl,
   webhookUrl,
@@ -62,6 +64,8 @@ export default function MetaBusinessPanel({
   lidoEm,
 }: {
   initialStatus: MetaConnectionStatus;
+  instagramConfigured?: boolean;
+  instagramAccount?: string | null;
   selectedOrganizationId: string;
   callbackUrl: string;
   webhookUrl: string;
@@ -237,7 +241,7 @@ export default function MetaBusinessPanel({
             </div>
             <ListaChaveValor
               titulo="Conexão"
-              descricao="Token OAuth do cliente selecionado. Não há token de sistema fora do app."
+              descricao="Conecte as redes sociais da empresa selecionada com sua conta do Facebook ou do Instagram."
               itens={itensConexao}
             />
           </div>
@@ -245,7 +249,7 @@ export default function MetaBusinessPanel({
           <div className="flex flex-col gap-2 min-[560px]:flex-row">
             {status.configured ? (
               <Button asChild className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm">
-                <a href={oauthHref}>{status.connected ? "Reconectar Meta" : "Conectar Meta"}</a>
+                <a href={oauthHref}>{status.connected ? "Reconectar Facebook" : "Entrar com Facebook"}</a>
               </Button>
             ) : (
               <Button asChild className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm">
@@ -255,10 +259,23 @@ export default function MetaBusinessPanel({
                   className="pointer-events-none opacity-50"
                   title="Configure as variáveis de ambiente antes de conectar."
                 >
-                  {status.connected ? "Reconectar Meta" : "Conectar Meta"}
+                  {status.connected ? "Reconectar Facebook" : "Entrar com Facebook"}
                 </a>
               </Button>
             )}
+          </div>
+          <p className="text-sm text-muted-foreground">Facebook: conecte suas Páginas e o Instagram profissional associado a elas.</p>
+          <div className="rounded-xl border border-border p-4 space-y-3">
+            <p className="text-sm text-muted-foreground">Instagram: conecte uma conta profissional diretamente, mesmo sem uma Página do Facebook.</p>
+            {instagramAccount ? <p className="text-sm">Conta conectada: <strong>@{instagramAccount}</strong></p> : null}
+            {instagramConfigured && selectedOrganizationId ? <Button asChild variant="outline" className="min-h-[50px] w-full text-[15px]">
+              <a href={`/api/integrations/instagram/oauth/start?${organizationQuery}`}>{instagramAccount ? "Reconectar Instagram" : "Entrar com Instagram"}</a>
+            </Button> : <>
+              <Button disabled variant="outline" className="min-h-[50px] w-full text-[15px]">Entrar com Instagram</Button>
+              <p className="text-sm text-muted-foreground">O login direto do Instagram aguarda configuração. Você já pode conectar pelo Facebook uma conta profissional vinculada à sua Página.</p>
+            </>}
+          </div>
+          <div>
             <Button
               type="button"
               variant="outline"
