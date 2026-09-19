@@ -7,7 +7,7 @@ import TaskQuickAdd from "@/components/TaskQuickAdd";
 import TaskStatusControl from "@/components/TaskStatusControl";
 import { getAdmin } from "@/lib/auth";
 import { getDeliverablesForProject } from "@/lib/deliverables";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { formatCurrency, formatShortDate, nomeProprio } from "@/lib/format";
 import { getProjectDetail } from "@/lib/projects";
 
 const statusLabels: Record<string, string> = {
@@ -56,7 +56,7 @@ export default async function ProjectDetailPage({
             <Link href="/projetos" className="text-link">
               Entregas
             </Link>{" "}
-            · {project.organization.name}
+            · {nomeProprio(project.organization.name)}
             {project.brand ? ` · ${project.brand.name}` : ""}
           </span>
           <h1>{project.title}</h1>

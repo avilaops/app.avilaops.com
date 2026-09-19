@@ -638,6 +638,64 @@ a {
   margin-top: 10px;
 }
 
+/* O gráfico do Financeiro ocupa a largura toda desde que o painel de
+   contagens saiu daqui (os números foram para os chips de filtro). */
+.chart-section {
+  display: block;
+  margin-top: 10px;
+}
+
+/* Estado e escopo, um sob o outro, como duas fileiras de chips do mesmo
+   bloco: é um filtro só, aplicado à mesma lista. */
+.filter-rows {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+
+/* Explicação que abre a um toque. Texto de regra (o que é escopo, por que o
+   identificador do Pix é conferido) é leitura de uma vez só: aberto por
+   padrão, ele empurrava para fora da tela justamente o campo que resolve a
+   tarefa. O mesmo bloco serve a folha e a página — é um `<details>`, então
+   quem usa teclado ou leitor de tela ganha o comportamento pronto. */
+.explicacao {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.explicacao > summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.explicacao > summary::-webkit-details-marker {
+  display: none;
+}
+
+.explicacao > summary::before {
+  margin-right: 6px;
+  content: "?";
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+  font-size: 0.6875rem;
+}
+
+.explicacao > p {
+  max-width: 62ch;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
 .section-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1629,6 +1687,10 @@ tbody tr:last-child td {
 .client-summary-strip strong {
   color: var(--text);
   font-weight: 600;
+}
+
+.client-summary-strip i {
+  font-style: normal;
 }
 
 /* Lista agrupada, no padrão de Ajustes do iOS: um cartão só, uma linha por
@@ -2863,10 +2925,32 @@ tbody tr:last-child td {
     overflow-y: auto;
   }
 
+  /* Quatro números viravam quatro linhas empilhadas: 350px de altura antes do
+     primeiro cliente, para quatro valores de um dígito. Viram quatro colunas
+     — rótulo pequeno em cima, número embaixo — em uma linha só. */
   .client-summary-strip {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 6px;
+  }
+
+  .client-summary-strip > span {
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    text-align: center;
+  }
+
+  .client-summary-strip i {
+    color: var(--subtle-text);
+    font-size: 0.6875rem;
+  }
+
+  .client-summary-strip strong {
+    font-family: var(--mono);
+    font-size: 1.0625rem;
   }
 
   .report-hero dl {
@@ -4577,42 +4661,34 @@ tbody tr:last-child td {
   padding-top: 4px;
 }
 
-/* Conciliação pelo comprovante: é o caminho principal da folha quando o Pix
-   chegou sem pagador, então vem numa superfície própria, acima da revisão
-   manual, e não como mais um campo solto na mesma pilha. */
+/* `display: grid` de classe vence o `[hidden]` da folha de estilo do
+   navegador: sem esta linha, um formulário marcado como escondido continuaria
+   na tela. */
+.form-stack[hidden] {
+  display: none;
+}
+
+/* Escolha do caminho no topo da folha: "Pelo comprovante" ou "À mão". */
+.folha-caminhos {
+  padding: 8px 0 4px;
+}
+
+/* A superfície própria que o bloco do comprovante tinha existia para separá-lo
+   da revisão manual logo abaixo. Com um caminho por vez, a moldura só somava
+   borda dentro de borda. */
 .comprovante-bloco {
-  padding: 16px;
-  border: 1px solid var(--line);
-  background: var(--surface-soft);
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
-.comprovante-cabecalho h3 {
-  margin: 0 0 6px;
-  font-size: 0.9375rem;
-}
 
-.comprovante-cabecalho p {
-  max-width: 62ch;
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.8125rem;
-  line-height: 1.5;
-}
 
 /* Só o identificador em monoespaçada: é o campo que se compara caractere a
    caractere com o comprovante. Nome de empresa em mono fica ilegível. */
 .campo-identificador input {
   font-family: var(--mono);
   font-size: 0.8125rem;
-}
-
-.comprovante-separador {
-  margin: 20px 0 0;
-  color: var(--muted);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .field {
@@ -5939,20 +6015,38 @@ tbody tr:last-child td {
     border-radius: 20px 20px 0 0;
   }
 
-  /* Lista de clientes: identidade + estado na primeira linha, números embaixo. */
-  /* Uma linha por cliente. Antes eram duas faixas — identidade em cima, os
-     quatro contadores numa grade embaixo - e cada cliente ocupava quase 3 cm:
-     numa lista de 22, rolar era o único jeito de ver quem existe. Os rótulos
-     ("Marcas", "Projetos"...) se repetiam em toda linha sem dizer nada de
-     novo, então saem daqui e ficam só os números. */
+  /* Lista de clientes: identidade + estado na primeira linha, o que está
+     aberto na segunda.
+
+     A tira de números disputava a linha com o nome e ganhava: "M 0 P 0 T 0
+     D 2" ficava inteira enquanto "Clínica Horizonte" virava "Clínica
+     Horiz…". Pior, `.client-identity` tinha `min-width: 60%` dentro de uma
+     grade cujas colunas somam 100% — os números subiam por cima do nome em
+     quem tem nome comprido. Agora o nome tem a linha inteira menos o selo, e
+     os contadores descem para a segunda linha, por extenso e só quando
+     existem. */
   .client-row {
     position: relative;
     min-height: 56px;
-    grid-template-columns: minmax(0, 1fr) auto auto 16px;
-    grid-template-areas: "identity signals pill chevron";
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+    grid-template-areas:
+      "identity pill chevron"
+      "signals signals signals";
     align-items: center;
-    gap: 10px;
-    padding: 10px 0;
+    gap: 2px 10px;
+    padding: 8px 0;
+  }
+
+  /* Só a lista de organizações: a identidade ocupa as duas linhas da
+     esquerda. Em cima o nome disputa espaço apenas com o selo; embaixo, o
+     número do cliente divide a linha com os contadores. Nenhum dos dois pares
+     briga pela mesma largura — era essa briga que cortava o nome em
+     "Clínica Horiz…". Vaga e projeto continuam com os sinais numa faixa
+     própria: lá os valores são data e nome, não números de um dígito. */
+  .org-row {
+    grid-template-areas:
+      "identity pill chevron"
+      "identity signals signals";
   }
 
   .client-index {
@@ -5962,6 +6056,11 @@ tbody tr:last-child td {
   .client-identity {
     grid-area: identity;
     min-width: 0;
+    align-self: center;
+  }
+
+  .client-legal {
+    display: none;
   }
 
   .client-identity > div {
@@ -5974,14 +6073,6 @@ tbody tr:last-child td {
     font-size: 0.9375rem;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  /* No celular o nome perdia a disputa por espaco: sobravam sete caracteres e
-     reticencias ("Mello...", "Parts..."), e a lista deixava de responder
-     "quem sao meus clientes". A tira de numeros e o item que menos importa
-     nessa tela, entao e ela que encolhe. */
-  .client-identity {
-    min-width: 60%;
   }
 
   .client-identity small {
@@ -6009,25 +6100,37 @@ tbody tr:last-child td {
     color: var(--subtle-text);
   }
 
-  /* Os contadores viram uma tira de números com a inicial do rótulo lida por
-     leitor de tela (o dt continua no HTML, só não ocupa espaço). */
+  /* Segunda linha: "3 projetos · 2 domínios", alinhada com o nome (a sigla de
+     uma letra só era legível para quem já sabia o que ela media). Contador em
+     zero não aparece — numa carteira nova quase todos são zero, e quatro
+     zeros por linha é a definição de ruído. O <dt> continua no HTML para o
+     leitor de tela, que não lê `content`. */
   .client-signals {
     grid-area: signals;
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
+
+  .org-signals {
+    justify-content: flex-end;
   }
 
   .client-signals div {
     display: flex;
     align-items: baseline;
-    gap: 2px;
+    gap: 3px;
     padding: 0;
     border-left: 0;
   }
 
-  .client-signals div::before {
+  .org-signals div[data-zero="sim"] {
+    display: none;
+  }
+
+  .org-signals div::after {
     color: var(--subtle-text);
-    content: attr(data-sigla);
+    content: attr(data-unidade);
     font-size: 0.6875rem;
   }
 
@@ -6045,6 +6148,13 @@ tbody tr:last-child td {
     color: var(--subtle-text);
     font-size: 0.8125rem;
     text-align: center;
+  }
+
+  .org-signals dd {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    text-align: left;
   }
 
   /* Projetos não entra na tira: os valores lá são nome e data, não números de
@@ -6066,10 +6176,6 @@ tbody tr:last-child td {
   .project-signals div {
     display: grid;
     gap: 2px;
-  }
-
-  .project-signals div::before {
-    content: none;
   }
 
   .project-signals dt {
@@ -9068,6 +9174,28 @@ main [data-slot="select-trigger"]:focus-visible {
     gap: 6px;
   }
 
+  /* Rótulo em cima, valor embaixo. Abaixo de 560px o valor ia para uma
+     segunda coluna `auto`, e num cartão de ~170px essa coluna ficava com a
+     largura toda: "Capturado em 18/09/2026, 23:34" era escrito por baixo de
+     "R$ 350,50", e "Saídas · 30 dias" sumia atrás do próprio número. Lado a
+     lado só cabe quando o cartão ocupa a linha inteira; aqui são dois por
+     linha. */
+  .metric-grid > .metric {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 2px;
+  }
+
+  .metric-grid > .metric > span,
+  .metric-grid > .metric > .balance-card-head,
+  .metric-grid > .metric > strong,
+  .metric-grid > .metric > small,
+  .metric-grid > .metric > .progress-track {
+    grid-column: 1;
+    grid-row: auto;
+    text-align: left;
+  }
+
   .metric-grid > * {
     min-height: 0;
     padding: 8px 10px;
@@ -9123,12 +9251,8 @@ main [data-slot="select-trigger"]:focus-visible {
     padding: 7px 0;
   }
 
-  .client-summary-strip {
-    gap: 6px;
-  }
-
   .client-summary-strip > * {
-    padding: 8px 10px;
+    padding: 2px 4px;
   }
 
   .client-summary-number {

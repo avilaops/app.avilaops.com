@@ -10,6 +10,7 @@ import OperacaoPanel from "@/components/OperacaoPanel";
 import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { getAdmin } from "@/lib/auth";
+import { nomeProprio } from "@/lib/format";
 import { montarPainel } from "@/lib/cadastro-ia/assistente";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
 import { listarCaixasDosDominios } from "@/lib/mail";
@@ -126,7 +127,7 @@ export default async function ClientDossierPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="clients">
-      <header className="client-workspace-header"><Link href="/clientes" className="seo-back">‹ Clientes</Link><div><span className="eyebrow">ÁREA DE TRABALHO</span><h1>{organization.name}</h1><p>Nº {organization.clientNumber} · {organization.legalName ?? organization.slug} · <span className="seo-state good">{organization.status}</span></p></div></header>
+      <header className="client-workspace-header"><Link href="/clientes" className="seo-back">‹ Clientes</Link><div><span className="eyebrow">ÁREA DE TRABALHO</span><h1>{nomeProprio(organization.name)}</h1><p>Nº {organization.clientNumber} · {organization.legalName ?? organization.slug} · <span className="seo-state good">{organization.status}</span></p></div></header>
       <ClientSectionNav clientId={id} active={section} />
 
       {section === "summary" ? <ClientSummary organization={organization} /> : null}
