@@ -72,7 +72,7 @@ export default function IntegracoesDominio({
   ];
 
   return (
-    <section aria-label="Integrações do domínio" className="grid gap-6 min-[821px]:grid-cols-3 min-[821px]:items-start">
+    <section aria-label="Integrações do domínio" className="grid gap-6 max-[820px]:gap-4 min-[821px]:grid-cols-3 min-[821px]:items-start">
       <div className="min-[821px]:col-span-1">
         <CartaoLista rotulo="Integrações">
           <ul className="m-0 list-none p-0">

@@ -47,6 +47,32 @@ Manrope, carregada por `next/font` em `src/app/layout.tsx` e exposta em `--fonte
 - Raio: `--raio-p` 10px (ícone, botão), `--raio-m` 14px (superfície de lista), `--raio-g` 20px (área de conteúdo do desktop). A cápsula da barra de abas usa 26px, que é metade da altura dela.
 - Sombra: `--sombra-1` para superfície apoiada, `--sombra-2` só para o que flutua (barra de abas). Não existe terceira.
 
+## Densidade do celular
+
+A escala acima é a do desktop. Abaixo de 820px ela sobrava: uma linha de lista
+gastava 70px, um cartão de movimentação 176px e cinco campos de formulário
+comiam a tela inteira. Os tokens da régua do celular ficam num `@media
+(max-width: 820px)` logo depois do `:root` da seção "Sistema visual". Quem for
+compactar uma tela nova mexe neles, não em cada componente.
+
+| Token | Valor | O que governa |
+|---|---|---|
+| `--cel-pad-pagina` | 16px | recuo lateral do `.main-canvas` |
+| `--cel-gap-secao` | 16px | distância entre grupos da mesma tela |
+| `--cel-pad-cartao` | 14px | respiro interno de cartão (assistente de cadastro) |
+| `--cel-linha` | 52px | altura mínima de linha de lista (≈58px com descrição) |
+| `--cel-controle` | 48px | altura de campo, select e botão do CEP |
+| `--cel-raio` | 14px | raio de superfície no celular |
+| `--cel-nav` | 64px | altura real da barra de abas, usada no `padding-bottom` do conteúdo |
+
+Eles não encolhem alvo de toque nem fonte de campo: o que é tocável continua
+com 44px ou mais (`.tab-item` 48, `.primary-button`/`.secondary-button` 46,
+`.row-action` e `.scope-select` 44) e campo de formulário continua com 16px de
+fonte, senão o Safari dá zoom ao focar.
+
+Tipografia no celular: `h1` 26px, título de grupo 18px, linha 15px, descrição
+13px, rótulo de campo 13px, texto de campo 16px, rótulo de aba 11px.
+
 ## Componentes
 
 Em `src/components/sistema/`:
@@ -80,7 +106,11 @@ Em `src/components/sistema/`:
 
 ## Alvos de toque
 
-Mínimo de 44px no celular: linha de lista tem 56px, aba tem 48px, botão voltar tem 40px com área de toque de 44px. Campo de formulário tem 16px de fonte abaixo de 820px, para o Safari não dar zoom.
+Mínimo de 44px no celular: aba tem 48px, botão de tela 46px, ação de linha e
+select de escopo 44px, botão voltar tem 40px com área de toque de 44px. Campo
+de formulário tem 16px de fonte abaixo de 820px, para o Safari não dar zoom.
+A linha de lista tem 52px de altura mínima (58 com descrição) e é tocável por
+inteiro — a altura da linha não é o alvo de toque de um controle dentro dela.
 
 ## Estados do sistema
 
@@ -100,6 +130,22 @@ Um mapa só: `src/lib/status-rotulos.ts` (status interno → rótulo em portugu�
 ## Barra de ferramentas
 
 `.barra-ferramentas` no catálogo de serviços é o padrão: busca à esquerda (cresce), filtros do lado, ação primária à direita. Campo e select têm 40px, sem borda, com sombra 1 e foco azul. Abaixo de 560px a barra quebra em linhas.
+
+## Listas que eram cartões
+
+Três lugares trocaram cartão-dentro-de-cartão por superfície única com fio
+entre as linhas, que é o padrão da casa:
+
+- **Movimentações bancárias** (`.tx-row` abaixo de 820px): três andares — o quê
+  + valor, quem + quando, e a linha de decisão (escopo, situação, ação). O
+  andar do vínculo só existe quando há vínculo. De 176px para 120px.
+- **"Só o cliente responde"** no assistente de cadastro: usa `Grupo` +
+  `LinhaInfo`, não seis caixas tracejadas.
+- **Contatos recentes** da newsletter: e-mail, identificação, e uma faixa com
+  etiqueta, estado e ação. De 139px para ~112px por contato.
+
+Não existe borda tracejada no sistema. O que é discreto fica discreto pelo tom
+da superfície (`--superficie-suave`), como o aviso de ambiente do assistente.
 
 ## Resumo numérico
 

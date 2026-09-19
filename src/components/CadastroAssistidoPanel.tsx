@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Grupo, LinhaInfo } from "@/components/sistema/Lista";
 
 /**
  * Assistente de cadastro: mostra o que falta na ficha do cliente, de onde
@@ -382,18 +383,18 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
 
       {soComOCliente.length > 0 ? (
         <div className="cadastro-ia-perguntar">
-          <div className="seo-section-heading">
-            <h3>Só o cliente responde</h3>
-            <span className="cadastro-ia-contador">{soComOCliente.length} campos</span>
-          </div>
-          <ul>
+          <Grupo
+            titulo="Só o cliente responde"
+            acao={<span className="cadastro-ia-contador">{soComOCliente.length} campos</span>}
+          >
             {soComOCliente.map((lacuna) => (
-              <li key={lacuna.chave}>
-                <strong>{lacuna.rotulo}</strong>
-                <small>{lacuna.porque ?? lacuna.grupo}</small>
-              </li>
+              <LinhaInfo
+                key={lacuna.chave}
+                titulo={lacuna.rotulo}
+                descricao={lacuna.porque ?? lacuna.grupo}
+              />
             ))}
-          </ul>
+          </Grupo>
         </div>
       ) : null}
     </section>

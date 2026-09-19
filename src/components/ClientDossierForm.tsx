@@ -866,17 +866,17 @@ export default function ClientDossierForm({
           <label>Produtos oferecidos<textarea name="productsOffered" rows={4} defaultValue={valueOf(organization.profile?.productsOffered)} /></label>
           <label>Diferenciais comerciais<textarea name="commercialDifferentials" rows={3} defaultValue={valueOf(organization.profile?.commercialDifferentials)} /></label>
           <label>Área de atendimento<textarea name="serviceArea" rows={3} defaultValue={valueOf(organization.profile?.serviceArea)} /></label>
-          <label>CEP<input name="postalCode" defaultValue={primaryAddress?.postalCode ?? valueOf(organization.profile?.postalCode)} /></label>
-          <button className="secondary-button cep-button" type="button" onClick={fillAddressFromCep} disabled={loadingCep}>
+          <label className="campo-curto">CEP<input name="postalCode" defaultValue={primaryAddress?.postalCode ?? valueOf(organization.profile?.postalCode)} /></label>
+          <button className="secondary-button cep-button campo-curto" type="button" onClick={fillAddressFromCep} disabled={loadingCep}>
             {loadingCep ? "Consultando..." : "Preencher pelo CEP"}
           </button>
           <label>Logradouro<input name="street" defaultValue={primaryAddress?.street ?? valueOf(organization.profile?.street)} /></label>
-          <label>Número<input name="number" defaultValue={primaryAddress?.number ?? valueOf(organization.profile?.number)} /></label>
-          <label>Complemento<input name="complement" defaultValue={primaryAddress?.complement ?? valueOf(organization.profile?.complement)} /></label>
-          <label>Bairro<input name="district" defaultValue={primaryAddress?.district ?? valueOf(organization.profile?.district)} /></label>
-          <label>Cidade<input name="city" defaultValue={primaryAddress?.city ?? valueOf(organization.profile?.city)} /></label>
-          <label>Estado<input name="state" defaultValue={primaryAddress?.state ?? valueOf(organization.profile?.state)} /></label>
-          <label>País<input name="country" defaultValue={(primaryAddress?.country ?? valueOf(organization.profile?.country)) || "Brasil"} /></label>
+          <label className="campo-curto">Número<input name="number" defaultValue={primaryAddress?.number ?? valueOf(organization.profile?.number)} /></label>
+          <label className="campo-curto">Complemento<input name="complement" defaultValue={primaryAddress?.complement ?? valueOf(organization.profile?.complement)} /></label>
+          <label className="campo-curto">Bairro<input name="district" defaultValue={primaryAddress?.district ?? valueOf(organization.profile?.district)} /></label>
+          <label className="campo-curto">Cidade<input name="city" defaultValue={primaryAddress?.city ?? valueOf(organization.profile?.city)} /></label>
+          <label className="campo-curto">Estado<input name="state" defaultValue={primaryAddress?.state ?? valueOf(organization.profile?.state)} /></label>
+          <label className="campo-curto">País<input name="country" defaultValue={(primaryAddress?.country ?? valueOf(organization.profile?.country)) || "Brasil"} /></label>
         </div>
       </section>
 

@@ -215,6 +215,49 @@ async function main() {
     });
   }
 
+  // Movimentações bancárias: sem elas a tela do Financeiro aparece vazia nos
+  // prints e na conferência de densidade, que é justamente onde o cartão de
+  // movimentação precisa ser medido.
+  if ((await prisma.bankTransaction.count()) === 0) {
+    // `efi-production` é a conta padrão que o painel escolhe (DEFAULT_ACCOUNT_ID
+    // em src/lib/dashboard.ts). Pendurar as movimentações em outra conta faria
+    // a tela continuar vazia.
+    const conta = await prisma.bankAccount.upsert({
+      where: { id: "efi-production" },
+      update: {},
+      create: {
+        id: "efi-production",
+        provider: "efi",
+        externalId: "exemplo-0001",
+        displayName: "Conta exemplo",
+        environment: "producao",
+      },
+    });
+    const movimentos = [
+      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO" },
+      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL" },
+      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL" },
+      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA" },
+      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA" },
+    ];
+    for (const [i, m] of movimentos.entries()) {
+      await prisma.bankTransaction.create({
+        data: {
+          accountId: conta.id,
+          externalId: `exemplo-mov-${i}`,
+          direction: m.d,
+          transactionType: m.t,
+          amount: m.v,
+          description: m.desc,
+          counterpartyName: m.quem,
+          occurredAt: haDias(i),
+          rawHash: `exemplo-mov-${i}`,
+          scope: m.escopo,
+        },
+      });
+    }
+  }
+
   if ((await prisma.studioPiece.count()) === 0) {
     const pecas = [
       { title: "Cartão de chamada", templateId: "cartao-chamada", format: "4:5", kind: "image", status: "DONE", w: 1080, h: 1350 },
