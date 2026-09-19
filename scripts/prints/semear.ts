@@ -192,6 +192,25 @@ async function main() {
       lastSyncStatus: "SUCCESS",
     },
   });
+  // Instagram pelo login próprio, com o token dentro da janela de renovação:
+  // é o estado que o print precisa mostrar, porque é nele que a tela ganha a
+  // badge de renovação automática e o bloco inteiro aparece.
+  await prisma.organizationIntegrationConnection.upsert({
+    where: { organizationId_provider: { organizationId: horizonte.id, provider: "instagram_login" } },
+    update: {},
+    create: {
+      organizationId: horizonte.id,
+      provider: "instagram_login",
+      status: "ACTIVE",
+      accountName: "clinicahorizonte",
+      externalId: "17841400000000001",
+      scopes: ["instagram_business_basic", "instagram_business_manage_comments"],
+      tokenExpiresAt: emDias(6),
+      lastSyncedAt: haMin(90),
+      lastSyncStatus: "REFRESHED",
+    },
+  });
+
   const bm = await prisma.metaBusinessAccount.upsert({
     where: { businessId: "exemplo-bm-1" },
     update: {},

@@ -39,6 +39,12 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   cancelled: { texto: "Cancelado", tom: "neutro" },
   canceled: { texto: "Cancelado", tom: "neutro" },
   syncing: { texto: "Sincronizando", tom: "info" },
+  // Renovação de token de integração (login próprio do Instagram). Sem estes,
+  // "Falha ao renovar" cairia no rótulo genérico e apareceria em cinza neutro —
+  // uma conexão prestes a morrer com cara de recado sem importância.
+  refreshed: { texto: "Renovado", tom: "bom" },
+  refresh_failed: { texto: "Falha ao renovar", tom: "ruim" },
+  token_expired: { texto: "Token vencido", tom: "ruim" },
   queued: { texto: "Na fila", tom: "info" },
   processing: { texto: "Processando", tom: "info" },
   processed: { texto: "Processado", tom: "bom" },

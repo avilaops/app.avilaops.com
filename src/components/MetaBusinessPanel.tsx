@@ -9,6 +9,7 @@ import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Button } from "@/components/shadcn/button";
 import { Card, CardContent } from "@/components/shadcn/card";
 import type { Evidencia } from "@/lib/evidencia";
+import type { EstadoDoInstagram } from "@/lib/instagram";
 import type { MetaConnectionStatus } from "@/lib/meta";
 import { cn } from "@/lib/utils";
 
@@ -21,12 +22,27 @@ import { cn } from "@/lib/utils";
 
 const ORIGEM_STATUS = "getMetaConnectionStatus() em src/lib/meta.ts";
 const ORIGEM_CONTADORES = "getMetaConnectionStatus().counts";
+const ORIGEM_INSTAGRAM = "estadoDoInstagram() em src/lib/instagram.ts";
 
 const DIA_MS = 24 * 60 * 60 * 1_000;
 const LIMITE_EXPIRACAO_MS = 7 * DIA_MS;
+// A rotina diária renova a partir daqui (JANELA_RENOVACAO_DIAS em
+// src/lib/instagram-renovacao.ts). A tela usa o mesmo número para não dizer
+// "expira em breve" sobre um token que a rotina já vai renovar hoje à noite.
+const JANELA_RENOVACAO_MS = 10 * DIA_MS;
 
-const formatoDataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
-const formatoData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
+// `timeZone` fixo, como em src/lib/format.ts e no resto da casa: o servidor roda
+// em UTC e o navegador do Brasil não, então sem isto o mesmo instante vira dois
+// textos diferentes e o React derruba a hidratação da página inteira (erro 418)
+// — a tela ainda aparece, porque o React remonta no cliente, mas o console
+// enche de erro e nada acima deste ponto mantém estado.
+const FUSO = "America/Sao_Paulo";
+const formatoDataHora = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: FUSO,
+});
+const formatoData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: FUSO });
 
 function formatar(iso: string | null | undefined, formato: Intl.DateTimeFormat): string | null {
   if (!iso) return null;
@@ -60,6 +76,7 @@ export default function MetaBusinessPanel({
   error,
   connected,
   lidoEm,
+  instagram,
 }: {
   initialStatus: MetaConnectionStatus;
   selectedOrganizationId: string;
@@ -68,6 +85,7 @@ export default function MetaBusinessPanel({
   error?: string;
   connected?: boolean;
   lidoEm: string;
+  instagram: EstadoDoInstagram | null;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [message, setMessage] = useState(
@@ -75,6 +93,55 @@ export default function MetaBusinessPanel({
   );
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(error ?? "");
+  const [instagramEstado, setInstagramEstado] = useState(instagram);
+  const [renovando, setRenovando] = useState(false);
+
+  /**
+   * Renovação sob demanda do token do Instagram. A rotina diária faz o mesmo
+   * sozinha; este botão existe para o caso em que alguém está olhando a tela
+   * agora e não quer esperar a madrugada.
+   */
+  async function renovarInstagram() {
+    setRenovando(true);
+    setSyncError("");
+    setMessage("");
+
+    try {
+      const resposta = await fetch("/api/integrations/instagram/renovar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: selectedOrganizationId }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok || !dados.ok) {
+        throw new Error(dados.error ?? "Falha ao renovar o token do Instagram.");
+      }
+
+      const desta = dados.conexoes?.[0];
+      if (!desta) {
+        setMessage("Nenhuma conexão de Instagram para este cliente.");
+      } else if (desta.desfecho === "RENOVADO") {
+        setInstagramEstado((atual) =>
+          atual
+            ? { ...atual, conexao: { ...atual.conexao, tokenExpiresAt: desta.expiraEm } }
+            : atual,
+        );
+        setMessage("Token do Instagram renovado por mais 60 dias.");
+      } else if (desta.desfecho === "VENCIDO") {
+        throw new Error(
+          "Token vencido: a Meta não renova token vencido. O cliente precisa autorizar de novo em Conectar Instagram.",
+        );
+      } else if (desta.desfecho === "FALHOU") {
+        throw new Error(desta.erro ?? "Falha ao renovar o token do Instagram.");
+      } else {
+        setMessage("Token ainda em dia — nada a renovar.");
+      }
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : "Falha ao renovar o token do Instagram.");
+    } finally {
+      setRenovando(false);
+    }
+  }
 
   async function syncNow() {
     setSyncing(true);
@@ -196,6 +263,73 @@ export default function MetaBusinessPanel({
     bruto: status.counts,
   });
 
+  // --- Instagram pelo login próprio -----------------------------------------
+  const conexaoIg = instagramEstado?.conexao ?? null;
+  const expiraIg = conexaoIg?.tokenExpiresAt ? new Date(conexaoIg.tokenExpiresAt).getTime() : null;
+  const restanteIg =
+    expiraIg !== null && !Number.isNaN(expiraIg) ? expiraIg - new Date(lidoEm).getTime() : null;
+  const diasIg = restanteIg === null ? null : Math.floor(restanteIg / DIA_MS);
+
+  /**
+   * Três estados, e não dois: vencido só reconecta, dentro da janela a rotina
+   * diária resolve sozinha, e fora dela não há o que dizer. Chamar de "expira
+   * em breve" o que a rotina já vai renovar hoje faria a tela pedir socorro
+   * sem motivo.
+   */
+  const badgeIg =
+    restanteIg === null ? null : restanteIg <= 0 ? (
+      <BadgeStatus status="expired" />
+    ) : restanteIg <= JANELA_RENOVACAO_MS ? (
+      <BadgeStatus status="renewing" tom="atencao" texto="renovação automática" />
+    ) : null;
+
+  const itensInstagram: ItemChaveValor[] = conexaoIg
+    ? [
+        { rotulo: "Conta conectada", valor: conexaoIg.conta ? `@${conexaoIg.conta}` : null, vazio: "—" },
+        {
+          rotulo: "Validade do token",
+          valor: conexaoIg.tokenExpiresAt ? (
+            <>
+              <span>{formatar(conexaoIg.tokenExpiresAt, formatoData)}</span>
+              {diasIg !== null && diasIg > 0 ? (
+                <span className="text-muted-foreground"> · faltam {diasIg} d</span>
+              ) : null}
+              {badgeIg}
+            </>
+          ) : null,
+          vazio: "Sem validade gravada",
+        },
+        {
+          rotulo: "Última renovação",
+          valor: formatar(conexaoIg.lastSyncedAt, formatoDataHora),
+          vazio: "Nunca renovado",
+        },
+        {
+          rotulo: "Status técnico",
+          valor: conexaoIg.lastSyncStatus ? <BadgeStatus status={conexaoIg.lastSyncStatus} /> : null,
+          vazio: "—",
+        },
+      ]
+    : [];
+  if (conexaoIg?.lastSyncError) {
+    itensInstagram.push({ rotulo: "Erro da última tentativa", valor: conexaoIg.lastSyncError });
+  }
+
+  const evidenciaInstagram: Evidencia = {
+    rotulo: "Conexão Instagram (login próprio)",
+    origem: ORIGEM_INSTAGRAM,
+    funcao:
+      'prisma.organizationIntegrationConnection.findUnique({ where: { organizationId_provider: { organizationId, provider: "instagram_login" } } })',
+    formula:
+      "token_expires_at da conexão menos o instante da leitura. A rotina diária (POST /api/integrations/instagram/renovar) renova quando faltam 10 dias ou menos; vencido não renova e exige nova autorização do cliente",
+    lidoEm,
+    gravadoEm: conexaoIg?.lastSyncedAt ?? null,
+    referencia: conexaoIg?.id ?? null,
+    observacao:
+      "Gravado em = last_synced_at, que a renovação atualiza. Cada renovação, vencimento e falha gera evento de auditoria (INSTAGRAM_TOKEN_RENEWED, INSTAGRAM_TOKEN_EXPIRED, INSTAGRAM_TOKEN_RENEWAL_FAILED).",
+    bruto: instagramEstado,
+  };
+
   const evidenciaWebhooks: Evidencia = {
     rotulo: "Eventos de webhook",
     origem: ORIGEM_CONTADORES,
@@ -280,13 +414,47 @@ export default function MetaBusinessPanel({
               variant="outline"
               className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm"
             >
-              <a href={instagramHref}>Conectar Instagram</a>
+              <a href={instagramHref}>
+                {conexaoIg ? "Reconectar Instagram" : "Conectar Instagram"}
+              </a>
             </Button>
           </div>
           <p className="text-xs text-[var(--color-texto-fraco)]">
             Use o Instagram quando o cliente não tiver Página no Facebook. Com Página,
             a conta já vem junto pelo Conectar Meta.
           </p>
+
+          {conexaoIg ? (
+            <div>
+              <div className="-mb-1 flex justify-end">
+                <BotaoEvidencia
+                  evidencia={evidenciaInstagram}
+                  rotulo="Evidência da conexão Instagram"
+                >
+                  <span className="inline-flex items-center gap-1.5 px-2 text-[13px] text-muted-foreground hover:text-foreground">
+                    <Info size={14} aria-hidden="true" />
+                    Como foi medido
+                  </span>
+                </BotaoEvidencia>
+              </div>
+              <ListaChaveValor
+                titulo="Instagram (login próprio)"
+                descricao="O token vale 60 dias e é renovado sozinho a partir de 10 dias para vencer. Vencido, a Meta não renova: o cliente autoriza de novo."
+                itens={itensInstagram}
+              />
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={renovarInstagram}
+                  disabled={renovando}
+                  className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm"
+                >
+                  {renovando ? "Renovando…" : "Renovar token agora"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <ListaChaveValor

@@ -329,13 +329,46 @@ export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
   });
 }
 
-/** O que o painel mostra do login próprio, sem tocar no token. */
-export async function estadoDoInstagram(organizationId: string) {
+/**
+ * O que o painel mostra do login próprio, sem tocar no token.
+ *
+ * Devolve data como texto ISO porque quem consome é componente de cliente: o
+ * `Date` cruzaria a fronteira como string mesmo, e tipar como `Date` faria o
+ * componente confiar num método que não existe do outro lado.
+ */
+export type EstadoDoInstagram = {
+  conexao: {
+    id: string;
+    contaId: string | null;
+    conta: string | null;
+    status: string;
+    escopos: string[];
+    tokenExpiresAt: string | null;
+    lastSyncedAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncError: string | null;
+  };
+  contas: {
+    username: string;
+    name: string | null;
+    accountType: string | null;
+    followersCount: number | null;
+    mediaCount: number | null;
+    profilePictureUrl: string | null;
+  }[];
+};
+
+export async function estadoDoInstagram(
+  organizationId: string,
+): Promise<EstadoDoInstagram | null> {
+  if (!organizationId) return null;
+
   const conexao = await prisma.organizationIntegrationConnection.findUnique({
     where: {
       organizationId_provider: { organizationId, provider: INSTAGRAM_PROVIDER },
     },
     select: {
+      id: true,
       accountName: true,
       externalId: true,
       status: true,
@@ -361,5 +394,18 @@ export async function estadoDoInstagram(organizationId: string) {
     orderBy: { username: "asc" },
   });
 
-  return { conexao, contas };
+  return {
+    conexao: {
+      id: conexao.id,
+      contaId: conexao.externalId,
+      conta: conexao.accountName,
+      status: conexao.status,
+      escopos: Array.isArray(conexao.scopes) ? (conexao.scopes as string[]) : [],
+      tokenExpiresAt: conexao.tokenExpiresAt?.toISOString() ?? null,
+      lastSyncedAt: conexao.lastSyncedAt?.toISOString() ?? null,
+      lastSyncStatus: conexao.lastSyncStatus,
+      lastSyncError: conexao.lastSyncError,
+    },
+    contas,
+  };
 }

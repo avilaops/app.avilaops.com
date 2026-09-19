@@ -142,12 +142,6 @@ export async function metaGraphVersion() {
   return (await obterCredencial("META_GRAPH_VERSION")) || "v25.0";
 }
 
-function requiredEnv(name: string) {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} não configurado`);
-  return value;
-}
-
 function jsonValue(value: unknown): Prisma.InputJsonValue | undefined {
   return value === undefined ? undefined : (value as Prisma.InputJsonValue);
 }
