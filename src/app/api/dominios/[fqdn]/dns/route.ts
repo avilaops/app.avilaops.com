@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { exigirDominio } from "@/lib/dominio";
-import { provedorDeDns, tipoDnsValido, type EntradaRegistroDns } from "@/lib/dominios/dns";
+import { lerServicoDeDns, provedorDeDnsDoDominio, tipoDnsValido, type EntradaRegistroDns } from "@/lib/dominios/dns";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
@@ -29,16 +29,31 @@ type Corpo = {
   prioridade?: unknown;
 };
 
+/**
+ * Resolve o domínio, quem serve o DNS dele e qual é o id da zona lá.
+ *
+ * O id da zona nunca vem do cliente: no serviço externo é o id guardado no
+ * banco, no DNS da casa é o próprio nome do domínio. Aceitar zona pela
+ * requisição deixaria alguém editar a zona de outro cliente.
+ */
 async function resolverZona(fqdnBruto: string) {
   const fqdn = exigirDominio(fqdnBruto);
   const dominio = await prisma.domainAsset.findUnique({
     where: { fqdn },
-    select: { id: true, fqdn: true, cloudflareZoneId: true, organizationId: true },
+    select: { id: true, fqdn: true, cloudflareZoneId: true, organizationId: true, dnsProvider: true },
   });
 
   if (!dominio) throw new Error("Domínio não encontrado na carteira.");
-  if (!dominio.cloudflareZoneId) throw new Error("Este domínio não tem zona de DNS nesta plataforma.");
-  return dominio;
+
+  const servico = lerServicoDeDns(dominio.dnsProvider);
+  const provedor = provedorDeDnsDoDominio(dominio);
+  if (!provedor) throw new Error("Este domínio não tem DNS gerenciado por esta plataforma.");
+  if (!provedor.configurado()) throw new Error("O serviço de DNS deste domínio não está conectado.");
+
+  const zonaId = servico === "AVILA" ? dominio.fqdn : dominio.cloudflareZoneId;
+  if (!zonaId) throw new Error("Este domínio não tem zona de DNS configurada.");
+
+  return { ...dominio, provedor, zonaId, servico };
 }
 
 function lerEntrada(corpo: Corpo): EntradaRegistroDns {
@@ -100,8 +115,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const dominio = await resolverZona(decodeURIComponent(fqdn));
     const entrada = lerEntrada(((await request.json().catch(() => ({}))) ?? {}) as Corpo);
 
-    const criado = await provedorDeDns().criar(dominio.cloudflareZoneId!, entrada);
-    await registrarAuditoria(admin!.id, "DNS_REGISTRO_CRIADO", dominio, { registro: criado });
+    const criado = await dominio.provedor.criar(dominio.zonaId, entrada);
+    await registrarAuditoria(admin!.id, "DNS_REGISTRO_CRIADO", dominio, {
+      registro: criado,
+      servico: dominio.servico,
+    });
 
     return NextResponse.json({ ok: true, registro: criado });
   } catch (e) {
@@ -122,8 +140,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!registroId) throw new Error("Informe qual registro alterar.");
 
     const entrada = lerEntrada(corpo);
-    const atualizado = await provedorDeDns().atualizar(dominio.cloudflareZoneId!, registroId, entrada);
-    await registrarAuditoria(admin!.id, "DNS_REGISTRO_ALTERADO", dominio, { registroId, registro: atualizado });
+    const atualizado = await dominio.provedor.atualizar(dominio.zonaId, registroId, entrada);
+    await registrarAuditoria(admin!.id, "DNS_REGISTRO_ALTERADO", dominio, {
+      registroId,
+      registro: atualizado,
+      servico: dominio.servico,
+    });
 
     return NextResponse.json({ ok: true, registro: atualizado });
   } catch (e) {
@@ -143,11 +165,14 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const registroId = cleanText(corpo.registroId, 64);
     if (!registroId) throw new Error("Informe qual registro apagar.");
 
-    await provedorDeDns().remover(dominio.cloudflareZoneId!, registroId);
+    await dominio.provedor.remover(dominio.zonaId, registroId);
     // O espelho no banco sai junto: deixar a linha órfã faria a tela mostrar
     // um registro que já não existe até a próxima sincronização.
     await prisma.dnsRecord.deleteMany({ where: { cloudflareRecordId: registroId } });
-    await registrarAuditoria(admin!.id, "DNS_REGISTRO_APAGADO", dominio, { registroId });
+    await registrarAuditoria(admin!.id, "DNS_REGISTRO_APAGADO", dominio, {
+      registroId,
+      servico: dominio.servico,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e) {

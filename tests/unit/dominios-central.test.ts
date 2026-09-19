@@ -199,6 +199,7 @@ describe("linha da carteira", () => {
       expiraEm: null,
       diasRestantes: null,
       dnsAqui: false,
+      servicoDns: "NENHUM",
       registrosDns: 0,
       sincronizadoEm: null,
       vereditoRegistro: "REGISTRADO",
