@@ -330,6 +330,106 @@ export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
 }
 
 /**
+ * Relê o perfil no Instagram e atualiza o que a tela mostra.
+ *
+ * Por que existe: a conta é gravada uma vez, no consentimento, e depois disso
+ * seguidor e publicação congelam. Mostrar 2.140 seguidores de dois meses atrás
+ * como se fosse de agora é o tipo de número sem procedência que a casa não
+ * aceita — ou o valor é relido, ou a tela diz quando foi lido. Aqui ele é
+ * relido, e `lastSyncedAt` registra quando.
+ *
+ * Não renova nada: se o token estiver vencido, a Meta recusa e o erro fica
+ * gravado na conexão. Quem renova é a rotina diária.
+ */
+export async function sincronizarInstagram(actorId: string, organizationId: string) {
+  const conexao = await prisma.organizationIntegrationConnection.findUnique({
+    where: {
+      organizationId_provider: { organizationId, provider: INSTAGRAM_PROVIDER },
+    },
+    select: { id: true, tokenCiphertext: true },
+  });
+  if (!conexao?.tokenCiphertext) throw new Error("Instagram não conectado para este cliente.");
+
+  let perfil: PerfilInstagram;
+  try {
+    perfil = await buscarPerfil(decifrarToken(conexao.tokenCiphertext));
+  } catch (erro) {
+    const mensagem = erro instanceof Error ? erro.message : String(erro);
+    await prisma.organizationIntegrationConnection.update({
+      where: { id: conexao.id },
+      data: { lastSyncStatus: "SYNC_FAILED", lastSyncError: mensagem },
+    });
+    throw erro;
+  }
+
+  const contaId = String(perfil.user_id ?? perfil.id);
+  const agora = new Date();
+
+  await prisma.$transaction(async (transacao) => {
+    await transacao.instagramAccount.upsert({
+      where: { instagramAccountId: contaId },
+      create: {
+        instagramAccountId: contaId,
+        organizationId,
+        username: perfil.username,
+        name: perfil.name ?? null,
+        accountType: perfil.account_type ?? null,
+        profilePictureUrl: perfil.profile_picture_url ?? null,
+        followersCount: perfil.followers_count ?? null,
+        mediaCount: perfil.media_count ?? null,
+        origem: ORIGEM_LOGIN_PROPRIO,
+        status: "ACTIVE",
+        lastSyncedAt: agora,
+        rawMetadata: perfil as object,
+      },
+      update: {
+        username: perfil.username,
+        name: perfil.name ?? null,
+        accountType: perfil.account_type ?? null,
+        profilePictureUrl: perfil.profile_picture_url ?? null,
+        followersCount: perfil.followers_count ?? null,
+        mediaCount: perfil.media_count ?? null,
+        lastSyncedAt: agora,
+        rawMetadata: perfil as object,
+      },
+    });
+
+    await transacao.organizationIntegrationConnection.update({
+      where: { id: conexao.id },
+      data: {
+        accountName: perfil.username,
+        externalId: contaId,
+        lastSyncedAt: agora,
+        lastSyncStatus: "SYNCED",
+        lastSyncError: null,
+      },
+    });
+
+    await transacao.operationsAuditEvent.create({
+      data: {
+        actorId,
+        organizationId,
+        action: "INSTAGRAM_ACCOUNT_SYNCED",
+        entityType: "OrganizationIntegrationConnection",
+        entityId: conexao.id,
+        metadata: {
+          conta: perfil.username,
+          seguidores: perfil.followers_count ?? null,
+          publicacoes: perfil.media_count ?? null,
+        },
+      },
+    });
+  });
+
+  return {
+    conta: perfil.username,
+    seguidores: perfil.followers_count ?? null,
+    publicacoes: perfil.media_count ?? null,
+    lidoEm: agora.toISOString(),
+  };
+}
+
+/**
  * O que o painel mostra do login próprio, sem tocar no token.
  *
  * Devolve data como texto ISO porque quem consome é componente de cliente: o
@@ -355,6 +455,8 @@ export type EstadoDoInstagram = {
     followersCount: number | null;
     mediaCount: number | null;
     profilePictureUrl: string | null;
+    /** Quando seguidor e publicação foram lidos. Sem isto o número não tem data. */
+    lidoEm: string | null;
   }[];
 };
 
@@ -390,6 +492,7 @@ export async function estadoDoInstagram(
       followersCount: true,
       mediaCount: true,
       profilePictureUrl: true,
+      lastSyncedAt: true,
     },
     orderBy: { username: "asc" },
   });
@@ -406,6 +509,9 @@ export async function estadoDoInstagram(
       lastSyncStatus: conexao.lastSyncStatus,
       lastSyncError: conexao.lastSyncError,
     },
-    contas,
+    contas: contas.map(({ lastSyncedAt, ...conta }) => ({
+      ...conta,
+      lidoEm: lastSyncedAt?.toISOString() ?? null,
+    })),
   };
 }

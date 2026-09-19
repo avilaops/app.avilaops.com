@@ -95,6 +95,7 @@ export default function MetaBusinessPanel({
   const [syncError, setSyncError] = useState(error ?? "");
   const [instagramEstado, setInstagramEstado] = useState(instagram);
   const [renovando, setRenovando] = useState(false);
+  const [sincronizandoIg, setSincronizandoIg] = useState(false);
 
   /**
    * Renovação sob demanda do token do Instagram. A rotina diária faz o mesmo
@@ -191,6 +192,71 @@ export default function MetaBusinessPanel({
       setSyncError(e instanceof Error ? e.message : "Falha ao sincronizar Meta.");
     } finally {
       setSyncing(false);
+    }
+  }
+
+  /**
+   * Relê o perfil no Instagram. Separado do "Sincronizar agora" da Meta porque
+   * são duas APIs e dois tokens: juntar os dois num botão só faria a falha de
+   * um aparecer como falha do outro.
+   */
+  async function sincronizarInstagram() {
+    setSincronizandoIg(true);
+    setSyncError("");
+    setMessage("");
+
+    try {
+      const resposta = await fetch("/api/integrations/instagram/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: selectedOrganizationId }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok || !dados.ok) {
+        throw new Error(dados.error ?? "Falha ao sincronizar o Instagram.");
+      }
+
+      setInstagramEstado((atual) =>
+        atual
+          ? {
+              conexao: {
+                ...atual.conexao,
+                conta: dados.conta,
+                lastSyncedAt: dados.lidoEm,
+                lastSyncStatus: "SYNCED",
+                lastSyncError: null,
+              },
+              contas: atual.contas.some((c) => c.username === dados.conta)
+                ? atual.contas.map((c) =>
+                    c.username === dados.conta
+                      ? {
+                          ...c,
+                          followersCount: dados.seguidores,
+                          mediaCount: dados.publicacoes,
+                          lidoEm: dados.lidoEm,
+                        }
+                      : c,
+                  )
+                : [
+                    ...atual.contas,
+                    {
+                      username: dados.conta,
+                      name: null,
+                      accountType: null,
+                      followersCount: dados.seguidores,
+                      mediaCount: dados.publicacoes,
+                      profilePictureUrl: null,
+                      lidoEm: dados.lidoEm,
+                    },
+                  ],
+            }
+          : atual,
+      );
+      setMessage(`Instagram relido: @${dados.conta}.`);
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : "Falha ao sincronizar o Instagram.");
+    } finally {
+      setSincronizandoIg(false);
     }
   }
 
@@ -314,6 +380,61 @@ export default function MetaBusinessPanel({
   if (conexaoIg?.lastSyncError) {
     itensInstagram.push({ rotulo: "Erro da última tentativa", valor: conexaoIg.lastSyncError });
   }
+
+  /**
+   * Seguidor e publicação são lidos no consentimento e no "Sincronizar
+   * Instagram" — não há leitura contínua. Por isso a data de leitura vem junto
+   * do número, e não escondida na folha: número de dois meses atrás com cara de
+   * agora é pior do que número nenhum.
+   */
+  const contasIg = instagramEstado?.contas ?? [];
+  const itensContasIg: ItemChaveValor[] = contasIg.flatMap((conta) => {
+    const lido = formatar(conta.lidoEm, formatoDataHora);
+    return [
+      {
+        rotulo: `@${conta.username}`,
+        valor: conta.name || conta.accountType || null,
+        vazio: "—",
+      },
+      {
+        rotulo: "Seguidores",
+        valor:
+          conta.followersCount === null || conta.followersCount === undefined ? null : (
+            <>
+              <span>{conta.followersCount.toLocaleString("pt-BR")}</span>
+              {lido ? <span className="text-muted-foreground"> · lido em {lido}</span> : null}
+            </>
+          ),
+        vazio: "Não informado pelo Instagram",
+      },
+      {
+        rotulo: "Publicações",
+        valor:
+          conta.mediaCount === null || conta.mediaCount === undefined ? null : (
+            <>
+              <span>{conta.mediaCount.toLocaleString("pt-BR")}</span>
+              {lido ? <span className="text-muted-foreground"> · lido em {lido}</span> : null}
+            </>
+          ),
+        vazio: "Não informado pelo Instagram",
+      },
+    ];
+  });
+
+  const evidenciaContasIg: Evidencia = {
+    rotulo: "Conta do Instagram",
+    origem: ORIGEM_INSTAGRAM,
+    funcao:
+      'prisma.instagramAccount.findMany({ where: { organizationId, origem: "instagram_login" } })',
+    formula:
+      "gravado da resposta de graph.instagram.com/me (fields: username, followers_count, media_count) no consentimento e a cada Sincronizar Instagram. Não há leitura contínua: o valor é o da última leitura",
+    lidoEm,
+    gravadoEm: contasIg[0]?.lidoEm ?? null,
+    referencia: conexaoIg?.contaId ?? null,
+    observacao:
+      "Gravado em = last_synced_at da conta. Cada sincronização grava INSTAGRAM_ACCOUNT_SYNCED na auditoria.",
+    bruto: contasIg,
+  };
 
   const evidenciaInstagram: Evidencia = {
     rotulo: "Conexão Instagram (login próprio)",
@@ -442,7 +563,37 @@ export default function MetaBusinessPanel({
                 descricao="O token vale 60 dias e é renovado sozinho a partir de 10 dias para vencer. Vencido, a Meta não renova: o cliente autoriza de novo."
                 itens={itensInstagram}
               />
-              <div className="mt-3">
+              {itensContasIg.length ? (
+                <div className="mt-4">
+                  <div className="-mb-1 flex justify-end">
+                    <BotaoEvidencia
+                      evidencia={evidenciaContasIg}
+                      rotulo="Evidência da conta do Instagram"
+                    >
+                      <span className="inline-flex items-center gap-1.5 px-2 text-[13px] text-muted-foreground hover:text-foreground">
+                        <Info size={14} aria-hidden="true" />
+                        Como foi medido
+                      </span>
+                    </BotaoEvidencia>
+                  </div>
+                  <ListaChaveValor
+                    titulo="Conta conectada"
+                    descricao="Lido do Instagram no consentimento e a cada sincronização — não há leitura contínua."
+                    itens={itensContasIg}
+                  />
+                </div>
+              ) : null}
+
+              <div className="mt-3 flex flex-col gap-2 min-[560px]:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={sincronizarInstagram}
+                  disabled={sincronizandoIg}
+                  className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm"
+                >
+                  {sincronizandoIg ? "Lendo…" : "Sincronizar Instagram"}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"

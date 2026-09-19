@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
+import { sameOrigin } from "@/lib/http";
 import { renovarTokensDoInstagram } from "@/lib/instagram-renovacao";
 import { isServiceCall } from "@/lib/service-auth";
 
@@ -21,6 +22,14 @@ export async function POST(request: NextRequest) {
   const servico = isServiceCall(request);
   if (!admin && !servico) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  // Sessão de admin é cookie, e cookie viaja sozinho: sem esta conferência, uma
+  // página qualquer conseguiria disparar a renovação de todos os clientes com o
+  // admin só passando por ela. Vale só para a porta do admin — o agendador não
+  // manda `Origin`, e `sameOrigin` deixa passar quem não manda.
+  if (!servico && !sameOrigin(request)) {
+    return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   }
 
   let corpo: { organizationId?: unknown } = {};

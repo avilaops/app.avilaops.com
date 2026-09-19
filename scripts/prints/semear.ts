@@ -211,6 +211,24 @@ async function main() {
     },
   });
 
+  // A conta que veio pelo login próprio. Sem ela o bloco "Conta conectada" não
+  // aparece em captura nenhuma, e é justamente onde mora o número com data.
+  await prisma.instagramAccount.upsert({
+    where: { instagramAccountId: "17841400000000001" },
+    update: {},
+    create: {
+      instagramAccountId: "17841400000000001",
+      organizationId: horizonte.id,
+      username: "clinicahorizonte",
+      name: "Clínica Horizonte",
+      accountType: "BUSINESS",
+      origem: "instagram_login",
+      followersCount: 3187,
+      mediaCount: 214,
+      lastSyncedAt: haMin(90),
+    },
+  });
+
   const bm = await prisma.metaBusinessAccount.upsert({
     where: { businessId: "exemplo-bm-1" },
     update: {},
