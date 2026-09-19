@@ -31,6 +31,26 @@ Padrão (sobrescrevível pela chave `INSTAGRAM_OAUTH_SCOPES` no cofre):
 `instagram_business_basic`, `instagram_business_manage_messages`,
 `instagram_business_manage_comments`, `instagram_business_content_publish`.
 
+## Chaves que o caminho do Instagram lê
+
+Nenhum valor aqui; só os nomes. Segredo vive no cofre ou na variável de
+ambiente do servidor, nunca no Git, no `.env.example` ou nesta página.
+
+| Chave | Onde vive | Obrigatória | Para quê |
+| --- | --- | --- | --- |
+| `INSTAGRAM_APP_ID` | cofre (`/operacao/credenciais`) | sim | identifica o app no consentimento |
+| `INSTAGRAM_APP_SECRET` | cofre | sim | troca o código pelo token e renova |
+| `INSTAGRAM_REDIRECT_URI` | cofre | não | sobrescreve o padrão derivado de `APP_URL` |
+| `INSTAGRAM_OAUTH_SCOPES` | cofre | não | sobrescreve a lista de escopos padrão |
+| `INSTAGRAM_GRAPH_VERSION` | ambiente | não | padrão `v23.0`; versionado à parte do Graph do Facebook |
+| `META_TOKEN_ENCRYPTION_KEY` | ambiente | sim | cifra o token do cliente; **trocar torna ilegível o que já está gravado** |
+| `APP_URL` | ambiente | sim | monta o redirect quando o cofre não traz um |
+| `SERVICE_JWT_SECRET` | ambiente + credencial do n8n | sim para a rotina | autentica a chamada diária de renovação |
+
+`exigirCredencial` derruba a operação com erro nomeado quando a chave não tem
+valor — é de propósito: OAuth com credencial vazia falha lá na Meta, com
+mensagem que não diz nada para quem está olhando a tela.
+
 ## Renovação do token — a rotina diária
 
 O token vale **60 dias** e a Meta **não renova token vencido**: passou da data,
@@ -54,9 +74,34 @@ Cada renovação, vencimento e falha grava evento de auditoria
 `INSTAGRAM_TOKEN_RENEWAL_FAILED`). A falha de um cliente não interrompe a
 rodada dos outros.
 
-### Como agendar
+### Onde isso está agendado
 
-Uma chamada por dia, com a credencial "Ávila OS Service Key" que o n8n já usa:
+No n8n da casa (`n8n.avilaops.com`), workflow **"Ávila OS — Instagram: renovar
+tokens (diário)"** (`FfwwEVYxIMRZu4hf`): gatilho às 04:40, chamada HTTP
+autenticada e uma conferência do relatório.
+
+Não foi criada instância nova de n8n, nem scheduler paralelo. Ficou em workflow
+próprio, e não dentro do "Ávila OS" onde moram as outras rotinas diárias do app,
+por um motivo concreto: aquele workflow tem um nó *community* do Mercado Pago
+(`@mercadopago/n8n-nodes-preview-mercadopago.mercadoPago`) que a API recusa
+validar, então **qualquer** edição programática nele é rejeitada. Mesma
+instância, mesma credencial "Ávila OS Service Key", mesmo handler de erro
+central (`Handler de Erro Central → Todoist`), mesmo fuso.
+
+Três decisões do workflow que valem registro:
+
+- **Sem `neverError`.** Os outros nós HTTP daquela esteira engolem o erro de
+  HTTP para não interromper a rodada. Aqui não: um 5xx precisa pintar a
+  execução de vermelho, senão token vencido vira silêncio.
+- **Conferência do relatório.** A rota devolve 200 mesmo quando um cliente
+  falhou — são clientes independentes, e a falha de um não interrompe os
+  outros. O nó `Alguma renovação falhou?` lê `falhas` e `vencidas` e derruba a
+  execução, com o nome da conta e o motivo. Nunca com o token: o relatório da
+  rota não devolve segredo.
+- **Timeout de 90 s na chamada, 180 s na execução.** Nessa ordem de propósito:
+  o corte vem da rota, não do n8n, e o erro diz qual conexão estava no meio.
+
+Para chamar à mão, com a mesma credencial:
 
 ```bash
 curl -X POST https://app.avilaops.com/api/integrations/instagram/renovar \
@@ -71,13 +116,41 @@ executa exatamente a mesma rotina.
 Rodar mais de uma vez no dia não faz mal: quem está em dia é pulado, e o retorno
 diz o desfecho de cada conexão.
 
-## O que falta fora do código
+## Conectar um cliente
 
-1. Adicionar o produto "API do Instagram com login do Instagram" no painel da
-   Meta — ele gera App ID e Secret próprios.
-2. Cadastrar o redirect
-   `https://app.avilaops.com/api/integrations/instagram/oauth/callback`.
-3. Preencher `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` no cofre
-   (`/operacao/credenciais`), hoje pendentes.
-4. Agendar a chamada diária acima.
-5. App Review próprio para os escopos do Instagram, separado do da Meta.
+1. `/hub-social/meta`, escolher o cliente no seletor.
+2. **Conectar Instagram** — o botão grava um cookie de estado antes de mandar
+   para o consentimento. Abrir a URL da Meta na mão faz o retorno ser recusado
+   com "Retorno do Instagram inválido ou expirado", e isso é proposital: sem o
+   cookie, qualquer um amarraria uma conta de Instagram a um cliente que não é
+   dele.
+3. Na volta, o token de uma hora já é convertido no de 60 dias e gravado
+   cifrado. A tela passa a mostrar a conta, a validade e a última renovação.
+
+## Reconectar depois de `EXPIRED`
+
+Quando a rotina encontra um token vencido, ela marca a conexão como `EXPIRED`,
+escreve o motivo em `last_sync_error` e grava `INSTAGRAM_TOKEN_EXPIRED` na
+auditoria. A tela mostra a badge de expirado e o botão vira **Reconectar
+Instagram**.
+
+Não há atalho: a Meta não renova token vencido, e "Renovar token agora" vai
+recusar com essa mesma mensagem. O cliente precisa passar pelo consentimento de
+novo, pelo mesmo caminho de conectar. A linha da conexão é reaproveitada
+(`organizationId + provider` é único), então histórico e auditoria continuam.
+
+## Estado de cada parte
+
+| Parte | Estado |
+| --- | --- |
+| Código do login próprio, renovação, auditoria e painel | implementado e em produção |
+| Workflow diário no n8n | criado e configurado (`FfwwEVYxIMRZu4hf`) |
+| Produto "API do Instagram com login do Instagram" no painel da Meta | **pendente** — exige acesso manual à conta Meta |
+| `INSTAGRAM_APP_ID` e `INSTAGRAM_APP_SECRET` no cofre | **pendente** — só existem depois do produto acima |
+| Redirect cadastrado na Meta | **pendente** — junto com o produto |
+| App Review dos escopos do Instagram | **pendente** — separado do App Review da Meta |
+| Primeira conexão de cliente | **pendente** — depende das credenciais |
+
+Enquanto as duas credenciais não existirem, `exigirCredencial` recusa o OAuth
+com erro nomeado na tela, e a rotina diária roda sem nada para renovar — que é
+o comportamento correto, não uma falha.
