@@ -9806,3 +9806,81 @@ main [data-slot="select-trigger"]:focus-visible {
     font-size: 1.75rem;
   }
 }
+
+/* =========================================================================
+   A coluna do desktop, sem contorno (19/09/2026)
+   -------------------------------------------------------------------------
+   A coluna já tinha a estrutura certa — grupos, ícone por item, conta no
+   rodapé — mas ainda se separava do conteúdo por um fio de 1px, e cada
+   grupo por outro. No sistema, o que separa é o tom do fundo e o espaço,
+   não a linha: a coluna divide o fundo cinza da página e o conteúdo é que
+   é a superfície branca.
+   O item aceso passa a ser uma peça branca com sombra 1, o mesmo gesto da
+   cápsula do celular. Antes era só um fundo levemente diferente, que no
+   tema claro quase não se via.
+   A navegação em si não muda: a fonte continua sendo `lib/navegacao.ts`.
+   Nada de favoritos ou atalhos inventados — o que não existe como rota não
+   entra na coluna.
+   ========================================================================= */
+.sidebar {
+  border-right: 0;
+  background: transparent;
+}
+
+.nav-group + .nav-group {
+  margin-top: var(--e5);
+  padding-top: 0;
+  border-top: 0;
+}
+
+.nav-eyebrow {
+  margin: 0 var(--e2) var(--e1);
+  color: var(--texto-terciario);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.side-nav {
+  gap: 2px;
+}
+
+.nav-group {
+  gap: 2px;
+}
+
+.nav-link {
+  min-height: 36px;
+  padding: 0 var(--e2);
+  border-radius: var(--raio-p);
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.nav-link:hover {
+  background: var(--hover-bg);
+  color: var(--texto);
+}
+
+.nav-link-active,
+.nav-link-active:hover {
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.nav-link:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+.sidebar-footer {
+  padding: var(--e3) var(--e2) 0;
+  border-top: 1px solid var(--separador);
+}
+
+.brand-lockup {
+  margin-bottom: var(--e2);
+}
