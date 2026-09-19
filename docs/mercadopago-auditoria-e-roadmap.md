@@ -199,18 +199,58 @@ Cada fase é entregável sozinha.
 
 Sem isto, qualquer coisa construída depois é construída no lugar errado.
 
-1. Gerar `APP_USR-` de produção **na conta do CNPJ 67.954.417** e uma aplicação
-   própria para o `app.avilaops.com` no painel de desenvolvedor dessa conta.
-2. Decidir o destino da conta `nicolas@avila.inc`: as assinaturas em andamento
-   das lojas continuam nela até fecharem, ou migram? (Assinatura recorrente não
-   se transfere entre contas: o cartão salvo é do titular. Na prática, migrar
-   significa pedir o cartão de novo a cada lojista.)
-3. Confirmar que a nova aplicação tem **segredo de assinatura de webhook**
-   gerado — é o insumo do P0-3.
+**Decidido pelo Nicolas em 19/09/2026: migração progressiva, não corte bruto.**
+
+- **Cobrança nova passa para a conta do CNPJ 67.954.417.** Todo cliente novo
+  entra exclusivamente por ela.
+- **PIX, boleto e link avulso antigos ficam onde estão.** O histórico não se
+  migra; só deixa de receber cobrança nova.
+- **Assinaturas e cartões salvos na conta PF não se quebram.** Os contratos
+  atuais terminam onde estão, ou migram de forma controlada, pedindo nova
+  autorização de cartão pela conta PJ. Cartão salvo não se transfere entre
+  contas — é o titular que autoriza.
+
+O que gerar no painel de desenvolvedor **da conta do CNPJ**:
+
+1. `APP_USR-` de produção → `MP_ACCESS_TOKEN`.
+2. Aplicação própria para o `app.avilaops.com` → `MP_CLIENT_ID` (a aplicação de
+   hoje é da conta PF, e é dela que sai o diagnóstico de webhook da tela).
+3. **Segredo de assinatura de webhook** dessa aplicação → insumo do P0-3.
+4. Public Key, se o cartão da Fase 3 for entrar → `MP_PUBLIC_KEY`.
+
+#### As três consequências da troca de token (verificadas em código)
+
+Nenhuma delas é motivo para não trocar. Todas são motivo para trocar na ordem
+certa.
+
+**1. O extrato passa a contar cada pagamento duas vezes.** A unicidade de
+`bank_transactions` é `(accountId, externalId)` (`sync-mercadopago.ts:184`) e o
+id da conta do token é fixo em `"mercadopago-production"`. Com o token novo, o
+app grava os pagamentos da conta PJ ali, enquanto o workflow do n8n
+(`NV72KXfoSZceQtlP`) continua gravando **os mesmos pagamentos** em
+`mercadopago-cnpj`: dois lançamentos por venda, "Entradas · 30 dias" dobrada e
+duas conciliações pendentes para cada uma. **Desligar esse workflow faz parte da
+troca**, não é limpeza posterior. A rota `/importar` já recusa gravar como
+`mercadopago-production` (`route.ts:49`), então não há como resolver mandando o
+n8n gravar na mesma conta.
+
+**2. Cobrança aberta na conta PF deixa de fechar sozinha.** O webhook confirma
+na fonte com o token do app. Um PIX emitido na PF e notificado depois da troca é
+reconsultado com o token PJ, que não conhece aquele pagamento: 500, reenvio
+eterno do Mercado Pago, fatura aberta com o dinheiro na conta. A janela é
+conhecida — PIX expira em 24h, boleto em 3 dias. Então: **parar de emitir boleto
+uns 3 dias antes da troca**, ou dar baixa à mão nas que atravessarem.
+
+**3. A tela `/financeiro/mercadopago` esvazia.** Ela lista assinaturas pelo
+token, e as assinaturas das lojas ficam na PF por decisão desta fase. Depois da
+troca, o painel marca "o Mercado Pago não conhece esta assinatura" para **todas**
+as lojas ativas: divergência vermelha em cima de um estado saudável. Enquanto as
+duas contas coexistirem, o painel precisa ler as duas ou dizer em tela que só vê
+a nova — item que entrou na Fase 1 por causa desta decisão.
 
 **Pronto quando**: o token novo está no cofre (`PlatformCredential`, categoria
-`mercadopago`) e a decisão sobre as assinaturas antigas está escrita neste
-documento.
+`mercadopago`), o workflow do n8n da conta CNPJ está desligado, e não há cobrança
+da conta PF em aberto (ou a baixa manual dela está combinada).
 
 ### Fase 1 — o dinheiro cai na conta certa e a baixa chega
 
@@ -227,6 +267,15 @@ documento.
 - Teste do webhook, espelhando `webhook-efi.test.ts`: assinatura válida,
   inválida, ausente, evento repetido, id desconhecido, tópico que não é
   pagamento. Sem isto, nada acima é verificável. Resolve parte do P2-11.
+- **O painel diz de qual conta está falando.** Com a migração progressiva da
+  Fase 0, as assinaturas das lojas ficam na conta PF e o token é da PJ: a tela
+  precisa ler as duas contas, ou avisar em tela que só enxerga a nova. Sem isso
+  ela acusa divergência em toda loja ativa, e um painel que grita errado deixa de
+  ser lido — que é o oposto do motivo dele existir.
+
+Ordem interna que não se inverte: **a variável entra no servidor antes do código
+que a exige.** Subir o "recusa sem segredo" com o segredo ainda ausente para a
+baixa de todas as faturas de uma vez.
 
 **Pronto quando**: uma cobrança de teste emitida em produção fecha a fatura
 sozinha, e o painel do dono mostra o webhook em verde — conferido no navegador,
