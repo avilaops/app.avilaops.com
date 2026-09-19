@@ -421,6 +421,9 @@ a {
   display: inline-flex;
   min-height: 30px;
   align-items: center;
+  /* Controle não herda a tipografia da célula que o abriga: dentro de
+     `.metrica-valor`, que é mono, o botão saía monoespaçado. */
+  font-family: var(--fonte);
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -4301,8 +4304,15 @@ tbody tr:last-child td {
   width: 100%;
   /* A folha nasce dentro da célula que abriu (a coluna de ações alinha à
      direita) e herdava esse alinhamento: rótulo e texto de apoio saíam
-     encostados na borda errada. Diálogo não herda alinhamento de tabela. */
+     encostados na borda errada. Diálogo não herda alinhamento de tabela.
+     Pelo mesmo motivo não herda tipografia: aberta de dentro de um número
+     (`.metrica-valor` é mono), a folha inteira saía monoespaçada — nome de
+     cliente, campo de busca e botão. Ela é uma superfície própria, e começa
+     do texto da casa. */
   text-align: left;
+  font-family: var(--fonte);
+  font-size: 0.875rem;
+  font-weight: 400;
   max-height: calc(100vh - 40px - env(safe-area-inset-top));
   flex-direction: column;
   border-radius: 20px 20px 0 0;
@@ -7571,6 +7581,31 @@ body {
 
 .linha .chevron {
   color: var(--texto-terciario);
+}
+
+/* Métrica que só existe no desktop. No celular o mesmo número é o título do
+   bloco da lista, com a mesma folha de evidência: mostrar os dois empurrava a
+   primeira loja para fora da primeira tela. `display: contents` some com o
+   invólucro e deixa a métrica ser filha direta da grade, como as outras. */
+.metrica-oculta-no-celular {
+  display: contents;
+}
+
+@media (max-width: 820px) {
+  .metrica-oculta-no-celular {
+    display: none;
+  }
+}
+
+/* Aviso de uma linha, no tom do texto secundário: é informação que orienta,
+   não alarme. A caixa vermelha de borda existia para falha de leitura, e usá-la
+   aqui dava a um recado de rotina o peso de um erro. */
+.aviso-inline {
+  margin: 0;
+  padding: 0 var(--e1);
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 /* ---------- Linha que abre no lugar ---------- */

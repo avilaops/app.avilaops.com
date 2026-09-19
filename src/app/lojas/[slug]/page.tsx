@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import TabelaResponsiva from "@/components/hub-social/TabelaResponsiva";
 import { Grupo, LinhaDobravel } from "@/components/sistema/Lista";
+import VincularCliente from "@/components/lojas/VincularCliente";
 import BadgeStatus from "@/components/sistema/Status";
 import { getAdmin } from "@/lib/auth";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { contar, formatCurrency, formatShortDate } from "@/lib/format";
 import {
   enderecoDaLoja,
   evidenciaDaPlataforma,
@@ -17,6 +17,7 @@ import {
   paginar,
   resumirCatalogo,
   rotuloDoPlano,
+  sugerirCliente,
   SITUACOES,
 } from "@/lib/lojas-painel";
 import { montarDetalheDaLoja } from "@/lib/lojas-servidor";
@@ -97,7 +98,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
     });
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="lojas">
+    <>
       <CabecalhoPagina
         titulo={ficha?.nome ?? slug}
         subtitulo={
@@ -156,7 +157,12 @@ export default async function LojaPage({ params, searchParams }: Params) {
                   {detalhe.cliente.nome}
                 </Link>
               ) : (
-                <span className="text-[color:var(--amber)]">sem vínculo</span>
+                <VincularCliente
+                  slug={slug}
+                  nomeDaLoja={ficha.nome}
+                  sugestao={sugerirCliente(ficha, detalhe.clientes)}
+                  clientes={detalhe.clientes}
+                />
               )
             }
             detalhe={detalhe.cliente ? "ficha no Ávila OS" : "nenhuma ficha reivindica esta loja"}
@@ -177,7 +183,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
           <Metrica
             rotulo="Pedidos"
             valor={ficha._count.pedidos.toLocaleString("pt-BR")}
-            detalhe={`${ficha._count.categorias} categoria(s) no catálogo`}
+            detalhe={`${contar(ficha._count.categorias, "categoria", "categorias")} no catálogo`}
             evidencia={evidenciaDaFicha("Pedidos", "_count.pedidos, contado pela própria plataforma")}
           />
         </GradeMetricas>
@@ -380,7 +386,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
 
           <nav className="barra-ferramentas" aria-label="Paginação do catálogo">
             <span className="flex-1 text-[13px] text-muted-foreground" role="status">
-              {pagina.total.toLocaleString("pt-BR")} produto(s)
+              {contar(pagina.total, "produto", "produtos")}
               {pagina.paginas > 1 ? ` · página ${pagina.pagina} de ${pagina.paginas}` : ""}
             </span>
             {pagina.pagina > 1 ? (
@@ -396,6 +402,6 @@ export default async function LojaPage({ params, searchParams }: Params) {
           </nav>
         </>
       )}
-    </AppShell>
+    </>
   );
 }

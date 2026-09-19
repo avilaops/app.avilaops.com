@@ -128,6 +128,51 @@ export function alertasDaLoja(loja: LojaNoPainel, agora: Date = new Date()): Ale
   return alertas;
 }
 
+/** Em que bloco da tela esta loja entra. A ordem é a da lista. */
+export type Faixa = "atencao" | "no-ar" | "configurando" | "encerradas";
+
+export const FAIXAS: { chave: Faixa; titulo: string }[] = [
+  { chave: "atencao", titulo: "Precisam de gente" },
+  { chave: "no-ar", titulo: "No ar" },
+  { chave: "configurando", titulo: "Configurando" },
+  { chave: "encerradas", titulo: "Encerradas" },
+];
+
+export function faixaDaLoja(loja: LojaNoPainel, agora: Date = new Date()): Faixa {
+  if (alertasDaLoja(loja, agora).some((a) => a.gravidade === "erro")) return "atencao";
+  if (loja.status === "CANCELADA") return "encerradas";
+  if (loja.status === "PROVISIONANDO") return "configurando";
+  return "no-ar";
+}
+
+/**
+ * As lojas separadas por bloco, com cabeçalho — o jeito de uma lista de iOS
+ * dizer por que a ordem é aquela. Bloco vazio não aparece: seção com título e
+ * nada dentro é ruído.
+ */
+export function agruparPorFaixa(
+  lojas: LojaNoPainel[],
+  agora: Date = new Date(),
+): { chave: Faixa; titulo: string; lojas: LojaNoPainel[] }[] {
+  return FAIXAS.map((faixa) => ({
+    ...faixa,
+    lojas: lojas
+      .filter((loja) => faixaDaLoja(loja, agora) === faixa.chave)
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+  })).filter((bloco) => bloco.lojas.length > 0);
+}
+
+/** Busca por nome da loja, endereço ou nome do cliente — o que se tem na mão. */
+export function filtrarLojas(lojas: LojaNoPainel[], busca: string): LojaNoPainel[] {
+  const q = busca.trim().toLowerCase();
+  if (!q) return lojas;
+  return lojas.filter((loja) =>
+    `${loja.nome} ${loja.slug} ${loja.dominioPrincipal ?? ""} ${loja.cliente?.nome ?? ""}`
+      .toLowerCase()
+      .includes(q),
+  );
+}
+
 export type ResumoLojas = {
   total: number;
   noAr: number;
@@ -175,6 +220,69 @@ export function rotuloDoPlano(plano: string): string {
 /** Endereço público da loja, na mesma regra que a plataforma usa. */
 export function enderecoDaLoja(loja: { slug: string; dominioPrincipal: string | null }): string {
   return `https://${loja.dominioPrincipal ?? `${loja.slug}.lojas.avilaops.com`}`;
+}
+
+/* ────────────────────── vínculo com o cliente ────────────────────── */
+
+/** Um cliente do Ávila OS, no mínimo que o casamento precisa. */
+export type ClienteCandidato = { id: string; nome: string; slug: string };
+
+export type Sugestao = {
+  cliente: ClienteCandidato;
+  /** Por que este e não outro — a frase que a tela mostra antes de confirmar. */
+  motivo: string;
+  /** `exato` é slug idêntico; `provavel` é nome igual; `fraco` é nome contido. */
+  forca: "exato" | "provavel" | "fraco";
+};
+
+/** Tira acento, caixa e pontuação: "Brilhax Automotiva LTDA." e "brilhax-automotiva" viram comparáveis. */
+function chave(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(ltda|me|epp|eireli|sa|s\/a)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Quem provavelmente é o dono desta loja.
+ *
+ * **Sugere, nunca grava.** O vínculo decide de quem é a receita, em qual ficha
+ * o pedido aparece e para quem a cobrança vai — e depois de gravado vira
+ * verdade para o resto do sistema. Um palpite plausível gravado sozinho é o
+ * tipo de erro que ninguém descobre até a venda de um cliente aparecer na
+ * ficha de outro. Por isso a função devolve motivo e força: quem confirma é
+ * gente, e gente precisa saber por que aquele nome foi oferecido.
+ *
+ * Devolve `null` quando nada casa — em branco é melhor que um palpite ruim.
+ */
+export function sugerirCliente(
+  loja: { slug: string; nome: string },
+  clientes: ClienteCandidato[],
+): Sugestao | null {
+  const slugDaLoja = chave(loja.slug);
+  const nomeDaLoja = chave(loja.nome);
+
+  const porSlug = clientes.find((c) => chave(c.slug) === slugDaLoja);
+  if (porSlug) return { cliente: porSlug, motivo: `O slug da loja e o do cliente são o mesmo: ${loja.slug}`, forca: "exato" };
+
+  const porNome = clientes.find((c) => chave(c.nome) === nomeDaLoja);
+  if (porNome) return { cliente: porNome, motivo: `O nome do cliente é igual ao da loja: ${loja.nome}`, forca: "provavel" };
+
+  // Contido dos dois lados: "Brilhax" (loja) dentro de "Brilhax Automotiva"
+  // (cliente), e o contrário. Exige pelo menos quatro letras para "FX" não
+  // casar com metade da carteira.
+  if (nomeDaLoja.length >= 4) {
+    const contido = clientes.find((c) => {
+      const nomeDoCliente = chave(c.nome);
+      return nomeDoCliente.length >= 4 && (nomeDoCliente.includes(nomeDaLoja) || nomeDaLoja.includes(nomeDoCliente));
+    });
+    if (contido) return { cliente: contido, motivo: `"${contido.nome}" e "${loja.nome}" têm o mesmo nome dentro`, forca: "fraco" };
+  }
+
+  return null;
 }
 
 /* ─────────────────────────── catálogo ─────────────────────────── */
