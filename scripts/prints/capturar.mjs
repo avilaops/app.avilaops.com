@@ -65,6 +65,11 @@ const telas = [
   ["implantacao", "/implantacao"],
   ["financeiro", "/financeiro"],
   ["financeiro-mercadopago", "/financeiro/mercadopago"],
+  // Lojas: a lista, a ficha com o catálogo, e o catálogo filtrado por defeito
+  // — que é a tela mais densa da área e a que aperta primeiro no celular.
+  ["lojas", "/lojas"],
+  ["lojas-detalhe", "/lojas/padaria-aurora"],
+  ["lojas-sem-foto", "/lojas/padaria-aurora?situacao=sem-foto"],
 
   // O menu, nos dois lados da regra de abertura: em /operacao a tela tem aba e
   // nenhum grupo abre; em /hub-social/seo não tem, e o grupo dela abre sozinho.

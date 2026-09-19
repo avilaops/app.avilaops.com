@@ -65,6 +65,24 @@ async function main() {
   }
   const [aurora, horizonte, vale] = organizacoes;
 
+  // O vínculo loja → cliente que a área /lojas cruza com a plataforma. Três
+  // das cinco lojas fingidas ficam vinculadas; as outras duas continuam órfãs
+  // de propósito, porque "loja que ninguém reivindica" é justamente o estado
+  // que só essa tela revela — e print que não o mostra não o prova.
+  for (const org of [aurora, horizonte, vale]) {
+    await prisma.organizationIntegration.upsert({
+      where: { organizationId_provider: { organizationId: org.id, provider: "lojas_avilaops" } },
+      update: { publicId: org.slug, accountName: org.name, status: "ACTIVE" },
+      create: {
+        organizationId: org.id,
+        provider: "lojas_avilaops",
+        publicId: org.slug,
+        accountName: org.name,
+        status: "ACTIVE",
+      },
+    });
+  }
+
   const dominios = [
     { org: aurora, fqdn: "padariaaurora.example", status: "active", plano: "Free Website", sync: 12, dns: 9, expira: 40 },
     { org: aurora, fqdn: "aurorapaes.example", status: "active", plano: "Free Website", sync: 12, dns: 4, expira: 300 },
