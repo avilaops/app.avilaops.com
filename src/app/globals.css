@@ -9407,3 +9407,29 @@ main [data-slot="select-trigger"]:focus-visible {
     padding: 7px 0;
   }
 }
+
+/* =========================================================================
+   A tira de contas do Financeiro (19/09/2026)
+   -------------------------------------------------------------------------
+   Correcao da passada anterior, que leu errado uma medicao. `.filter-tabs`,
+   `.range-switch` e `.account-switch` ja viram fileira rolavel de chips no
+   celular (`overflow-x: auto`, mais acima): o que parecia estouro era o
+   trilho funcionando. A passada anterior tratou isso como defeito e, junto,
+   baixou o alvo de toque dos chips de 44px para 32px. Fica so o que era de
+   fato necessario: `min-width: 0` para o trilho nao empurrar a faixa, e a
+   tira de contas numa linha propria no celular, porque sao sete nomes longos
+   ("Mercado Pago · CNPJ 67.954.417") disputando largura com a data da
+   ultima sincronizacao.
+   O alvo de toque de 44px dos chips volta a valer.
+   ========================================================================= */
+.account-switch,
+.filter-tabs,
+.range-switch {
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .connection-strip > .account-switch {
+    flex: 1 1 100%;
+  }
+}

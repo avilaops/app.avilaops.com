@@ -163,7 +163,8 @@ export default function OsbDashboardClient({
       ) : null}
 
       <div className="osb-controls" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
-        <div className="filter-buttons" style={{ display: "flex", gap: "0.5rem" }}>
+        {/* Quebra em linhas: os cinco filtros somam 444px e saem da tela a 390px. */}
+        <div className="filter-buttons" style={{ display: "flex", flexWrap: "wrap", minWidth: 0, gap: "0.5rem" }}>
           <button
             onClick={() => setFilter("ALL")}
             style={{ padding: "0.5rem 1rem", borderRadius: "6px", border: "none", background: filter === "ALL" ? "#3b82f6" : "#333", color: "#fff", cursor: "pointer" }}
