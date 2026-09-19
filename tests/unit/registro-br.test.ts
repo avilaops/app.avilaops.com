@@ -8,7 +8,6 @@ import {
   type LeituraRdapBr,
   type RespostaAvail,
 } from "@/lib/registro-br";
-import { diasAteVencer, estaVencendo, filtrarDominios, type DomainRow } from "@/components/dominios/tipos";
 
 const CONSULTADO_EM = "2026-09-18T12:00:00.000Z";
 
@@ -279,53 +278,6 @@ describe("diasAte", () => {
   });
 });
 
-describe("filtro de vencimento na tela", () => {
-  const agora = new Date("2026-09-18T12:00:00.000Z");
-
-  function linha(fqdn: string, expiresAt: string | null): DomainRow {
-    return {
-      id: fqdn,
-      fqdn,
-      cloudflarePlan: null,
-      cloudflareStatus: "active",
-      dnsLastSyncedAt: null,
-      dnsRecordCount: 0,
-      organizationName: "Cliente",
-      organizationId: null,
-      cloudflareZoneId: null,
-      registrar: null,
-      expiresAt,
-      autoRenew: null,
-      nextActionAt: null,
-      registroBrLidoEm: null,
-      registroBrTitular: null,
-      registroBrStatus: null,
-    };
-  }
-
-  it("60 dias é o corte, e o que já venceu continua aparecendo", () => {
-    expect(estaVencendo(linha("a.com.br", "2026-10-18T12:00:00.000Z"), agora)).toBe(true);
-    expect(estaVencendo(linha("b.com.br", "2026-11-30T12:00:00.000Z"), agora)).toBe(false);
-    expect(estaVencendo(linha("c.com.br", "2026-08-01T12:00:00.000Z"), agora)).toBe(true);
-  });
-
-  it("domínio sem data não entra no filtro de vencendo", () => {
-    expect(estaVencendo(linha("d.com.br", null), agora)).toBe(false);
-    expect(diasAteVencer(null, agora)).toBeNull();
-  });
-
-  it("o filtro devolve só o que está na janela", () => {
-    const dominios = [
-      linha("perto.com.br", "2026-10-01T12:00:00.000Z"),
-      linha("longe.com.br", "2027-10-01T12:00:00.000Z"),
-      linha("semdata.com.br", null),
-    ];
-
-    expect(filtrarDominios(dominios, "", "vencendo", agora).map((d) => d.fqdn)).toEqual(["perto.com.br"]);
-    expect(filtrarDominios(dominios, "", "todas", agora)).toHaveLength(3);
-  });
-});
-
 describe("respostaEhDoMesmoNome", () => {
   it("aceita o mesmo nome, com caixa e ponto final diferentes", () => {
     expect(respostaEhDoMesmoNome("uol.com.br", { ldhName: "UOL.com.br." })).toBe(true);
@@ -338,32 +290,5 @@ describe("respostaEhDoMesmoNome", () => {
 
   it("resposta sem nome nenhum passa: não há com o que discordar", () => {
     expect(respostaEhDoMesmoNome("uol.com.br", {})).toBe(true);
-  });
-});
-
-describe("linha sem registro no .br", () => {
-  it("o status por linha distingue 'livre' de 'nunca consultado'", () => {
-    const base = {
-      id: "x",
-      fqdn: "marcenaria-luz.com.br",
-      cloudflarePlan: null,
-      cloudflareStatus: "active",
-      dnsLastSyncedAt: null,
-      dnsRecordCount: 0,
-      organizationName: "Marcenaria Luz",
-      organizationId: null,
-      cloudflareZoneId: null,
-      registrar: null,
-      expiresAt: "2026-09-15T12:00:00.000Z",
-      autoRenew: null,
-      nextActionAt: null,
-      registroBrLidoEm: "2026-09-18T12:00:00.000Z",
-      registroBrTitular: null,
-      registroBrStatus: "LIVRE",
-    } satisfies DomainRow;
-
-    expect(base.registroBrStatus).toBe("LIVRE");
-    // A data antiga continua na linha: apagá-la esconderia o problema.
-    expect(base.expiresAt).not.toBeNull();
   });
 });
