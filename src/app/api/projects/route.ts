@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { ERRO_URL_DE_PROJETO, urlDeProjetoValida } from "@/lib/projects";
 
 const ALLOWED_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
@@ -45,21 +46,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Link que não é http(s) não serve para nada aqui, e ainda abre espaço para
-  // um `javascript:` ir parar num href da tela.
-  if (url) {
-    let esquema = "";
-    try {
-      esquema = new URL(url).protocol;
-    } catch {
-      esquema = "";
-    }
-    if (esquema !== "http:" && esquema !== "https:") {
-      return NextResponse.json(
-        { error: "Informe uma URL começando com http:// ou https://." },
-        { status: 400 },
-      );
-    }
+  if (!urlDeProjetoValida(url)) {
+    return NextResponse.json({ error: ERRO_URL_DE_PROJETO }, { status: 400 });
   }
 
   let dueAt: Date | null = null;

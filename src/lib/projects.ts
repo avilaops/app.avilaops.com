@@ -2,6 +2,26 @@ import { prisma } from "@/lib/prisma";
 
 const OPEN_TASK_STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED"];
 
+/**
+ * Link de projeto só vale http(s).
+ *
+ * Não é preciosismo de formato: o valor vira `href` na tela do projeto, e um
+ * `javascript:` colado aqui viraria script executando no clique de quem abrir.
+ * Vive em um lugar só porque criação e edição precisam da mesma regra — duas
+ * cópias dariam certo até alguém endurecer uma e esquecer a outra.
+ */
+export function urlDeProjetoValida(url: string): boolean {
+  if (!url) return true;
+  try {
+    const esquema = new URL(url).protocol;
+    return esquema === "http:" || esquema === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export const ERRO_URL_DE_PROJETO = "Informe uma URL começando com http:// ou https://.";
+
 export type ProjectFilter = {
   status?: string;
   organizationId?: string;

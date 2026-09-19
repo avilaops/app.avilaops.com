@@ -313,6 +313,44 @@ async function main() {
     }
   }
 
+  // Projetos. Sem isto a tela ficava vazia em toda captura, e a de detalhe não
+  // era capturada — ou seja, descrição, link, mídia e edição passavam batido
+  // pela revisão visual do CI.
+  //
+  // O id é fixo de propósito: `capturar.mjs` precisa de uma URL estável para
+  // abrir a tela de detalhe.
+  await prisma.project.upsert({
+    where: { id: "exemplo-projeto-1" },
+    update: {},
+    create: {
+      id: "exemplo-projeto-1",
+      organizationId: horizonte.id,
+      title: "Site institucional — fase 1",
+      description:
+        "Reescrita das páginas de serviço e agendamento, com foto nova das salas. Escopo combinado: home, três páginas de especialidade e a página de contato. Publicação prevista para o fim do mês, com os textos revisados pela clínica antes de subir.",
+      url: "https://clinicahorizonte.example/preview",
+      status: "ACTIVE",
+      priority: "HIGH",
+      ownerName: "Pessoa Exemplo",
+      dueAt: emDias(12),
+      createdAt: haDias(9),
+    },
+  });
+
+  await prisma.project.upsert({
+    where: { id: "exemplo-projeto-2" },
+    update: {},
+    create: {
+      id: "exemplo-projeto-2",
+      organizationId: horizonte.id,
+      title: "Campanha de check-up anual",
+      status: "PLANNING",
+      priority: "MEDIUM",
+      dueAt: emDias(34),
+      createdAt: haDias(3),
+    },
+  });
+
   if ((await prisma.studioPiece.count()) === 0) {
     const pecas = [
       { title: "Cartão de chamada", templateId: "cartao-chamada", format: "4:5", kind: "image", status: "DONE", w: 1080, h: 1350 },

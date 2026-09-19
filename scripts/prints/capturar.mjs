@@ -61,6 +61,9 @@ const telas = [
   ["operacao", "/operacao"],
   ["clientes", "/clientes"],
   ["projetos", "/projetos"],
+  // A tela de detalhe: é onde vivem descrição, link, mídia e a edição do
+  // cadastro. Id fixo vem do semeador.
+  ["projetos-detalhe", "/projetos/exemplo-projeto-1"],
   ["vagas", "/vagas"],
   ["implantacao", "/implantacao"],
   ["financeiro", "/financeiro"],
