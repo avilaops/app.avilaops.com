@@ -6,10 +6,13 @@ import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import LinhaDominio from "@/components/dominios/LinhaDominio";
+import ConsultaRegistroBr from "@/components/dominios/ConsultaRegistroBr";
 import {
   estaAtiva,
+  estaVencendo,
   filtrarDominios,
   lerFiltro,
+  JANELA_ATENCAO_DIAS,
   type DomainRow,
   type FiltroStatus,
 } from "@/components/dominios/tipos";
@@ -33,14 +36,35 @@ type DomainRowApi = {
   organizationName: string;
 };
 
+/** Linha como o POST /api/integrations/registro-br/sync devolve. */
+type DominioRegistroBr = {
+  id: string;
+  fqdn: string;
+  status: string;
+  expiraEm: string | null;
+  diasRestantes: number | null;
+  titular: string | null;
+};
+
+type ResumoRegistroBr = {
+  consultados: number;
+  atualizados: number;
+  vencendoEm60Dias: number;
+  semDataPublicada: number;
+  falharam: number;
+  semRegistro: string[];
+};
+
 const ORIGEM_PAGINA = "prisma.domainAsset.findMany (cloudflareZoneId não nulo) em src/app/hub-social/dominios/page.tsx";
 const ORIGEM_API = "GET /api/integrations/cloudflare/domains (prisma.domainAsset.findMany, cloudflareZoneId não nulo)";
+const ORIGEM_REGISTRO_BR = "POST /api/integrations/registro-br/sync (evento expiration do RDAP em rdap.registro.br)";
 const ROTA = "/hub-social/dominios";
 
 const CHIPS: { valor: FiltroStatus; rotulo: string }[] = [
   { valor: "todas", rotulo: "Todas" },
   { valor: "ativas", rotulo: "Ativas" },
   { valor: "pendentes", rotulo: "Pendentes" },
+  { valor: "vencendo", rotulo: "Vencendo" },
 ];
 
 const classesBotaoAcao = "min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm";
@@ -57,10 +81,43 @@ function mesclar(anteriores: DomainRow[], novos: DomainRowApi[]): DomainRow[] {
       expiresAt: antigo?.expiresAt ?? null,
       autoRenew: antigo?.autoRenew ?? null,
       nextActionAt: antigo?.nextActionAt ?? null,
+      registroBrLidoEm: antigo?.registroBrLidoEm ?? null,
+      registroBrTitular: antigo?.registroBrTitular ?? null,
       ...novo,
       dnsLastSyncedAt: novo.dnsLastSyncedAt ?? null,
     };
   });
+}
+
+/** Aplica na tela o que o Registro.br acabou de dizer, sem recarregar a página. */
+function aplicarRegistroBr(anteriores: DomainRow[], atualizados: DominioRegistroBr[], lidoEm: string): DomainRow[] {
+  const porId = new Map(atualizados.map((dominio) => [dominio.id, dominio]));
+  return anteriores.map((dominio) => {
+    const novo = porId.get(dominio.id);
+    if (!novo) return dominio;
+    return {
+      ...dominio,
+      // Só o que o registro respondeu de fato substitui o que já estava: uma
+      // consulta que falhou não pode apagar a data que a anterior trouxe.
+      expiresAt: novo.status === "REGISTRADO" ? novo.expiraEm : dominio.expiresAt,
+      registrar: novo.status === "REGISTRADO" ? "Registro.br" : dominio.registrar,
+      registroBrLidoEm: novo.status === "DESCONHECIDO" ? dominio.registroBrLidoEm : lidoEm,
+      registroBrTitular: novo.titular ?? dominio.registroBrTitular,
+    };
+  });
+}
+
+function descreverRegistroBr(resumo: ResumoRegistroBr): string {
+  const partes = [
+    `${resumo.consultados} domínios .br consultados no Registro.br`,
+    `${resumo.atualizados} com vencimento atualizado`,
+  ];
+  if (resumo.semDataPublicada > 0) partes.push(`${resumo.semDataPublicada} sem data publicada`);
+  if (resumo.falharam > 0) partes.push(`${resumo.falharam} sem resposta`);
+  if (resumo.semRegistro.length > 0) {
+    partes.push(`sem registro no .br: ${resumo.semRegistro.join(", ")}`);
+  }
+  return `${partes.join(" · ")}.`;
 }
 
 export default function CloudflareDomainsPanel({
@@ -76,6 +133,7 @@ export default function CloudflareDomainsPanel({
   const [lidoEm, setLidoEm] = useState(lidoEmInicial);
   const [relidoDaApi, setRelidoDaApi] = useState(false);
   const [status, setStatus] = useState<"idle" | "syncing" | "done">("idle");
+  const [statusRegistroBr, setStatusRegistroBr] = useState<"idle" | "syncing">("idle");
   const [error, setError] = useState("");
   const [lastSummary, setLastSummary] = useState("");
   const [busca, setBusca] = useState("");
@@ -124,17 +182,62 @@ export default function CloudflareDomainsPanel({
     }
   }
 
+  /**
+   * O Cloudflare não sabe quando o domínio vence. Quem sabe é o registro, e
+   * esta é a única fonte de `expires_at` para os `.br` da carteira.
+   */
+  async function handleVencimentos() {
+    setStatusRegistroBr("syncing");
+    setError("");
+
+    try {
+      const response = await fetch("/api/integrations/registro-br/sync", { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        setError(data.error ?? "Falha ao consultar o Registro.br.");
+        return;
+      }
+
+      const agora = new Date().toISOString();
+      setDomains((anteriores) => aplicarRegistroBr(anteriores, data.dominios ?? [], agora));
+      setLidoEm(agora);
+      setLastSummary(descreverRegistroBr(data.resumo));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao consultar o Registro.br.");
+    } finally {
+      setStatusRegistroBr("idle");
+    }
+  }
+
   const sincronizando = status === "syncing";
+  const consultandoRegistro = statusRegistroBr === "syncing";
+
   const botaoSincronizar = (variante: "default" | "outline" = "default") => (
     <Button type="button" variant={variante} onClick={handleSync} disabled={sincronizando} className={classesBotaoAcao}>
       {sincronizando ? "Sincronizando…" : "Sincronizar agora"}
     </Button>
   );
 
+  const botaoVencimentos = (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={handleVencimentos}
+      disabled={consultandoRegistro}
+      className={classesBotaoAcao}
+    >
+      {consultandoRegistro ? "Consultando o Registro.br…" : "Atualizar vencimentos"}
+    </Button>
+  );
+
+  const agora = new Date(lidoEm);
   const total = domains.length;
   const ativas = domains.filter(estaAtiva).length;
   const pendentes = total - ativas;
+  const vencendo = domains.filter((dominio) => estaVencendo(dominio, agora)).length;
   const registrosDns = domains.reduce((soma, dominio) => soma + dominio.dnsRecordCount, 0);
+  const comVencimento = domains.filter((dominio) => dominio.expiresAt).length;
   const gravadoEm = domains.reduce<string | null>(
     (maisRecente, dominio) =>
       dominio.dnsLastSyncedAt && (!maisRecente || dominio.dnsLastSyncedAt > maisRecente)
@@ -142,7 +245,14 @@ export default function CloudflareDomainsPanel({
         : maisRecente,
     null,
   );
-  const bruto = { zonas: total, ativas, pendentes, registrosDns };
+  const lidoNoRegistroEm = domains.reduce<string | null>(
+    (maisRecente, dominio) =>
+      dominio.registroBrLidoEm && (!maisRecente || dominio.registroBrLidoEm > maisRecente)
+        ? dominio.registroBrLidoEm
+        : maisRecente,
+    null,
+  );
+  const bruto = { zonas: total, ativas, pendentes, registrosDns, vencendo, comVencimento };
 
   const evidencia = (rotulo: string, formula: string): Evidencia => ({
     rotulo,
@@ -154,20 +264,25 @@ export default function CloudflareDomainsPanel({
     bruto,
   });
 
-  const visiveis = filtrarDominios(domains, busca, filtro);
-  const contagemPorChip: Record<FiltroStatus, number> = { todas: total, ativas, pendentes };
+  const visiveis = filtrarDominios(domains, busca, filtro, agora);
+  const contagemPorChip: Record<FiltroStatus, number> = { todas: total, ativas, pendentes, vencendo };
 
   return (
     <div className="space-y-6">
       <CabecalhoPagina
         titulo="Domínios"
-        subtitulo="Cada zona do Cloudflare vira uma organização e um domínio aqui, com o DNS espelhado."
-        acoes={botaoSincronizar()}
+        subtitulo="Cada zona do Cloudflare vira uma organização e um domínio aqui, com o DNS espelhado. O vencimento dos .br vem do Registro.br."
+        acoes={
+          <div className="flex flex-col gap-2 min-[560px]:flex-row">
+            {botaoVencimentos}
+            {botaoSincronizar()}
+          </div>
+        }
       />
 
       {error ? (
         <p role="alert" className="text-[15px] leading-[1.5] text-[color:var(--red)] min-[821px]:text-sm">
-          <strong className="font-semibold">Não foi possível sincronizar.</strong> {error}
+          <strong className="font-semibold">Não foi possível concluir.</strong> {error}
         </p>
       ) : null}
 
@@ -210,11 +325,35 @@ export default function CloudflareDomainsPanel({
               )}
             />
             <Metrica
+              rotulo={`Vencendo em ${JANELA_ATENCAO_DIAS} dias`}
+              valor={vencendo}
+              tom={vencendo > 0 ? "ruim" : "neutro"}
+              detalhe={
+                comVencimento === total ? undefined : `${total - comVencimento} sem data de vencimento conhecida`
+              }
+              href={`${ROTA}?status=vencendo`}
+              evidencia={{
+                rotulo: `Vencendo em ${JANELA_ATENCAO_DIAS} dias`,
+                origem: lidoNoRegistroEm
+                  ? ORIGEM_REGISTRO_BR
+                  : "domains.expires_at (Postgres). Nenhum domínio consultado no Registro.br ainda.",
+                formula: `contagem das zonas cujo expires_at cai dentro de ${JANELA_ATENCAO_DIAS} dias (inclui as já vencidas); zona sem data não entra na conta`,
+                lidoEm,
+                gravadoEm: lidoNoRegistroEm,
+                observacao: lidoNoRegistroEm
+                  ? "Gravado em = leitura mais recente do Registro.br entre as zonas. Domínios fora do .br não têm data aqui."
+                  : "Nenhuma leitura do Registro.br registrada: use “Atualizar vencimentos”. Sem isso, este número é zero por falta de dado, não por estar tudo em dia.",
+                bruto,
+              }}
+            />
+            <Metrica
               rotulo="Registros DNS"
               valor={registrosDns}
               evidencia={evidencia("Registros DNS", "soma de _count.dnsRecords de cada zona")}
             />
           </GradeMetricas>
+
+          <ConsultaRegistroBr />
 
           <Card className="w-full min-w-0 gap-0 overflow-hidden py-0 shadow-none">
             <div className="flex flex-col gap-3 border-b border-border px-4 pt-4 pb-3">
