@@ -58,12 +58,26 @@ compactar uma tela nova mexe neles, não em cada componente.
 | Token | Valor | O que governa |
 |---|---|---|
 | `--cel-pad-pagina` | 16px | recuo lateral do `.main-canvas` |
-| `--cel-gap-secao` | 16px | distância entre grupos da mesma tela |
-| `--cel-pad-cartao` | 14px | respiro interno de cartão (assistente de cadastro) |
-| `--cel-linha` | 52px | altura mínima de linha de lista (≈58px com descrição) |
+| `--cel-gap-secao` | 14px | distância entre grupos da mesma tela |
+| `--cel-pad-cartao` | 12px | respiro interno de cartão e painel |
+| `--cel-linha` | 50px | altura mínima de linha de lista (55px com descrição) |
 | `--cel-controle` | 48px | altura de campo, select e botão do CEP |
+| `--cel-gap-campo` | 14px | distância entre campos do mesmo formulário |
 | `--cel-raio` | 14px | raio de superfície no celular |
-| `--cel-nav` | 64px | altura real da barra de abas, usada no `padding-bottom` do conteúdo |
+| `--cel-nav` | 62px | altura real da barra de abas, usada no `padding-bottom` do conteúdo |
+
+Medido em produção a 390x844, antes e depois da compactação de 19/09/2026:
+
+| O que | Antes | Depois |
+|---|---|---|
+| Campo do formulário da ficha | 141px | 70px |
+| Movimentação do financeiro | 139px | 104px (119px com vínculo) |
+| Cartão da ficha do cliente | 255px | 211px |
+| Grade de quatro métricas | 278px | 219px |
+| Cápsula da barra de abas | 56px | 50px |
+| Linha de lista do sistema | 57px | 55px |
+| Ficha do cliente (página) | 1.863px | 1.493px |
+| Financeiro (página) | 3.089px | 2.805px |
 
 Eles não encolhem alvo de toque nem fonte de campo: o que é tocável continua
 com 44px ou mais (`.tab-item` 48, `.primary-button`/`.secondary-button` 46,
