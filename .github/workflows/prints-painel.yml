@@ -13,6 +13,8 @@ on:
       - "src/app/**"
       - "src/components/**"
       - "src/lib/navegacao.ts"
+      - "src/lib/lojas-painel.ts"
+      - "src/lib/lojas-plataforma.ts"
       - "scripts/prints/**"
       - ".github/workflows/prints-painel.yml"
       # `next.config.ts` decide o que entra no bundle standalone, e é esse
@@ -67,6 +69,13 @@ jobs:
       # em parte dos chunks, e a árvore some na hidratação. Print silenciosamente
       # errado é pior que print ausente, então o app sobe pelo server.js do
       # bundle, com os estáticos copiados para dentro dele.
+      # A área /lojas lê a plataforma por HTTP, não o banco: sem esta peça os
+      # prints dela sairiam no estado "não configurada". Nenhum segredo — é um
+      # servidor local com dados fictícios, como o `semear.ts` é para o banco.
+      - name: Subir a plataforma de lojas fingida
+        run: |
+          node scripts/prints/lojas-falsa.mjs > lojas-falsa.log 2>&1 &
+          npx --yes wait-on http://127.0.0.1:4599 --timeout 30000 || true
       - name: Subir o app
         run: |
           cp -r .next/static .next/standalone/.next/static
@@ -80,6 +89,8 @@ jobs:
         env:
           HOSTNAME: 127.0.0.1
           PORT: "3000"
+          LOJAS_API_URL: http://127.0.0.1:4599
+          LOJAS_ADMIN_TOKEN: token-de-conferencia
       - name: Playwright
         run: |
           npm install --no-save playwright@1.62.1
@@ -89,6 +100,9 @@ jobs:
       - name: Log do app
         if: always()
         run: tail -n 200 next.log || true
+      - name: Log da plataforma fingida
+        if: always()
+        run: tail -n 50 lojas-falsa.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
