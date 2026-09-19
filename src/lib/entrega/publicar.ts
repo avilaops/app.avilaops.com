@@ -20,6 +20,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   apagarRotaWorker,
+  credencialConfigurada,
   criarRotaWorker,
   listarRotasWorker,
   publicarScriptWorker,
@@ -171,6 +172,14 @@ export async function publicarEntrega(
   if (ensaio || Object.keys(mapa).length === 0) {
     await gravar(resultado);
     return resultado;
+  }
+
+  // Sem credencial a chamada voltaria como um 401 cru da API, e a tela
+  // mostraria isso para quem só apertou um botão. Diz o que falta.
+  if (!credencialConfigurada()) {
+    throw new Error(
+      "Sem credencial da Cloudflare configurada: não há como publicar na borda.",
+    );
   }
 
   // Um script para todos os domínios: o mapa inteiro vai junto, e a rota é que
