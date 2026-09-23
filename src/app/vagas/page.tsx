@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import JobPostingForm from "@/components/JobPostingForm";
 import { getAdmin } from "@/lib/auth";
 import { formatDateTime, formatShortDate } from "@/lib/format";
@@ -13,6 +15,10 @@ import {
   listJobPostings,
   STATUS_LABELS,
 } from "@/lib/job-postings";
+
+/** Só o host, para o cabeçalho dizer para onde a vaga vai sem um link
+    dentro da descrição. */
+const JOBS_SITE_HOST = JOBS_SITE_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
 const statusPillClass: Record<string, string> = {
   DRAFT: "status-planning",
@@ -60,19 +66,12 @@ export default async function JobPostingsPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="jobs">
-      <header className="page-header">
-        <div>
-          <h1>Vagas</h1>
-          <p>
-            Cada vaga sai do banco para{" "}
-            <a className="text-link" href={JOBS_SITE_URL} target="_blank" rel="noreferrer">
-              jobs.avilaops.com
-            </a>{" "}
-            no build do site - é o conteúdo que alimenta o Google Jobs.
-          </p>
-        </div>
-        <JobPostingForm />
-      </header>
+      <CabecalhoTela
+        titulo="Vagas"
+        descricao={`Cada vaga sai do banco para ${JOBS_SITE_HOST} no build do site, que é o conteúdo que alimenta o Google Jobs.`}
+        {...contextoDaSecao("jobs")}
+        acoes={<JobPostingForm />}
+      />
 
       {site.stale ? (
         <section className="jobs-site-banner jobs-site-banner-stale">

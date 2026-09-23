@@ -4,6 +4,7 @@ import AppShell from "@/components/AppShell";
 import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import { Grupo, LinhaInfo } from "@/components/sistema/Lista";
 import { ehDono, getAdmin } from "@/lib/auth";
+import { contextoDaSecao } from "@/lib/navegacao";
 import { getDre, type Dre } from "@/lib/dre";
 import { formatCurrency } from "@/lib/format";
 
@@ -92,11 +93,11 @@ export default async function DrePage({
     : "—";
 
   return (
-    <AppShell adminName={admin.nome} papel={admin.role} section="reports">
+    <AppShell adminName={admin.nome} papel={admin.role} section="dre">
       <CabecalhoTela
         titulo="Resultado (DRE)"
         descricao={`Por competência · ${rotuloDoMes(dre.meses[0])} a ${rotuloDoMes(dre.meses[dre.meses.length - 1])}`}
-        icone="financeiro"
+        {...contextoDaSecao("dre")}
         acoes={
           <Link href="/financeiro" className="secondary-button">
             Painel do caixa
