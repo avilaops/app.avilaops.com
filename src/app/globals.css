@@ -6978,34 +6978,6 @@ tbody tr:last-child td {
   font-size: 0.75rem;
 }
 
-.cadastro-ia-perguntar ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cadastro-ia-perguntar li {
-  padding: 10px 12px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-sm);
-}
-
-.cadastro-ia-perguntar strong {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.cadastro-ia-perguntar small {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
 @media (max-width: 760px) {
   .cadastro-ia {
     padding: 16px;
@@ -8301,4 +8273,352 @@ main [data-slot="input"]:focus-visible,
 main [data-slot="textarea"]:focus-visible,
 main [data-slot="select-trigger"]:focus-visible {
   border-color: var(--marca-azul);
+}
+
+/* =========================================================================
+   Densidade do celular (19/09/2026)
+   -------------------------------------------------------------------------
+   O redesenho acertou a linguagem e errou a escala: o painel ficou uns 25–35%
+   grande demais no telefone. Quatro campos consumiam uma viewport inteira.
+
+   A causa era de token, não de tela. A escala `--e1`…`--e9` do sistema visual é
+   declarada única e **não varia por viewport**: o `--e6` de 24px que respira num
+   monitor de 1440 é o mesmo que empilha em 375. Toda tela herdava o espaçamento
+   do desktop.
+
+   Os degraus maiores da escala encolhem dentro do celular, sem inventar valor
+   fora dela. `--e1` a `--e4` não mudam: são gaps internos, e a 4, 8, 12 e 16px
+   já estavam certos.
+
+   Alcance real, medido e não suposto: `var(--e5)` e `var(--e6)` aparecem em 14
+   regras — a pilha das telas novas, a grade da Home, o cabeçalho de tela. As
+   outras ~8.000 linhas deste arquivo são anteriores ao sistema visual e usam
+   pixel na mão, então NÃO compactam por aqui. É por isso que as seções abaixo
+   existem: elas tratam, uma a uma, as telas que a passada de densidade precisa
+   corrigir agora (ficha do cliente, assistente, financeiro, barra de abas).
+
+   O que este bloco garante é o futuro: componente novo que use a escala já
+   nasce denso no telefone, e quem migrar uma tela antiga para os tokens ganha
+   a densidade de graça.
+
+   Este bloco fica no fim do arquivo de propósito. Há blocos de 820px, 560px e
+   400px espalhados acima, em ordem que não é decrescente; morando por último,
+   estes tokens valem qualquer que seja a ordem dos outros.
+
+   O que NÃO se toca, e vale como contrato desta seção:
+   - alvo interativo ≥ 44px;
+   - fonte de campo = 16px, senão o Safari dá zoom ao focar;
+   - nenhuma cor muda, então o contraste dos dois temas fica como estava;
+   - `env(safe-area-inset-*)` continua em toda barra fixa.
+   ========================================================================= */
+@media (max-width: 820px) {
+  :root {
+    /* A escala, um degrau mais apertada. */
+    --e5: 16px; /* era 20 */
+    --e6: 18px; /* era 24 — o gap entre grupos, o que mais pesava */
+    --e7: 22px; /* era 32 */
+    --e8: 28px; /* era 40 */
+    --e9: 34px; /* era 48 */
+
+    /* Densidade: o que governa altura e respiro no telefone. */
+    --d-pagina: 16px; /* padding lateral da página */
+    --d-cartao: 14px; /* padding interno de superfície */
+    --d-linha: 52px; /* linha de lista simples */
+    --d-linha-dupla: 60px; /* linha com título e descrição */
+    --d-controle: 48px; /* altura de campo de uma linha */
+    --d-campo-gap: 16px; /* entre um campo e o próximo */
+    --d-nav: 64px; /* altura real da cápsula de abas */
+  }
+}
+
+/* ---------- Tipografia: nada de título maior na tela menor ---------- */
+@media (max-width: 820px) {
+  /*
+   * O `h1` do celular estava em 1,875rem contra 1,75rem do desktop — a tela
+   * menor com o título maior. Some a anomalia, e o título passa a caber na
+   * mesma linha da barra de contexto em 375px.
+   */
+  .tela-cabecalho h1 {
+    font-size: 1.625rem;
+  }
+
+  .tela-cabecalho p {
+    font-size: 0.875rem;
+  }
+
+  .tela-cabecalho {
+    margin-bottom: var(--e4);
+  }
+
+  .tela-cabecalho .icone-tile {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+}
+
+/* ---------- Linha de lista: duas alturas, não uma ---------- */
+@media (max-width: 820px) {
+  /*
+   * `.linha` tinha 56px para todo caso. Linha só de rótulo não precisa disso, e
+   * linha com descrição precisa de um pouco mais. `:has(small)` separa as duas
+   * sem tocar em nenhum componente.
+   *
+   * Em iOS anterior ao 15.4, sem `:has()`, toda linha fica com os 52px do piso —
+   * e como é `min-height`, a que tem descrição cresce pelo conteúdo. Degrada
+   * para apertado, nunca para cortado.
+   */
+  .linha {
+    min-height: var(--d-linha);
+    padding: var(--e2) var(--e4);
+  }
+
+  .linha:has(small) {
+    min-height: var(--d-linha-dupla);
+  }
+
+  .grupo {
+    gap: var(--e1);
+  }
+
+  .pilha {
+    gap: var(--e5);
+  }
+}
+
+/* ---------- Campos: o textarea vazio era o maior desperdício ---------- */
+@media (max-width: 820px) {
+  /*
+   * `.field textarea` tinha `min-height: 92px` e nenhuma regra de celular, então
+   * quatro textareas vazios ocupavam mais que a viewport inteira — era o que a
+   * tela de "Descrição da empresa" mostrava.
+   *
+   * `field-sizing: content` faz a caixa nascer do tamanho do conteúdo e crescer
+   * ao digitar. Onde o navegador não suporta (Safari antigo), vale o
+   * `min-height` de 76px, que já é 16px menor que o de antes.
+   */
+  .field {
+    gap: 6px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: var(--d-controle);
+    padding-right: 14px;
+    padding-left: 14px;
+    /* 16px trava o zoom do Safari ao focar. Não é escolha de estilo. */
+    font-size: 16px;
+  }
+
+  .field textarea {
+    /* Mesmo piso do textarea da ficha do cliente: as duas famílias de campo
+       convivem na mesma tela e não podem ter alturas diferentes para a mesma
+       coisa. */
+    min-height: 56px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    field-sizing: content;
+  }
+
+  .field-grid {
+    gap: var(--d-campo-gap);
+  }
+
+  .field-help {
+    line-height: 1.35;
+  }
+}
+
+/* ---------- Ficha do cliente: onde o desperdício era maior ---------- */
+@media (max-width: 820px) {
+  /*
+   * A conta do que havia: rótulo (17px) + 8px de gap + textarea de 96px + 18px
+   * até o campo seguinte = ~139px por campo de texto longo. Quatro deles vazios
+   * passavam de 550px — mais que meia viewport de iPhone mostrando caixa vazia.
+   *
+   * `field-sizing: content` resolve na raiz: a caixa nasce do tamanho do
+   * conteúdo e cresce ao digitar, em vez de reservar espaço para um texto que
+   * talvez nunca venha. Os 56px de piso são para o navegador que não suporta —
+   * continua sendo caixa de várias linhas (e `resize: vertical` segue lá), só
+   * não nasce ocupando meia tela. 96 → 56 são 40px por campo; na aba de
+   * contato, com quatro deles vazios, são 160px de volta.
+   *
+   * O input de uma linha NÃO encolhe: 48px é alvo de toque, e 16px de fonte é o
+   * que impede o Safari de dar zoom ao focar.
+   */
+  .dossier-grid.two,
+  .dossier-grid.three,
+  .dossier-grid {
+    gap: var(--d-campo-gap);
+  }
+
+  .dossier-grid textarea,
+  .client-dossier textarea {
+    min-height: 56px;
+    padding: 10px 12px;
+    line-height: 1.45;
+    field-sizing: content;
+  }
+
+  .dossier-grid label,
+  .client-dossier .full-field {
+    gap: 6px;
+  }
+
+  .asset-upload-card {
+    padding: var(--d-cartao);
+  }
+}
+
+/* ---------- Cápsula de abas: 64px, e o conteúdo reservando isso ---------- */
+@media (max-width: 820px) {
+  /*
+   * A barra roubava área útil duas vezes: a cápsula em si, e a reserva de
+   * `padding-bottom` que estava dessincronizada dela.
+   *
+   * A cápsula media 56px (4 + 48 + 4) mais 12px de respiro embaixo = 68px, e o
+   * conteúdo reservava `76px + 24px` = 100px. Trinta e dois pixels de folga
+   * sobre uma barra que já era alta.
+   *
+   * Agora a aba tem os 44px do piso de toque, a cápsula fecha em 52px, e a
+   * reserva deriva de `--d-nav` em vez de um número solto que ninguém lembra de
+   * atualizar quando a barra muda.
+   */
+  .tab-item {
+    min-height: 44px;
+    border-radius: 18px;
+  }
+
+  .tab-capsula {
+    padding: var(--e1);
+    border-radius: 24px;
+  }
+
+  .tab-bar {
+    padding: 0 var(--e4) calc(var(--e3) + env(safe-area-inset-bottom));
+  }
+
+  .main-canvas {
+    padding: var(--e4) var(--d-pagina)
+      calc(var(--d-nav) + env(safe-area-inset-bottom) + var(--e3));
+  }
+}
+
+/* ---------- Financeiro: a movimentação em quatro linhas, não cinco ---------- */
+@media (max-width: 820px) {
+  /*
+   * O cartão tinha cinco faixas de grade — `ref` ganhava uma linha inteira mesmo
+   * quando não havia referência, e `actions` atravessava duas. Com o padding de
+   * 12/14 e o raio grande, uma movimentação simples passava de 150px.
+   *
+   * Agora são quatro faixas e a referência divide a linha com o escopo. O que
+   * a pessoa lê de relance continua em cima e intacto: o quê, e quanto.
+   */
+  .tx-row {
+    grid-template-areas:
+      "kind amount"
+      "party date"
+      "scope ref"
+      "state actions";
+    row-gap: 4px;
+    padding: 10px 12px;
+    border-radius: var(--raio-m);
+  }
+
+  .tx-scope {
+    padding-top: 0;
+  }
+
+  .tx-ref {
+    align-self: center;
+    text-align: right;
+  }
+
+  /* Filtro é tira que rola; ele não precisa de 22px em cima e embaixo. */
+  .filter-strip {
+    gap: var(--e2);
+    margin: var(--e3) 0;
+  }
+
+  .filter-chip {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 12px;
+  }
+}
+
+/* ---------- Assistente de cadastro ---------- */
+.cadastro-ia-titulo h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.cadastro-ia-titulo p {
+  margin: 2px 0 0;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+/*
+ * A descrição de `LinhaInfo` trunca numa linha, que é o certo num menu: ali o
+ * texto é legenda. Aqui ele é o conteúdo — "Exigida na emissão de nota para
+ * alguns regimes." é a razão de o campo importar, e cortada no meio não diz
+ * nada. Escopado a este painel para não afrouxar a regra do componente.
+ */
+.cadastro-ia-perguntar .linha-texto small {
+  overflow: visible;
+  white-space: normal;
+}
+
+@media (max-width: 820px) {
+  .cadastro-ia {
+    gap: var(--e3);
+    margin-bottom: var(--e5);
+    padding: var(--d-cartao);
+  }
+
+  .cadastro-ia-topo {
+    gap: var(--e2);
+  }
+
+  /*
+   * Três botões de largura total empilhados custavam ~150px para oferecer o que
+   * cabe em duas linhas de chips. `1 1 auto` com base de 140px põe dois por
+   * linha em 375px e três a partir de 430px, sem nenhum deles sair cortado.
+   */
+  .cadastro-ia-acoes {
+    gap: var(--e2);
+  }
+
+  .cadastro-ia-acoes button {
+    flex: 1 1 140px;
+    min-height: 44px;
+    padding: 0 var(--e3);
+    font-size: 0.8125rem;
+  }
+
+  .cadastro-ia-resumo {
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .cadastro-ia-aviso,
+  .cadastro-ia-mensagem,
+  .cadastro-ia-erro {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .cadastro-ia-lista {
+    gap: var(--e2);
+  }
+
+  .cadastro-ia-lista li {
+    padding: var(--e3);
+  }
 }

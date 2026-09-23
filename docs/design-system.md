@@ -44,6 +44,7 @@ Manrope, carregada por `next/font` em `src/app/layout.tsx` e exposta em `--fonte
 ## Espaço, raio e sombra
 
 - Espaço: `--e1` 4px, `--e2` 8, `--e3` 12, `--e4` 16, `--e5` 20, `--e6` 24, `--e7` 32, `--e8` 40, `--e9` 48. Nada fora da escala.
+- **A escala tem um degrau no celular.** Até 820px, os degraus grandes encolhem: `--e5` 16, `--e6` 18, `--e7` 22, `--e8` 28, `--e9` 34. `--e1` a `--e4` não mudam. Quem escreve componente continua usando `var(--e6)` e não precisa saber disso — o valor certo chega pelo token.
 - Raio: `--raio-p` 10px (ícone, botão), `--raio-m` 14px (superfície de lista), `--raio-g` 20px (área de conteúdo do desktop). A cápsula da barra de abas usa 26px, que é metade da altura dela.
 - Sombra: `--sombra-1` para superfície apoiada, `--sombra-2` só para o que flutua (barra de abas). Não existe terceira.
 
@@ -77,6 +78,28 @@ Em `src/components/sistema/`:
 | Foco por teclado | contorno de 2px em `--marca-azul` |
 | Item ativo | superfície branca + sombra 1 (desktop) ou peça na cápsula (celular) |
 | Movimento | 120–160ms; `prefers-reduced-motion` desliga |
+
+## Densidade no celular
+
+Acrescentado em 19/09/2026. A escala acima nasceu invariante por viewport, e o resultado foi um painel ~25–35% grande demais no telefone: quatro campos consumiam uma tela inteira. A correção é de token, não de página — está no fim de `src/app/globals.css`, na seção "Densidade do celular".
+
+| Token | Vale | Governa |
+|---|---|---|
+| `--d-pagina` | 16px | padding lateral da página |
+| `--d-cartao` | 14px | padding interno de superfície |
+| `--d-linha` | 52px | linha de lista só com rótulo |
+| `--d-linha-dupla` | 60px | linha com título e descrição (`:has(small)`) |
+| `--d-controle` | 48px | altura de campo de uma linha |
+| `--d-campo-gap` | 16px | espaço entre um campo e o próximo |
+| `--d-nav` | 64px | altura real da cápsula de abas, e a reserva que o conteúdo faz para ela |
+
+Três regras que a compactação não pode quebrar, e que valem como contrato:
+
+1. **Alvo interativo ≥ 44px.** Densidade não se compra com toque impreciso.
+2. **Campo com 16px de fonte.** Abaixo disso o Safari dá zoom ao focar e a pessoa perde a tela de vista.
+3. **Nenhuma cor muda por densidade.** Contraste é assunto de tema, não de espaço.
+
+Campo de texto longo usa `field-sizing: content`: a caixa nasce do tamanho do conteúdo e cresce ao digitar, em vez de reservar 96px para um texto que talvez nunca venha. Onde o navegador não suporta, vale um `min-height` modesto — nunca os 150–200px de antes.
 
 ## Alvos de toque
 
