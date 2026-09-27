@@ -1,0 +1,19 @@
+[Unit]
+Description=Fila de publicacoes do Avila OS
+After=network-online.target
+
+[Service]
+Type=simple
+User=avila-app
+WorkingDirectory=/opt/avilaops/app.avilaops.com
+EnvironmentFile=/etc/avilaops/publicacoes-worker.env
+ExecStart=/usr/bin/node scripts/publicacoes-worker.mjs
+Restart=on-failure
+RestartSec=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
