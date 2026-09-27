@@ -28,3 +28,4 @@ standalone-health*.tgz
 .deploy-health-runtime-*/
 .playwright-cli/
 output/playwright/
+output/publicacoes-validation/
