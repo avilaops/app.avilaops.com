@@ -85,3 +85,61 @@ canal exige resolver a elegibilidade do produto, não apenas cadastrar um token.
 
 Teste de unidade ou banco não comprova publicação nas redes. Implantação e
 validação com as contas reais devem ser registradas separadamente.
+
+## Rede editorial importada
+
+`node scripts/publicacoes-importar-rede.mjs <organizationId>` importa os sete
+perfis do material do Nicolas. O destino é obrigatório e a empresa precisa estar
+ativa. A execução é transacional e repetível: não sobrescreve configurações
+existentes. Subreddits têm nomes explícitos e começam desabilitados, com uma
+referência individual de cofre ainda sem token. Nomes de Instagram/Facebook não
+são convertidos em IDs de API. O script não publica conteúdo.
+
+| Perfil | E-mail de cadastro informado | Conversão editorial recomendada |
+|---|---|---|
+| Engenheiro Confuso | engenheiroconfuso@avilaops.com | Arxis / EngOps |
+| Engenharia Descomplicada | engdescomplicada@avilaops.com | Arxis / Ávila Ops |
+| Chef Confuso | chefconfuso@avilaops.com | Comandeiro |
+| Contador Confuso | contadorconfuso@avilaops.com | CIFRA / Ávila Ops |
+| Vendedor Confuso | vendedorconfuso@avilaops.com | CRM / Lojas Ávila Ops |
+| Gestor Confuso | gestorconfuso@avilaops.com | Ávila Ops |
+| Dog da Confusão | dogdaconfusao@avilaops.com | Saúde Pet |
+
+Essas conversões são diretrizes fornecidas no pedido, não links publicados nem
+declaração de propriedade dos produtos/clientes. A TV não foi usada como destino
+comercial. Confirmar a URL pública antes de inserir uma chamada no conteúdo.
+
+## Implantação e evidências — 27/09/2026
+
+- PR de aplicação: `avilaops/app.avilaops.com#56`, branch `codex/hub-publicacoes`.
+- Produção preservada: base `bffbfc7` mais a mudança social, código `4612828`,
+  disponível em `codex/hub-publicacoes-release`. O núcleo ainda não estava na main.
+- Imagem: `avilaops-app:publicacoes-4612828`. Health público confirmou `ok` e esse
+  commit. O pacote passou na verificação de 210 manifests sem arquivos de ambiente
+  nem artefatos de teste. Build, TypeScript e lint passaram (7 avisos anteriores).
+- 526 testes na base main; 561 na release integrada com o núcleo. O importador foi
+  executado duas vezes em banco descartável: criou 7 perfis na primeira, 0 na
+  segunda. Nenhum destino ficou ativo.
+- Teste de navegador: criação/persistência de rascunho, recusa de aprovação sem
+  destino conectado, temas claro/escuro e celular sem transbordamento horizontal.
+- Aplicada somente `20260927010000_publicacoes_sociais`, em transação com limite
+  de lock e recibo Prisma. As cinco tabelas pertencem a `app_avila`. SHA256 da
+  migration: `eb131f617f404dbe20ef7f0f946e892220ed13cae90a27db5a219a564dbe7eb2`.
+- Backup anterior no host `applications`:
+  `/var/backups/avilaops/publicacoes-20260927-4612828/cliente_portal.dump`.
+  Índice validado; restauração integral não ensaiada. SHA256:
+  `594fa5d5319f333e561759cd61c6cf6b10efd776fbb2be842b57298b92dc4200`.
+- Worker nativo: `avila-publicacoes-worker.service`, com usuário dinâmico e
+  arquivo de ambiente restrito. Retornou HTTP 200 e zero entregas processadas.
+  Página sem sessão redireciona (307), API e worker sem token recusam (401).
+- GitHub Actions não iniciou os jobs por cobrança/limite da conta. Os testes e
+  build acima foram executados fora do Actions; o PR permanece aberto.
+
+O acesso autenticado à tela foi testado no ambiente descartável. Não houve
+publicação real nas redes nem teste de consentimento com as contas da rede.
+Configurar e autorizar os destinos continua sendo necessário. TikTok, WhatsApp e
+formatos não implementados permanecem bloqueados conforme a tabela de suporte.
+
+Para retorno da aplicação, a imagem `avilaops-app:core-bffbfc7` e o compose anterior
+estão preservados. Parar o worker antes do retorno e restaurar apenas a aplicação;
+não apagar tabelas nem sobrescrever o banco com o backup automaticamente.
