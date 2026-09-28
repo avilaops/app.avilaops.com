@@ -2477,6 +2477,12 @@ tbody tr:last-child td {
   padding-bottom: 4px;
 }
 
+/* O seletor de seção substitui as abas só no celular (regra na faixa de
+   820px). Sem este padrão ele aparecia cru no desktop, ao lado das abas. */
+.seletor-secao {
+  display: none;
+}
+
 .dossier-tabs button {
   min-height: 38px;
   padding: 0 12px;
@@ -7695,6 +7701,15 @@ body {
 
 .linha-ativa {
   background: var(--active-bg);
+}
+
+.linha-botao {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .linha-estatica {
