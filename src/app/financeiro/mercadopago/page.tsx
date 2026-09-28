@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import AcoesAssinatura from "@/components/AcoesAssinatura";
 import VarreduraCobrancaButton from "@/components/VarreduraCobrancaButton";
 import { ehDono, getAdmin } from "@/lib/auth";
@@ -53,18 +55,21 @@ export default async function MercadoPagoPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
-      <header className="page-header">
-        <div>
-          <h1>Mercado Pago</h1>
-          <p>A conta que cobra a mensalidade das lojas, comparada com o que a plataforma registra.</p>
-        </div>
-        <div className="page-header-actions">
+      <CabecalhoTela
+        titulo="Mercado Pago"
+        descricao="A conta que cobra a mensalidade das lojas, comparada com o que a plataforma registra."
+        {...contextoDaSecao("mercadopago")}
+        acoes={
+          <>
+          <div className="page-header-actions">
           <Link className="text-button" href="/financeiro/mercadopago/cobrar">
-            Cobrança avulsa
+          Cobrança avulsa
           </Link>
           <VarreduraCobrancaButton />
-        </div>
-      </header>
+          </div>
+          </>
+        }
+      />
 
       {!painel.configurado && (
         <section className="mp-alerta">

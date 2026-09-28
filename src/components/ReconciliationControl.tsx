@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type FormEvent } from "react";
 import { Icone } from "@/components/ui/Icones";
+import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
 
 type Props = {
@@ -26,6 +27,12 @@ type Props = {
  * Quando a movimentação é um Pix sem pagador, a folha abre pelo comprovante:
  * é o único caminho que identifica quem pagou, e é o caso mais comum de linha
  * parada em "Pendente".
+ *
+ * Um caminho de cada vez, escolhido no topo. Os dois formulários ficavam
+ * empilhados na mesma folha: três telas de rolagem, e o botão "Salvar" fixo
+ * no rodapé era o do formulário de baixo — quem preenchia o comprovante e
+ * tocava nele gravava a revisão manual e perdia o que tinha digitado. Agora o
+ * rodapé tem o botão do caminho aberto, e só ele.
  */
 export default function ReconciliationControl({
   transactionId,
@@ -60,6 +67,12 @@ export default function ReconciliationControl({
   const formComprovante = `comprovante-${transactionId}`;
   // Sem identificador do lado do banco não há o que conferir, e a rota recusa.
   const aceitaComprovante = Boolean(endToEndId);
+  // O comprovante abre na frente quando existe: é o caminho que resolve a
+  // linha; a revisão à mão é a saída para quando ele não resolve.
+  const [caminho, setCaminho] = useState<"comprovante" | "manual">(
+    aceitaComprovante ? "comprovante" : "manual",
+  );
+  const noComprovante = aceitaComprovante && caminho === "comprovante";
 
   async function identificarPeloComprovante(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,19 +152,30 @@ export default function ReconciliationControl({
       aoFechar={fechar}
       rodape={
         <>
-          <button
-            type="submit"
-            form={formId}
-            className="primary-button"
-            disabled={saving}
-          >
-            {saving ? "Salvando…" : "Salvar"}
-          </button>
+          {noComprovante ? (
+            <button
+              type="submit"
+              form={formComprovante}
+              className="primary-button"
+              disabled={gravandoComprovante}
+            >
+              {gravandoComprovante ? "Conferindo…" : "Conferir e conciliar"}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              form={formId}
+              className="primary-button"
+              disabled={saving}
+            >
+              {saving ? "Salvando…" : "Salvar"}
+            </button>
+          )}
           <button
             type="button"
             className="secondary-button"
             onClick={fechar}
-            disabled={saving}
+            disabled={saving || gravandoComprovante}
           >
             Cancelar
           </button>
@@ -159,20 +183,37 @@ export default function ReconciliationControl({
       }
     >
       {aceitaComprovante ? (
+        <div className="folha-caminhos">
+          <Segmented
+            rotulo="Como conciliar"
+            valor={caminho}
+            aoMudar={setCaminho}
+            opcoes={[
+              ["comprovante", "Pelo comprovante"],
+              ["manual", "À mão"],
+            ]}
+          />
+        </div>
+      ) : null}
+
+      {noComprovante ? (
         <form
           id={formComprovante}
           className="form-stack comprovante-bloco"
           onSubmit={identificarPeloComprovante}
         >
-          <div className="comprovante-cabecalho">
-            <h3>Conciliar pelo comprovante</h3>
+          {/* O porquê continua na folha, mas fechado: quem concilia todo dia
+              já sabe, e quatro linhas de texto empurravam os campos para
+              fora da tela. */}
+          <details className="explicacao">
+            <summary>Por que o identificador</summary>
             <p>
               O Efí não devolve quem pagou num Pix recebido. Cole o
               identificador impresso no comprovante: ele é conferido contra o
               do extrato antes de gravar — se for de outra transferência, não
               entra.
             </p>
-          </div>
+          </details>
 
           <label className="field campo-identificador">
             <span>Identificador do comprovante</span>
@@ -225,21 +266,15 @@ export default function ReconciliationControl({
               {erroComprovante}
             </p>
           ) : null}
-
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={gravandoComprovante}
-          >
-            {gravandoComprovante ? "Conferindo…" : "Conferir e conciliar"}
-          </button>
         </form>
       ) : null}
 
-      <form id={formId} className="form-stack" onSubmit={save}>
-        {aceitaComprovante ? (
-          <h3 className="comprovante-separador">Ou revise à mão</h3>
-        ) : null}
+      <form
+        id={formId}
+        className="form-stack"
+        hidden={noComprovante}
+        onSubmit={save}
+      >
         <label className="field field-select">
           <span>Estado</span>
           <select value={status} onChange={(event) => setStatus(event.target.value)}>

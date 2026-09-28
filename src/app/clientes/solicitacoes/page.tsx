@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import RegistrationRequestReview from "@/components/RegistrationRequestReview";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { getPendingRegistrationRequests } from "@/lib/client-registration-requests";
@@ -23,12 +25,11 @@ export default async function RegistrationRequestsPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="client-requests">
-      <header className="page-header">
-        <div>
-          <h1>Solicitações de cadastro</h1>
-          <p>Revise a documentação enviada. Aprovar cria o acesso e envia a senha provisória por e-mail.</p>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo="Solicitações de cadastro"
+        descricao="Revise a documentação enviada. Aprovar cria o acesso e envia a senha provisória por e-mail."
+        {...contextoDaSecao("client-requests")}
+      />
 
       <section className="operations-panel clients-panel">
         <div className="operations-panel-heading">

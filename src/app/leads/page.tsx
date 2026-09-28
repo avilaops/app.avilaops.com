@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import LeadsPanel from "@/components/LeadsPanel";
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,12 +30,11 @@ export default async function LeadsPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="leads">
-      <header className="page-header">
-        <div>
-          <h1>Leads</h1>
-          <p>Quem pediu contato e ainda não virou cliente.</p>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo="Leads"
+        descricao="Quem pediu contato e ainda não virou cliente."
+        {...contextoDaSecao("leads")}
+      />
 
       <LeadsPanel
         leads={leads.map((lead) => ({
