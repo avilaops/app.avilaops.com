@@ -100,6 +100,22 @@ export function LinhaInfo(props: LinhaProps) {
 }
 
 /**
+ * Linha que age sem navegar: leva a um campo da mesma página, abre um editor.
+ * Um `<button>` de verdade, para o teclado e o leitor de tela saberem que dá
+ * para acionar — a `LinhaInfo` tem a mesma cara e não faz nada.
+ */
+export function LinhaBotao({
+  aoClicar,
+  ...props
+}: LinhaProps & { aoClicar: () => void }) {
+  return (
+    <button type="button" className="linha linha-botao" onClick={aoClicar}>
+      <Conteudo {...props} seta />
+    </button>
+  );
+}
+
+/**
  * Linha que abre no lugar, para o item que tem detalhe e não tem página.
  *
  * Existe porque a alternativa era empilhar seis pares de rótulo e valor dentro

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getAdmin } from "@/lib/auth";
+import { lookupCnpj } from "@/lib/cnpj-lookup";
+import { classifyCpfCnpj, isValidCpf, onlyDigits } from "@/lib/cpf-cnpj";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { internalSiteUrl, resolveInternalSubdomain } from "@/lib/internal-site";
 import { prisma } from "@/lib/prisma";
@@ -114,7 +117,7 @@ export async function PUT(
 
   const organization = await prisma.organization.findUnique({
     where: { id },
-    select: { id: true, slug: true },
+    select: { id: true, slug: true, cpfCnpj: true },
   });
   if (!organization) {
     return NextResponse.json({ error: "Cliente não encontrado." }, { status: 404 });
@@ -135,6 +138,55 @@ export async function PUT(
   const name = optional(orgBody.name, 120);
   if (!name || name.length < 2) {
     return NextResponse.json({ error: "Informe o nome fantasia." }, { status: 400 });
+  }
+
+  // CPF/CNPJ só entrava na criação do cliente: quem nasceu sem ele ficava sem
+  // para sempre, e com isso o "Preencher pela Receita" do assistente morria
+  // desativado. Agora a ficha aceita, e o CNPJ novo é consultado aqui no
+  // servidor; o retrato da Receita nunca vem do corpo da requisição.
+  let documento: { cpfCnpj: string | null; cnpjData: Prisma.InputJsonValue | typeof Prisma.DbNull } | null = null;
+  let aviso: string | undefined;
+  if (orgBody.cpfCnpj !== undefined) {
+    const texto = cleanText(orgBody.cpfCnpj, 18);
+    const digitos = texto ? onlyDigits(texto) : "";
+    if (digitos !== (organization.cpfCnpj ?? "")) {
+      if (!digitos) {
+        documento = { cpfCnpj: null, cnpjData: Prisma.DbNull };
+      } else {
+        const classificado = classifyCpfCnpj(digitos);
+        if (!classificado || !classificado.valid) {
+          return NextResponse.json({ error: "CPF ou CNPJ inválido." }, { status: 400 });
+        }
+        const outro = await prisma.organization.findUnique({
+          where: { cpfCnpj: classificado.digits },
+          select: { name: true },
+        });
+        if (outro) {
+          return NextResponse.json(
+            { error: `Esse CPF/CNPJ já está no cadastro de ${outro.name}.` },
+            { status: 409 },
+          );
+        }
+        let cnpjData: Prisma.InputJsonValue | typeof Prisma.DbNull = Prisma.DbNull;
+        if (classificado.kind === "CNPJ") {
+          try {
+            cnpjData = (await lookupCnpj(classificado.digits)) as Prisma.InputJsonValue;
+          } catch (erro) {
+            // O documento é válido e vale gravar mesmo sem a Receita
+            // responder; o assistente só não terá o que preencher até a
+            // próxima troca. A pessoa precisa saber disso, não descobrir.
+            aviso = `O CNPJ foi gravado, mas a consulta à Receita falhou (${erro instanceof Error ? erro.message : "erro desconhecido"}).`;
+          }
+        }
+        documento = { cpfCnpj: classificado.digits, cnpjData };
+      }
+    }
+  }
+
+  const responsibleCpfTexto = cleanText(profile.responsibleCpf, 20);
+  const responsibleCpf = responsibleCpfTexto ? onlyDigits(responsibleCpfTexto) : null;
+  if (responsibleCpf && !isValidCpf(responsibleCpf)) {
+    return NextResponse.json({ error: "CPF do responsável inválido." }, { status: 400 });
   }
 
   // O endereço interno é sempre derivado do subdomínio, nunca digitado: quem
@@ -172,6 +224,7 @@ export async function PUT(
         legalName: optional(orgBody.legalName, 160),
         segment: optional(orgBody.segment, 80),
         siteUrl: optional(orgBody.siteUrl, 300),
+        ...(documento ?? {}),
       },
     });
 
@@ -180,6 +233,7 @@ export async function PUT(
       create: {
         organizationId: id,
         ownerName: optional(profile.ownerName, 160),
+        responsibleCpf,
         ownerRole: optional(profile.ownerRole, 80),
         phone: optional(profile.phone, 60),
         whatsapp: optional(profile.whatsapp, 60),
@@ -206,6 +260,7 @@ export async function PUT(
       },
       update: {
         ownerName: optional(profile.ownerName, 160),
+        responsibleCpf,
         ownerRole: optional(profile.ownerRole, 80),
         phone: optional(profile.phone, 60),
         whatsapp: optional(profile.whatsapp, 60),
@@ -502,10 +557,12 @@ export async function PUT(
           brandAssetCount: brandAssets?.length ?? null,
           integrationCount: integrations.length,
           onboardingStepCount: onboardingSteps.length,
+          cpfCnpjAlterado: documento !== null,
+          consultaReceita: documento?.cpfCnpj?.length === 14 ? !aviso : null,
         },
       },
     });
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, aviso });
 }

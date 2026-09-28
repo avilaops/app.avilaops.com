@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Grupo, LinhaInfo } from "@/components/sistema/Lista";
+import { Grupo, LinhaBotao } from "@/components/sistema/Lista";
+import { irParaCampo } from "@/lib/ficha-campo";
 
 /**
  * Assistente de cadastro: mostra o que falta na ficha do cliente, de onde
@@ -388,10 +389,12 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
             acao={<span className="cadastro-ia-contador">{soComOCliente.length} campos</span>}
           >
             {soComOCliente.map((lacuna) => (
-              <LinhaInfo
+              <LinhaBotao
                 key={lacuna.chave}
                 titulo={lacuna.rotulo}
                 descricao={lacuna.porque ?? lacuna.grupo}
+                valor="Preencher"
+                aoClicar={() => irParaCampo(lacuna.chave)}
               />
             ))}
           </Grupo>
