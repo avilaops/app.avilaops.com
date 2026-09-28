@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
+import { ClienteNaoEncontradoError, excluirCliente, mudarStatus, STATUS_ARQUIVAVEIS } from "@/lib/clientes-exclusao";
 import { lookupCnpj } from "@/lib/cnpj-lookup";
 import { classifyCpfCnpj, isValidCpf, onlyDigits } from "@/lib/cpf-cnpj";
 import { cleanText, sameOrigin } from "@/lib/http";
@@ -565,4 +566,73 @@ export async function PUT(
   });
 
   return NextResponse.json({ ok: true, aviso });
+}
+
+/**
+ * Arquivar ou reativar. Reversível, então qualquer pessoa da casa pode; a
+ * exclusão definitiva (DELETE, abaixo) é só do dono.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const admin = await getAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
+  }
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
+  }
+  const { id } = await params;
+  const body = (await request.json().catch(() => null)) as { status?: unknown } | null;
+  const status = typeof body?.status === "string" ? body.status : "";
+  if (!(STATUS_ARQUIVAVEIS as readonly string[]).includes(status)) {
+    return NextResponse.json({ error: "Status inválido." }, { status: 400 });
+  }
+  try {
+    await mudarStatus(id, status, admin.id);
+  } catch (erro) {
+    if (erro instanceof ClienteNaoEncontradoError) {
+      return NextResponse.json({ error: "Cliente não encontrado." }, { status: 404 });
+    }
+    throw erro;
+  }
+  return NextResponse.json({ ok: true, status });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const admin = await getAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
+  }
+  if (!ehDono(admin.role)) {
+    return NextResponse.json({ error: "Só o dono pode excluir cliente. Arquive em vez disso." }, { status: 403 });
+  }
+  if (!sameOrigin(request)) {
+    return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
+  }
+  const { id } = await params;
+  const body = (await request.json().catch(() => null)) as { confirmacao?: unknown } | null;
+  try {
+    const resultado = await excluirCliente(
+      id,
+      typeof body?.confirmacao === "string" ? body.confirmacao : "",
+      admin.id,
+    );
+    if (!resultado.ok) {
+      return NextResponse.json(
+        { error: resultado.mensagem, motivo: resultado.motivo },
+        { status: resultado.motivo === "confirmacao" ? 400 : 409 },
+      );
+    }
+  } catch (erro) {
+    if (erro instanceof ClienteNaoEncontradoError) {
+      return NextResponse.json({ error: "Cliente não encontrado." }, { status: 404 });
+    }
+    throw erro;
+  }
+  return NextResponse.json({ ok: true });
 }
