@@ -114,18 +114,3 @@ export async function getOperationsDashboard() {
   };
 }
 
-export async function getOrganizations() {
-  return prisma.organization.findMany({
-    include: {
-      _count: {
-        select: {
-          brands: true,
-          projects: true,
-          tasks: true,
-          domains: true,
-        },
-      },
-    },
-    orderBy: [{ status: "asc" }, { name: "asc" }],
-  });
-}
