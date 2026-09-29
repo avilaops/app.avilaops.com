@@ -10225,3 +10225,242 @@ main [data-slot="select-trigger"]:focus-visible {
     right: 0;
   }
 }
+
+/* ---- Área do cliente compacta (29/09/2026) ----
+   A ficha tinha 2.500px de altura no desktop e a aba de arquivos quase
+   4.000px: campo alto, espaço generoso e duas colunas numa tela que cabe
+   três. Aqui só se aperta o ritmo; nenhum campo sai. */
+.client-workspace-header {
+  margin-bottom: 14px;
+}
+
+.client-workspace-header h1 {
+  font-size: clamp(1.625rem, 2.6vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+
+.client-workspace-nav {
+  margin-bottom: 16px;
+}
+
+.client-dossier {
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dossier-hero-panel {
+  padding: 10px 16px;
+}
+
+.dossier-hero-panel .dossier-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.dossier-hero-panel .dossier-progress > span {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.dossier-hero-panel .dossier-progress > div {
+  flex: 0 1 320px;
+}
+
+/* A ficha é grade: sem isto as abas em linha única (que rolam de lado)
+   alargavam a coluna e empurravam a página inteira para fora da tela. */
+.client-dossier > * {
+  min-width: 0;
+}
+
+/* Sete abas numa linha só; antes quebravam em duas linhas de texto cada. */
+.dossier-tabs {
+  flex-wrap: nowrap;
+  gap: 4px;
+  scrollbar-width: none;
+}
+
+.dossier-tabs button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.dossier-tab {
+  padding: 18px;
+}
+
+.dossier-grid {
+  gap: 12px 14px;
+}
+
+.dossier-grid label,
+.client-dossier .full-field {
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.dossier-grid input,
+.dossier-grid select,
+.client-dossier input,
+.client-dossier select {
+  min-height: 36px;
+}
+
+.client-dossier textarea {
+  padding: 8px 11px;
+}
+
+.dossier-grid .cep-button {
+  align-self: end;
+  min-height: 36px;
+}
+
+.grupo-campos + .grupo-campos {
+  margin-top: 16px;
+}
+
+.dossier-actions {
+  margin-top: 0;
+}
+
+/* Assistente: a lista do que falta em duas colunas no desktop. */
+.cadastro-ia {
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 16px;
+}
+
+@media (min-width: 900px) {
+  .cadastro-ia-perguntar .grupo-superficie {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cadastro-ia-perguntar .linha {
+    min-height: 48px;
+    box-shadow: inset 0 -1px 0 var(--separador);
+  }
+
+  .cadastro-ia-perguntar .linha + .linha {
+    box-shadow: inset 0 -1px 0 var(--separador);
+  }
+
+  .cadastro-ia-perguntar .linha:nth-child(odd) {
+    box-shadow: inset 0 -1px 0 var(--separador), inset -1px 0 0 var(--separador);
+  }
+}
+
+/* Arquivos da marca: uma linha por tipo. */
+.lista-arquivos-marca {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-arquivos-marca > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 52px;
+  padding: 6px 0;
+  box-shadow: inset 0 -1px 0 var(--line-soft);
+}
+
+.arquivo-marca-texto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+
+.arquivo-marca-texto strong {
+  flex-basis: 100%;
+}
+
+.arquivo-marca-texto small {
+  max-width: 60%;
+}
+
+.arquivo-marca-detalhes[open] {
+  flex-basis: 100%;
+}
+
+.arquivo-marca-texto strong {
+  font-size: 0.875rem;
+}
+
+.arquivo-marca-texto small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arquivo-marca-enviar {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+/* O `input` real fica escondido dentro do rótulo. As regras gerais da ficha
+   dão `width: 100%` e altura mínima a todo input, o que desfazia o
+   `sr-only` e esticava a página 550px para a direita. */
+.arquivo-marca-enviar {
+  position: relative;
+}
+
+.client-dossier .arquivo-marca-enviar input[type="file"] {
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
+.arquivo-marca-enviar:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.arquivo-marca-enviar.enviando {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.arquivo-marca-detalhes {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.arquivo-marca-detalhes summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.arquivo-marca-detalhes > div {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+
+@media (max-width: 820px) {
+  .lista-arquivos-marca {
+    grid-template-columns: 1fr;
+  }
+
+  .dossier-tab {
+    padding: 14px;
+  }
+}

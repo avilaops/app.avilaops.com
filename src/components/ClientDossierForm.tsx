@@ -592,8 +592,8 @@ export default function ClientDossierForm({
     }
   }
 
-  async function uploadAsset(event: MouseEvent<HTMLButtonElement>, assetType: string) {
-    const card = event.currentTarget.closest<HTMLElement>("[data-asset-card]");
+  async function uploadAsset(origem: HTMLElement, assetType: string) {
+    const card = origem.closest<HTMLElement>("[data-asset-card]");
     if (!card) return;
     const fileInput = card.querySelector<HTMLInputElement>('input[type="file"]');
     const dimensionsInput = card.querySelector<HTMLInputElement>('input[name="dimensions"]');
@@ -885,22 +885,22 @@ export default function ClientDossierForm({
       </section>
 
       <section data-tab="registration" className={activeTab === "registration" ? "dossier-tab active" : "dossier-tab"}>
-        <div className="dossier-grid two">
-          <label>Inscrição estadual<input name="stateRegistration" defaultValue={valueOf(organization.profile?.stateRegistration)} /></label>
-          <label>Inscrição municipal<input name="municipalRegistration" defaultValue={valueOf(organization.profile?.municipalRegistration)} /></label>
+        <div className="dossier-grid three">
+          <label className="campo-curto">Inscrição estadual<input name="stateRegistration" defaultValue={valueOf(organization.profile?.stateRegistration)} /></label>
+          <label className="campo-curto">Inscrição municipal<input name="municipalRegistration" defaultValue={valueOf(organization.profile?.municipalRegistration)} /></label>
           <label>Nome do proprietário<input name="ownerName" defaultValue={primaryContact?.name ?? valueOf(organization.profile?.ownerName)} /></label>
-          <label>CPF do responsável<input name="responsibleCpf" inputMode="numeric" defaultValue={valueOf(organization.profile?.responsibleCpf)} /></label>
-          <label>Cargo<input name="ownerRole" defaultValue={primaryContact?.role ?? valueOf(organization.profile?.ownerRole)} /></label>
-          <label>Telefone fixo<input name="phone" defaultValue={primaryContact?.phone ?? valueOf(organization.profile?.phone)} /></label>
-          <label>WhatsApp<input name="whatsapp" defaultValue={primaryContact?.whatsapp ?? valueOf(organization.profile?.whatsapp)} /></label>
+          <label className="campo-curto">CPF do responsável<input name="responsibleCpf" inputMode="numeric" defaultValue={valueOf(organization.profile?.responsibleCpf)} /></label>
+          <label className="campo-curto">Cargo<input name="ownerRole" defaultValue={primaryContact?.role ?? valueOf(organization.profile?.ownerRole)} /></label>
+          <label className="campo-curto">Telefone fixo<input name="phone" defaultValue={primaryContact?.phone ?? valueOf(organization.profile?.phone)} /></label>
+          <label className="campo-curto">WhatsApp<input name="whatsapp" defaultValue={primaryContact?.whatsapp ?? valueOf(organization.profile?.whatsapp)} /></label>
           <label>E-mail<input name="email" type="email" defaultValue={primaryContact?.email ?? valueOf(organization.profile?.email)} /></label>
           <label>Melhor horário<input name="bestContactTime" defaultValue={primaryContact?.bestContactTime ?? valueOf(organization.profile?.bestContactTime)} /></label>
-          <label className="span-2">Observações do contato<textarea name="contactNotes" rows={2} defaultValue={primaryContact?.notes ?? ""} /></label>
-          <label className="span-2">Descrição da empresa<textarea name="companyDescription" rows={3} defaultValue={valueOf(organization.profile?.companyDescription)} /></label>
-          <label>Serviços oferecidos<textarea name="servicesOffered" rows={4} defaultValue={valueOf(organization.profile?.servicesOffered)} /></label>
-          <label>Produtos oferecidos<textarea name="productsOffered" rows={4} defaultValue={valueOf(organization.profile?.productsOffered)} /></label>
-          <label>Diferenciais comerciais<textarea name="commercialDifferentials" rows={3} defaultValue={valueOf(organization.profile?.commercialDifferentials)} /></label>
-          <label>Área de atendimento<textarea name="serviceArea" rows={3} defaultValue={valueOf(organization.profile?.serviceArea)} /></label>
+          <label className="span-3">Observações do contato<textarea name="contactNotes" rows={1} defaultValue={primaryContact?.notes ?? ""} /></label>
+          <label className="span-3">Descrição da empresa<textarea name="companyDescription" rows={2} defaultValue={valueOf(organization.profile?.companyDescription)} /></label>
+          <label>Serviços oferecidos<textarea name="servicesOffered" rows={2} defaultValue={valueOf(organization.profile?.servicesOffered)} /></label>
+          <label>Produtos oferecidos<textarea name="productsOffered" rows={2} defaultValue={valueOf(organization.profile?.productsOffered)} /></label>
+          <label>Diferenciais comerciais<textarea name="commercialDifferentials" rows={2} defaultValue={valueOf(organization.profile?.commercialDifferentials)} /></label>
+          <label>Área de atendimento<textarea name="serviceArea" rows={2} defaultValue={valueOf(organization.profile?.serviceArea)} /></label>
           <label className="campo-curto">CEP<input name="postalCode" defaultValue={primaryAddress?.postalCode ?? valueOf(organization.profile?.postalCode)} /></label>
           <button className="secondary-button cep-button campo-curto" type="button" onClick={fillAddressFromCep} disabled={loadingCep}>
             {loadingCep ? "Consultando..." : "Preencher pelo CEP"}
@@ -1089,22 +1089,43 @@ export default function ClientDossierForm({
           }))}
         />
 
-        <div className="asset-upload-grid">
+        {/* Uma linha por tipo de arquivo. Eram 19 cartões com quatro campos
+            cada (quase 4.000px de página no desktop e 7.000px no celular)
+            para, na prática, escolher um arquivo. Escolher já envia;
+            dimensões, observações e histórico ficam em "Detalhes". */}
+        <ul className="lista-arquivos-marca">
           {assetTypes.map((assetType) => {
             const versions = organization.brandAssets.filter((item) => item.assetType === assetType);
             const current = versions.find((item) => item.isCurrent) ?? versions[0];
+            const enviando = uploadingAsset === assetType;
 
             return (
-              <article className="asset-upload-card" data-asset-card key={assetType}>
-                <div>
+              <li data-asset-card key={assetType}>
+                <div className="arquivo-marca-texto">
                   <strong>{assetType}</strong>
                   <small>
                     {current
-                      ? `Atual: ${current.name ?? "arquivo"} · v${current.version ?? "1"}`
-                      : "Nenhum arquivo enviado"}
+                      ? `${current.name ?? "arquivo"} · v${current.version ?? "1"}`
+                      : "Nenhum arquivo"}
                   </small>
+                  <details className="arquivo-marca-detalhes">
+                    <summary>Detalhes</summary>
+                    <div>
+                      <small>Preencha antes de escolher o arquivo; vale para a próxima versão enviada.</small>
+                      <input name="dimensions" placeholder="Dimensões, ex: 1200x630" />
+                      <textarea name="notes" rows={2} placeholder="Observações da versão" />
+                      {versions.length > 1 ? (
+                        <div className="asset-history">
+                          {versions.map((item) => (
+                            <span key={item.id}>
+                              v{item.version ?? "1"} · {item.name ?? "arquivo"} · {item.isCurrent ? "atual" : "anterior"}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
                 </div>
-
                 {current ? (
                   <a
                     className="asset-preview-link"
@@ -1112,43 +1133,28 @@ export default function ClientDossierForm({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Abrir prévia
+                    Prévia
                   </a>
-                ) : null}
-
-                <div className="asset-upload-form">
+                ) : (
+                  <span />
+                )}
+                <label className={enviando ? "secondary-button arquivo-marca-enviar enviando" : "secondary-button arquivo-marca-enviar"}>
+                  {enviando ? "Enviando…" : current ? "Substituir" : "Enviar"}
                   <input
                     name="file"
                     type="file"
+                    className="sr-only"
+                    disabled={enviando}
                     accept=".png,.jpg,.jpeg,.webp,.svg,.ico,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,application/pdf"
+                    onChange={(event) => {
+                      if (event.currentTarget.files?.length) void uploadAsset(event.currentTarget, assetType);
+                    }}
                   />
-                  <input name="dimensions" placeholder="Dimensões, ex: 1200x630" />
-                  <textarea name="notes" rows={2} placeholder="Observações da versão" />
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={(event) => uploadAsset(event, assetType)}
-                    disabled={uploadingAsset === assetType}
-                  >
-                    {uploadingAsset === assetType ? "Enviando..." : "Enviar / substituir"}
-                  </button>
-                </div>
-
-                {versions.length > 1 ? (
-                  <details className="asset-history">
-                    <summary>Histórico ({versions.length})</summary>
-                    {versions.map((item) => (
-                      <span key={item.id}>
-                        v{item.version ?? "1"} · {item.name ?? "arquivo"} ·{" "}
-                        {item.isCurrent ? "atual" : "anterior"}
-                      </span>
-                    ))}
-                  </details>
-                ) : null}
-              </article>
+                </label>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </section>
 
       <section data-tab="integrations" className={activeTab === "integrations" ? "dossier-tab active" : "dossier-tab"}>
