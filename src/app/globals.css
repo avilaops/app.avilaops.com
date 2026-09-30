@@ -10506,3 +10506,114 @@ main [data-slot="select-trigger"]:focus-visible {
     padding: 14px;
   }
 }
+
+/* ---- Área do cliente: cabeçalho, resumo e cartões mais baixos (30/09/2026) ----
+   O cabeçalho usava ~200px (sobretítulo, nome em 52px, número) antes das
+   abas, em toda seção. O "Próxima ação" do resumo era um cartão de 180px
+   para uma frase. E os cartões de Serviços e Financeiro, numa grade de
+   linhas, esticavam até o mais alto da fileira: o "Cofre" do financeiro
+   ficava 300px abaixo do fim do cartão ao lado. */
+.client-workspace-header {
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.client-workspace-titulo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.client-workspace-titulo .seo-back {
+  font-size: 0.8125rem;
+}
+
+.client-workspace-header h1 {
+  margin: 0;
+  font-size: clamp(1.375rem, 2.2vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.client-workspace-header p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+
+.client-workspace-nav a {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.client-summary-grid {
+  gap: 12px;
+}
+
+.client-summary-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  padding: 12px 18px;
+}
+
+.client-summary-lead > * {
+  grid-column: 1;
+}
+
+.client-summary-lead h2 {
+  margin: 2px 0 0;
+  font-size: 1.0625rem;
+}
+
+.client-summary-lead p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.client-summary-lead > a {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  white-space: nowrap;
+}
+
+.client-summary-grid .linha {
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Colunas em vez de fileiras: cada cartão tem a altura do que contém. */
+.prov-section {
+  margin-top: 12px;
+}
+
+@media (min-width: 821px) {
+  .prov-grid,
+  .client-finance-only .prov-grid {
+    display: block;
+    columns: 300px 3;
+    column-gap: 12px;
+  }
+
+  .prov-grid > .prov-card {
+    display: flex;
+    margin-bottom: 12px;
+    break-inside: avoid;
+  }
+}
+
+.prov-card {
+  gap: 10px;
+  padding: 14px;
+}
+
+.prov-card .ios-row {
+  min-height: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}

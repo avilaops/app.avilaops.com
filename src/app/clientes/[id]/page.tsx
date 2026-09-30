@@ -135,9 +135,8 @@ export default async function ClientDossierPage({
           havia razão social — identificador interno na linha de identidade do
           cliente. Agora é o selo da casa, com o rótulo do mapa único. */}
       <header className="client-workspace-header">
-        <Link href="/clientes" className="seo-back">‹ Clientes</Link>
-        <div>
-          <span className="eyebrow">ÁREA DE TRABALHO</span>
+        <div className="client-workspace-titulo">
+          <Link href="/clientes" className="seo-back">‹ Clientes</Link>
           <h1>{nomeProprio(organization.name)}</h1>
           <p>
             Nº {organization.clientNumber}
