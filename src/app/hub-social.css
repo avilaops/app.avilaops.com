@@ -51,3 +51,12 @@
     border-color: var(--color-border);
   }
 }
+
+/*
+ * O globals.css pinta todo input do tema claro com fundo branco, fora de
+ * camada, e isso vence o `bg-transparent` do shadcn. A busca do seletor de
+ * conta (cmdk) ficava como um retângulo branco dentro do popover cinza.
+ */
+:root[data-theme] [data-slot="command-input"] {
+  background: transparent;
+}

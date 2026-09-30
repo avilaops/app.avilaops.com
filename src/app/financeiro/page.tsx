@@ -1,29 +1,27 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import CabecalhoTela from "@/components/sistema/CabecalhoTela";
-import { contextoDaSecao } from "@/lib/navegacao";
-import AutoReconcileButton from "@/components/AutoReconcileButton";
-import BalanceCard from "@/components/BalanceCard";
-import CashFlowChart from "@/components/CashFlowChart";
-import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
-import SyncButton from "@/components/SyncButton";
-import TransactionList, {
-  type LinhaMovimentacao,
-} from "@/components/TransactionList";
+import AcoesCabecalho from "@/components/financeiro/AcoesCabecalho";
+import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
+import { AbasLink, FiltroSelect } from "@/components/financeiro/Filtros";
+import GraficoFluxo from "@/components/financeiro/GraficoFluxo";
+import { FaixaIndicadores, Indicador } from "@/components/financeiro/Indicadores";
+import Painel from "@/components/financeiro/Painel";
+import SeletorConta from "@/components/financeiro/SeletorConta";
+import TabelaMovimentacoes, { type LinhaMovimentacao } from "@/components/financeiro/TabelaMovimentacoes";
+import EstadoVazio from "@/components/hub-social/EstadoVazio";
+import { Button } from "@/components/shadcn/button";
 import { ehDono, getAdmin } from "@/lib/auth";
-import {
-  getFinanceDashboard,
-  ReconciliationFilter,
-  ScopeFilter,
-} from "@/lib/dashboard";
+import { getFinanceDashboard, ReconciliationFilter, ScopeFilter } from "@/lib/dashboard";
 import { isFinanceScope, type FinanceScope } from "@/lib/finance-escopo";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { rotuloInstituicao } from "@/lib/financeiro-rotulos";
+import { contar, formatCurrency, formatDateTime, formatPercent } from "@/lib/format";
 
 const scopeFilters: Array<{ value: ScopeFilter; label: string }> = [
   { value: "ALL", label: "Tudo" },
   { value: "EMPRESA", label: "Empresa" },
   { value: "PESSOAL", label: "Pessoal" },
+  { value: "INTERNO", label: "Entre contas" },
   { value: "INDEFINIDO", label: "A classificar" },
 ];
 
@@ -34,6 +32,19 @@ const filters: Array<{ value: ReconciliationFilter; label: string }> = [
   { value: "MATCHED", label: "Conciliadas" },
   { value: "IGNORED", label: "Ignoradas" },
 ];
+
+const periodos = [
+  { dias: 7, rotulo: "7 dias" },
+  { dias: 30, rotulo: "30 dias" },
+  { dias: 90, rotulo: "90 dias" },
+  { dias: 365, rotulo: "1 ano" },
+];
+
+const ESTADO_SYNC: Record<string, string> = {
+  SUCCESS: "concluída",
+  FAILED: "falhou",
+  RUNNING: "em andamento",
+};
 
 export default async function FinancePage({
   searchParams,
@@ -63,7 +74,7 @@ export default async function FinancePage({
     scope,
   });
   const currency = data.account?.currency ?? "BRL";
-  const link = (next: Record<string, string>) => {
+  const link = (next: Record<string, string>, ancora = "") => {
     const search = new URLSearchParams({
       range: String(data.days),
       status: filter,
@@ -71,7 +82,7 @@ export default async function FinancePage({
       conta: data.account?.id ?? "",
       ...next,
     });
-    return `?${search.toString()}`;
+    return `?${search.toString()}${ancora}`;
   };
   const activeSection =
     filter === "PENDING"
@@ -95,6 +106,7 @@ export default async function FinancePage({
     currency: transaction.currency,
     scope: transaction.scope,
     scopeSource: transaction.scopeSource ?? null,
+    category: transaction.category ?? null,
     reconciliation: transaction.reconciliation
       ? {
           status: transaction.reconciliation.status,
@@ -105,231 +117,175 @@ export default async function FinancePage({
       : null,
   }));
 
+  const contas = data.accounts.map((a) => ({
+    id: a.id,
+    provider: a.provider,
+    displayName: a.displayName,
+    currency: a.currency,
+    environment: a.environment,
+  }));
+  const contaAtual = contas.find((c) => c.id === data.account?.id) ?? null;
+  const hrefPorConta = Object.fromEntries(contas.map((c) => [c.id, link({ conta: c.id })]));
+  const net = data.metrics.net;
+
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section={activeSection}>
-      <CabecalhoTela
+      <CabecalhoFinanceiro
         titulo="Financeiro"
-        descricao="Movimentações do Efí, evidências e o que ainda depende de decisão."
-        {...contextoDaSecao(activeSection)}
-        acoes={
-          <>
-          {/* "Contas a pagar e receber" saiu daqui: é destino de navegação, já
-              está no menu do Financeiro, e no celular ocupava uma linha inteira
-              do cabeçalho com um rótulo que quebrava em duas. Ficam as ações
-              que só existem nesta tela. */}
-          <div className="page-header-actions">
-          <NewLedgerEntryButton />
-          <AutoReconcileButton />
-          <SyncButton />
-          </div>
-          </>
-        }
+        descricao="Saldo, entradas e saídas da conta escolhida, e o que ainda depende de decisão."
       />
 
-      <section className="connection-strip" aria-label="Estado da integração">
-        <div className="account-switch" role="group" aria-label="Conta">
-          <span className="status-dot" />
-          {data.accounts.length === 0 ? (
-            <strong>Conta Efí Produção</strong>
-          ) : (
-            data.accounts.map((item) => (
-              <Link
-                href={link({ conta: item.id })}
-                className={data.account?.id === item.id ? "active" : ""}
-                key={item.id}
-              >
-                {item.displayName}
-              </Link>
-            ))
-          )}
-          {data.account?.provider === "wise" ? (
-            <Link href="/financeiro/importar" className="environment-tag">
-              IMPORTAR CSV
-            </Link>
-          ) : (
-            <span className="environment-tag">PRODUÇÃO</span>
-          )}
+      {/* Conta e período valem para a página inteira: ficam juntos, no topo,
+          em vez de o período morar dentro do gráfico e a conta numa fila de
+          texto solto. */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 max-[820px]:w-full">
+          <SeletorConta contas={contas} atual={contaAtual} hrefDe={hrefPorConta} />
         </div>
-        {/* Sincronização e execução numa linha só: eram dois rótulos longos em
-            duas linhas para dois dados que só fazem sentido juntos — quando foi
-            e como terminou. O horário continua completo, que é o que permite
-            conferir contra o extrato. */}
-        <span className="sync-estado">
-          Sincronizado{" "}
-          <strong>{formatDateTime(data.account?.lastSyncAt)}</strong> ·{" "}
-          <strong className={`run-${data.latestSync?.status?.toLowerCase() ?? "idle"}`}>
-            {data.latestSync?.status === "SUCCESS"
-              ? "Concluída"
-              : data.latestSync?.status === "FAILED"
-                ? "Falhou"
-                : data.latestSync?.status === "RUNNING"
-                  ? "Em andamento"
-                  : "Sem histórico"}
-          </strong>
-        </span>
-      </section>
+        <div className="min-w-0 max-[820px]:w-full">
+          <AbasLink
+            rotulo="Período"
+            abas={periodos.map((p) => ({ href: link({ range: String(p.dias) }), rotulo: p.rotulo, ativa: data.days === p.dias }))}
+          />
+        </div>
+        <p className="m-0 text-[13px] text-muted-foreground min-[821px]:ml-auto">
+          {data.account?.lastSyncAt ? (
+            <>
+              Sincronizada em <span className="text-foreground">{formatDateTime(data.account.lastSyncAt)}</span>
+              {data.latestSync?.status ? (
+                <span className={data.latestSync.status === "FAILED" ? "text-[color:var(--red)]" : undefined}>
+                  {" "}
+                  ({ESTADO_SYNC[data.latestSync.status] ?? "sem histórico"})
+                </span>
+              ) : null}
+            </>
+          ) : (
+            "Ainda não sincronizada"
+          )}
+        </p>
+      </div>
 
-      <section className="metric-grid" aria-label="Resumo financeiro">
-        <BalanceCard
-          formattedBalance={
-            data.latestBalance
-              ? formatCurrency(
-                  data.latestBalance.availableBalance.toString(),
-                  currency,
-                )
-              : "-"
-          }
-          capturedAtLabel={
+      <FaixaIndicadores rotulo="Resumo financeiro">
+        <Indicador
+          rotulo="Saldo disponível"
+          valor={data.latestBalance ? formatCurrency(data.latestBalance.availableBalance.toString(), currency) : "Não informado"}
+          detalhe={
             data.latestBalance
               ? `Capturado em ${formatDateTime(data.latestBalance.capturedAt)}`
               : "Extrato importado por arquivo não traz saldo"
           }
+          ocultavel={Boolean(data.latestBalance)}
         />
-        <article className="metric">
-          <span>Entradas · {data.days} dias</span>
-          <strong className="positive">
-            {formatCurrency(data.metrics.credits, currency)}
-          </strong>
-          <small>
-            {data.metrics.transactionCount} movimentações analisadas
-            {data.metrics.internalCount > 0
-              ? ` · ${data.metrics.internalCount} entre contas fora do resultado`
-              : ""}
-          </small>
-        </article>
-        <article className="metric">
-          <span>Saídas · {data.days} dias</span>
-          <strong className="negative">
-            {formatCurrency(data.metrics.debits, currency)}
-          </strong>
-          <small>
-            Fluxo líquido {formatCurrency(data.metrics.net, currency)}
-          </small>
-        </article>
-        <article className="metric">
-          <span>Taxa de conciliação</span>
-          <strong>{data.metrics.reconciliationRate.toFixed(1)}%</strong>
-          <div className="progress-track" aria-hidden="true">
-            <span
-              style={{
-                width: `${Math.min(100, data.metrics.reconciliationRate)}%`,
-              }}
-            />
-          </div>
-        </article>
-      </section>
+        <Indicador
+          rotulo={`Entradas em ${data.days} dias`}
+          valor={formatCurrency(data.metrics.credits, currency)}
+          tom="entrada"
+          detalhe={contar(data.metrics.transactionCount, "movimentação analisada", "movimentações analisadas")}
+        />
+        <Indicador
+          rotulo={`Saídas em ${data.days} dias`}
+          valor={formatCurrency(data.metrics.debits, currency)}
+          tom="saida"
+          detalhe={
+            data.metrics.internalCount > 0
+              ? `${contar(data.metrics.internalCount, "transferência", "transferências")} entre contas fora do resultado`
+              : "Sem transferências entre contas"
+          }
+        />
+        <Indicador
+          rotulo="Resultado"
+          valor={formatCurrency(net, currency)}
+          tom={net > 0 ? "entrada" : net < 0 ? "saida" : "neutro"}
+          detalhe="Entradas menos saídas no período"
+        />
+      </FaixaIndicadores>
 
       {data.metrics.attentionCount > 0 ? (
-        <section className="attention-band">
-          <div>
-            <span className="attention-index">
-              {String(data.metrics.attentionCount).padStart(2, "0")}
-            </span>
-            <div>
-              <strong>Movimentações precisam de decisão</strong>
-              <p>
-                {formatCurrency(data.metrics.attentionAmount, currency)} ainda
-                não possui vínculo ou evidência confirmada.
-              </p>
-            </div>
+        <section
+          aria-label="Pendências"
+          className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl bg-card px-4 py-3 shadow-[var(--sombra-1)]"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--amber-line)]/60 font-mono text-[15px] font-semibold text-[color:var(--amber)] tabular-nums">
+            {data.metrics.attentionCount.toLocaleString("pt-BR")}
+          </span>
+          <div className="min-w-0 flex-[1_1_16rem]">
+            <strong className="block text-[15px] text-foreground">
+              {data.metrics.attentionCount === 1 ? "Movimentação precisa de decisão" : "Movimentações precisam de decisão"}
+            </strong>
+            <p className="m-0 text-[13px] text-muted-foreground">
+              {formatCurrency(data.metrics.attentionAmount, currency)} sem vínculo ou evidência confirmada.{" "}
+              {formatPercent(data.metrics.reconciliationRate)} do período conciliado.
+            </p>
           </div>
-          <Link href={link({ status: "PENDING" })} className="row-action">
-            Abrir fila de conciliação
-          </Link>
+          <Button asChild variant="outline" className="min-h-10 max-[820px]:w-full">
+            <Link href={link({ status: "PENDING" }, "#movimentacoes")} scroll={false}>
+              Abrir fila de conciliação
+            </Link>
+          </Button>
         </section>
       ) : null}
 
-      {/* O painel "O que merece atenção" morava aqui ao lado: quatro linhas
-          com Pendentes, Em revisão, Conciliadas e Ignoradas — exatamente os
-          quatro filtros que já existem embaixo, e que agora carregam o número
-          junto do rótulo. Dois lugares para o mesmo número é um a mais para
-          ficar desatualizado, e no celular custava 176px de rolagem. */}
-      <section className="chart-section">
-        <article className="section-panel chart-panel">
-          <div className="section-heading">
-            <div>
-              <h2>Entradas × saídas</h2>
-            </div>
-            <div className="range-switch" aria-label="Intervalo">
-              {[7, 30, 90, 365].map((days) => (
-                <Link
-                  href={link({ range: String(days) })}
-                  className={data.days === days ? "active" : ""}
-                  key={days}
-                >
-                  {days === 365 ? "1 ano" : `${days}d`}
-                </Link>
-              ))}
-            </div>
-          </div>
-          <CashFlowChart points={data.chart} />
-        </article>
-      </section>
+      <Painel titulo="Entradas e saídas" descricao={data.account ? `${rotuloInstituicao(data.account.provider)}, ${data.account.displayName}. Transferências entre contas ficam de fora.` : undefined}>
+        <GraficoFluxo pontos={data.chart} moeda={currency} passoDias={data.chartStep} />
+      </Painel>
 
-      <section className="section-panel transactions-panel">
-        <div className="section-heading table-heading">
-          <div>
-            <h2>Movimentações bancárias</h2>
+      <Painel
+        id="movimentacoes"
+        titulo="Movimentações"
+        descricao="As 80 mais recentes do recorte."
+        acao={<AcoesCabecalho acoes={[{ tipo: "conciliar" }]} discreta />}
+      >
+        {/* Estado é aba (é a pergunta principal da lista); escopo é filtro
+            compacto. Eram duas fileiras de abas iguais, que liam como a
+            mesma coisa repetida. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="min-w-0 max-[820px]:w-full">
+            <AbasLink
+              rotulo="Estado da conciliação"
+              abas={filters.map((item) => ({
+                href: link({ status: item.value }, "#movimentacoes"),
+                rotulo: item.label,
+                contagem: item.value === "ALL" ? undefined : data.metrics.counts[item.value],
+                ativa: filter === item.value,
+              }))}
+            />
           </div>
-        </div>
-
-        {/* Estado e escopo são os dois cortes da mesma lista e agora ficam
-            juntos, cada chip com o seu número — antes eram dois cabeçalhos
-            separados por um parágrafo de explicação, e a lista começava a
-            quase uma tela de distância do título. */}
-        <div className="filter-rows">
-          <div className="filter-tabs" aria-label="Filtrar por estado">
-            {filters.map((item) => (
-              <Link
-                href={link({ status: item.value })}
-                className={filter === item.value ? "active" : ""}
-                key={item.value}
-              >
-                {item.label}
-                {item.value !== "ALL" && data.metrics.counts[item.value]
-                  ? ` · ${data.metrics.counts[item.value]}`
-                  : ""}
-              </Link>
-            ))}
-          </div>
-          <div className="filter-tabs" aria-label="Filtrar por escopo">
-            {scopeFilters.map((item) => (
-              <Link
-                href={link({ escopo: item.value })}
-                className={scope === item.value ? "active" : ""}
-                key={item.value}
-              >
-                {item.label}
-                {item.value !== "ALL" && data.metrics.scopeCounts[item.value]
-                  ? ` · ${data.metrics.scopeCounts[item.value]}`
-                  : ""}
-              </Link>
-            ))}
-          </div>
+          <FiltroSelect
+            rotulo="Escopo"
+            valor={scope}
+            opcoes={scopeFilters.map((item) => ({
+              valor: item.value,
+              rotulo:
+                item.value !== "ALL" && data.metrics.scopeCounts[item.value]
+                  ? `${item.label} (${data.metrics.scopeCounts[item.value].toLocaleString("pt-BR")})`
+                  : item.label,
+              href: link({ escopo: item.value }, "#movimentacoes"),
+            }))}
+          />
         </div>
 
         {/* A explicação do escopo é a regra da casa, não um parágrafo de
             abertura: fica em detalhe, a um toque de quem precisar. */}
-        <details className="explicacao">
-          <summary>O que muda entre Empresa, Pessoal e A classificar</summary>
-          <p>
+        <details className="mb-2 text-[13px] text-muted-foreground [&_summary]:cursor-pointer [&_summary]:py-1">
+          <summary>O que muda entre Empresa, Pessoal, Entre contas e A classificar</summary>
+          <p className="m-0 mt-1 max-w-[70ch]">
             Uma conta só paga o mercado e paga o Porkbun. A separação acontece
-            aqui: o que estiver como Empresa entra no resultado da Ávila,
-            &ldquo;entre contas&rdquo; nunca entra.
+            aqui: o que estiver como Empresa entra no resultado da Ávila, e o
+            que for entre contas nunca entra.
           </p>
         </details>
 
         {linhas.length === 0 ? (
-          <div className="table-empty">
-            <strong>Nenhuma movimentação neste recorte.</strong>
-            <span>
-              Ajuste o período, sincronize o Éfi ou importe o extrato da Wise.
-            </span>
-          </div>
+          <EstadoVazio
+            compacto
+            titulo="Nenhuma movimentação neste recorte."
+            descricao="Troque o período ou o filtro, ou sincronize as contas."
+            acao={{ label: "Ver todas do período", href: link({ status: "ALL", escopo: "ALL" }, "#movimentacoes") }}
+          />
         ) : (
-          <TransactionList transactions={linhas} />
+          <TabelaMovimentacoes linhas={linhas} />
         )}
-      </section>
+      </Painel>
     </AppShell>
   );
 }

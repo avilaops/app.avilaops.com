@@ -5893,6 +5893,12 @@ tbody tr:last-child td {
     background: var(--surface);
   }
 
+  /* No celular cada conta é um cartão com borda própria; a regra do desktop
+     que tira a borda de baixo da última linha deixava o último cartão aberto. */
+  .lg-row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+
   .lg-row:hover {
     background: var(--surface-raised);
   }
@@ -7991,8 +7997,12 @@ body {
     box-shadow: var(--sombra-1);
   }
 
+  /* A barra de abas flutua: cápsula de 50px, 8px acima da safe area. O fim
+     da página precisa passar dela com folga visível; com 12px a mais o
+     último botão (o "Abrir fila de conciliação", no Financeiro) encostava
+     na cápsula e parecia cortado. */
   .main-canvas {
-    padding-bottom: calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
+    padding-bottom: calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e7));
   }
 
   /* 26px: a régua de título de tela no celular. 30px empurrava o primeiro

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { FinanceScope } from "@/lib/finance-escopo";
+import { serieDoFluxo } from "@/lib/fluxo-diario";
 import { prisma } from "@/lib/prisma";
 
 export type ReconciliationFilter =
@@ -134,20 +135,8 @@ export async function getFinanceDashboard(
     scopeGroups.map((group) => [group.scope, group._count._all]),
   ) as Record<string, number>;
 
-  const chartMap = new Map<
-    string,
-    { date: string; credits: number; debits: number }
-  >();
-  for (const transaction of resultTransactions) {
-    const key = transaction.occurredAt.toISOString().slice(0, 10);
-    const point = chartMap.get(key) ?? { date: key, credits: 0, debits: 0 };
-    if (transaction.direction === "CREDIT") {
-      point.credits += Number(transaction.amount);
-    } else {
-      point.debits += Number(transaction.amount);
-    }
-    chartMap.set(key, point);
-  }
+  // Até 90 dias, uma barra por dia; no ano, uma por semana (ver serieDoFluxo).
+  const chart = serieDoFluxo(resultTransactions, periodStart, days, days > 90 ? 7 : 1);
 
   return {
     days,
@@ -171,7 +160,9 @@ export async function getFinanceDashboard(
       counts,
       scopeCounts,
     },
-    chart: Array.from(chartMap.values()),
+    chart,
+    /** Tamanho do balde do gráfico, em dias: 1 (diário) ou 7 (semanal). */
+    chartStep: days > 90 ? 7 : 1,
     transactions: tableTransactions,
   };
 }

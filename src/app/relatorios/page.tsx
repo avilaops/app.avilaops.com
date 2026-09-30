@@ -1,11 +1,32 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Download, ShieldCheck } from "lucide-react";
 import AppShell from "@/components/AppShell";
-import CabecalhoTela from "@/components/sistema/CabecalhoTela";
-import { contextoDaSecao } from "@/lib/navegacao";
+import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
+import Painel from "@/components/financeiro/Painel";
+import { Button } from "@/components/shadcn/button";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { getFinanceDashboard } from "@/lib/dashboard";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatPercent } from "@/lib/format";
+import { contextoDaSecao } from "@/lib/navegacao";
+import { cn } from "@/lib/utils";
+
+const EXPORTACOES = [
+  {
+    titulo: "Movimentações bancárias",
+    descricao: "Entradas, saídas, contraparte, vínculo e estado de conciliação dos últimos 30 dias.",
+    href: "/api/reports/transactions?range=30",
+  },
+  {
+    titulo: "Fila de pendências",
+    descricao: "Só o que ainda precisa de decisão ou evidência, nos últimos 90 dias.",
+    href: "/api/reports/transactions?range=90&status=PENDING",
+  },
+  {
+    titulo: "Resumo executivo",
+    descricao: "Saldo, fluxo, taxa de conciliação e saúde da sincronização.",
+    href: "/api/reports/summary?range=30",
+  },
+];
 
 export default async function ReportsPage() {
   const admin = await getAdmin();
@@ -13,103 +34,79 @@ export default async function ReportsPage() {
   // Dinheiro, segredo e acesso são do dono: a equipe opera o resto.
   if (!ehDono(admin.role)) redirect("/operacao");
   const data = await getFinanceDashboard(30, "ALL");
+  const moeda = data.account?.currency ?? "BRL";
+  const net = data.metrics.net;
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="reports">
-      <CabecalhoTela
+      <CabecalhoFinanceiro
         titulo="Relatórios"
-        descricao="Exporte dados conciliados e acompanhe a qualidade da integração."
-        {...contextoDaSecao("reports")}
-        acoes={
-          <>
-          <Link href="/financeiro" className="secondary-button">
-          Voltar ao painel
-          </Link>
-          </>
-        }
+        descricao="Resumo dos últimos 30 dias e as exportações em CSV."
+        voltar={contextoDaSecao("reports").voltar}
       />
 
-      <section className="report-hero">
-        <div>
-          <span>Resumo · últimos 30 dias</span>
-          <strong>{formatCurrency(data.metrics.net)}</strong>
-          <small>Fluxo líquido no período</small>
+      {/* Cinco números em cinco cartões empilhados ocupavam uma tela inteira
+          do celular. São um resumo só: o resultado em destaque e os outros
+          quatro numa grade embaixo. */}
+      <Painel
+        titulo="Últimos 30 dias"
+        descricao={data.account ? `${data.account.displayName}. Transferências entre contas ficam de fora.` : undefined}
+      >
+        <div className="grid gap-4 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] min-[900px]:items-center">
+          <div>
+            <span className="block text-[13px] text-muted-foreground">Resultado</span>
+            <strong
+              className={cn(
+                "block font-mono text-[1.75rem] leading-tight font-semibold tabular-nums",
+                net > 0 ? "text-[color:var(--green)]" : net < 0 ? "text-[color:var(--red)]" : "text-foreground",
+              )}
+            >
+              {formatCurrency(net, moeda)}
+            </strong>
+            <small className="text-[12px] text-muted-foreground">Entradas menos saídas</small>
+          </div>
+          <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 min-[600px]:grid-cols-4">
+            {[
+              ["Entradas", formatCurrency(data.metrics.credits, moeda)],
+              ["Saídas", formatCurrency(data.metrics.debits, moeda)],
+              ["Conciliação", formatPercent(data.metrics.reconciliationRate)],
+              ["Atualização", data.account?.lastSyncAt ? formatDateTime(data.account.lastSyncAt) : "Ainda não sincronizada"],
+            ].map(([rotulo, valor]) => (
+              <div key={rotulo} className="min-w-0">
+                <dt className="text-[13px] text-muted-foreground">{rotulo}</dt>
+                <dd className="m-0 font-mono text-[14px] text-foreground tabular-nums">{valor}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-        <dl>
-          <div>
-            <dt>Entradas</dt>
-            <dd>{formatCurrency(data.metrics.credits)}</dd>
-          </div>
-          <div>
-            <dt>Saídas</dt>
-            <dd>{formatCurrency(data.metrics.debits)}</dd>
-          </div>
-          <div>
-            <dt>Conciliação</dt>
-            <dd>{data.metrics.reconciliationRate.toFixed(1)}%</dd>
-          </div>
-          <div>
-            <dt>Atualização</dt>
-            <dd>{formatDateTime(data.account?.lastSyncAt)}</dd>
-          </div>
-        </dl>
-      </section>
+      </Painel>
 
-      <section className="reports-list">
-        <article>
-          <span className="report-number">01</span>
-          <div>
-            <h2>Movimentações bancárias</h2>
-            <p>
-              Entradas, saídas, contraparte, vínculo e estado de conciliação.
-            </p>
-          </div>
-          <a
-            href="/api/reports/transactions?range=30"
-            className="secondary-button"
-          >
-            Exportar CSV
-          </a>
-        </article>
-        <article>
-          <span className="report-number">02</span>
-          <div>
-            <h2>Fila de pendências</h2>
-            <p>
-              Somente movimentações que ainda precisam de decisão ou evidência.
-            </p>
-          </div>
-          <a
-            href="/api/reports/transactions?range=90&status=PENDING"
-            className="secondary-button"
-          >
-            Exportar CSV
-          </a>
-        </article>
-        <article>
-          <span className="report-number">03</span>
-          <div>
-            <h2>Resumo executivo</h2>
-            <p>
-              Saldo, fluxo, taxa de conciliação e saúde da sincronização.
-            </p>
-          </div>
-          <a href="/api/reports/summary?range=30" className="secondary-button">
-            Exportar CSV
-          </a>
-        </article>
-      </section>
-
-      <section className="report-note">
-        <span className="status-dot" />
-        <div>
-          <strong>Relatórios rastreáveis</strong>
-          <p>
-            Cada exportação gera evento de auditoria. Nenhum relatório contém
-            certificado, token, documento fiscal do pagador ou chave Pix.
-          </p>
-        </div>
-      </section>
+      <Painel titulo="Exportações">
+        <ul className="m-0 list-none p-0">
+          {EXPORTACOES.map((item) => (
+            <li
+              key={item.href}
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0"
+            >
+              <div className="min-w-0 flex-[1_1_16rem]">
+                <strong className="block text-[15px] font-semibold text-foreground">{item.titulo}</strong>
+                <p className="m-0 text-[13px] text-muted-foreground">{item.descricao}</p>
+              </div>
+              <Button asChild variant="outline" className="min-h-10 max-[820px]:w-full">
+                <a href={item.href}>
+                  <Download aria-hidden="true" />
+                  Exportar CSV
+                </a>
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <p className="m-0 mt-3 flex items-start gap-2 text-[13px] text-muted-foreground">
+          <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-[color:var(--green)]" />
+          Cada exportação gera evento de auditoria. Nenhum relatório leva certificado, token, documento
+          do pagador ou chave Pix.
+        </p>
+      </Painel>
     </AppShell>
   );
 }
