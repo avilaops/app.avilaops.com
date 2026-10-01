@@ -69,6 +69,50 @@ function catalogo(slug) {
   return itens;
 }
 
+const min = (n) => new Date(agora - n * 60000).toISOString();
+
+/**
+ * As rotinas da plataforma, com os três estados que a tela distingue: em paz,
+ * atrasada e falhando. Print de oito linhas verdes não provaria que o bloco
+ * sabe acusar problema, que é exatamente o que ele existe para fazer.
+ */
+const ROTINAS = [
+  { nome: "mercadolivre.avisos", titulo: "Vendas do ML", descricao: "Fila do Mercado Livre: venda vira pedido e baixa estoque, envio vira rastreio",
+    cadencia: "a cada 5 min", proximaEm: min(-3), ultimaEm: min(2), ultimaDuracaoMs: 412,
+    ultimoResumo: { lidos: 6, pedidos: 2, anuncios: 1, envios: 3, perguntas: 0, ignorados: 0, falhas: 0 },
+    ultimoErro: null, falhasSeguidas: 0, execucoes: 2881, executandoDesde: null,
+    emAtraso: false, falhando: false, saudavel: true },
+  { nome: "seo.categorias", titulo: "SEO de categoria", descricao: "Gera e publica em lote o SEO de categoria pendente, fora do acesso público",
+    cadencia: "todo dia às 03:00", proximaEm: min(-1080), ultimaEm: min(1440), ultimaDuracaoMs: 18320,
+    ultimoResumo: null, ultimoErro: "GEMINI_API_KEY inválida: a API respondeu 401",
+    falhasSeguidas: 3, execucoes: 42, executandoDesde: null,
+    emAtraso: false, falhando: true, saudavel: false },
+  { nome: "carrinhos.verificar", titulo: "Carrinho abandonado", descricao: "Marca carrinho parado há 45 min e emite carrinho.abandonado",
+    cadencia: "a cada hora", proximaEm: min(130), ultimaEm: min(190), ultimaDuracaoMs: 88,
+    ultimoResumo: { lembrados: 2 }, ultimoErro: null, falhasSeguidas: 0, execucoes: 720,
+    executandoDesde: null, emAtraso: true, falhando: false, saudavel: false },
+  { nome: "mercadolivre.rodar", titulo: "Anúncios do ML", descricao: "Publica o que o lojista aprovou e empurra preço e estoque para os anúncios",
+    cadencia: "a cada hora", proximaEm: min(-38), ultimaEm: min(22), ultimaDuracaoMs: 2340,
+    ultimoResumo: { lojas: 2, publicados: 4, sincronizados: 61, falhas: 0 }, ultimoErro: null,
+    falhasSeguidas: 0, execucoes: 719, executandoDesde: null, emAtraso: false, falhando: false, saudavel: true },
+  { nome: "estoque.avisos", titulo: "Voltou ao estoque", descricao: "Avisa quem esperava produto que voltou ao estoque",
+    cadencia: "a cada hora", proximaEm: min(-38), ultimaEm: min(22), ultimaDuracaoMs: 61,
+    ultimoResumo: { avisos: 0 }, ultimoErro: null, falhasSeguidas: 0, execucoes: 719,
+    executandoDesde: null, emAtraso: false, falhando: false, saudavel: true },
+  { nome: "pedidos.verificar", titulo: "Pagamento pendente", descricao: "Confere no gateway os pedidos aguardando pagamento (Pix, boleto) dos últimos 7 dias",
+    cadencia: "a cada hora", proximaEm: min(-38), ultimaEm: min(22), ultimaDuracaoMs: 1204,
+    ultimoResumo: { conferidos: 3, comMudanca: 1, aindaPendentes: 2, falhas: 0 }, ultimoErro: null,
+    falhasSeguidas: 0, execucoes: 719, executandoDesde: null, emAtraso: false, falhando: false, saudavel: true },
+  { nome: "cobranca.verificar", titulo: "Régua de cobrança", descricao: "Suspende loja que passou da tolerância e sincroniza as assinaturas",
+    cadencia: "todo dia às 06:00", proximaEm: min(-900), ultimaEm: min(540), ultimaDuracaoMs: 4100,
+    ultimoResumo: { suspensas: ["oficina-vale"], sincronizadas: 4, faturasNovas: 1 }, ultimoErro: null,
+    falhasSeguidas: 0, execucoes: 30, executandoDesde: null, emAtraso: false, falhando: false, saudavel: true },
+  { nome: "relatorios.semanal", titulo: "Relatório semanal", descricao: "Emite loja.relatorio-semanal por loja com movimento",
+    cadencia: "toda segunda às 07:00", proximaEm: min(-2880), ultimaEm: null, ultimaDuracaoMs: null,
+    ultimoResumo: null, ultimoErro: null, falhasSeguidas: 0, execucoes: 0, executandoDesde: null,
+    emAtraso: false, falhando: false, saudavel: true },
+];
+
 const PORTA = Number(process.env.PORTA_LOJAS_FALSA ?? 4599);
 
 createServer((req, res) => {
@@ -81,6 +125,15 @@ createServer((req, res) => {
   if (!autorizado) return json({ erro: "não autorizado" }, 401);
 
   if (url.pathname === "/api/admin/tenants") return json(LOJAS);
+
+  if (url.pathname === "/api/admin/rotinas") {
+    return json({
+      agendador: { ligado: true, passadaSegundos: 60 },
+      saudavel: ROTINAS.every((r) => r.saudavel),
+      rotinas: ROTINAS,
+      verificadoEm: new Date(agora).toISOString(),
+    });
+  }
 
   const m = url.pathname.match(/^\/api\/admin\/tenants\/([^/]+)(\/produtos)?$/);
   if (m) {
