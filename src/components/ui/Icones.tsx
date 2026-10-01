@@ -29,7 +29,8 @@ export type NomeIcone =
   | "vagas"
   | "lojas"
   | "automacoes"
-  | "saude";
+  | "saude"
+  | "telas";
 
 /*
  * Um conjunto pequeno de ícones de traço, no peso do SF Symbols. Sem
@@ -199,6 +200,14 @@ const caminhos: Record<NomeIcone, React.ReactNode> = {
   ),
   automacoes: <path d="M13 3 5 13.5h5.5L11 21l8-10.5h-5.5L13 3Z" />,
   saude: <path d="M3 12.5h4l2.5-6 3.5 12 2.5-6h5.5" />,
+  // Tela de parede com o pé embaixo: o que a Ávila TV entrega é a tela do
+  // salão, não o televisor da sala.
+  telas: (
+    <>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M9 20h6M12 16v4" />
+    </>
+  ),
 };
 
 export function Icone({
