@@ -286,6 +286,15 @@ frente dela.
   conta do token: com a migração progressiva, não achar o id aqui é o esperado,
   e um painel que pinta de vermelho o estado saudável de toda loja ativa deixa
   de ser lido.
+- ✅ **A guarda "cobrança paga não volta atrás" passa a valer para o Mercado
+  Pago** — defeito que não estava na auditoria e que o teste novo encontrou. O
+  webhook do Efí chama a baixa com `"PAID"` já traduzido; o do Mercado Pago
+  chamava com o `"approved"` cru. A cobrança paga por lá ficava gravada como
+  `approved`, e a guarda compara com `"PAID"`: um `pending` atrasado, entregue
+  depois do `approved`, **reabria a cobrança com o dinheiro na conta** — exatamente
+  o que o comentário do código diz que não pode acontecer. Agora "já estava paga"
+  se olha pelo `paidAt`, que os dois gateways gravam igual, e "paga" se grava com
+  um nome só.
 - ✅ **Cobrança de entregável deixa de nascer com o gateway errado** — as duas
   criações passam `provider: "MERCADO_PAGO"` explícito. O default do schema e as
   linhas gravadas desde 31/08 são migração: ficam na Fase 2. Resolve a metade de
@@ -312,9 +321,21 @@ produção. O código está pronto para o dia em que houver.
 - Régua: lembrete antes de vencer, aviso no vencimento, aviso de atraso. Cada
   passo gera evento de auditoria — conciliação e exportação já geram, e cobrança
   automática é a que mais precisa de rastro.
-- Corrigir o `provider` dos entregáveis (default do schema e as duas criações),
-  com migração aditiva, e decidir se as linhas antigas são corrigidas por script.
-  Resolve P1-6.
+- Corrigir o `provider` dos entregáveis **no banco**: o default `EFI` do schema
+  (migração aditiva) e as linhas gravadas entre 31/08 e 01/10. As duas criações
+  já passam `MERCADO_PAGO` explícito desde a Fase 1. Fecha o P1-6.
+- **P1-6b, achado em 01/10/2026 ao corrigir a baixa.** A varredura de pendentes
+  do webhook do Efí (`webhooks/efi/route.ts:121`) busca
+  `method in (BOLETO, CARD)` e `status notIn (PAID, CANCELLED)` **sem filtrar
+  `provider`**. Enquanto houver boleto ou cartão do Mercado Pago em aberto, cada
+  chamada do webhook do Efí manda o id do Mercado Pago para a API do Efí, falha
+  e loga erro — para sempre. Hoje é ruído; o risco real é o dia em que um id
+  colidir. Uma linha (`provider: "EFI"`) resolve, e ficou fora da Fase 1 por ser
+  no webhook do outro gateway, que aquele PR não tocava.
+- Decidir se as cobranças antigas do Mercado Pago gravadas com status
+  `approved` são normalizadas para `PAID` por script. A regra foi corrigida na
+  Fase 1, mas o que já está no banco continua como estava — e é o que a
+  varredura acima lê.
 
 **Pronto quando**: um cliente contratado pelo autoatendimento recebe a fatura do
 mês seguinte sem ninguém abrir o painel.
