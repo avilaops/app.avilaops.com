@@ -132,6 +132,7 @@ export default async function FinancePage({
     <AppShell adminName={admin.nome} papel={admin.role} section={activeSection}>
       <CabecalhoFinanceiro
         titulo="Financeiro"
+        acoes={[{ tipo: "sincronizar" }, { tipo: "novo-lancamento" }, { tipo: "link", rotulo: "Revisar pendências", icone: "revisar", href: link({ status: "PENDING" }, "#movimentacoes") }]}
         descricao="Saldo, entradas e saídas da conta escolhida, e o que ainda depende de decisão."
       />
 
@@ -151,11 +152,11 @@ export default async function FinancePage({
         <p className="m-0 text-[13px] text-muted-foreground min-[821px]:ml-auto">
           {data.account?.lastSyncAt ? (
             <>
-              Sincronizada em <span className="text-foreground">{formatDateTime(data.account.lastSyncAt)}</span>
+              Última atualização em <span className="text-foreground">{formatDateTime(data.account.lastSyncAt)}</span>
               {data.latestSync?.status ? (
                 <span className={data.latestSync.status === "FAILED" ? "text-[color:var(--red)]" : undefined}>
                   {" "}
-                  ({ESTADO_SYNC[data.latestSync.status] ?? "sem histórico"})
+                  (última tentativa: {ESTADO_SYNC[data.latestSync.status] ?? "sem histórico"})
                 </span>
               ) : null}
             </>
@@ -167,12 +168,12 @@ export default async function FinancePage({
 
       <FaixaIndicadores rotulo="Resumo financeiro">
         <Indicador
-          rotulo="Saldo disponível"
-          valor={data.latestBalance ? formatCurrency(data.latestBalance.availableBalance.toString(), currency) : "Não informado"}
+          rotulo={data.latestBalance ? "Saldo disponível" : "Saldo indisponível"}
+          valor={data.latestBalance ? formatCurrency(data.latestBalance.availableBalance.toString(), currency) : "Saldo indisponível"}
           detalhe={
             data.latestBalance
               ? `Capturado em ${formatDateTime(data.latestBalance.capturedAt)}`
-              : "Extrato importado por arquivo não traz saldo"
+              : data.account?.provider === "wise" ? "O arquivo importado não informou saldo; isso não significa saldo zero." : "Nenhum saldo foi informado pela integração."
           }
           ocultavel={Boolean(data.latestBalance)}
         />
@@ -205,7 +206,7 @@ export default async function FinancePage({
           aria-label="Pendências"
           className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl bg-card px-4 py-3 shadow-[var(--sombra-1)]"
         >
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--amber-line)]/60 font-mono text-[15px] font-semibold text-[color:var(--amber)] tabular-nums">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--amber-line)]/60 text-[15px] font-semibold text-[color:var(--amber)] tabular-nums">
             {data.metrics.attentionCount.toLocaleString("pt-BR")}
           </span>
           <div className="min-w-0 flex-[1_1_16rem]">
@@ -251,7 +252,7 @@ export default async function FinancePage({
             />
           </div>
           <FiltroSelect
-            rotulo="Escopo"
+            rotulo="Classificação"
             valor={scope}
             opcoes={scopeFilters.map((item) => ({
               valor: item.value,

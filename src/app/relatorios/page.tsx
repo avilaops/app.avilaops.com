@@ -41,6 +41,7 @@ export default async function ReportsPage() {
     <AppShell adminName={admin.nome} papel={admin.role} section="reports">
       <CabecalhoFinanceiro
         titulo="Relatórios"
+        acoes={[]}
         descricao="Resumo dos últimos 30 dias e as exportações em CSV."
         voltar={contextoDaSecao("reports").voltar}
       />
@@ -57,7 +58,7 @@ export default async function ReportsPage() {
             <span className="block text-[13px] text-muted-foreground">Resultado</span>
             <strong
               className={cn(
-                "block font-mono text-[1.75rem] leading-tight font-semibold tabular-nums",
+                "block text-[1.75rem] leading-tight font-semibold tabular-nums",
                 net > 0 ? "text-[color:var(--green)]" : net < 0 ? "text-[color:var(--red)]" : "text-foreground",
               )}
             >
@@ -74,7 +75,7 @@ export default async function ReportsPage() {
             ].map(([rotulo, valor]) => (
               <div key={rotulo} className="min-w-0">
                 <dt className="text-[13px] text-muted-foreground">{rotulo}</dt>
-                <dd className="m-0 font-mono text-[14px] text-foreground tabular-nums">{valor}</dd>
+                <dd className="m-0 text-[14px] text-foreground tabular-nums">{valor}</dd>
               </div>
             ))}
           </dl>

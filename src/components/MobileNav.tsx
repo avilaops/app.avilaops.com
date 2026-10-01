@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Icone } from "@/components/ui/Icones";
+import MarcaAvila from "@/components/sistema/MarcaAvila";
+import IconeNavegacao from "@/components/sistema/IconeNavegacao";
 import ThemeToggle from "@/components/ThemeToggle";
 import { abasDoPapel, type SecaoApp } from "@/lib/navegacao";
 
@@ -33,9 +34,8 @@ export default function MobileNav({
   return (
     <>
       <header className="mobile-topbar">
-        <Link href="/operacao" className="brand-lockup" aria-label="Ávila Ops">
-          <span className="brand-mark">A</span>
-          <strong>Ávila Ops</strong>
+        <Link href="/operacao" className="brand-lockup" aria-label="Avila Ops">
+          <MarcaAvila />
         </Link>
         <ThemeToggle className="theme-toggle topbar-theme" />
       </header>
@@ -51,7 +51,7 @@ export default function MobileNav({
                 className={ativo ? "tab-item tab-item-active" : "tab-item"}
                 aria-current={ativo ? "page" : undefined}
               >
-                <Icone nome={aba.icone} tamanho={22} />
+                <IconeNavegacao nome={aba.icone} tamanho={30} />
                 <span>{aba.label}</span>
               </Link>
             );
@@ -61,7 +61,7 @@ export default function MobileNav({
             className={maisAtivo ? "tab-item tab-item-active" : "tab-item"}
             aria-current={maisAtivo ? "page" : undefined}
           >
-            <Icone nome="mais" tamanho={22} />
+            <IconeNavegacao nome="mais" tamanho={30} />
             <span>Mais</span>
           </Link>
         </div>

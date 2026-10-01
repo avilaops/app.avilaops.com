@@ -11,7 +11,7 @@ export type AcaoCabecalho =
   | { tipo: "novo-lancamento" }
   | { tipo: "conciliar" }
   | { tipo: "varredura-cobranca" }
-  | { tipo: "link"; rotulo: string; href: string; icone?: "importar" | "cobranca" };
+  | { tipo: "link"; rotulo: string; href: string; icone?: "importar" | "cobranca" | "revisar" };
 
 /**
  * As ações que valem para o módulo inteiro, na ordem em que aparecem.
@@ -22,7 +22,7 @@ export type AcaoCabecalho =
  */
 export const ACOES_DO_MODULO: AcaoCabecalho[] = [
   { tipo: "link", rotulo: "Importar arquivo", href: "/financeiro/importar", icone: "importar" },
-  { tipo: "novo-lancamento" },
   { tipo: "sincronizar" },
+  { tipo: "novo-lancamento" },
 ];
 

@@ -45,7 +45,7 @@ export function RolagemHorizontal({ children, className }: { children: ReactNode
   return (
     <div
       ref={caixa}
-      className={cn("min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", mascara, className)}
+      className={cn("min-w-0 overflow-x-auto [scrollbar-width:thin]", mascara, className)}
     >
       {children}
     </div>
@@ -66,12 +66,12 @@ export function AbasLink({ abas, rotulo }: { abas: Aba[]; rotulo: string }) {
             scroll={false}
             aria-current={aba.ativa ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
               aba.ativa && "bg-card text-foreground shadow-[var(--sombra-1)]",
             )}
           >
             {aba.rotulo}
-            {aba.contagem ? (
+            {aba.contagem !== undefined ? (
               <span className="rounded-full bg-[color:var(--line)] px-1.5 text-[11px] leading-[18px] text-foreground tabular-nums">
                 {aba.contagem.toLocaleString("pt-BR")}
               </span>

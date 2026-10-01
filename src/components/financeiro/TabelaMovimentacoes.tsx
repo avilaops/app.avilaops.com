@@ -33,7 +33,7 @@ function Valor({ linha, className }: { linha: LinhaMovimentacao; className?: str
   return (
     <span
       className={cn(
-        "font-mono whitespace-nowrap tabular-nums",
+        "whitespace-nowrap tabular-nums",
         entrada ? "text-[color:var(--green)]" : "text-foreground",
         className,
       )}

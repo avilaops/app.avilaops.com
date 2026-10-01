@@ -54,6 +54,7 @@ function IconeDe({ acao, girando }: { acao: AcaoCabecalho; girando?: boolean }) 
     case "varredura-cobranca":
       return <SearchCheck aria-hidden="true" />;
     case "link":
+      if (acao.icone === "revisar") return <SearchCheck aria-hidden="true" />;
       return acao.icone === "cobranca" ? <Receipt aria-hidden="true" /> : <FileUp aria-hidden="true" />;
   }
 }

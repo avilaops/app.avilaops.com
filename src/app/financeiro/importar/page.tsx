@@ -3,7 +3,7 @@ import AppShell from "@/components/AppShell";
 import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
 import Painel from "@/components/financeiro/Painel";
 import { contextoDaSecao } from "@/lib/navegacao";
-import { ACOES_DO_MODULO } from "@/components/financeiro/acoes";
+
 import WiseImportPanel from "@/components/WiseImportPanel";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { contar, formatDateTime } from "@/lib/format";
@@ -27,9 +27,9 @@ export default async function ImportarPage() {
     <AppShell adminName={admin.nome} papel={admin.role} section="import">
       <CabecalhoFinanceiro
         titulo="Importar extrato"
-        descricao="Por enquanto, só a Wise entra por arquivo: ela não abre API para conta pessoal. O extrato cai na mesma fila de conciliação."
+        descricao="Selecione um extrato da Wise para importar as movimentações e revisá-las na fila de conciliação."
         voltar={contextoDaSecao("import").voltar}
-        acoes={ACOES_DO_MODULO.filter((a) => a.tipo !== "link")}
+        acoes={[]}
       />
 
       <Painel titulo="Wise">

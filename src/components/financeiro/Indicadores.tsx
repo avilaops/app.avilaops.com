@@ -49,7 +49,7 @@ export function Indicador({
       <span className="block text-[13px] text-muted-foreground">{rotulo}</span>
       <strong
         className={cn(
-          "mt-1 block truncate font-mono text-[1.375rem] leading-tight font-semibold tabular-nums max-[820px]:text-base",
+          "mt-1 block break-words text-[1.375rem] leading-tight font-semibold tabular-nums max-[820px]:text-base",
           COR[tom],
         )}
         title={valor}

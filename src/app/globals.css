@@ -5956,10 +5956,10 @@ tbody tr:last-child td {
     text-align: left;
   }
 
-  /* Botões da conta com alvo de 44px; "Dar baixa" ocupa a largura. */
+  /* Ações compactas, mantendo alvos de toque de 44px. */
   .lg-actions .ledger-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     white-space: normal;
   }
@@ -10605,3 +10605,21 @@ main [data-slot="select-trigger"]:focus-visible {
     text-overflow: clip;
   }
 }
+/* Identidade aprovada: imagens da coleção v2 e tokens já existentes. */
+.marca-oficial { display: block; flex: 0 0 36px; object-fit: contain; }
+.icone-navegacao { display: block; object-fit: contain; flex-shrink: 0; }
+.icone-tile.icone-tile-3d { width: 44px; height: 44px; flex-basis: 44px; background: transparent; box-shadow: none; }
+.icone-tile-3d .icone-navegacao { width: 44px; height: 44px; }
+.tela-cabecalho .icone-tile-3d { width: 44px; height: 44px; flex-basis: 44px; }
+.nav-icone:has(.icone-navegacao) { width: 28px; height: 28px; flex: 0 0 28px; background: transparent; }
+.tab-item .icone-navegacao { width: 30px; height: 30px; }
+.tab-item { min-width: 0; }
+.money, .lg-amount, .credit-value, .score-value { font-family: var(--fonte); font-variant-numeric: tabular-nums; }
+.lg-kind strong, .lg-party { overflow-wrap: anywhere; white-space: normal; }
+.ledger-actions { flex-wrap: wrap; }
+@media (max-width: 820px) {
+  .tab-item { min-height: 52px; }
+  .main-canvas { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+  [data-slot="button"] { min-height: 44px; }
+}
+.metric > strong, .score-value strong, .score-value span, .score-delta, .score-history, .chart-label, .chart-legend strong, .lg-due time { font-family: var(--fonte); font-variant-numeric: tabular-nums; }

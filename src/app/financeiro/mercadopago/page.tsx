@@ -97,7 +97,7 @@ export default async function MercadoPagoPage() {
       {!painel.configurado ? (
         <EstadoVazio
           titulo="Mercado Pago não configurado"
-          descricao="Falta MP_ACCESS_TOKEN no ambiente deste app. Sem ele nada nesta tela carrega; a cobrança da mensalidade continua rodando pelo lojas.avilaops.com."
+          descricao="Conecte a conta do Mercado Pago para consultar as cobranças. Não foi possível verificar a situação dos recebimentos."
         />
       ) : null}
 
@@ -142,7 +142,7 @@ export default async function MercadoPagoPage() {
             />
           </FaixaIndicadores>
 
-          <Painel titulo="Conta e notificações">
+          <details className="mb-4"><summary className="cursor-pointer py-3 text-sm font-semibold">Detalhes da conta e das notificações</summary><Painel titulo="Conta e notificações">
             <div className="grid gap-3 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
               {/* O apelido da conta é um identificador de 40 caracteres sem
                   espaço: numa célula de indicador ele estourava a largura. Aqui
@@ -176,6 +176,7 @@ export default async function MercadoPagoPage() {
             </div>
           </Painel>
 
+          </details>
           <Painel titulo="Mensalidades" descricao="Com problema primeiro.">
             {painel.linhas.length === 0 ? (
               <EstadoVazio compacto titulo="Nenhuma assinatura e nenhuma loja ainda." />
@@ -191,7 +192,7 @@ export default async function MercadoPagoPage() {
                       className="grid min-w-0 gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0 min-[900px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]"
                     >
                       <div className="min-w-0">
-                        <strong className="block truncate text-[15px] font-semibold text-foreground">
+                        <strong className="block break-words text-[15px] font-semibold text-foreground">
                           {l.mp ? (
                             <Link href={`/financeiro/mercadopago/${l.mp.id}`} className="hover:underline">
                               {titulo(l)}
@@ -201,14 +202,15 @@ export default async function MercadoPagoPage() {
                           )}
                         </strong>
                         {ref ? (
-                          <span className="block truncate font-mono text-[12px] text-muted-foreground" title={ref}>
-                            {ref}
-                          </span>
+                          <details className="text-[12px] text-muted-foreground">
+                            <summary className="inline-flex min-h-11 cursor-pointer items-center underline">Ver referência</summary>
+                            <span className="block font-mono [overflow-wrap:anywhere]">{ref}</span>
+                          </details>
                         ) : null}
                         {pior ? (
                           <div className="mt-2">
                             <Aviso compacto gravidade={pior.gravidade} titulo={pior.titulo}>
-                              <span className="line-clamp-3">{pior.detalhe}</span>
+                              <span>{pior.detalhe}</span>
                             </Aviso>
                           </div>
                         ) : null}
@@ -227,7 +229,7 @@ export default async function MercadoPagoPage() {
                         </div>
                         <div className="min-w-0">
                           <dt className="text-muted-foreground">Valor</dt>
-                          <dd className="m-0 font-mono text-foreground tabular-nums">{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "Sem valor"}</dd>
+                          <dd className="m-0 text-foreground tabular-nums">{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "Sem valor"}</dd>
                         </div>
                         <div className="min-w-0">
                           <dt className="text-muted-foreground">Próxima</dt>
@@ -280,7 +282,7 @@ export default async function MercadoPagoPage() {
                       </a>
                       <span
                         className={cn(
-                          "text-right font-mono text-[14px] whitespace-nowrap tabular-nums",
+                          "text-right text-[14px] whitespace-nowrap tabular-nums",
                           recusado ? "text-muted-foreground line-through" : "text-[color:var(--green)]",
                         )}
                       >

@@ -177,13 +177,13 @@ export default function FolhaRevisao({
       }
     >
       <div className="mb-4 rounded-xl bg-[color:var(--surface-soft)] px-4 py-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <strong className="min-w-0 truncate text-[15px] text-foreground">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <strong className="min-w-0 break-words text-[15px] text-foreground">
             {linha.counterpartyName ?? linha.description}
           </strong>
           <span
             className={cn(
-              "shrink-0 font-mono text-[15px] tabular-nums",
+              "shrink-0 text-[15px] tabular-nums",
               linha.direction === "CREDIT" ? "text-[color:var(--green)]" : "text-foreground",
             )}
           >
@@ -227,7 +227,7 @@ export default function FolhaRevisao({
             valor={caminho}
             aoMudar={setCaminho}
             opcoes={[
-              ["comprovante", "Pelo comprovante"],
+              ["comprovante", "Digitar comprovante"],
               ["manual", "À mão"],
             ]}
           />
@@ -240,6 +240,7 @@ export default function FolhaRevisao({
           className="form-stack comprovante-bloco"
           onSubmit={identificarPeloComprovante}
         >
+          <p className="m-0 text-sm text-muted-foreground">Digite os dados do comprovante abaixo. Não há envio de imagem ou PDF neste fluxo.</p>
           {/* O porquê continua na folha, mas fechado: quem concilia todo dia
               já sabe, e quatro linhas de texto empurravam os campos para
               fora da tela. */}

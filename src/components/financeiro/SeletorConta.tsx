@@ -68,7 +68,7 @@ export default function SeletorConta({
             <span className="text-[12px] leading-tight font-normal text-muted-foreground">
               {atual ? rotuloInstituicao(atual.provider) : "Conta"}
             </span>
-            <span className="truncate text-sm leading-tight font-semibold">
+            <span className="whitespace-normal break-words text-sm leading-tight font-semibold">
               {atual ? nomeCurtoDaConta(atual.displayName, atual.provider) : "Nenhuma conta"}
               {atual && atual.environment !== "production" ? (
                 <span className="ml-2 rounded-sm bg-[color:var(--amber-line)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--amber)]">
@@ -91,7 +91,7 @@ export default function SeletorConta({
                   <CommandItem
                     key={conta.id}
                     value={`${rotuloInstituicao(provider)} ${conta.displayName} ${conta.currency}`}
-                    className="min-h-10"
+                    className="min-h-11"
                     onSelect={() => {
                       setAberto(false);
                       router.push(hrefDe[conta.id]);
@@ -101,7 +101,7 @@ export default function SeletorConta({
                       aria-hidden="true"
                       className={conta.id === atual?.id ? "size-4 text-[color:var(--accent)]" : "size-4 opacity-0"}
                     />
-                    <span className="min-w-0 flex-1 truncate">{nomeCurtoDaConta(conta.displayName, provider)}</span>
+                    <span className="min-w-0 flex-1 whitespace-normal break-words">{nomeCurtoDaConta(conta.displayName, provider)}</span>
                     <span className="text-[12px] text-muted-foreground">{conta.currency}</span>
                     {conta.environment !== "production" ? (
                       <span className="text-[11px] text-[color:var(--amber)]">

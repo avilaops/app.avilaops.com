@@ -96,10 +96,10 @@ export default async function ContasPage({
           detalhe={totals.overduePayable > 0 ? `${formatCurrency(totals.overduePayable)} já vencido` : "Nada vencido"}
         />
         <Indicador
-          rotulo="Saldo projetado"
+          rotulo="Resultado em aberto"
           valor={formatCurrency(totals.projectedNet)}
           tom={totals.projectedNet >= 0 ? "entrada" : "saida"}
-          detalhe="Recebíveis menos obrigações em aberto"
+          detalhe="Recebíveis menos obrigações em aberto, sem incluir o saldo bancário"
         />
         <Indicador
           rotulo="Vencem em 7 dias"

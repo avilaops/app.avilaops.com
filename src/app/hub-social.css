@@ -31,7 +31,7 @@
   --color-border: var(--line);
   --color-input: var(--line);
   --color-ring: var(--accent);
-  --font-sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: var(--fonte);
   --font-mono: var(--mono);
   --radius-sm: 8px;
   --radius-md: 10px;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MarcaAvila from "@/components/sistema/MarcaAvila";
 import type { ReactNode } from "react";
 import MobileNav from "@/components/MobileNav";
 import SideNav from "@/components/SideNav";
@@ -27,9 +28,8 @@ export default function AppShell({
   return (
     <div className="app-frame">
       <aside className="sidebar">
-        <Link href="/operacao" className="brand-lockup" aria-label="Ávila Ops">
-          <span className="brand-mark">A</span>
-          <strong>Ávila Ops</strong>
+        <Link href="/operacao" className="brand-lockup" aria-label="Avila Ops">
+          <MarcaAvila />
         </Link>
         <ThemeToggle />
         <SideNav section={section} papel={papel} />

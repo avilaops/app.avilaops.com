@@ -41,7 +41,7 @@ function Dica({
       <p className="m-0 mb-1.5 font-medium text-foreground">
         {semanal ? `Semana de ${rotuloCurto.format(comoData(ponto.dia))}` : rotuloLongo.format(comoData(ponto.dia))}
       </p>
-      <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 font-mono tabular-nums">
+      <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 tabular-nums">
         <dt className="font-sans text-muted-foreground">Entradas</dt>
         <dd className="m-0 text-right text-[color:var(--green)]">{formatCurrency(ponto.entradas, moeda)}</dd>
         <dt className="font-sans text-muted-foreground">Saídas</dt>

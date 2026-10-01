@@ -1,5 +1,5 @@
 /**
- * Conferência visual do módulo Financeiro: cada rota em 390, 768 e 1440 de
+ * Conferência visual do módulo Financeiro: cada rota em 360, 390, 768 e 1440 de
  * largura, nos temas claro e escuro. Fotografa a página inteira e reprova se:
  *
  * - o console soltar erro (menos o ruído do HMR do dev server);
@@ -26,6 +26,7 @@ const PREFIXO = process.argv[3] ?? "";
 const ROTAS = (process.env.ROTAS ?? "/financeiro,/financeiro/contas,/financeiro/mercadopago,/relatorios,/financeiro/importar,/financeiro/credito").split(",");
 
 const TELAS = [
+  { nome: "360", width: 360, height: 800, deviceScaleFactor: 1, isMobile: true, hasTouch: true },
   { nome: "390", width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   { nome: "768", width: 768, height: 1024, deviceScaleFactor: 1, isMobile: true, hasTouch: true },
   { nome: "1440", width: 1440, height: 900, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
@@ -129,6 +130,7 @@ async function rodar(tema) {
       const page = await contexto.newPage();
       const nomeRota = rota.replace(/^\//, "").replace(/[/?=&]+/g, "-") || "inicio";
       const rotulo = `${nomeRota} ${tela.nome}/${tema}`;
+      console.log(`Conferindo ${rotulo}`);
       const RUIDO = /webpack-hmr|WebSocket connection|react-devtools|Download the React DevTools/i;
       page.on("console", (m) => {
         if (m.type() === "error" && !RUIDO.test(m.text())) problemas.push(`${rotulo}: console.error ${m.text().slice(0, 200)}`);

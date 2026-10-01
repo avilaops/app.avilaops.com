@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 import AcoesCabecalho from "@/components/financeiro/AcoesCabecalho";
+import NavegacaoFinanceiro from "@/components/financeiro/NavegacaoFinanceiro";
 import { ACOES_DO_MODULO, type AcaoCabecalho } from "@/components/financeiro/acoes";
 
 /**
@@ -36,7 +37,7 @@ export default function CabecalhoFinanceiro({
   extras?: ReactNode;
 }) {
   return (
-    <header className="mb-5 flex flex-wrap items-start gap-x-6 gap-y-3 max-[820px]:mb-4">
+    <><header className="mb-5 flex flex-wrap items-start gap-x-6 gap-y-3 max-[820px]:mb-4">
       <div className="flex min-w-0 flex-[1_1_20rem] items-start gap-3">
         {voltar ? (
           <Link
@@ -64,6 +65,6 @@ export default function CabecalhoFinanceiro({
           {acoes.length ? <AcoesCabecalho acoes={acoes} /> : null}
         </div>
       ) : null}
-    </header>
+    </header><NavegacaoFinanceiro /></>
   );
 }
