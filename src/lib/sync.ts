@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { fetchEfiFinancialSnapshot } from "@/lib/efi";
+import { contaSugerida } from "@/lib/plano-de-contas";
 import { prisma } from "@/lib/prisma";
 
 const EFI_ACCOUNT_ID = "efi-production";
@@ -92,6 +93,9 @@ export async function runEfiSync(options?: {
           create: {
             accountId: EFI_ACCOUNT_ID,
             externalId: item.externalId,
+            // Conta só no nascimento: o `update` não a toca, então
+            // reclassificação feita à mão sobrevive à sincronização.
+            accountCode: contaSugerida({ direcao: item.direction }),
             endToEndId: item.endToEndId,
             txid: item.txid,
             direction: item.direction,

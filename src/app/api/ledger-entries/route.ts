@@ -10,6 +10,7 @@ import {
   type LedgerStatus,
 } from "@/lib/contas";
 import { isFinanceScope } from "@/lib/finance-escopo";
+import { contaSugerida, ehCodigoDeConta } from "@/lib/plano-de-contas";
 import { prisma } from "@/lib/prisma";
 
 const allowedDirections = new Set<string>(LEDGER_DIRECTIONS);
@@ -85,6 +86,9 @@ export async function POST(request: Request) {
     dueDate?: unknown;
     category?: unknown;
     note?: unknown;
+    accountCode?: unknown;
+    competenceStart?: unknown;
+    competenceMonths?: unknown;
   };
 
   const direction = typeof body.direction === "string" ? body.direction : "";
@@ -106,6 +110,29 @@ export async function POST(request: Request) {
       : Number.parseFloat(String(body.amount ?? ""));
   const dueDate =
     typeof body.dueDate === "string" ? new Date(body.dueDate) : null;
+
+  // Conta e competência: o que separa "saiu dinheiro" de "custou no mês".
+  // Conta desconhecida não vira erro — vira "a classificar", que é o estado
+  // honesto de quem ainda não decidiu, e aparece como linha própria no DRE.
+  const accountCode = ehCodigoDeConta(body.accountCode)
+    ? body.accountCode
+    : contaSugerida({
+        categoria: category,
+        direcao: direction === "RECEIVABLE" ? "RECEIVABLE" : "PAYABLE",
+      });
+  const competenceStartRaw =
+    typeof body.competenceStart === "string" ? new Date(body.competenceStart) : null;
+  const competenceStart =
+    competenceStartRaw && !Number.isNaN(competenceStartRaw.getTime())
+      ? competenceStartRaw
+      : null;
+  const mesesInformados = Number(body.competenceMonths);
+  // Teto de cinco anos: 'meses' vem de campo aberto, e 600 parcelas de um
+  // domínio anual não é intenção de ninguém — é dedo escorregando no teclado.
+  const competenceMonths =
+    Number.isFinite(mesesInformados) && mesesInformados >= 1
+      ? Math.min(60, Math.trunc(mesesInformados))
+      : null;
 
   if (!allowedDirections.has(direction)) {
     return NextResponse.json(
@@ -144,6 +171,9 @@ export async function POST(request: Request) {
         scope,
         dueDate,
         category,
+        accountCode,
+        competenceStart,
+        competenceMonths,
         note,
         createdBy: admin.id,
       },
@@ -161,6 +191,9 @@ export async function POST(request: Request) {
           currency,
           scope,
           dueDate: dueDate.toISOString(),
+          accountCode,
+          competenceStart: competenceStart?.toISOString() ?? null,
+          competenceMonths,
         },
       },
     });

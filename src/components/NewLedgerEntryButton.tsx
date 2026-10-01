@@ -2,9 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { Icone } from "@/components/ui/Icones";
 import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
+import {
+  CONTA_A_CLASSIFICAR,
+  contaPorCodigo,
+  contasDoGrupo,
+  GRUPOS_DRE,
+} from "@/lib/plano-de-contas";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -19,13 +26,36 @@ const escopos = [
 ] as const;
 
 /**
- * Lançamento manual (conta a pagar ou a receber) numa folha. Mesmos campos
- * da API; o que mudou foi a forma: um campo por linha, 48px de toque e o
- * "Salvar" fixo no rodapé.
+ * Botão "Novo lançamento" com a folha embutida. As telas de contas e de
+ * crédito usam este; o cabeçalho do Financeiro abre a folha pelo menu de
+ * ações, com `FolhaNovoLancamento` direto.
  */
 export default function NewLedgerEntryButton() {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const fechar = useCallback(() => setOpen(false), []);
+  return (
+    <>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => setOpen(true)}
+      >
+        <Icone nome="adicionar" tamanho={18} />
+        Novo lançamento
+      </button>
+      {open ? <FolhaNovoLancamento aoFechar={fechar} /> : null}
+    </>
+  );
+}
+
+/**
+ * Lançamento manual (conta a pagar ou a receber) numa folha. Mesmos campos
+ * da API; o que mudou foi a forma: um campo por linha, 48px de toque e o
+ * "Salvar" fixo no rodapé. Montar é abrir, desmontar é fechar (ver `Sheet`),
+ * então o formulário sempre começa limpo.
+ */
+export function FolhaNovoLancamento({ aoFechar }: { aoFechar: () => void }) {
+  const router = useRouter();
   const [direction, setDirection] = useState<"PAYABLE" | "RECEIVABLE">(
     "RECEIVABLE",
   );
@@ -34,29 +64,16 @@ export default function NewLedgerEntryButton() {
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(todayIso());
   const [category, setCategory] = useState("");
+  const [accountCode, setAccountCode] = useState<string>(CONTA_A_CLASSIFICAR);
+  const [competenceStart, setCompetenceStart] = useState("");
+  const [competenceMonths, setCompetenceMonths] = useState("1");
   const [scope, setScope] = useState<"EMPRESA" | "PESSOAL">("EMPRESA");
   const [currency, setCurrency] = useState("BRL");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function reset() {
-    setDirection("RECEIVABLE");
-    setDescription("");
-    setCounterparty("");
-    setAmount("");
-    setDueDate(todayIso());
-    setCategory("");
-    setScope("EMPRESA");
-    setCurrency("BRL");
-    setNote("");
-    setError("");
-  }
-
-  const fechar = useCallback(() => {
-    setOpen(false);
-    reset();
-  }, []);
+  const fechar = aoFechar;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,14 +93,19 @@ export default function NewLedgerEntryButton() {
           scope,
           dueDate: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
           category: category || null,
+          accountCode,
+          competenceStart: competenceStart
+            ? new Date(`${competenceStart}T12:00:00`).toISOString()
+            : null,
+          competenceMonths: Number.parseInt(competenceMonths, 10) || 1,
           note: note || null,
         }),
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Falha ao lançar.");
 
-      setOpen(false);
-      reset();
+      toast.success("Lançamento salvo.");
+      aoFechar();
       router.refresh();
     } catch (caught) {
       setError(
@@ -92,19 +114,6 @@ export default function NewLedgerEntryButton() {
     } finally {
       setSaving(false);
     }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="secondary-button"
-        onClick={() => setOpen(true)}
-      >
-        <Icone nome="adicionar" tamanho={18} />
-        Novo lançamento
-      </button>
-    );
   }
 
   return (
@@ -193,6 +202,57 @@ export default function NewLedgerEntryButton() {
             onChange={(event) => setDueDate(event.target.value)}
           />
         </label>
+
+        <label className="field field-select">
+          <span>Conta do resultado</span>
+          <select
+            value={accountCode}
+            onChange={(event) => setAccountCode(event.target.value)}
+          >
+            {GRUPOS_DRE.map(({ grupo, rotulo }) => {
+              const contas = contasDoGrupo(grupo);
+              if (contas.length === 0) return null;
+              return (
+                <optgroup key={grupo} label={rotulo}>
+                  {contas.map((conta) => (
+                    <option key={conta.codigo} value={conta.codigo}>
+                      {conta.rotulo}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+          <Icone nome="chevron" tamanho={16} className="chevron" />
+        </label>
+        <p className="field-help">
+          {contaPorCodigo(accountCode)?.ajuda ??
+            "É por esta conta que o lançamento entra no DRE."}
+        </p>
+
+        {/* Competência separa o fato do pagamento: o domínio anual pago de uma
+            vez é caixa de um mês e despesa de doze. Em branco, vale o
+            vencimento — que é como tudo se comportava antes. */}
+        <div className="field-grid">
+          <label className="field">
+            <span>Competência a partir de</span>
+            <input
+              type="date"
+              value={competenceStart}
+              onChange={(event) => setCompetenceStart(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Em quantos meses</span>
+            <input
+              inputMode="numeric"
+              value={competenceMonths}
+              onChange={(event) => setCompetenceMonths(event.target.value)}
+              placeholder="1"
+              className="mono"
+            />
+          </label>
+        </div>
 
         <label className="field">
           <span>Contraparte</span>

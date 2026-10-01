@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/shadcn/button";
+import { toast } from "sonner";
 
 export default function LedgerRowActions({
   entryId,
@@ -27,6 +29,7 @@ export default function LedgerRowActions({
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Falha ao atualizar.");
+      toast.success("Lançamento atualizado.");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Falhou.");
@@ -39,36 +42,36 @@ export default function LedgerRowActions({
     <span className="ledger-actions">
       {status === "OPEN" ? (
         <>
-          <button
+          <Button
             type="button"
-            className="small-primary"
-            disabled={busy}
+            size="sm" className="min-h-11"
+            disabled={busy} aria-busy={busy}
             onClick={() =>
               send("PATCH", { status: "PAID", paidAt: new Date().toISOString() })
             }
           >
             {direction === "PAYABLE" ? "Dar baixa" : "Recebi"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="text-button"
-            disabled={busy}
+            variant="ghost" size="sm" className="min-h-11"
+            disabled={busy} aria-busy={busy}
             onClick={() => send("DELETE")}
           >
             Cancelar
-          </button>
+          </Button>
         </>
       ) : (
-        <button
+        <Button
           type="button"
-          className="text-button"
-          disabled={busy}
+          variant="ghost" size="sm" className="min-h-11"
+          disabled={busy} aria-busy={busy}
           onClick={() => send("PATCH", { status: "OPEN" })}
         >
           Reabrir
-        </button>
+        </Button>
       )}
-      {error ? <small className="form-error">{error}</small> : null}
+      {error ? <small role="alert" className="form-error">{error}</small> : null}
     </span>
   );
 }

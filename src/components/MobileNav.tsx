@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Icone } from "@/components/ui/Icones";
+import IconeNavegacao from "@/components/sistema/IconeNavegacao";
 import MarcaDaCasa from "@/components/MarcaDaCasa";
 import ThemeToggle from "@/components/ThemeToggle";
 import { abasDoPapel, type SecaoApp } from "@/lib/navegacao";
@@ -37,6 +37,8 @@ export default function MobileNav({
   return (
     <>
       <header className="mobile-topbar">
+        {/* A marca é configurável desde #65: nome e logo vêm do banco, e o
+            destino muda com o papel. Não volta a ser a marca fixa. */}
         <MarcaDaCasa
           nome={casa.nome}
           inicial={casa.inicial}
@@ -57,7 +59,7 @@ export default function MobileNav({
                 className={ativo ? "tab-item tab-item-active" : "tab-item"}
                 aria-current={ativo ? "page" : undefined}
               >
-                <Icone nome={aba.icone} tamanho={22} />
+                <IconeNavegacao nome={aba.icone} tamanho={30} />
                 <span>{aba.label}</span>
               </Link>
             );
@@ -67,7 +69,7 @@ export default function MobileNav({
             className={maisAtivo ? "tab-item tab-item-active" : "tab-item"}
             aria-current={maisAtivo ? "page" : undefined}
           >
-            <Icone nome="mais" tamanho={22} />
+            <IconeNavegacao nome="mais" tamanho={30} />
             <span>Mais</span>
           </Link>
         </div>
