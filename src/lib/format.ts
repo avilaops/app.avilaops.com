@@ -23,6 +23,70 @@ export function formatDateTime(value: Date | string | null | undefined) {
   }).format(new Date(value));
 }
 
+/**
+ * Percentual em pt-BR: "29,2%", nunca "29.2%". Recebe de 0 a 100, que é como
+ * os painéis calculam; a conversão para fração fica aqui, num lugar só.
+ */
+export function formatPercent(value: number | null | undefined, casas = 1) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "percent",
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
+  }).format((value ?? 0) / 100);
+}
+
+/** Número inteiro em pt-BR, sem zero à esquerda: "8", "1.234". */
+export function formatNumber(value: number | null | undefined) {
+  return new Intl.NumberFormat("pt-BR").format(value ?? 0);
+}
+
+/**
+ * Valor abreviado para eixo de gráfico: "R$ 3,5 mil", "R$ 1,2 mi". No eixo o
+ * que importa é a ordem de grandeza; o valor exato fica no tooltip.
+ */
+export function formatCompactCurrency(value: number, currency = "BRL") {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency,
+    notation: "compact",
+    // Explícito: sem o mínimo, o ICU de cada Node decide entre "2 mil" e
+    // "2,0 mil" (a moeda BRL puxa duas casas por padrão).
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+/** Data sem hora: "28/09/2026". */
+export function formatDate(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+}
+
+/** Só a hora: "09:26". */
+export function formatTime(value: Date | string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+}
+
+/**
+ * Dia do calendário em São Paulo, no formato "2026-09-28".
+ *
+ * `toISOString().slice(0, 10)` dá o dia em UTC: um Pix das 22h caía no dia
+ * seguinte do gráfico. Agrupar por dia tem de usar o dia de quem lê.
+ */
+export function diaEmSaoPaulo(value: Date | string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+}
+
 export function formatShortDate(value: Date | string) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",

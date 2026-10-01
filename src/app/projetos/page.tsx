@@ -46,8 +46,8 @@ export default async function ProjectsPage({
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="projects">
       <CabecalhoTela
-        titulo="Entregas"
-        descricao="Projetos por cliente, com tarefas, prioridade e prazo."
+        titulo="Projetos"
+        descricao="Projetos por cliente, com descrição, link, mídia, prioridade e prazo."
         {...contextoDaSecao("projects")}
         acoes={
           <>
@@ -114,12 +114,19 @@ export default async function ProjectsPage({
                       {nomeProprio(project.organization.name)}
                       {project.brand ? ` · ${project.brand.name}` : ""}
                     </small>
+                    {project.description ? (
+                      <small className="project-description">{project.description}</small>
+                    ) : null}
                   </div>
                 </div>
                 <dl className="client-signals project-signals">
                   <div>
                     <dt>Tarefas abertas</dt>
                     <dd>{project._count.tasks}</dd>
+                  </div>
+                  <div>
+                    <dt>Mídia</dt>
+                    <dd>{project._count.files}</dd>
                   </div>
                   <div>
                     <dt>Responsável</dt>

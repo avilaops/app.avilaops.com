@@ -2144,6 +2144,28 @@ tbody tr:last-child td {
   box-shadow: var(--shadow-soft);
 }
 
+/*
+ * O formulário da casa nasceu como folha flutuante, ancorada num botão que não
+ * tem nada embaixo. Dentro de um painel isso vira sobreposição: a folha cobre o
+ * conteúdo ao lado, como aconteceu na edição de projeto.
+ *
+ * Este modificador mantém a mesma peça — mesma borda, mesmo espaçamento, mesma
+ * grade — e só a devolve ao fluxo. É isso ou copiar o formulário inteiro com
+ * outro nome, que é justamente o que a casa não faz.
+ */
+.organization-form.form-no-fluxo {
+  position: static;
+  /* `inset`, `max-height` e `overflow` vêm da regra de celular, que transforma
+     o formulário em folha fixa de tela cheia. Zerar só a posição deixava o
+     formulário no fluxo mas ainda recortado em 100vh: no iPhone o botão
+     "Salvar alterações" ficava fora do corte, e não havia como salvar. */
+  inset: auto;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  margin-top: 16px;
+}
+
 .form-title {
   display: flex;
   align-items: flex-start;
@@ -5257,7 +5279,8 @@ tbody tr:last-child td {
 }
 
 .score-history strong {
-  font-family: var(--mono);
+  font-family: var(--fonte);
+  font-variant-numeric: tabular-nums;
   font-size: 0.9375rem;
 }
 
@@ -5329,7 +5352,8 @@ tbody tr:last-child td {
 }
 
 .meta-value strong {
-  font-family: var(--mono);
+  font-family: var(--fonte);
+  font-variant-numeric: tabular-nums;
   font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -5916,6 +5940,12 @@ tbody tr:last-child td {
     background: var(--surface);
   }
 
+  /* No celular cada conta é um cartão com borda própria; a regra do desktop
+     que tira a borda de baixo da última linha deixava o último cartão aberto. */
+  .lg-row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+
   .lg-row:hover {
     background: var(--surface-raised);
   }
@@ -5973,10 +6003,10 @@ tbody tr:last-child td {
     text-align: left;
   }
 
-  /* Botões da conta com alvo de 44px; "Dar baixa" ocupa a largura. */
+  /* Ações compactas, mantendo alvos de toque de 44px. */
   .lg-actions .ledger-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     white-space: normal;
   }
@@ -8117,8 +8147,12 @@ body {
     box-shadow: var(--sombra-1);
   }
 
+  /* A barra de abas flutua: cápsula de 50px, 8px acima da safe area. O fim
+     da página precisa passar dela com folga visível; com 12px a mais o
+     último botão (o "Abrir fila de conciliação", no Financeiro) encostava
+     na cápsula e parecia cortado. */
   .main-canvas {
-    padding-bottom: calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
+    padding-bottom: calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e7));
   }
 
   /* 26px: a régua de título de tela no celular. 30px empurrava o primeiro
@@ -10066,6 +10100,70 @@ main [data-slot="select-trigger"]:focus-visible {
   font-size: 0.75rem;
 }
 
+/* Encadeamento do DRE -------------------------------------------------------
+   O demonstrativo é uma conta que se lê de cima para baixo: cada linha usa o
+   resultado da anterior. Por isso as linhas de subtotal ("= Receita líquida",
+   "= Resultado operacional") têm peso próprio e um fio acima — sem isso a
+   pessoa lê nove valores soltos e tem que refazer a conta de cabeça.
+
+   Mesmo desenho das listas do sistema: superfície única, fio quase invisível
+   entre linhas, valor em monoespaçada à direita para as casas alinharem. */
+.dre-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: var(--cel-linha, 52px);
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) var(--e4);
+  border-bottom: 1px solid var(--separador);
+}
+
+.dre-linha:last-child {
+  border-bottom: 0;
+}
+
+.dre-linha-texto {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dre-linha-texto strong {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.dre-linha-texto small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.dre-valor {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dre-valor.negativo {
+  color: var(--red);
+}
+
+/* Subtotal: o que a pessoa procura quando bate o olho. */
+.dre-linha-destaque {
+  border-top: 1px solid var(--linha-forte, var(--separador));
+  background: var(--surface-soft);
+}
+
+.dre-linha-destaque .dre-linha-texto strong {
+  font-weight: 600;
+}
+
+.dre-linha-destaque .dre-valor {
+  font-size: 1.0625rem;
+}
+
 /* ---- Lista de clientes: busca, linhas densas e paginação ----
    A lista antiga era uma grade de quatro colunas com seis filhos por linha:
    em janela média a pílula de status caía numa linha própria e cada cliente
@@ -11153,3 +11251,24 @@ main [data-slot="select-trigger"]:focus-visible {
 .organization-form .ficha-receita {
   margin-top: 12px;
 }
+
+/* Identidade aprovada: imagens da coleção v2 e tokens já existentes. */
+.marca-oficial { display: block; flex: 0 0 36px; object-fit: contain; }
+.icone-navegacao { display: block; object-fit: contain; flex-shrink: 0; }
+.icone-tile.icone-tile-3d { width: 44px; height: 44px; flex-basis: 44px; background: transparent; box-shadow: none; }
+.icone-tile-3d .icone-navegacao { width: 44px; height: 44px; }
+.tela-cabecalho .icone-tile-3d { width: 44px; height: 44px; flex-basis: 44px; }
+.nav-icone:has(.icone-navegacao) { width: 28px; height: 28px; flex: 0 0 28px; background: transparent; }
+.tab-item .icone-navegacao { width: 30px; height: 30px; }
+.tab-item { min-width: 0; }
+.money, .lg-amount, .credit-value, .score-value { font-family: var(--fonte); font-variant-numeric: tabular-nums; }
+.lg-kind strong, .lg-party { overflow-wrap: anywhere; white-space: normal; }
+.ledger-actions { flex-wrap: wrap; }
+/* A regra legada de links não deve sobrepor a cor do botão shadcn. */
+a[data-slot="button"][data-variant="default"] { @apply text-primary-foreground; }
+@media (max-width: 820px) {
+  .tab-item { min-height: 52px; }
+  .main-canvas { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+  [data-slot="button"] { min-height: 44px; }
+}
+.metric > strong, .score-value strong, .score-value span, .score-delta, .score-history, .chart-label, .chart-legend strong, .lg-due time { font-family: var(--fonte); font-variant-numeric: tabular-nums; }

@@ -1,23 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import type { LinhaMovimentacao } from "@/components/financeiro/tipos";
+import { useEscopo } from "@/components/financeiro/useEscopo";
 import { Icone } from "@/components/ui/Icones";
 import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
-
-type Props = {
-  transactionId: string;
-  currentStatus: string;
-  referenceType?: string | null;
-  referenceId?: string | null;
-  note?: string | null;
-  /** Identificador do Pix gravado pela sincronização; é contra ele que o comprovante é conferido. */
-  endToEndId?: string | null;
-  counterpartyName?: string | null;
-  counterpartySource?: string | null;
-  scope?: string;
-};
+import { FINANCE_SCOPES, SCOPE_LABELS } from "@/lib/finance-escopo";
+import { rotuloTipoMovimentacao } from "@/lib/financeiro-rotulos";
+import { formatCurrency, formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /**
  * Revisão de uma movimentação numa folha: estado, vínculo e nota. Antes era
@@ -28,25 +22,35 @@ type Props = {
  * é o único caminho que identifica quem pagou, e é o caso mais comum de linha
  * parada em "Pendente".
  *
+ * Desde a refatoração do Financeiro (30/09/2026) a folha também é o lugar
+ * do escopo: no celular a linha inteira abre esta folha, e o `<select>` que
+ * ficava em cada cartão da lista (e abria o seletor nativo por cima dela)
+ * deixou de existir.
+ *
  * Um caminho de cada vez, escolhido no topo. Os dois formulários ficavam
  * empilhados na mesma folha: três telas de rolagem, e o botão "Salvar" fixo
  * no rodapé era o do formulário de baixo — quem preenchia o comprovante e
  * tocava nele gravava a revisão manual e perdia o que tinha digitado. Agora o
  * rodapé tem o botão do caminho aberto, e só ele.
  */
-export default function ReconciliationControl({
-  transactionId,
-  currentStatus,
-  referenceType,
-  referenceId,
-  note,
-  endToEndId,
-  counterpartyName,
-  counterpartySource,
-  scope,
-}: Props) {
+export default function FolhaRevisao({
+  linha,
+  aoFechar,
+}: {
+  linha: LinhaMovimentacao;
+  aoFechar: () => void;
+}) {
+  const transactionId = linha.id;
+  const currentStatus = linha.reconciliation?.status ?? "PENDING";
+  const referenceType = linha.reconciliation?.referenceType;
+  const referenceId = linha.reconciliation?.referenceId;
+  const note = linha.reconciliation?.note;
+  // Identificador do Pix gravado pela sincronização; é contra ele que o comprovante é conferido.
+  const endToEndId = linha.endToEndId;
+  const counterpartyName = linha.counterpartyName;
+  const counterpartySource = linha.counterpartySource;
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const { escopo: scope, salvando: salvandoEscopo, mudar: mudarEscopo } = useEscopo(linha.id, linha.scope);
   const [status, setStatus] = useState(currentStatus);
   const [reference, setReference] = useState(referenceId ?? "");
   const [type, setType] = useState(referenceType ?? "ORDER");
@@ -62,7 +66,7 @@ export default function ReconciliationControl({
   const [gravandoComprovante, setGravandoComprovante] = useState(false);
   const [erroComprovante, setErroComprovante] = useState("");
 
-  const fechar = useCallback(() => setOpen(false), []);
+  const fechar = aoFechar;
   const formId = `conciliacao-${transactionId}`;
   const formComprovante = `comprovante-${transactionId}`;
   // Sem identificador do lado do banco não há o que conferir, e a rota recusa.
@@ -94,7 +98,8 @@ export default function ReconciliationControl({
       );
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Falha ao conciliar");
-      setOpen(false);
+      toast.success("Movimentação conciliada pelo comprovante.");
+      aoFechar();
       router.refresh();
     } catch (caught) {
       setErroComprovante(
@@ -123,7 +128,8 @@ export default function ReconciliationControl({
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Falha ao conciliar");
-      setOpen(false);
+      toast.success("Revisão salva.");
+      aoFechar();
       router.refresh();
     } catch (caught) {
       setError(
@@ -132,18 +138,6 @@ export default function ReconciliationControl({
     } finally {
       setSaving(false);
     }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="row-action"
-        onClick={() => setOpen(true)}
-      >
-        Revisar
-      </button>
-    );
   }
 
   return (
@@ -182,6 +176,50 @@ export default function ReconciliationControl({
         </>
       }
     >
+      <div className="mb-4 rounded-xl bg-[color:var(--surface-soft)] px-4 py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <strong className="min-w-0 break-words text-[15px] text-foreground">
+            {linha.counterpartyName ?? linha.description}
+          </strong>
+          <span
+            className={cn(
+              "shrink-0 text-[15px] tabular-nums",
+              linha.direction === "CREDIT" ? "text-[color:var(--green)]" : "text-foreground",
+            )}
+          >
+            {linha.direction === "CREDIT" ? "+" : "−"} {formatCurrency(linha.amount, linha.currency)}
+          </span>
+        </div>
+        <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
+          {rotuloTipoMovimentacao(linha.transactionType)} · {formatDateTime(linha.occurredAt)}
+        </p>
+        {linha.counterpartyName && linha.description !== linha.counterpartyName ? (
+          <p className="m-0 mt-1 text-[13px] break-words text-muted-foreground">{linha.description}</p>
+        ) : null}
+      </div>
+
+      <fieldset className="mb-4 border-0 p-0" disabled={salvandoEscopo}>
+        <legend className="mb-2 text-[13px] font-medium text-foreground">De quem é este dinheiro</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {FINANCE_SCOPES.map((opcao) => (
+            <button
+              key={opcao}
+              type="button"
+              aria-pressed={scope === opcao}
+              onClick={() => void mudarEscopo(opcao)}
+              className={cn(
+                "min-h-11 rounded-lg border px-3 text-sm font-medium transition-colors",
+                scope === opcao
+                  ? "border-[color:var(--accent)] bg-[color:var(--active-bg)] text-[color:var(--accent)]"
+                  : "border-border bg-card text-foreground hover:bg-accent",
+              )}
+            >
+              {SCOPE_LABELS[opcao]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
       {aceitaComprovante ? (
         <div className="folha-caminhos">
           <Segmented
@@ -189,7 +227,7 @@ export default function ReconciliationControl({
             valor={caminho}
             aoMudar={setCaminho}
             opcoes={[
-              ["comprovante", "Pelo comprovante"],
+              ["comprovante", "Digitar comprovante"],
               ["manual", "À mão"],
             ]}
           />
@@ -202,6 +240,7 @@ export default function ReconciliationControl({
           className="form-stack comprovante-bloco"
           onSubmit={identificarPeloComprovante}
         >
+          <p className="m-0 text-sm text-muted-foreground">Digite os dados do comprovante abaixo. Não há envio de imagem ou PDF neste fluxo.</p>
           {/* O porquê continua na folha, mas fechado: quem concilia todo dia
               já sabe, e quatro linhas de texto empurravam os campos para
               fora da tela. */}

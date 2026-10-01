@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
 import { contextoDaSecao } from "@/lib/navegacao";
 import LedgerList from "@/components/LedgerList";
 import MetaLimparNome from "@/components/MetaLimparNome";
@@ -55,16 +55,15 @@ export default async function CreditoPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="credito">
-      <CabecalhoTela
+      <CabecalhoFinanceiro
         titulo="Score e contas a pagar"
         descricao="O score do CPF e do CNPJ, e o que vence, num lugar só."
-        {...contextoDaSecao("credito")}
-        acoes={
+        voltar={contextoDaSecao("credito").voltar}
+        acoes={[]}
+        extras={
           <>
-          <div className="page-header-actions">
-          <RegistrarScoreButton />
-          <NewLedgerEntryButton />
-          </div>
+            <RegistrarScoreButton />
+            <NewLedgerEntryButton />
           </>
         }
       />
