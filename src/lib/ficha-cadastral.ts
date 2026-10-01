@@ -168,7 +168,7 @@ export function lerFichaCadastral(texto: string): FichaCadastral {
         }
         case "cpfCnpj": {
           const classificado = classifyCpfCnpj(valor);
-          if (classificado?.valid) definir("cpfCnpj", classificado.digits);
+          if (classificado?.valid) definir("cpfCnpj", classificado.documento);
           break;
         }
         case "cep":
