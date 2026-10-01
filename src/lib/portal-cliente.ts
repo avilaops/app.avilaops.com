@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { participaDaEmpresa } from "@/lib/nucleo/acesso";
 
 /**
  * Dados que o cliente vê da própria empresa.
  *
- * Uma consulta só, sempre filtrada por `organizationId` — o id vem da conta
- * autenticada (`portal_clients.organization_id`), nunca da URL. É essa regra
+ * Consultas filtradas por `organizationId`, após validar participação vigente
+ * no núcleo. Identidade e empresa vêm da sessão, nunca do corpo da requisição. É essa regra
  * que separa "área do cliente" de "painel da equipe com menos botões": aqui não
  * existe caminho para pedir a empresa de outro.
  *
@@ -25,7 +26,7 @@ export type PainelDoCliente = {
   };
   contatos: Array<{ nome: string; email: string | null; telefone: string | null; principal: boolean }>;
   dominios: Array<{ fqdn: string; status: string; expiraEm: Date | null; renovacaoAutomatica: boolean }>;
-  assinaturas: Array<{ id: string; descricao: string; valor: number; moeda: string; diaDaCobranca: number; status: string; desde: Date }>;
+  assinaturas: Array<{ id: string; descricao: string; valor: number; moeda: string; ciclo: string; diaDaCobranca: number; status: string; desde: Date }>;
   /**
    * Faturas do cliente, abertas primeiro.
    *
@@ -33,12 +34,16 @@ export type PainelDoCliente = {
    * pagar tinha que pedir o Pix por WhatsApp. Aqui vem a fatura com a cobrança
    * que já existe, quando existe, para não gerar um Pix novo a cada visita.
    */
+  totais: Array<{ moeda: string; emAberto: number; vencido: number }>;
+  recorrencia: Array<{ moeda: string; ciclo: string; valor: number }>;
   faturas: Array<{
     id: string;
     descricao: string;
     competencia: string;
     tipo: string;
     valor: number;
+    saldo: number;
+    moeda: string;
     vencimento: Date;
     status: string;
     pagaEm: Date | null;
@@ -48,7 +53,8 @@ export type PainelDoCliente = {
   etapas: Array<{ rotulo: string; status: string; concluidaEm: Date | null; prazo: Date | null }>;
 };
 
-export async function carregarPainelDoCliente(organizationId: string): Promise<PainelDoCliente | null> {
+export async function carregarPainelDoCliente(identityId: string, organizationId: string): Promise<PainelDoCliente | null> {
+  if (!(await participaDaEmpresa(identityId, organizationId))) return null;
   const empresa = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: {
@@ -82,27 +88,10 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
           amount: true,
           currency: true,
           billingDay: true,
+          billingCycle: true,
           status: true,
           startedAt: true,
-          invoices: {
-            orderBy: [{ dueDate: "desc" }],
-            take: 12,
-            select: {
-              id: true,
-              competence: true,
-              kind: true,
-              amount: true,
-              dueDate: true,
-              status: true,
-              paidAt: true,
-              charges: {
-                where: { status: { in: ["CREATED", "PENDING", "WAITING"] } },
-                orderBy: { createdAt: "desc" },
-                take: 1,
-                select: { method: true, pixCopyPaste: true, boletoUrl: true, checkoutUrl: true, expiresAt: true },
-              },
-            },
-          },
+
         },
       },
       deliverables: {
@@ -119,7 +108,34 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
 
   if (!empresa) return null;
 
+  const [totais, recorrencia, recebiveis] = await Promise.all([
+    prisma.$queryRaw<{ currency: string; outstanding: unknown; overdue: unknown }[]>`
+      SELECT currency,outstanding,overdue FROM core.receivable_totals
+      WHERE organization_id=${organizationId} ORDER BY currency`,
+    prisma.$queryRaw<{ currency: string; billing_cycle: string; contracted_amount: unknown }[]>`
+      SELECT currency,billing_cycle,contracted_amount FROM core.subscription_totals
+      WHERE organization_id=${organizationId} ORDER BY currency,billing_cycle`,
+    prisma.$queryRaw<{ source_id: string; currency: string; outstanding: unknown; effective_status: string }[]>`
+      SELECT source_id,currency,outstanding,effective_status FROM core.receivables
+      WHERE organization_id=${organizationId} AND source='INVOICE'
+      ORDER BY (outstanding>0) DESC,CASE WHEN outstanding>0 THEN due_date END ASC,due_date DESC,source_id LIMIT 12`,
+  ]);
+  const invoices = await prisma.subscriptionInvoice.findMany({
+    where: { id: { in: recebiveis.map(r => r.source_id) }, subscription: { organizationId } },
+    select: {
+      id: true, competence: true, kind: true, amount: true, dueDate: true, paidAt: true,
+      subscription: { select: { description: true } },
+      charges: {
+        where: { status: { in: ["CREATED", "PENDING", "WAITING"] }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        orderBy: { createdAt: "desc" }, take: 1,
+        select: { method: true, pixCopyPaste: true, boletoUrl: true, checkoutUrl: true, expiresAt: true },
+      },
+    },
+  });
+  const byId = new Map(invoices.map(f => [f.id, f]));
   return {
+    totais: totais.map(t => ({ moeda: t.currency, emAberto: Number(t.outstanding), vencido: Number(t.overdue) })),
+    recorrencia: recorrencia.map(t => ({ moeda: t.currency, ciclo: t.billing_cycle, valor: Number(t.contracted_amount) })),
     empresa: {
       id: empresa.id,
       nome: empresa.name,
@@ -147,41 +163,26 @@ export async function carregarPainelDoCliente(organizationId: string): Promise<P
       descricao: s.description,
       valor: Number(s.amount),
       moeda: s.currency,
+      ciclo: s.billingCycle,
       diaDaCobranca: s.billingDay,
       status: s.status,
       desde: s.startedAt,
     })),
-    faturas: empresa.subscriptions
-      .flatMap((s) =>
-        s.invoices.map((f) => {
-          const cobranca = f.charges[0] ?? null;
-          return {
-            id: f.id,
-            descricao: s.description,
-            competencia: f.competence,
-            tipo: f.kind,
-            valor: Number(f.amount),
-            vencimento: f.dueDate,
-            status: f.status,
-            pagaEm: f.paidAt,
-            cobranca: cobranca
-              ? {
-                  metodo: cobranca.method,
-                  pixCopiaECola: cobranca.pixCopyPaste,
-                  boletoUrl: cobranca.boletoUrl,
-                  checkoutUrl: cobranca.checkoutUrl,
-                  expiraEm: cobranca.expiresAt,
-                }
-              : null,
-          };
-        }),
-      )
-      // Aberta e vencida primeiro: é o que o cliente entrou para resolver.
-      .sort((a, b) => {
-        const aberta = (f: { status: string }) => (f.status === "OPEN" || f.status === "OVERDUE" ? 0 : 1);
-        return aberta(a) - aberta(b) || b.vencimento.getTime() - a.vencimento.getTime();
-      })
-      .slice(0, 12),
+    faturas: recebiveis.flatMap(r => {
+      const f = byId.get(r.source_id);
+      if (!f) return [];
+      const c = f.charges[0];
+      return [{
+        id: f.id, descricao: f.subscription.description, competencia: f.competence,
+        tipo: f.kind, valor: Number(f.amount), saldo: Number(r.outstanding), moeda: r.currency,
+        vencimento: f.dueDate, status: r.effective_status, pagaEm: f.paidAt,
+        // A cobrança legada é pelo valor integral. Não oferecê-la após alocação parcial.
+        cobranca: c && Number(r.outstanding) === Number(f.amount) ? {
+          metodo: c.method, pixCopiaECola: c.pixCopyPaste, boletoUrl: c.boletoUrl,
+          checkoutUrl: c.checkoutUrl, expiraEm: c.expiresAt,
+        } : null,
+      }];
+    }),
     entregas: empresa.deliverables.map((d) => ({
       id: d.id,
       titulo: d.title,

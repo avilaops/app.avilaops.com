@@ -297,6 +297,16 @@ export async function criarCobrancaDaFatura(params: {
   if (fatura.status === "PAID") throw new CobrancaIndisponivelError("Esta fatura já está paga.");
   if (fatura.status === "CANCELLED") throw new CobrancaIndisponivelError("Esta fatura foi cancelada.");
 
+  // Os gateways atuais emitem BRL. Não reinterpretar outra moeda como reais.
+  if (fatura.subscription.currency !== "BRL") {
+    throw new CobrancaIndisponivelError("Cobrança automática nesta moeda ainda não está disponível. Solicite o pagamento ao atendimento.");
+  }
+  const [saldo] = await prisma.$queryRaw<{ outstanding: unknown; amount: unknown }[]>`
+    SELECT outstanding,amount FROM core.receivables WHERE source='INVOICE' AND source_id=${fatura.id}`;
+  if (!saldo || Number(saldo.outstanding) !== Number(saldo.amount)) {
+    throw new CobrancaIndisponivelError("Há pagamento registrado para esta fatura. Concilie o saldo antes de gerar outra cobrança.");
+  }
+
   const organizacao = fatura.subscription.organization;
   const valorCents = centavos(fatura.amount);
   const descricao = `${fatura.subscription.description} · ${fatura.competence}`;
