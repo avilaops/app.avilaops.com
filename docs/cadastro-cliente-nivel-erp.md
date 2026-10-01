@@ -245,12 +245,32 @@ Ordem proposta, com o motivo da sequência. Cada frente é um PR próprio.
    (limite, moeda, classe de risco, vencimento) como configuração, cruzada com
    `core.receivable_totals` como acumulado — a separação do Protheus. Definir
    antes quem lê: bloqueio de contratação, régua de cobrança, ou os dois.
-4. **Lojas comparadas com a VTEX.** `lojas.avilaops.com` é projeto separado,
-   com repositório e banco próprios — este documento não o auditou. A
-   comparação pertinente é catálogo, SKU, preço por tabela, estoque por local e
-   pedido, e a pergunta anterior a qualquer schema é qual dado a loja escreve e
-   qual ela lê do núcleo. Começar inventariando o vínculo entre cada loja e a
-   organização dona dela.
+4. **Lojas: o tributário de mercadoria e o vínculo com o núcleo.**
+   `lojas.avilaops.com` é projeto separado, com repositório e banco próprios.
+   Levantamento feito em 01/10/2026 sobre `prisma/schema.prisma` daquele
+   projeto (1.306 linhas, 49 migrações), e ele está mais adiantado do que a
+   comparação sugeriria: já tem enums (`Plano`, `TenantStatus`,
+   `PedidoStatus`), `Variante` com `PrecoVariante`, e `SaldoEstoque` separado
+   de `ReservaEstoque` e `MovimentoEstoque` — a modelagem de comércio que
+   importa já existe.
+
+   Dois buracos concretos, nenhum deles de catálogo:
+
+   - **`Produto` não tem NCM, CEST, origem da mercadoria nem CST/CSOSN.** Com
+     isso não se emite NF-e de venda. É o mesmo defeito que esta entrega acabou
+     de corrigir no cadastro de clientes, um nível acima: lá faltava o
+     destinatário, aqui falta o item. E é o que o Protheus resolve com grupo
+     tributário por produto, não por cliente.
+   - **`Tenant` não tem vínculo com `Organization`.** Não existe
+     `organizationId` em nenhum modelo daquele schema. A loja guarda
+     `razaoSocial` e `cnpj` própios, sem validação, e o `cnpj` da loja não
+     conversa com o `cpf_cnpj` do cliente no núcleo. Enquanto isso não existe,
+     não há como responder "quais lojas são deste cliente" por dado, só por
+     semelhança de nome — exatamente o que a arquitetura do núcleo proíbe.
+
+   A comparação com a VTEX (tabela de preço por canal, promoção, fulfillment
+   por doca) vem depois desses dois: é otimização de um catálogo que já
+   funciona, enquanto NF-e e vínculo são bloqueio.
 5. **CRM e força de vendas (o que o Protheus chama SFA).** Já existem `Lead`,
    `MetaLead` e `OrganizationServiceOpportunity`, e a ficha do cliente lê as
    oportunidades. A oportunidade é uma linha por tipo de serviço, com
