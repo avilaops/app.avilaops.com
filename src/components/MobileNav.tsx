@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Icone } from "@/components/ui/Icones";
+import MarcaDaCasa from "@/components/MarcaDaCasa";
 import ThemeToggle from "@/components/ThemeToggle";
 import { abasDoPapel, type SecaoApp } from "@/lib/navegacao";
 
@@ -20,10 +21,13 @@ import { abasDoPapel, type SecaoApp } from "@/lib/navegacao";
 export default function MobileNav({
   section,
   papel,
+  casa,
 }: {
   section: SecaoApp;
   adminName?: string;
   papel: string;
+  /** A marca já resolvida pelo `AppShell`: este componente é client e não lê banco. */
+  casa: { nome: string; inicial: string; iconeUrl: string | null; href: string };
 }) {
   const abas = abasDoPapel(papel);
   const abaAtiva = abas.find((aba) => aba.secoes.includes(section));
@@ -33,10 +37,12 @@ export default function MobileNav({
   return (
     <>
       <header className="mobile-topbar">
-        <Link href="/operacao" className="brand-lockup" aria-label="Ávila Ops">
-          <span className="brand-mark">A</span>
-          <strong>Ávila Ops</strong>
-        </Link>
+        <MarcaDaCasa
+          nome={casa.nome}
+          inicial={casa.inicial}
+          iconeUrl={casa.iconeUrl}
+          href={casa.href}
+        />
         <ThemeToggle className="theme-toggle topbar-theme" />
       </header>
 

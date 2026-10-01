@@ -1,3 +1,5 @@
+import { obterCredencial } from "@/lib/credenciais";
+
 /**
  * Cliente da API do Mercado Pago da Avila Ops — a conta que **cobra**, não a
  * dos lojistas (cada loja tem a sua, guardada cifrada no lojas.avilaops.com).
@@ -11,25 +13,31 @@ const BASE = "https://api.mercadopago.com";
 export class MercadoPagoIndisponivel extends Error {}
 
 /**
- * A credencial vem do ambiente, e só dele.
+ * A credencial vem do cofre, e o ambiente é a rede de segurança.
  *
- * Até 19/09/2026 havia um fallback que lia `../docs/.env.production` do
- * monorepo quando `MP_ACCESS_TOKEN` faltava. Era conveniente e foi um problema
- * três vezes: derrubou o build inteiro quando o arquivo mudou de pasta,
- * mantinha segredo de produção sendo lido de disco, e — o pior — fazia o app
- * cobrar com um token que ninguém sabia qual era, porque o ambiente dizia uma
- * coisa e o arquivo dizia outra. Com a cobrança migrando para a conta do CNPJ,
- * "qual token está em uso" deixou de ser detalhe: é a diferença entre receber
- * no CNPJ e receber na pessoa física.
+ * Duas mudanças moram nesta função, e as duas são sobre a mesma pergunta:
+ * **qual token está cobrando?**
  *
- * Sem a variável, `mercadoPagoConfigurado()` devolve falso e as telas dizem que
- * não está configurado — que é a verdade, e não um token surpresa.
+ * A primeira foi tirar, em 19/09/2026, o fallback que lia
+ * `../docs/.env.production` do monorepo. Era conveniente e foi problema três
+ * vezes — derrubou o build quando o arquivo mudou de pasta, mantinha segredo de
+ * produção sendo lido de disco e, o pior, fazia o app cobrar com um token que o
+ * ambiente dizia ser um e o arquivo dizia ser outro.
+ *
+ * A segunda é esta: a chave passa a ser lida por `obterCredencial()`, que
+ * procura primeiro no cofre cifrado e só depois no `process.env`. É o que
+ * permite trocar a conta que recebe **pela tela**, sem abrir arquivo de
+ * ambiente e sem publicar de novo — e é o mesmo caminho que `meta.ts` já usava.
+ * O fallback para o ambiente continua porque é ele que mantém a produção de pé
+ * enquanto a chave não é migrada, e quando o banco não responde.
  */
-function credencial(): { token: string; clientId: string } {
-  return {
-    token: process.env.MP_ACCESS_TOKEN?.trim() ?? "",
-    clientId: process.env.MP_CLIENT_ID?.trim() ?? "",
-  };
+async function credencial(): Promise<{ token: string; clientId: string }> {
+  const [token, clientId] = await Promise.all([
+    obterCredencial("MP_ACCESS_TOKEN"),
+    obterCredencial("MP_CLIENT_ID"),
+  ]);
+
+  return { token: token?.trim() ?? "", clientId: clientId?.trim() ?? "" };
 }
 
 /**
@@ -53,7 +61,7 @@ function credencial(): { token: string; clientId: string } {
  * chega", que é esperado, por "em desenvolvimento não se emite cobrança", que
  * é defeito.
  */
-export function urlDeNotificacao(): string {
+export async function urlDeNotificacao(): Promise<string> {
   const base = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/+$/, "");
 
   let endereco: URL;
@@ -72,13 +80,13 @@ export function urlDeNotificacao(): string {
     /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(endereco.hostname);
   if (local) return "";
 
-  const token = process.env.MP_WEBHOOK_TOKEN?.trim();
+  const token = (await obterCredencial("MP_WEBHOOK_TOKEN"))?.trim();
   if (token) endereco.searchParams.set("token", token);
   return endereco.toString();
 }
 
-export function mercadoPagoConfigurado(): boolean {
-  return Boolean(credencial().token);
+export async function mercadoPagoConfigurado(): Promise<boolean> {
+  return Boolean((await credencial()).token);
 }
 
 /**
@@ -96,8 +104,12 @@ async function chamar<T>(
   caminho: string,
   init: { method?: string; body?: unknown; idempotencia?: string } = {},
 ): Promise<T> {
-  const { token } = credencial();
-  if (!token) throw new MercadoPagoIndisponivel("Mercado Pago não configurado (MP_ACCESS_TOKEN).");
+  const { token } = await credencial();
+  if (!token) {
+    throw new MercadoPagoIndisponivel(
+      "Mercado Pago não configurado: guarde o MP_ACCESS_TOKEN em Empresa › Credenciais › Financeiro.",
+    );
+  }
 
   const r = await fetch(BASE + caminho, {
     method: init.method ?? "GET",
@@ -345,7 +357,7 @@ export async function listarPagamentosDoPeriodo(desde: Date): Promise<PagamentoR
  * quando o cliente.avilaops.com foi desligado e ninguém percebeu.
  */
 export async function buscarConfiguracaoWebhook(): Promise<ConfiguracaoWebhook | null> {
-  const { clientId } = credencial();
+  const { clientId } = await credencial();
   if (!clientId) return null;
   const d = await chamar<Record<string, unknown>>(`/applications/${clientId}`);
   return {
@@ -412,6 +424,7 @@ export async function criarLinkPagamento(input: {
   referencia?: string;
   emailPagador?: string;
 }): Promise<LinkPagamento> {
+  const notificacao = await urlDeNotificacao();
   const d = await chamar<Record<string, unknown>>("/checkout/preferences", {
     method: "POST",
     body: {
@@ -429,7 +442,7 @@ export async function criarLinkPagamento(input: {
       // genérico do Mercado Pago e o cliente abre contestação sem saber o que é.
       statement_descriptor: "AVILAOPS",
       back_urls: { success: "https://app.avilaops.com/financeiro/mercadopago" },
-      ...(urlDeNotificacao() ? { notification_url: urlDeNotificacao() } : {}),
+      ...(notificacao ? { notification_url: notificacao } : {}),
     },
   });
   return {
