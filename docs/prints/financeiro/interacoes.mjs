@@ -10,6 +10,7 @@ const ctx=await browser.newContext({viewport:{width:390,height:844},isMobile:tru
 await ctx.addCookies([{name:'avila_ops_session',value:token,domain:'localhost',path:'/'}]);
 await ctx.addInitScript(()=>localStorage.setItem('avilaops-tema',JSON.stringify({tema:'dark',ate:Date.now()+86400000})));
 const p=await ctx.newPage();const checks=[];
+p.setDefaultNavigationTimeout(90000);
 const foto=nome=>p.screenshot({path:`${out}/${nome}.png`});
 try {
  await p.goto(base+'/financeiro',{waitUntil:'networkidle'});
