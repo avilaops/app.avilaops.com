@@ -71,8 +71,10 @@ function tokenConfere(request: NextRequest): boolean {
  * servidor antes deste código. Ao contrário, toda baixa automática para — e
  * depois volta sozinha, mas para.
  */
-function assinaturaConfere(request: NextRequest): { ok: true } | { ok: false; status: number; erro: string } {
-  const segredo = segredoDoWebhook();
+async function assinaturaConfere(
+  request: NextRequest,
+): Promise<{ ok: true } | { ok: false; status: number; erro: string }> {
+  const segredo = await segredoDoWebhook();
   if (!segredo) {
     console.error(
       "MP_WEBHOOK_SECRET ausente: notificação do Mercado Pago recusada com 503. " +
@@ -133,7 +135,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const assinatura = assinaturaConfere(request);
+  const assinatura = await assinaturaConfere(request);
   if (!assinatura.ok) {
     return NextResponse.json({ error: assinatura.erro }, { status: assinatura.status });
   }

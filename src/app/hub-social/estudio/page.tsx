@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/shadcn/button";
 import EstudioLista from "@/components/EstudioLista";
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -19,10 +21,13 @@ export default async function EstudioPage() {
   ]);
   const lidoEm = new Date().toISOString();
   return (
+    <>
+    <div className="page-actions"><Button asChild variant="outline"><Link href="/hub-social/estudio/publicacoes">Publicações e calendário</Link></Button></div>
     <EstudioLista
       pecas={pecas}
       clientes={clientes.map((c) => ({ id: c.id, nome: c.name }))}
       lidoEm={lidoEm}
     />
+    </>
   );
 }

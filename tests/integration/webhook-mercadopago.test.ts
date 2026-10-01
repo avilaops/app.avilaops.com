@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { garantirFatura } from "@/lib/assinaturas";
+import { limparCacheDeCredenciais } from "@/lib/credenciais";
 
 /**
  * O webhook do Mercado Pago, que é a porta por onde uma fatura vira "paga".
@@ -73,6 +74,9 @@ beforeEach(async () => {
   vi.clearAllMocks();
   process.env.MP_WEBHOOK_SECRET = SEGREDO;
   delete process.env.MP_WEBHOOK_TOKEN;
+  // O segredo passa pelo cofre, que guarda o que leu por 60 segundos: sem
+  // limpar, o caso que remove a variável continuaria enxergando o valor.
+  limparCacheDeCredenciais();
   await limpar();
 
   const sufixo = Math.floor(Math.random() * 1e9).toString(36);
@@ -186,6 +190,7 @@ describe("assinatura da notificação", () => {
     // fatura ficaria paga com a cobrança aberta. O 503 faz o evento voltar
     // quando o segredo entrar no servidor.
     delete process.env.MP_WEBHOOK_SECRET;
+    limparCacheDeCredenciais();
     getPagamentoStatus.mockResolvedValue("approved");
 
     const resposta = await POST(notificacao(pagamentoId, { segredo: null }));
@@ -197,6 +202,7 @@ describe("assinatura da notificação", () => {
 
   it("o token da query é conferido antes da assinatura", async () => {
     process.env.MP_WEBHOOK_TOKEN = "token-da-url";
+    limparCacheDeCredenciais();
 
     const semToken = await POST(notificacao(pagamentoId));
     expect(semToken.status).toBe(401);

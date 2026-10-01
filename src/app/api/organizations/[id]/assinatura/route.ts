@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { garantirFatura, recorrenteDe } from "@/lib/assinaturas";
+import { Prisma } from "@prisma/client";
+import { criarContratacao } from "@/lib/nucleo/contratacao";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { marcarEtapa } from "@/lib/onboarding-etapas";
@@ -11,10 +12,6 @@ function centsDeTexto(valor: unknown): number | null {
   const numero = Number(texto);
   if (!Number.isFinite(numero) || numero <= 0) return null;
   return Math.round(numero * 100);
-}
-
-function competenciaDe(data: Date) {
-  return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 /**
@@ -63,6 +60,10 @@ export async function POST(
   }
   const inicio = /^\d{4}-\d{2}-\d{2}$/.test(inicioTexto) ? new Date(`${inicioTexto}T00:00:00Z`) : new Date();
 
+  if (!Number.isFinite(inicio.getTime()) || (inicioTexto && inicio.toISOString().slice(0, 10) !== inicioTexto)) {
+    return NextResponse.json({ error: "Informe uma data de início válida." }, { status: 400 });
+  }
+
   const organizacao = await prisma.organization.findUnique({ where: { id }, select: { id: true, name: true } });
   if (!organizacao) return NextResponse.json({ error: "Cliente não encontrado." }, { status: 404 });
 
@@ -79,64 +80,22 @@ export async function POST(
     }
   }
 
-  const assinatura = await prisma.subscription.create({
-    data: {
-      organizationId: id,
-      description: descricao,
-      amount: valorCents / 100,
-      billingDay: dia,
-      billingCycle: ciclo,
-      startedAt: inicio,
-      status: "ACTIVE",
-      productKey: produto,
-      productTenantId: tenant,
-    },
-  });
-
-  // Primeira fatura da recorrência: vence no dia escolhido do mês de início; se
-  // esse dia já passou, em 7 dias — nunca com vencimento no passado. No ciclo
-  // anual é a mesma conta: a próxima só volta doze meses depois.
-  const competencia = competenciaDe(inicio);
-  const [ano, mes] = competencia.split("-").map(Number);
-  const vencimentoNoMes = new Date(Date.UTC(ano, mes - 1, dia));
-  const emSeteDias = new Date(Date.now() + 7 * 86_400_000);
-  const mensal = await garantirFatura({
-    subscriptionId: assinatura.id,
-    competencia,
-    tipo: recorrenteDe(ciclo),
-    vencimento: vencimentoNoMes < new Date() ? emSeteDias : vencimentoNoMes,
-  });
-
-  const setup = implantacaoCents
-    ? await garantirFatura({
-        subscriptionId: assinatura.id,
-        competencia,
-        tipo: "SETUP",
-        valorCents: implantacaoCents,
-        vencimento: emSeteDias,
-      })
-    : null;
-
-  await marcarEtapa(
-    id,
-    "BILLING",
-    `${descricao}: R$ ${(valorCents / 100).toFixed(2).replace(".", ",")}/${ciclo === "YEARLY" ? "ano" : "mês"}, dia ${dia}`,
-  );
-
-  await prisma.operationsAuditEvent.create({
-    data: {
-      action: "SUBSCRIPTION_CREATED",
-      entityType: "Subscription",
-      entityId: assinatura.id,
-      organizationId: id,
-      actorId: admin.id,
-      metadata: { descricao, valorCents, dia, ciclo, inicio: inicio.toISOString().slice(0, 10), implantacaoCents, produto, tenant, faturaMensal: mensal?.id ?? null, faturaSetup: setup?.id ?? null },
-    },
-  });
-
-  return NextResponse.json({
-    ok: true,
-    assinaturaId: assinatura.id,
-    faturas: [mensal, setup].filter(Boolean).map((f) => ({ id: f!.id, tipo: f!.kind, competencia: f!.competence, vencimento: f!.dueDate.toISOString().slice(0, 10), valorCents: Math.round(Number(f!.amount.toString()) * 100) })),
-  });
+  try {
+    const { assinatura, faturas } = await criarContratacao({
+      organizationId: id, actorId: admin.id, descricao, valorCents, dia, ciclo,
+      inicio, implantacaoCents, produto, tenant,
+    });
+    await marcarEtapa(id, "BILLING", `${descricao}: R$ ${(valorCents / 100).toFixed(2).replace(".", ",")}/${ciclo === "YEARLY" ? "ano" : "mês"}, dia ${dia}`);
+    return NextResponse.json({
+      ok: true, assinaturaId: assinatura.id,
+      faturas: faturas.map(f => ({ id: f.id, tipo: f.kind, competencia: f.competence,
+        vencimento: f.dueDate.toISOString().slice(0, 10), valorCents: Math.round(Number(f.amount) * 100) })),
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "Este produto já possui assinatura. Atualize a ficha para conferir." }, { status: 409 });
+    }
+    console.error("[assinatura] falha ao registrar contratação", error);
+    return NextResponse.json({ error: "Não foi possível registrar a contratação. Nenhuma alteração parcial foi salva." }, { status: 500 });
+  }
 }

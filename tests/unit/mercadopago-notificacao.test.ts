@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { limparCacheDeCredenciais } from "@/lib/credenciais";
 import { urlDeNotificacao } from "@/lib/mercadopago";
 
 /**
@@ -16,6 +17,9 @@ const original = { APP_URL: process.env.APP_URL, MP_WEBHOOK_TOKEN: process.env.M
 beforeEach(() => {
   delete process.env.APP_URL;
   delete process.env.MP_WEBHOOK_TOKEN;
+  // O cofre guarda o que leu por 60 segundos. Sem limpar, o segundo caso
+  // enxergaria o token do primeiro e o teste passaria pelo motivo errado.
+  limparCacheDeCredenciais();
 });
 
 afterEach(() => {
@@ -26,23 +30,23 @@ afterEach(() => {
 });
 
 describe("urlDeNotificacao", () => {
-  it("usa o endereço de produção quando APP_URL não está no ambiente", () => {
-    expect(urlDeNotificacao()).toBe("https://app.avilaops.com/api/webhooks/mercadopago");
+  it("usa o endereço de produção quando APP_URL não está no ambiente", async () => {
+    expect(await urlDeNotificacao()).toBe("https://app.avilaops.com/api/webhooks/mercadopago");
   });
 
-  it("respeita APP_URL e não duplica a barra final", () => {
+  it("respeita APP_URL e não duplica a barra final", async () => {
     process.env.APP_URL = "https://painel.avilaops.com/";
-    expect(urlDeNotificacao()).toBe("https://painel.avilaops.com/api/webhooks/mercadopago");
+    expect(await urlDeNotificacao()).toBe("https://painel.avilaops.com/api/webhooks/mercadopago");
   });
 
-  it("leva o token na query quando ele existe", () => {
+  it("leva o token na query quando ele existe", async () => {
     process.env.MP_WEBHOOK_TOKEN = "um token/com espaço";
-    expect(urlDeNotificacao()).toBe(
+    expect(await urlDeNotificacao()).toBe(
       "https://app.avilaops.com/api/webhooks/mercadopago?token=um+token%2Fcom+espa%C3%A7o",
     );
   });
 
-  it("devolve vazio para endereço que o Mercado Pago não alcança", () => {
+  it("devolve vazio para endereço que o Mercado Pago não alcança", async () => {
     for (const base of [
       "http://localhost:3000",
       "https://localhost:3000",
@@ -57,16 +61,17 @@ describe("urlDeNotificacao", () => {
       "não é uma url",
     ]) {
       process.env.APP_URL = base;
-      expect(urlDeNotificacao(), `deveria ser vazio para ${base}`).toBe("");
+      expect(await urlDeNotificacao(), `deveria ser vazio para ${base}`).toBe("");
     }
   });
 
-  it("não confunde endereço público que começa com 17 com faixa privada", () => {
+  it("não confunde endereço público que começa com 17 com faixa privada", async () => {
     // 172.16/12 é privada; 172.15 e 173 não são. Um regex frouxo aqui tiraria
     // o webhook de um servidor público sem ninguém notar.
     process.env.APP_URL = "https://172.15.0.1";
-    expect(urlDeNotificacao()).toBe("https://172.15.0.1/api/webhooks/mercadopago");
+    expect(await urlDeNotificacao()).toBe("https://172.15.0.1/api/webhooks/mercadopago");
     process.env.APP_URL = "https://173.16.0.1";
-    expect(urlDeNotificacao()).toBe("https://173.16.0.1/api/webhooks/mercadopago");
+    limparCacheDeCredenciais();
+    expect(await urlDeNotificacao()).toBe("https://173.16.0.1/api/webhooks/mercadopago");
   });
 });
