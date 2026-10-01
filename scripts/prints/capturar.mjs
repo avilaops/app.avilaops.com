@@ -3,10 +3,11 @@
  * escuro. Roda no GitHub Actions contra o app local com dados fictícios
  * (semear.ts).
  *
- * Por que três iPhones e não um: docs/auditoria-mobile-ios.md pede conferência
+ * Por que quatro iPhones e não um: docs/auditoria-mobile-ios.md pede conferência
  * a 375×812 e 430×932, e até 17/09/2026 o CI só capturava 390×844 — o aparelho
  * do meio, justamente o que não mostra nem o aperto do menor nem a sobra do
- * maior. Os 16 itens de QA da auditoria seguem sem aparelho real; estes prints
+ * maior. O 393×852 entrou em 19/09/2026 com a passada de densidade: é a
+ * largura do iPhone 15/16 Pro, o aparelho mais comum hoje. Os 16 itens de QA da auditoria seguem sem aparelho real; estes prints
  * não os substituem, mas cobrem o que imagem consegue provar.
  *
  * Duas armadilhas que custaram tempo e ficam registradas aqui:
@@ -85,6 +86,7 @@ const formatos = [
   // Os três aparelhos que a auditoria cita, do mais apertado ao mais folgado.
   ["iphone-se", { ...devices["iPhone 13"], viewport: { width: 375, height: 812 } }],
   ["iphone-13", devices["iPhone 13"]],
+  ["iphone-15", { ...devices["iPhone 13"], viewport: { width: 393, height: 852 } }],
   ["iphone-max", { ...devices["iPhone 13"], viewport: { width: 430, height: 932 } }],
 ];
 

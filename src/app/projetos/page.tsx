@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import ProjectForm from "@/components/ProjectForm";
 import { getAdmin } from "@/lib/auth";
-import { formatShortDate } from "@/lib/format";
+import { formatShortDate, nomeProprio } from "@/lib/format";
 import { getOrganizationsForSelect, getProjects } from "@/lib/projects";
 
 const statusLabels: Record<string, string> = {
@@ -43,13 +45,16 @@ export default async function ProjectsPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="projects">
-      <header className="page-header">
-        <div>
-          <h1>Projetos</h1>
-          <p>Projetos por cliente, com descrição, link, mídia, prioridade e prazo.</p>
-        </div>
-        <ProjectForm organizations={organizations} />
-      </header>
+      <CabecalhoTela
+        titulo="Projetos"
+        descricao="Projetos por cliente, com descrição, link, mídia, prioridade e prazo."
+        {...contextoDaSecao("projects")}
+        acoes={
+          <>
+          <ProjectForm organizations={organizations} />
+          </>
+        }
+      />
 
       <section className="client-summary-strip">
         <span>
@@ -106,7 +111,7 @@ export default async function ProjectsPage({
                   <div>
                     <strong>{project.title}</strong>
                     <small>
-                      {project.organization.name}
+                      {nomeProprio(project.organization.name)}
                       {project.brand ? ` · ${project.brand.name}` : ""}
                     </small>
                     {project.description ? (

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import LedgerList from "@/components/LedgerList";
 import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
 import { ehDono, getAdmin } from "@/lib/auth";
@@ -72,15 +74,18 @@ export default async function ContasPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="ledger">
-      <header className="page-header">
-        <div>
-          <h1>Contas a pagar e receber</h1>
-          <p>O que vence, o que já venceu e o que a conciliação bancária deu por quitado.</p>
-        </div>
-        <div className="page-header-actions">
+      <CabecalhoTela
+        titulo="Contas a pagar e receber"
+        descricao="O que vence, o que já venceu e o que a conciliação bancária deu por quitado."
+        {...contextoDaSecao("ledger")}
+        acoes={
+          <>
+          <div className="page-header-actions">
           <NewLedgerEntryButton />
-        </div>
-      </header>
+          </div>
+          </>
+        }
+      />
 
       <section className="metric-grid" aria-label="Resumo das contas">
         <article className="metric">

@@ -8,7 +8,7 @@ import { Grupo, LinhaDobravel } from "@/components/sistema/Lista";
 import VincularCliente from "@/components/lojas/VincularCliente";
 import BadgeStatus from "@/components/sistema/Status";
 import { getAdmin } from "@/lib/auth";
-import { contar, formatCurrency, formatShortDate } from "@/lib/format";
+import { contar, formatCurrency, formatShortDate, nomeProprio } from "@/lib/format";
 import {
   enderecoDaLoja,
   evidenciaDaPlataforma,
@@ -154,7 +154,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
             valor={
               detalhe.cliente ? (
                 <Link href={`/clientes/${detalhe.cliente.id}`} className="text-link">
-                  {detalhe.cliente.nome}
+                  {nomeProprio(detalhe.cliente.nome)}
                 </Link>
               ) : (
                 <VincularCliente
@@ -334,7 +334,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
             </Grupo>
           </div>
 
-          <div className="max-[820px]:hidden">
+          <div className="max-[821px]:hidden">
           <TabelaResponsiva
             rotulo="Catálogo da loja"
             colunas={[

@@ -24,8 +24,12 @@ Não encerre a tarefa deixando PR em rascunho, ou PR aberto sem motivo.
 pedido explícito para não mesclar — inclusive um pedido escrito no próprio PR
 ("prints aprovados pelo Nicolas antes do merge" é um pedido explícito).
 
-A `main` é implantada em produção a cada push. Depois de mesclar, acompanhe o
-run de deploy até o fim.
+O deploy é por SSH, com `deploy/publicar.sh <ref>`: build no `orchestrator`,
+imagem levada ao `applications` e troca do container. O GitHub Actions está
+parado por cobrança da conta desde 19/09/2026, então push na `main` **não**
+publica nada. Nunca rode `docker build` no `applications`: sem swap, o build
+derruba os apps de cliente por falta de memória. O script para se o ref não
+contiver o que está no ar ou se houver migração que produção ainda não tem.
 
 PR de outra sessão que ainda está aberto não é seu para mesclar sem conferir: a
 sessão dona pode estar no meio do trabalho.

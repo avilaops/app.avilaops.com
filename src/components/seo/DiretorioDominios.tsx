@@ -5,6 +5,7 @@ import { Button } from "@/components/shadcn/button";
 import { Input } from "@/components/shadcn/input";
 import { BOTAO, CAMPO, CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK } from "@/components/hub-social/comum";
 import { hrefDominio, PAGE_SIZE, type Params, type SeoItem } from "@/components/seo/dados";
+import { nomeProprio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -103,7 +104,7 @@ export default function DiretorioDominios({ items, params }: { items: SeoItem[];
                         {item.domain.fqdn}
                       </span>
                       <span className="block truncate text-[13px] text-muted-foreground">
-                        {item.domain.organization.name}
+                        {nomeProprio(item.domain.organization.name)}
                       </span>
                     </span>
                     <span className="flex flex-wrap items-center gap-2">

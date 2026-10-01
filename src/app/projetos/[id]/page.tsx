@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import DeliverableForm from "@/components/DeliverableForm";
 import TaskQuickAdd from "@/components/TaskQuickAdd";
@@ -9,7 +9,7 @@ import ProjectMedia from "@/components/ProjectMedia";
 import TaskStatusControl from "@/components/TaskStatusControl";
 import { getAdmin } from "@/lib/auth";
 import { getDeliverablesForProject } from "@/lib/deliverables";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { formatCurrency, formatShortDate, nomeProprio } from "@/lib/format";
 import { getProjectDetail } from "@/lib/projects";
 
 const statusLabels: Record<string, string> = {
@@ -52,26 +52,25 @@ export default async function ProjectDetailPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="projects">
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">
-            <Link href="/projetos" className="text-link">
-              Projetos
-            </Link>{" "}
-            · {project.organization.name}
-            {project.brand ? ` · ${project.brand.name}` : ""}
+      <CabecalhoTela
+        titulo={project.title}
+        descricao={[
+          nomeProprio(project.organization.name),
+          project.brand?.name,
+          `${priorityLabels[project.priority] ?? project.priority} prioridade`,
+          project.ownerName ? `responsável ${project.ownerName}` : null,
+          project.dueAt ? `prazo ${formatShortDate(project.dueAt)}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        voltar={{ href: "/projetos", rotulo: "Voltar para Projetos" }}
+        icone="entregas"
+        acoes={
+          <span className={`status-pill status-${project.status.toLowerCase()}`}>
+            {statusLabels[project.status] ?? project.status}
           </span>
-          <h1>{project.title}</h1>
-          <p>
-            {priorityLabels[project.priority] ?? project.priority} prioridade
-            {project.ownerName ? ` · responsável ${project.ownerName}` : ""}
-            {project.dueAt ? ` · prazo ${formatShortDate(project.dueAt)}` : ""}
-          </p>
-        </div>
-        <span className={`status-pill status-${project.status.toLowerCase()}`}>
-          {statusLabels[project.status] ?? project.status}
-        </span>
-      </header>
+        }
+      />
 
       {/*
         O painel agora aparece sempre, e não só quando há descrição ou link: era

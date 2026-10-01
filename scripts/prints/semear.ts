@@ -288,13 +288,27 @@ async function main() {
         environment: "producao",
       },
     });
+    // Saldo: sem um instantâneo, o cartão do topo do Financeiro sai como "-"
+    // e o print não mostra o número mais olhado da tela.
+    await prisma.balanceSnapshot.create({
+      data: { accountId: conta.id, availableBalance: "350.50", capturedAt: haMin(20) },
+    });
+
+    // `e2e` no Pix recebido sem pagador: é a única movimentação que abre a
+    // folha "Conciliar pelo comprovante". Sem ele, o caminho principal da
+    // conciliação não aparece em print nenhum — e foi assim que a folha ficou
+    // com dois formulários empilhados sem ninguém ver.
     const movimentos = [
-      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO" },
-      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL" },
-      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL" },
-      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA" },
-      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA" },
+      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO", e2e: "E12345678202609182137ABCDEFGHIJK" },
+      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL", e2e: null },
+      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL", e2e: null },
+      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA", e2e: null },
+      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA", e2e: null },
     ];
+    // Estado da conciliação: sem estas linhas a fila de pendências fica em
+    // zero no print e a faixa "movimentações precisam de decisão" não aparece
+    // — que é justamente o caminho que o Financeiro existe para resolver.
+    const conciliacoes = ["PENDING", "PENDING", "MATCHED", "PENDING", "REVIEW"];
     for (const [i, m] of movimentos.entries()) {
       await prisma.bankTransaction.create({
         data: {
@@ -305,9 +319,11 @@ async function main() {
           amount: m.v,
           description: m.desc,
           counterpartyName: m.quem,
+          endToEndId: m.e2e,
           occurredAt: haDias(i),
           rawHash: `exemplo-mov-${i}`,
           scope: m.escopo,
+          reconciliation: { create: { status: conciliacoes[i] } },
         },
       });
     }

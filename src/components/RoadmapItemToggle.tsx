@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 type Props = {
   id: string;
@@ -34,18 +34,24 @@ export default function RoadmapItemToggle({ id, label, owner, done }: Props) {
     }
   }
 
+  const idRotulo = useId();
+
   return (
     <li className={checked ? "roadmap-item roadmap-item-done" : "roadmap-item"}>
+      {/* O quadradinho só tem um "✓" dentro, que é decoração: sem o
+          `aria-labelledby` o leitor de tela anuncia "botão" e pronto, e são
+          dezenove deles na tela. O nome dele é o texto que está do lado. */}
       <button
         type="button"
         className="roadmap-checkbox"
         aria-pressed={checked}
+        aria-labelledby={idRotulo}
         disabled={saving}
         onClick={toggle}
       >
         <span aria-hidden="true">{checked ? "✓" : ""}</span>
       </button>
-      <span className="roadmap-label">
+      <span className="roadmap-label" id={idRotulo}>
         {label}
         {checked && owner ? <small>{owner}</small> : null}
       </span>
