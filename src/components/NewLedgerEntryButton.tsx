@@ -6,6 +6,12 @@ import { toast } from "sonner";
 import { Icone } from "@/components/ui/Icones";
 import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
+import {
+  CONTA_A_CLASSIFICAR,
+  contaPorCodigo,
+  contasDoGrupo,
+  GRUPOS_DRE,
+} from "@/lib/plano-de-contas";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -58,6 +64,9 @@ export function FolhaNovoLancamento({ aoFechar }: { aoFechar: () => void }) {
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(todayIso());
   const [category, setCategory] = useState("");
+  const [accountCode, setAccountCode] = useState<string>(CONTA_A_CLASSIFICAR);
+  const [competenceStart, setCompetenceStart] = useState("");
+  const [competenceMonths, setCompetenceMonths] = useState("1");
   const [scope, setScope] = useState<"EMPRESA" | "PESSOAL">("EMPRESA");
   const [currency, setCurrency] = useState("BRL");
   const [note, setNote] = useState("");
@@ -84,6 +93,11 @@ export function FolhaNovoLancamento({ aoFechar }: { aoFechar: () => void }) {
           scope,
           dueDate: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : null,
           category: category || null,
+          accountCode,
+          competenceStart: competenceStart
+            ? new Date(`${competenceStart}T12:00:00`).toISOString()
+            : null,
+          competenceMonths: Number.parseInt(competenceMonths, 10) || 1,
           note: note || null,
         }),
       });
@@ -188,6 +202,57 @@ export function FolhaNovoLancamento({ aoFechar }: { aoFechar: () => void }) {
             onChange={(event) => setDueDate(event.target.value)}
           />
         </label>
+
+        <label className="field field-select">
+          <span>Conta do resultado</span>
+          <select
+            value={accountCode}
+            onChange={(event) => setAccountCode(event.target.value)}
+          >
+            {GRUPOS_DRE.map(({ grupo, rotulo }) => {
+              const contas = contasDoGrupo(grupo);
+              if (contas.length === 0) return null;
+              return (
+                <optgroup key={grupo} label={rotulo}>
+                  {contas.map((conta) => (
+                    <option key={conta.codigo} value={conta.codigo}>
+                      {conta.rotulo}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+          <Icone nome="chevron" tamanho={16} className="chevron" />
+        </label>
+        <p className="field-help">
+          {contaPorCodigo(accountCode)?.ajuda ??
+            "É por esta conta que o lançamento entra no DRE."}
+        </p>
+
+        {/* Competência separa o fato do pagamento: o domínio anual pago de uma
+            vez é caixa de um mês e despesa de doze. Em branco, vale o
+            vencimento — que é como tudo se comportava antes. */}
+        <div className="field-grid">
+          <label className="field">
+            <span>Competência a partir de</span>
+            <input
+              type="date"
+              value={competenceStart}
+              onChange={(event) => setCompetenceStart(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Em quantos meses</span>
+            <input
+              inputMode="numeric"
+              value={competenceMonths}
+              onChange={(event) => setCompetenceMonths(event.target.value)}
+              placeholder="1"
+              className="mono"
+            />
+          </label>
+        </div>
 
         <label className="field">
           <span>Contraparte</span>

@@ -4,6 +4,8 @@ import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import DeliverableForm from "@/components/DeliverableForm";
 import TaskQuickAdd from "@/components/TaskQuickAdd";
+import ProjectEditForm from "@/components/ProjectEditForm";
+import ProjectMedia from "@/components/ProjectMedia";
 import TaskStatusControl from "@/components/TaskStatusControl";
 import { getAdmin } from "@/lib/auth";
 import { getDeliverablesForProject } from "@/lib/deliverables";
@@ -69,6 +71,71 @@ export default async function ProjectDetailPage({
           </span>
         }
       />
+
+      {/*
+        O painel agora aparece sempre, e não só quando há descrição ou link: era
+        justamente o projeto sem nenhum dos dois que não tinha por onde ganhar
+        um, porque a seção inteira sumia junto com o botão de editar.
+      */}
+      <section className="operations-panel">
+        <div className="operations-panel-heading">
+          <div>
+            <h2>Sobre o projeto</h2>
+          </div>
+        </div>
+        {project.description ? (
+          <p className="projeto-descricao">{project.description}</p>
+        ) : null}
+        {project.url ? (
+          <p className="projeto-link">
+            <a href={project.url} target="_blank" rel="noreferrer" className="text-link">
+              {project.url}
+            </a>
+          </p>
+        ) : null}
+        {!project.description && !project.url ? (
+          <p className="projeto-descricao text-muted">
+            Sem descrição e sem link. Use “Editar projeto” para registrar o escopo combinado.
+          </p>
+        ) : null}
+
+        {/*
+          Abaixo do conteúdo, e não no cabeçalho do painel: o formulário da casa
+          abre em fluxo, e no cabeçalho ele empurraria o título para cima.
+        */}
+        <ProjectEditForm
+          projeto={{
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            url: project.url,
+            priority: project.priority,
+            ownerName: project.ownerName,
+            dueAt: project.dueAt ? project.dueAt.toISOString() : null,
+          }}
+        />
+      </section>
+
+      <section className="operations-panel">
+        <div className="operations-panel-heading">
+          <div>
+            <h2>Mídia do projeto</h2>
+          </div>
+          <span className="panel-count">{project.files.length}</span>
+        </div>
+
+        <ProjectMedia
+          projectId={project.id}
+          arquivosIniciais={project.files.map((arquivo) => ({
+            id: arquivo.id,
+            name: arquivo.name,
+            kind: arquivo.kind,
+            mimeType: arquivo.mimeType,
+            sizeBytes: arquivo.sizeBytes,
+            createdAt: arquivo.createdAt.toISOString(),
+          }))}
+        />
+      </section>
 
       <section className="operations-panel task-panel">
         <div className="operations-panel-heading">

@@ -192,6 +192,43 @@ async function main() {
       lastSyncStatus: "SUCCESS",
     },
   });
+  // Instagram pelo login próprio, com o token dentro da janela de renovação:
+  // é o estado que o print precisa mostrar, porque é nele que a tela ganha a
+  // badge de renovação automática e o bloco inteiro aparece.
+  await prisma.organizationIntegrationConnection.upsert({
+    where: { organizationId_provider: { organizationId: horizonte.id, provider: "instagram_login" } },
+    update: {},
+    create: {
+      organizationId: horizonte.id,
+      provider: "instagram_login",
+      status: "ACTIVE",
+      accountName: "clinicahorizonte",
+      externalId: "17841400000000001",
+      scopes: ["instagram_business_basic", "instagram_business_manage_comments"],
+      tokenExpiresAt: emDias(6),
+      lastSyncedAt: haMin(90),
+      lastSyncStatus: "REFRESHED",
+    },
+  });
+
+  // A conta que veio pelo login próprio. Sem ela o bloco "Conta conectada" não
+  // aparece em captura nenhuma, e é justamente onde mora o número com data.
+  await prisma.instagramAccount.upsert({
+    where: { instagramAccountId: "17841400000000001" },
+    update: {},
+    create: {
+      instagramAccountId: "17841400000000001",
+      organizationId: horizonte.id,
+      username: "clinicahorizonte",
+      name: "Clínica Horizonte",
+      accountType: "BUSINESS",
+      origem: "instagram_login",
+      followersCount: 3187,
+      mediaCount: 214,
+      lastSyncedAt: haMin(90),
+    },
+  });
+
   const bm = await prisma.metaBusinessAccount.upsert({
     where: { businessId: "exemplo-bm-1" },
     update: {},
@@ -262,16 +299,18 @@ async function main() {
     // conciliação não aparece em print nenhum — e foi assim que a folha ficou
     // com dois formulários empilhados sem ninguém ver.
     const movimentos = [
-      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO", e2e: "E12345678202609182137ABCDEFGHIJK" },
-      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL", e2e: null },
-      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL", e2e: null },
-      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA", e2e: null },
-      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA", e2e: null },
+      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO", e2e: "E12345678202609182137ABCDEFGHIJK", conta: null },
+      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL", e2e: null, conta: null },
+      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL", e2e: null, conta: null },
+      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA", e2e: null, conta: "3.1" },
+      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA", e2e: null, conta: "1.1" },
+      { d: "DEBIT", t: "FEE", v: "7.40", desc: "Tarifa da conta", quem: null, escopo: "EMPRESA", e2e: null, conta: "5.1" },
+      { d: "DEBIT", t: "PIX_SENT", v: "64.00", desc: "Compra não identificada", quem: null, escopo: "EMPRESA", e2e: null, conta: "9.9" },
     ];
     // Estado da conciliação: sem estas linhas a fila de pendências fica em
     // zero no print e a faixa "movimentações precisam de decisão" não aparece
     // — que é justamente o caminho que o Financeiro existe para resolver.
-    const conciliacoes = ["PENDING", "PENDING", "MATCHED", "PENDING", "REVIEW"];
+    const conciliacoes = ["PENDING", "PENDING", "MATCHED", "PENDING", "REVIEW", "MATCHED", "PENDING"];
     for (const [i, m] of movimentos.entries()) {
       await prisma.bankTransaction.create({
         data: {
@@ -286,7 +325,116 @@ async function main() {
           occurredAt: haDias(i),
           rawHash: `exemplo-mov-${i}`,
           scope: m.escopo,
+          accountCode: m.conta ?? null,
           reconciliation: { create: { status: conciliacoes[i] } },
+        },
+      });
+    }
+  }
+
+  // Projetos. Sem isto a tela ficava vazia em toda captura, e a de detalhe não
+  // era capturada — ou seja, descrição, link, mídia e edição passavam batido
+  // pela revisão visual do CI.
+  //
+  // O id é fixo de propósito: `capturar.mjs` precisa de uma URL estável para
+  // abrir a tela de detalhe.
+  await prisma.project.upsert({
+    where: { id: "exemplo-projeto-1" },
+    update: {},
+    create: {
+      id: "exemplo-projeto-1",
+      organizationId: horizonte.id,
+      title: "Site institucional — fase 1",
+      description:
+        "Reescrita das páginas de serviço e agendamento, com foto nova das salas. Escopo combinado: home, três páginas de especialidade e a página de contato. Publicação prevista para o fim do mês, com os textos revisados pela clínica antes de subir.",
+      url: "https://clinicahorizonte.example/preview",
+      status: "ACTIVE",
+      priority: "HIGH",
+      ownerName: "Pessoa Exemplo",
+      dueAt: emDias(12),
+      createdAt: haDias(9),
+    },
+  });
+
+  await prisma.project.upsert({
+    where: { id: "exemplo-projeto-2" },
+    update: {},
+    create: {
+      id: "exemplo-projeto-2",
+      organizationId: horizonte.id,
+      title: "Campanha de check-up anual",
+      status: "PLANNING",
+      priority: "MEDIUM",
+      dueAt: emDias(34),
+      createdAt: haDias(3),
+    },
+  });
+
+  // Lançamentos com competência: sem eles o DRE nasce 100% reconhecido por
+  // caixa, e o rateio do anual — que é o motivo de a competência existir —
+  // não aparece em print nenhum.
+  if ((await prisma.ledgerEntry.count()) === 0) {
+    const inicioDoMes = new Date(
+      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
+    );
+    const inicioDoAno = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+
+    const lancamentos = [
+      {
+        direction: "RECEIVABLE",
+        // Cliente diferente do da movimentação de 1.200: repetir o mesmo valor
+        // nos dois lados faria o print parecer contagem dupla, que é
+        // exatamente o erro que o vínculo com o lançamento existe para evitar.
+        description: "Mensalidade · Padaria Aurora",
+        counterparty: "PADARIA AURORA ME",
+        amount: "480.00",
+        conta: "1.1",
+        competencia: inicioDoMes,
+        meses: 1,
+      },
+      {
+        direction: "PAYABLE",
+        description: "Domínio anual · clinicahorizonte.example",
+        counterparty: "PORKBUN LLC",
+        amount: "600.00",
+        conta: "3.2",
+        // Pago de uma vez em janeiro, despesa de cinquenta reais por mês.
+        competencia: inicioDoAno,
+        meses: 12,
+      },
+      {
+        direction: "PAYABLE",
+        description: "Honorários contábeis",
+        counterparty: "CORREA CONTABILIDADE",
+        amount: "300.00",
+        conta: "4.2",
+        competencia: inicioDoMes,
+        meses: 1,
+      },
+      {
+        direction: "PAYABLE",
+        description: "DAS · Simples Nacional",
+        counterparty: "RECEITA FEDERAL",
+        amount: "93.00",
+        conta: "2.1",
+        competencia: inicioDoMes,
+        meses: 1,
+      },
+    ];
+
+    for (const lancamento of lancamentos) {
+      await prisma.ledgerEntry.create({
+        data: {
+          direction: lancamento.direction,
+          status: "OPEN",
+          description: lancamento.description,
+          counterparty: lancamento.counterparty,
+          amount: lancamento.amount,
+          scope: "EMPRESA",
+          dueDate: lancamento.competencia,
+          accountCode: lancamento.conta,
+          competenceStart: lancamento.competencia,
+          competenceMonths: lancamento.meses,
         },
       });
     }

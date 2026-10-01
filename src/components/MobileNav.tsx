@@ -37,7 +37,8 @@ export default function MobileNav({
   return (
     <>
       <header className="mobile-topbar">
-        {/* A marca é configurável desde #65: nome e logo vêm do banco. */}
+        {/* A marca é configurável desde #65: nome e logo vêm do banco, e o
+            destino muda com o papel. Não volta a ser a marca fixa. */}
         <MarcaDaCasa
           nome={casa.nome}
           inicial={casa.inicial}

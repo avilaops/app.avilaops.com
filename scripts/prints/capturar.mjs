@@ -62,9 +62,13 @@ const telas = [
   ["operacao", "/operacao"],
   ["clientes", "/clientes"],
   ["projetos", "/projetos"],
+  // A tela de detalhe: é onde vivem descrição, link, mídia e a edição do
+  // cadastro. Id fixo vem do semeador.
+  ["projetos-detalhe", "/projetos/exemplo-projeto-1"],
   ["vagas", "/vagas"],
   ["implantacao", "/implantacao"],
   ["financeiro", "/financeiro"],
+  ["financeiro-dre", "/financeiro/dre"],
   ["financeiro-mercadopago", "/financeiro/mercadopago"],
   // Lojas: a lista, a ficha com o catálogo, e o catálogo filtrado por defeito
   // — que é a tela mais densa da área e a que aperta primeiro no celular.
