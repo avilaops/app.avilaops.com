@@ -6467,6 +6467,48 @@ tbody tr:last-child td {
 .portal-pix button { min-height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 650; cursor: pointer; }
 .portal-pix small { color: var(--subtle-text); font-size: 12px; }
 
+/* Portal e vínculos: hierarquia de valores, estados legíveis e navegação por teclado. */
+.portal-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.portal-shortcuts a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; font-size: 13px; background: var(--surface); }
+.portal-shortcuts a:hover { background: var(--surface-raised); }
+.portal-metric { align-content: start; min-width: 0; }
+.portal-metric-value { display: grid; gap: 2px; padding-top: 4px; overflow-wrap: anywhere; }
+.portal-metric-value > span { color: var(--muted); font-size: 12px; }
+.portal-metric-value > .portal-overdue { color: var(--red); }
+.portal-metric a { color: var(--link-soft); font-size: 13px; padding-top: 8px; }
+.portal-metric progress { width: 100%; height: 8px; margin-top: 8px; accent-color: var(--blue); }
+.portal-card[id] { scroll-margin-top: 24px; }
+.portal-faturas > li { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.portal-faturas > li:last-child { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.portal-faturas > .portal-invoice-overdue { border-inline-start: 3px solid var(--red); }
+.portal-faturas .portal-invoice-status { font-size: 12px; color: var(--muted); }
+.portal-invoice-overdue .portal-invoice-status { color: var(--red); }
+.portal-faturas em strong { color: var(--text); font-size: 16px; }
+.portal-acoes button, .portal-acoes a, .portal-pix button { min-height: 44px; }
+.portal-frame :is(a,button,input,select):focus-visible, .nucleo-panel a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+.portal-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.nucleo-panel { margin-top: 18px; display: grid; gap: 18px; }
+.nucleo-panel .portal-card-topo { margin-bottom: 0; flex-wrap: wrap; }
+.nucleo-panel .portal-card-topo h2 { margin-top: 6px; }
+.nucleo-panel a { color: var(--link-soft); font-size: 13px; }
+.nucleo-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.nucleo-stats > div { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.nucleo-stats dt { color: var(--muted); font-size: 12px; }
+.nucleo-stats dd { margin: 6px 0 0; color: var(--text); font-size: 26px; font-weight: 650; }
+.nucleo-status { border-radius: 999px; padding: 5px 10px; background: var(--surface-raised); }
+.nucleo-status.is-current { color: var(--green); }
+.nucleo-empty { padding: 16px; border: 1px dashed var(--line); border-radius: 10px; }
+.nucleo-empty p { margin: 6px 0 0; color: var(--muted); line-height: 1.6; font-size: 13px; }
+@media (max-width: 540px) {
+  .portal-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .portal-card { padding: 16px; }
+  .portal-faturas li > span, .portal-faturas li > em { width: 100%; text-align: left; overflow-wrap: anywhere; }
+  .portal-acoes button, .portal-acoes a { flex: 1 1 auto; justify-content: center; }
+  .nucleo-stats { grid-template-columns: 1fr; }
+  .nucleo-stats > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .nucleo-stats dd { margin: 0; }
+}
+
 /* Autoatendimento de e-mail (/email) — página pública, aberta no celular na
    maioria das vezes: tudo em coluna única, com alvo de toque grande. */
 .autoatendimento { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; display: grid; gap: 24px; }

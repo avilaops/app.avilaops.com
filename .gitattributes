@@ -1,0 +1,6 @@
+# Preservar os bytes das migrations já aplicadas e seus checksums Prisma.
+prisma/migrations/20260919200000_core_foundation/migration.sql -text
+prisma/migrations/20260919201000_core_integrity/migration.sql -text
+prisma/migrations/20260919202000_core_legacy_backfill/migration.sql -text
+prisma/migrations/20260919203000_core_queries/migration.sql -text
+prisma/migrations/20260919204000_core_assets_guards/migration.sql -text

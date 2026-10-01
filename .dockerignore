@@ -8,3 +8,7 @@
 *.tgz
 *.log
 *.tsbuildinfo
+
+**/output
+**/.playwright-cli
+**/.deploy-*
