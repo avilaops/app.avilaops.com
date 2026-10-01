@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import NovaCobrancaForm from "@/components/NovaCobrancaForm";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
@@ -18,15 +18,12 @@ export default async function CobrarPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">
-            <Link href="/financeiro/mercadopago">Mercado Pago</Link> · Cobrança avulsa
-          </span>
-          <h1>Cobrança avulsa</h1>
-          <p>Cobrança única. Quem paga escolhe PIX, cartão ou boleto.</p>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo="Cobrança avulsa"
+        descricao="Cobrança única. Quem paga escolhe PIX, cartão ou boleto."
+        voltar={{ href: "/financeiro/mercadopago", rotulo: "Voltar para Mercado Pago" }}
+        icone="financeiro"
+      />
 
       <section className="mp-painel">
         <h2>Novo link</h2>

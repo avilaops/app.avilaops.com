@@ -28,7 +28,11 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   success: { texto: "Concluído", tom: "bom" },
   healthy: { texto: "Saudável", tom: "bom" },
   degraded: { texto: "Degradado", tom: "atencao" },
-  down: { texto: "Fora do ar", tom: "ruim" },
+  // A saúde em tempo real chama de SLOW o serviço que responde acima do
+  // limite sem cair. Em português isso é "degradado", não "lento": lento
+  // descreve a sensação, degradado descreve o estado do serviço.
+  slow: { texto: "Degradado", tom: "atencao" },
+  down: { texto: "Indisponível", tom: "ruim" },
   ok: { texto: "OK", tom: "bom" },
   moved: { texto: "Movido", tom: "neutro" },
   initializing: { texto: "Inicializando", tom: "info" },

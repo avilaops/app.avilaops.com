@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import OsbDashboardClient, { OsbDomainRow } from "@/components/OsbDashboardClient";
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -116,12 +118,11 @@ export default async function OsbDashboardPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="operations">
-      <header className="page-header">
-        <div>
-          <h1>Observabilidade</h1>
-          <p>Uptime, SEO técnico, Core Web Vitals, links quebrados e vencimento de domínio.</p>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo="Observabilidade"
+        descricao="Uptime, SEO técnico, Core Web Vitals, links quebrados e vencimento de domínio."
+        {...contextoDaSecao("operations")}
+      />
 
       <OsbDashboardClient initialRows={rows} />
     </AppShell>

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import { getAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import FiscalCommandCenterClient from "./FiscalCommandCenterClient";
@@ -50,22 +52,23 @@ export default async function FiscalCommandCenterPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="fiscal">
-      <header className="page-header">
-        <div>
-          <h1>Notas Fiscais & SEFAZ</h1>
-          <p>
-            Sincronização de Certificados Digitais A1 e captura contínua de Notas Fiscais Recebidas (DF-e).
-          </p>
-        </div>
-        <div className="page-actions">
+      <CabecalhoTela
+        titulo="Notas Fiscais & SEFAZ"
+        descricao="Sincronização de Certificados Digitais A1 e captura contínua de Notas Fiscais Recebidas (DF-e)."
+        {...contextoDaSecao("fiscal")}
+        acoes={
+          <>
+          <div className="page-actions">
           <Link href="/financeiro" className="secondary-button">
-            Financeiro & Contas
+          Financeiro & Contas
           </Link>
           <Link href="/operacao" className="secondary-button">
-            Voltar à Operação
+          Voltar à Operação
           </Link>
-        </div>
-      </header>
+          </div>
+          </>
+        }
+      />
 
       <section className="operations-grid">
         <FiscalCommandCenterClient organizacoesIniciais={organizacoesFormatadas} />

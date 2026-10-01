@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import AcoesAssinatura from "@/components/AcoesAssinatura";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
@@ -43,25 +43,22 @@ export default async function AssinaturaPage({ params }: { params: Promise<{ id:
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">
-            <Link href="/financeiro/mercadopago">Mercado Pago</Link> · Assinatura
-          </span>
-          <h1>{loja?.nome ?? assinatura.loja ?? "Assinatura"}.</h1>
-          <p>{assinatura.motivo || "Mensalidade de loja."}</p>
-        </div>
-        <div className="page-header-actions">
-          {loja?.assinaturaId && (
+      <CabecalhoTela
+        titulo={loja?.nome ?? assinatura.loja ?? "Assinatura"}
+        descricao={assinatura.motivo || "Mensalidade de loja."}
+        voltar={{ href: "/financeiro/mercadopago", rotulo: "Voltar para Mercado Pago" }}
+        icone="financeiro"
+        acoes={
+          loja?.assinaturaId ? (
             <AcoesAssinatura
               slug={loja.slug}
               nome={loja.nome}
               status={assinatura.status}
               valorCentavos={assinatura.valorCentavos}
             />
-          )}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       <section className="metric-grid" aria-label="Resumo da assinatura">
         <article className="metric">

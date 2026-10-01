@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import { contextoDaSecao } from "@/lib/navegacao";
 import WiseImportPanel from "@/components/WiseImportPanel";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
@@ -21,12 +23,11 @@ export default async function ImportarPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="import">
-      <header className="page-header">
-        <div>
-          <h1>Importar extrato</h1>
-          <p>A Wise não abre API para conta pessoal: o extrato entra por arquivo e cai na mesma fila de conciliação.</p>
-        </div>
-      </header>
+      <CabecalhoTela
+        titulo="Importar extrato"
+        descricao="A Wise não abre API para conta pessoal: o extrato entra por arquivo e cai na mesma fila de conciliação."
+        {...contextoDaSecao("import")}
+      />
 
       <section className="section-panel">
         <WiseImportPanel />
