@@ -34,7 +34,7 @@ Manrope, carregada por `next/font` em `src/app/layout.tsx` e exposta em `--fonte
 
 | Papel | Tamanho | Peso |
 |---|---|---|
-| Título de tela (`h1`) | 1,75rem (1,875rem no celular) | 700, `-0.03em` |
+| Título de tela (`h1`) | 1,75rem (1,625rem no celular) | 700, `-0.03em` |
 | Título de grupo | 0,75rem em caixa alta | 600, `0.06em` |
 | Título de linha | 0,9375rem | 600 |
 | Descrição | 0,8125rem | 400, `--texto-secundario` |
@@ -209,3 +209,7 @@ Os primitivos das telas do Hub Social (`components/hub-social/`) foram reescrito
 | `AbasHubSocial` | `.abas-hub`: cápsula clara numa linha só, aba ativa como peça branca, rolagem horizontal quando não cabe |
 
 Cartões do shadcn que restam nas telas seguem o contrato por CSS: sem contorno, raio médio, sombra 1. Campos de formulário mantêm um fio no tom do separador.
+
+## Complemento do PR #55
+
+A compactação já integrada na main usa os tokens --cel-*; não há segunda régua --d-*. A escala --e5 a --e9 encolhe no celular. Textareas começam com 56px e crescem com o conteúdo quando o navegador suporta field-sizing. O assistente preserva o botão Preencher que leva ao campo, com a explicação completa sem truncamento.
