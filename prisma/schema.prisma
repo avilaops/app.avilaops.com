@@ -454,6 +454,7 @@ model AiCoreEvalRun {
 }
 
 model Organization {
+  socialPublishingProfiles SocialPublishingProfile[]
   coreMemberships CoreMembership[]
   coreProducts    CoreProduct[]
   coreContracts   CoreContract[]
@@ -2127,6 +2128,88 @@ model PlatformCredential {
   @@map("platform_credentials")
   @@schema("operations")
 }
+
+/// Perfis editoriais por organização. Contas da mesma rede não compartilham destinos implicitamente.
+model SocialPublishingProfile {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id")
+  nome           String
+  criadoEm       DateTime @default(now()) @map("criado_em") @db.Timestamptz
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  destinos       SocialPublishingDestination[]
+  posts          SocialPublishingPost[]
+  @@unique([organizationId, nome])
+  @@map("social_profiles")
+  @@schema("operations")
+}
+
+model SocialPublishingDestination {
+  perfilId      String @map("perfil_id") @db.Uuid
+  canal         String
+  identificador String
+  credencial    String
+  ativo         Boolean @default(false)
+  perfil        SocialPublishingProfile @relation(fields: [perfilId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@id([perfilId, canal])
+  @@map("social_destinations")
+  @@schema("operations")
+}
+
+model SocialPublishingPost {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chave        String @unique @db.Uuid
+  perfilId     String @map("perfil_id") @db.Uuid
+  conteudo     Json
+  agendadoEm   DateTime @map("agendado_em") @db.Timestamptz
+  estado       String @default("RASCUNHO")
+  versao       Int @default(1)
+  criadoPor    String @map("criado_por")
+  criadoEm     DateTime @default(now()) @map("criado_em") @db.Timestamptz
+  publicadoEm  DateTime? @map("publicado_em") @db.Timestamptz
+  perfil       SocialPublishingProfile @relation(fields: [perfilId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entregas     SocialPublishingDelivery[]
+  eventos      SocialPublishingEvent[]
+  @@map("social_posts")
+  @@schema("operations")
+}
+
+model SocialPublishingDelivery {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId       String @map("post_id") @db.Uuid
+  canal        String
+  obrigatorio  Boolean @default(true)
+  destino      Json
+  estado       String @default("PENDENTE")
+  tentativa    Int @default(0)
+  proximaEm    DateTime @default(now()) @map("proxima_em") @db.Timestamptz
+  reserva      String? @db.Uuid
+  reservaAte   DateTime? @map("reserva_ate") @db.Timestamptz
+  checkpoint   Json @default("{}")
+  idExterno    String? @map("id_externo")
+  urlPublicada String? @map("url_publicada")
+  ultimoErro   String? @map("ultimo_erro")
+  publicadoEm  DateTime? @map("publicado_em") @db.Timestamptz
+  post         SocialPublishingPost @relation(fields: [postId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  eventos      SocialPublishingEvent[]
+  @@unique([postId, canal])
+  @@map("social_deliveries")
+  @@schema("operations")
+}
+
+model SocialPublishingEvent {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String? @map("post_id") @db.Uuid
+  entregaId String? @map("entrega_id") @db.Uuid
+  evento    String
+  autor     String
+  detalhe   Json @default("{}")
+  criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz
+  post      SocialPublishingPost? @relation(fields: [postId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrega   SocialPublishingDelivery? @relation(fields: [entregaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@map("social_events")
+  @@schema("operations")
+}
+
 /// Núcleo central. CHECKs, triggers, views e funções vivem nas migrations core.
 /// Não armazena senhas/tokens; public.portal_clients continua sendo a identidade.
 model CoreIdentityLink {
