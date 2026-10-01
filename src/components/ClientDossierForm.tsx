@@ -7,6 +7,7 @@ import Sheet from "@/components/ui/Sheet";
 import { Icone } from "@/components/ui/Icones";
 import GeradorDeIcones from "@/components/GeradorDeIcones";
 import { EVENTO_IR_PARA_CAMPO } from "@/lib/ficha-campo";
+import FichaDaReceita, { sociosDaReceita } from "@/components/FichaDaReceita";
 
 type Plan = {
   id: string;
@@ -137,6 +138,8 @@ type OrganizationData = {
   name: string;
   legalName: string | null;
   cpfCnpj: string | null;
+  /** O que a Receita devolveu na última consulta (BrasilAPI), guardado inteiro. */
+  cnpjData?: Record<string, unknown> | null;
   segment: string | null;
   siteUrl: string | null;
   status: string;
@@ -255,6 +258,10 @@ export default function ClientDossierForm({
   const [editandoKeyword, setEditandoKeyword] = useState("");
   const [uploadingAsset, setUploadingAsset] = useState("");
   const [loadingCep, setLoadingCep] = useState(false);
+  const [loadingCnpj, setLoadingCnpj] = useState(false);
+  const [dadosReceita, setDadosReceita] = useState<Record<string, unknown> | null>(
+    organization.cnpjData && typeof organization.cnpjData === "object" ? organization.cnpjData : null,
+  );
   const [checkingDomain, setCheckingDomain] = useState(false);
   const [publishingInternalSite, setPublishingInternalSite] = useState(false);
   const [domainCheck, setDomainCheck] = useState("");
@@ -552,6 +559,9 @@ export default function ClientDossierForm({
   }
 
   async function fillAddressFromCep(event: MouseEvent<HTMLButtonElement>) {
+    // O React zera `currentTarget` quando o handler termina; depois do `await`
+    // ele é nulo. Era o "Cannot read properties of null (reading 'form')".
+    const form = event.currentTarget.form;
     const postalCodeInput = event.currentTarget
       .closest(".dossier-grid")
       ?.querySelector<HTMLInputElement>('input[name="postalCode"]');
@@ -574,7 +584,6 @@ export default function ClientDossierForm({
         uf?: string;
       };
       if (!response.ok || data.erro) throw new Error("CEP não encontrado.");
-      const form = event.currentTarget.form;
       if (!form) return;
       const set = (name: string, value = "") => {
         const input = form.elements.namedItem(name) as HTMLInputElement | null;
@@ -584,11 +593,84 @@ export default function ClientDossierForm({
       set("district", data.bairro);
       set("city", data.localidade);
       set("state", data.uf);
+      setTemAlteracao(true);
       setMessage("Endereço preenchido pelo CEP.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível consultar o CEP.");
     } finally {
       setLoadingCep(false);
+    }
+  }
+
+  /**
+   * Preenche a ficha com o que a Receita sabe do CNPJ: razão social, endereço,
+   * telefone, e-mail e o sócio administrador. Só escreve em campo VAZIO — o
+   * que a equipe digitou não é reescrito — e não salva sozinho.
+   */
+  async function fillFromCnpj(event: MouseEvent<HTMLButtonElement>) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+    const campo = (name: string) => form.elements.namedItem(name) as HTMLInputElement | null;
+    const cnpj = (campo("cpfCnpj")?.value || organization.cpfCnpj || "").replace(/\D/g, "");
+    if (cnpj.length !== 14) {
+      setError("Informe o CNPJ do cliente (na Visão geral) antes de buscar.");
+      return;
+    }
+
+    setLoadingCnpj(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/cnpj-lookup?cnpj=${cnpj}`);
+      const result = (await response.json()) as { data?: Record<string, unknown>; error?: string };
+      if (!response.ok || !result.data) throw new Error(result.error ?? "Não foi possível consultar o CNPJ.");
+      const d = result.data;
+      const texto = (chave: string) => (d[chave] === null || d[chave] === undefined ? "" : String(d[chave]).trim());
+
+      const telefone = texto("ddd_telefone_1").replace(/\D/g, "");
+      const socio =
+        sociosDaReceita(d).find((s) => /administrador/i.test(s.qualificacao)) ?? sociosDaReceita(d)[0];
+      const rua = texto("logradouro");
+      const tipo = texto("descricao_tipo_de_logradouro");
+
+      const valores: Array<[string, string]> = [
+        ["legalName", texto("razao_social")],
+        ["email", texto("email").toLowerCase()],
+        [
+          "phone",
+          telefone.length >= 10
+            ? `(${telefone.slice(0, 2)}) ${telefone.slice(2, -4)}-${telefone.slice(-4)}`
+            : "",
+        ],
+        ["ownerName", socio?.nome ?? ""],
+        ["postalCode", texto("cep").replace(/^(\d{5})(\d{3})$/, "$1-$2")],
+        ["street", tipo && !rua.toUpperCase().startsWith(tipo.toUpperCase()) ? `${tipo} ${rua}` : rua],
+        ["number", texto("numero")],
+        ["complement", texto("complemento")],
+        ["district", texto("bairro")],
+        ["city", texto("municipio")],
+        ["state", texto("uf")],
+      ];
+
+      let preenchidos = 0;
+      for (const [nome, valor] of valores) {
+        const input = campo(nome);
+        if (input && !input.value.trim() && valor) {
+          input.value = valor;
+          preenchidos += 1;
+        }
+      }
+      setDadosReceita(d);
+      if (preenchidos) setTemAlteracao(true);
+      setMessage(
+        preenchidos
+          ? `${preenchidos} ${preenchidos === 1 ? "campo preenchido" : "campos preenchidos"} pela Receita. Confira e salve.`
+          : "A Receita não tinha nada para os campos que estão vazios.",
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível consultar o CNPJ.");
+    } finally {
+      setLoadingCnpj(false);
     }
   }
 
@@ -885,9 +967,24 @@ export default function ClientDossierForm({
       </section>
 
       <section data-tab="registration" className={activeTab === "registration" ? "dossier-tab active" : "dossier-tab"}>
+        <div className="receita-na-ficha">
+          <div className="receita-na-ficha-topo">
+            <div>
+              <strong>Dados da Receita</strong>
+              <small>Preenche razão social, endereço, telefone, e-mail e sócio nos campos vazios.</small>
+            </div>
+            <button className="secondary-button" type="button" onClick={fillFromCnpj} disabled={loadingCnpj}>
+              {loadingCnpj ? "Consultando..." : "Preencher pelo CNPJ"}
+            </button>
+          </div>
+          {dadosReceita ? <FichaDaReceita dados={dadosReceita} /> : null}
+        </div>
         <div className="dossier-grid three">
           <label className="campo-curto">Inscrição estadual<input name="stateRegistration" defaultValue={valueOf(organization.profile?.stateRegistration)} /></label>
-          <label className="campo-curto">Inscrição municipal<input name="municipalRegistration" defaultValue={valueOf(organization.profile?.municipalRegistration)} /></label>
+          {/* Inscrição municipal do CLIENTE saiu da tela em 01/10/2026: a nota
+              de serviço pede a do prestador (a casa, em /empresa), não a do
+              tomador. O campo segue no banco e é reenviado como estava. */}
+          <input type="hidden" name="municipalRegistration" defaultValue={valueOf(organization.profile?.municipalRegistration)} />
           <label>Nome do proprietário<input name="ownerName" defaultValue={primaryContact?.name ?? valueOf(organization.profile?.ownerName)} /></label>
           <label className="campo-curto">CPF do responsável<input name="responsibleCpf" inputMode="numeric" defaultValue={valueOf(organization.profile?.responsibleCpf)} /></label>
           <label className="campo-curto">Cargo<input name="ownerRole" defaultValue={primaryContact?.role ?? valueOf(organization.profile?.ownerRole)} /></label>

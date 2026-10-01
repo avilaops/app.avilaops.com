@@ -10821,3 +10821,105 @@ main [data-slot="select-trigger"]:focus-visible {
   font-size: 0.8125rem;
   line-height: 1.55;
 }
+
+/*
+ * Dois "Salvar" na ficha do cliente (01/10/2026): a barra de ação foi feita
+ * para o celular, onde o botão do fim da página fica atrás da barra de abas.
+ * No desktop ela não era fixa e aparecia logo abaixo do "Salvar ficha".
+ */
+@media (min-width: 821px) {
+  .barra-acao {
+    display: none;
+  }
+}
+
+/* O que a Receita devolveu sobre o CNPJ, inteiro (FichaDaReceita). */
+.ficha-receita {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--superficie-suave, transparent);
+}
+
+.ficha-receita-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.ficha-receita-dados dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.ficha-receita-dados dd {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.ficha-receita-bloco {
+  display: grid;
+  gap: 6px;
+}
+
+.ficha-receita-bloco strong {
+  font-size: 0.8125rem;
+}
+
+.ficha-receita-bloco ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.ficha-receita-bloco code {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.ficha-receita-bloco em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.ficha-receita-fonte {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.receita-na-ficha {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.receita-na-ficha-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.receita-na-ficha-topo > div {
+  display: grid;
+  gap: 2px;
+}
+
+.receita-na-ficha-topo small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.organization-form .ficha-receita {
+  margin-top: 12px;
+}
