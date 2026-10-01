@@ -15,6 +15,7 @@ const ROTULO_CATEGORIA: Record<string, string> = {
   mercadopago: "Mercado Pago",
   mercadolivre: "Mercado Livre",
   x: "X (Twitter)",
+  bancos: "Bancos (cadastro manual)",
   outros: "Outros",
 };
 

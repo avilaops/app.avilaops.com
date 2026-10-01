@@ -43,7 +43,7 @@ export default function IdentidadeDaCasaForm({
       const resposta = await fetch("/api/empresa/icone", { method: "POST", body: corpo });
       const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
       if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui guardar o ícone.");
-      setRecado("Ícone trocado.");
+      setRecado("Logo trocado.");
       // O cabeçalho é renderizado no servidor: sem o refresh, a marca nova só
       // apareceria na próxima navegação.
       router.refresh();
@@ -64,7 +64,7 @@ export default function IdentidadeDaCasaForm({
       const resposta = await fetch("/api/empresa/icone", { method: "DELETE" });
       const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
       if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui remover o ícone.");
-      setRecado("Ícone removido. O topo volta ao símbolo padrão.");
+      setRecado("Logo removido. O topo volta ao símbolo padrão.");
       router.refresh();
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "Não consegui remover o ícone.");
@@ -97,7 +97,7 @@ export default function IdentidadeDaCasaForm({
   }
 
   return (
-    <Grupo titulo="Identidade">
+    <Grupo titulo="Logo e nome">
       <div className="identidade-casa">
         <div className="identidade-previa">
           {iconeUrl ? (
@@ -122,7 +122,7 @@ export default function IdentidadeDaCasaForm({
           type="file"
           accept="image/png,image/jpeg,image/webp"
           className="campo-arquivo"
-          aria-label="Escolher imagem do ícone"
+          aria-label="Escolher imagem do logo"
           disabled={ocupado !== null}
           onChange={(evento) => {
             const arquivo = evento.target.files?.[0];
@@ -137,7 +137,7 @@ export default function IdentidadeDaCasaForm({
             disabled={ocupado !== null}
             onClick={() => entrada.current?.click()}
           >
-            {iconeUrl ? "Trocar ícone" : "Adicionar ícone"}
+            {iconeUrl ? "Trocar logo" : "Adicionar logo"}
           </button>
           {iconeUrl ? (
             <button
@@ -157,7 +157,7 @@ export default function IdentidadeDaCasaForm({
         </p>
 
         <label className="identidade-nome">
-          <span>Nome da empresa</span>
+          <span>Nome fantasia</span>
           <input
             type="text"
             value={nome}
