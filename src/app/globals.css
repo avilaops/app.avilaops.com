@@ -7693,6 +7693,18 @@ body {
   text-transform: uppercase;
 }
 
+/*
+   O título e o logotipo opcional andam juntos. `align-items: center` aqui, e
+   não `baseline` como no cabeçalho inteiro: alinhar um quadrado pela linha de
+   base do texto o joga para cima.
+*/
+.grupo-titulo {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--e2);
+}
+
 .grupo-superficie {
   overflow: hidden;
   border-radius: var(--raio-m);
@@ -7920,6 +7932,27 @@ body {
 .icone-tile.tom-neutro {
   background: var(--superficie-suave);
   color: var(--texto-secundario);
+}
+
+/* ---------- Logotipo de terceiro ---------- */
+/*
+   O arquivo já traz a cor oficial da marca, então aqui só se resolve o
+   encaixe. `flex: 0 0 auto` porque o logotipo entra em linha ao lado de texto
+   e não pode encolher: uma marca amassada é pior do que marca nenhuma.
+*/
+.logo-social {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+/*
+   Apple, GitHub, X e Threads são pretas por definição e sumiriam no fundo
+   escuro. Inverter só a luminância preserva o desenho; as marcas coloridas
+   ficam de fora porque inverter Instagram ou Google destruiria a cor.
+*/
+:root[data-theme="dark"] .logo-social--mono {
+  filter: invert(1);
 }
 
 /* ---------- Cabeçalho de tela ---------- */
