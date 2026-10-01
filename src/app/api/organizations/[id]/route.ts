@@ -159,7 +159,7 @@ export async function PUT(
           return NextResponse.json({ error: "CPF ou CNPJ inválido." }, { status: 400 });
         }
         const outro = await prisma.organization.findUnique({
-          where: { cpfCnpj: classificado.digits },
+          where: { cpfCnpj: classificado.documento },
           select: { name: true },
         });
         if (outro) {
@@ -171,7 +171,7 @@ export async function PUT(
         let cnpjData: Prisma.InputJsonValue | typeof Prisma.DbNull = Prisma.DbNull;
         if (classificado.kind === "CNPJ") {
           try {
-            cnpjData = (await lookupCnpj(classificado.digits)) as Prisma.InputJsonValue;
+            cnpjData = (await lookupCnpj(classificado.documento)) as Prisma.InputJsonValue;
           } catch (erro) {
             // O documento é válido e vale gravar mesmo sem a Receita
             // responder; o assistente só não terá o que preencher até a
@@ -179,7 +179,7 @@ export async function PUT(
             aviso = `O CNPJ foi gravado, mas a consulta à Receita falhou (${erro instanceof Error ? erro.message : "erro desconhecido"}).`;
           }
         }
-        documento = { cpfCnpj: classificado.digits, cnpjData };
+        documento = { cpfCnpj: classificado.documento, cnpjData };
       }
     }
   }

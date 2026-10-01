@@ -1,5 +1,26 @@
+/**
+ * CPF e CNPJ: normalização e dígito verificador.
+ *
+ * A mesma regra existe dentro do banco, em `operations.cpf_valido`,
+ * `operations.cnpj_valido` e `operations.documento_valido`. Não é duplicação
+ * por descuido: importação, n8n e correção manual por SQL não passam por aqui,
+ * e é por ali que entra o documento errado que ninguém digitou numa tela.
+ * Mudar uma das duas implementações exige mudar a outra.
+ */
+
 export function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");
+}
+
+/**
+ * Documento sem pontuação e em maiúsculas.
+ *
+ * Maiúsculas porque desde julho de 2026 o CNPJ pode ter letras (IN RFB
+ * 2.229/2024): as doze primeiras posições são alfanuméricas e só os dois
+ * dígitos verificadores continuam numéricos.
+ */
+export function normalizarDocumento(value: string): string {
+  return value.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
 }
 
 export function isValidCpf(value: string): boolean {
@@ -18,26 +39,43 @@ export function isValidCpf(value: string): boolean {
 }
 
 export function isValidCnpj(value: string): boolean {
-  const cnpj = onlyDigits(value);
-  if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+  const cnpj = normalizarDocumento(value);
+  if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(cnpj)) return false;
+  if (/^(\d)\1{13}$/.test(cnpj)) return false;
 
-  const digits = cnpj.split("").map(Number);
+  // O valor de cada caractere é o código ASCII menos 48: '0' vale 0 e 'A' vale
+  // 17. Para um CNPJ só de dígitos isso dá exatamente o cálculo antigo.
+  const valores = cnpj.split("").map((caractere) => caractere.charCodeAt(0) - 48);
   const check = (length: number) => {
-    const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const weights =
+      length === 12
+        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     let sum = 0;
-    for (let i = 0; i < length; i += 1) sum += digits[i] * weights[i];
+    for (let i = 0; i < length; i += 1) sum += valores[i] * weights[i];
     const remainder = sum % 11;
     return remainder < 2 ? 0 : 11 - remainder;
   };
 
-  return check(12) === digits[12] && check(13) === digits[13];
+  return check(12) === valores[12] && check(13) === valores[13];
 }
 
 export type CpfCnpjKind = "CPF" | "CNPJ";
 
-export function classifyCpfCnpj(value: string): { kind: CpfCnpjKind; digits: string; valid: boolean } | null {
-  const digits = onlyDigits(value);
-  if (digits.length === 11) return { kind: "CPF", digits, valid: isValidCpf(digits) };
-  if (digits.length === 14) return { kind: "CNPJ", digits, valid: isValidCnpj(digits) };
+/**
+ * Diz se o texto é CPF ou CNPJ, devolve o documento normalizado e se o dígito
+ * verificador fecha. `null` quando o tamanho não é de nenhum dos dois — aí não
+ * há o que validar.
+ */
+export function classifyCpfCnpj(
+  value: string,
+): { kind: CpfCnpjKind; documento: string; valid: boolean } | null {
+  const documento = normalizarDocumento(value);
+  if (documento.length === 11) {
+    return { kind: "CPF", documento, valid: isValidCpf(documento) };
+  }
+  if (documento.length === 14) {
+    return { kind: "CNPJ", documento, valid: isValidCnpj(documento) };
+  }
   return null;
 }

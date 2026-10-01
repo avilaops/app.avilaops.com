@@ -87,7 +87,7 @@ export default function OrganizationForm({
 
   function handleCpfCnpjBlur() {
     if (classified?.kind === "CNPJ" && classified.valid) {
-      void runCnpjLookup(classified.digits);
+      void runCnpjLookup(classified.documento);
     }
   }
 
@@ -131,7 +131,7 @@ export default function OrganizationForm({
           preferredExtension: form.get("preferredExtension"),
           alternativeDomains: form.get("alternativeDomains"),
           domainAvailabilityStatus: form.get("domainAvailabilityStatus"),
-          cpfCnpj: classified?.digits ?? "",
+          cpfCnpj: classified?.documento ?? "",
           cnpjData: classified?.kind === "CNPJ" ? cnpjData : null,
         }),
       });

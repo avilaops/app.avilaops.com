@@ -6,6 +6,7 @@ import {
   OrganizacaoNaoEncontradaError,
 } from "@/lib/cadastro-ia/assistente";
 import { prisma } from "@/lib/prisma";
+import { cnpjDeTeste } from "../fixtures/documento";
 
 /**
  * Assistente de cadastro contra Postgres de verdade.
@@ -49,7 +50,7 @@ async function criarCliente(dados: { cnpjData?: unknown; legalName?: string | nu
       name: "Vale Topografia",
       slug: `${PREFIXO}${sufixo}`,
       legalName: dados.legalName ?? null,
-      cpfCnpj: `${Date.now()}${sufixo}`.slice(0, 14),
+      cpfCnpj: cnpjDeTeste(sufixo),
       cnpjData: (dados.cnpjData ?? CNPJ_DATA) as never,
     },
   });

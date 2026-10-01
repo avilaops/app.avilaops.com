@@ -91,7 +91,7 @@ export async function contratar(pedido: PedidoDeContratacao): Promise<ResultadoC
     if (!classificado?.valid) {
       throw new ContratacaoInvalida("CPF ou CNPJ inválido.");
     }
-    documento = classificado.digits;
+    documento = classificado.documento;
   }
 
   const plano = await prisma.servicePlan.findUnique({ where: { slug: pedido.plano.trim() } });

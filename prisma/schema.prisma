@@ -501,6 +501,7 @@ model Organization {
   metaLeads                MetaLead[]
   metaCampaignSnapshots    MetaCampaignSnapshot[]
   profile                  OrganizationProfile?
+  dadosFiscais             DadosFiscaisDoCliente?
   contacts                 OrganizationContact[]
   addresses                OrganizationAddress[]
   socialProfiles           OrganizationSocialProfile[]
@@ -584,6 +585,9 @@ model OrganizationContact {
   @@schema("operations")
 }
 
+/// Endereço do cliente. `type` é domínio fechado no banco: MAIN, BILLING,
+/// DELIVERY ou FISCAL — e só um `isPrimary` por tipo, garantido por índice
+/// único parcial. Faturar num endereço e entregar em outro depende disso.
 model OrganizationAddress {
   id             String   @id @default(cuid())
   organizationId String   @map("organization_id")
@@ -596,6 +600,12 @@ model OrganizationAddress {
   city           String?
   state          String?
   country        String?  @default("Brasil")
+  /// Código IBGE do município, 7 dígitos. É como a NFS-e identifica a cidade:
+  /// "Santa Maria" existe em oito estados, e o nome não serve de chave.
+  municipioIbge  String?  @map("municipio_ibge")
+  /// País em ISO 3166-1 alpha-2 (BR, PT, US). `country` segue sendo o nome
+  /// que a tela mostra.
+  paisIso        String?  @map("pais_iso")
   isPrimary      Boolean  @default(false) @map("is_primary")
   source         String?  @default("MANUAL")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -605,6 +615,99 @@ model OrganizationAddress {
 
   @@index([organizationId, type])
   @@map("organization_addresses")
+  @@schema("operations")
+}
+
+enum TipoPessoa {
+  JURIDICA
+  FISICA
+  ESTRANGEIRA
+
+  @@map("tipo_pessoa")
+  @@schema("operations")
+}
+
+enum RegimeTributario {
+  SIMPLES_NACIONAL
+  MEI
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  IMUNE
+  ISENTO
+  NAO_INFORMADO
+
+  @@map("regime_tributario")
+  @@schema("operations")
+}
+
+/// `indIEDest` da NF-e: 1 contribuinte, 2 isento, 9 não contribuinte. Guarda o
+/// significado, não o número, para a tela não precisar de legenda.
+enum IndicadorInscricaoEstadual {
+  CONTRIBUINTE
+  ISENTO
+  NAO_CONTRIBUINTE
+
+  @@map("indicador_inscricao_estadual")
+  @@schema("operations")
+}
+
+/// Dados tributários do cliente: o que a NFS-e e a NF-e exigem do
+/// destinatário. Espelha `IdentidadeDaCasa`, que guarda os de quem emite.
+///
+/// É a fonte canônica da inscrição estadual, da inscrição municipal e do CPF
+/// do responsável. As colunas equivalentes em `OrganizationProfile` continuam
+/// existindo por compatibilidade, mas não mandam mais.
+///
+/// O que NÃO mora aqui, de propósito, para não existir em dois lugares: razão
+/// social (`Organization.legalName`), CPF/CNPJ (`Organization.cpfCnpj`),
+/// situação cadastral e data de abertura (`Organization.cnpjData`, que é a
+/// resposta da Receita com origem e data) e endereço (`OrganizationAddress`,
+/// tipo FISCAL quando difere do principal).
+model DadosFiscaisDoCliente {
+  id             String     @id @default(cuid())
+  organizationId String     @unique @map("organization_id")
+  /// Tem de concordar com o documento em `Organization.cpfCnpj`: 11 dígitos
+  /// para FISICA, 14 para JURIDICA, nenhum para ESTRANGEIRA. Dois gatilhos no
+  /// banco garantem isso dos dois lados da relação.
+  tipoPessoa     TipoPessoa @default(JURIDICA) @map("tipo_pessoa")
+
+  inscricaoEstadual          String?                     @map("inscricao_estadual")
+  inscricaoMunicipal         String?                     @map("inscricao_municipal")
+  indicadorInscricaoEstadual IndicadorInscricaoEstadual? @map("indicador_inscricao_estadual")
+  regimeTributario           RegimeTributario            @default(NAO_INFORMADO) @map("regime_tributario")
+  /// CNAE principal, só dígitos (7). Vem da Receita quando há consulta de CNPJ.
+  cnae                       String?
+  inscricaoProdutorRural     String?                     @map("inscricao_produtor_rural")
+  suframa                    String?
+  /// Número de identificação fiscal no exterior. Só com `tipoPessoa`
+  /// ESTRANGEIRA — o banco recusa nos outros casos.
+  nif                        String?
+  /// CPF de quem responde pela empresa. O gateway exige pessoa física no
+  /// boleto e no cartão mesmo quando quem paga é CNPJ; sem ele, as duas formas
+  /// de pagamento ficam indisponíveis para o cliente.
+  cpfResponsavel             String?                     @map("cpf_responsavel")
+
+  /// Item da lista da LC 116/2003 usado nas notas deste cliente, quando
+  /// difere do padrão da casa.
+  codigoServico       String?  @map("codigo_servico")
+  /// ISS retido na fonte. Com ele ligado, a alíquota passa a ser obrigatória:
+  /// a prefeitura precisa do percentual para calcular a retenção.
+  issRetido           Boolean  @default(false) @map("iss_retido")
+  retemIrrf           Boolean  @default(false) @map("retem_irrf")
+  retemInss           Boolean  @default(false) @map("retem_inss")
+  retemPisCofinsCsll  Boolean  @default(false) @map("retem_pis_cofins_csll")
+  aliquotaIssRetido   Decimal? @map("aliquota_iss_retido") @db.Decimal(5, 2)
+
+  emailFiscal      String? @map("email_fiscal")
+  observacaoFiscal String? @map("observacao_fiscal")
+  atualizadoPor    String? @map("atualizado_por")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("dados_fiscais_do_cliente")
   @@schema("operations")
 }
 

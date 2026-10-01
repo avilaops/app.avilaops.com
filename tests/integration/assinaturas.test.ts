@@ -7,6 +7,7 @@ import {
   garantirFatura,
 } from "@/lib/assinaturas";
 import { prisma } from "@/lib/prisma";
+import { cnpjDeTeste } from "../fixtures/documento";
 
 /**
  * Cobrança recorrente contra Postgres de verdade.
@@ -41,7 +42,7 @@ async function criarAssinatura(overrides: { billingDay?: number; amount?: number
       name: "Restaurante de Teste",
       slug: `teste-cobranca-${sufixo}`,
       legalName: "Restaurante de Teste LTDA",
-      cpfCnpj: `${Date.now()}`.slice(0, 14),
+      cpfCnpj: cnpjDeTeste(sufixo),
     },
   });
 
