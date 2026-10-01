@@ -220,106 +220,6 @@ export async function renovarTokenInstagram(organizationId: string) {
   return { tokenExpiresAt: expiraEm };
 }
 
-/**
- * Quantos dias antes do vencimento a renovação começa a tentar.
- *
- * O token vale 60 dias e a Meta não renova token já vencido: passou do prazo,
- * o cliente precisa autorizar tudo de novo. Dez dias dá margem para a rotina
- * falhar várias vezes seguidas (servidor fora, Meta instável, token de rede) e
- * ainda assim alguém perceber antes de virar trabalho do cliente.
- */
-const DIAS_ANTES_DE_RENOVAR = 10;
-
-/** A Meta recusa renovar token com menos de 24 horas de vida. */
-const HORAS_MINIMAS_DE_VIDA = 24;
-
-export type ResultadoDaRenovacao = {
-  conferidas: number;
-  renovadas: number;
-  falhas: number;
-  vencidas: string[];
-};
-
-/**
- * Renova os tokens do Instagram que estão perto de vencer.
- *
- * Nunca lança: é rotina de fundo, e rotina de fundo que derruba o processo
- * leva junto tudo o que ela deveria proteger. Falha vira registro na conexão e
- * a próxima passada tenta de novo.
- *
- * Conexão já vencida entra em `vencidas` e NÃO é tentada: a Meta recusaria, e
- * insistir todo dia num token morto só enche o log. O que resolve ali é o
- * cliente autorizar de novo, e por isso o status vai para EXPIRED, que é o que
- * a tela mostra.
- */
-export async function manutencaoDosTokensDoInstagram(): Promise<ResultadoDaRenovacao> {
-  const resultado: ResultadoDaRenovacao = {
-    conferidas: 0,
-    renovadas: 0,
-    falhas: 0,
-    vencidas: [],
-  };
-
-  const agora = Date.now();
-  const limite = new Date(agora + DIAS_ANTES_DE_RENOVAR * 86_400_000);
-
-  const conexoes = await prisma.organizationIntegrationConnection.findMany({
-    where: {
-      provider: INSTAGRAM_PROVIDER,
-      status: "ACTIVE",
-      tokenExpiresAt: { not: null, lte: limite },
-    },
-    select: {
-      id: true,
-      organizationId: true,
-      accountName: true,
-      tokenExpiresAt: true,
-      createdAt: true,
-    },
-  });
-
-  resultado.conferidas = conexoes.length;
-
-  for (const conexao of conexoes) {
-    const rotulo = conexao.accountName ?? conexao.organizationId;
-
-    if (conexao.tokenExpiresAt && conexao.tokenExpiresAt.getTime() <= agora) {
-      resultado.vencidas.push(rotulo);
-      await prisma.organizationIntegrationConnection.update({
-        where: { id: conexao.id },
-        data: {
-          status: "EXPIRED",
-          lastSyncStatus: "TOKEN_EXPIRED",
-          lastSyncError: "Token venceu. O cliente precisa autorizar o Instagram de novo.",
-        },
-      });
-      continue;
-    }
-
-    if (agora - conexao.createdAt.getTime() < HORAS_MINIMAS_DE_VIDA * 3_600_000) {
-      continue;
-    }
-
-    try {
-      await renovarTokenInstagram(conexao.organizationId);
-      resultado.renovadas += 1;
-    } catch (erro) {
-      resultado.falhas += 1;
-      // Sem derrubar o laço: um cliente que falha não pode impedir a renovação
-      // dos outros, e justamente hoje pode ser o dia em que outro venceria.
-      await prisma.organizationIntegrationConnection.update({
-        where: { id: conexao.id },
-        data: {
-          lastSyncStatus: "REFRESH_FAILED",
-          lastSyncError: erro instanceof Error ? erro.message : String(erro),
-        },
-      });
-    }
-  }
-
-  return resultado;
-}
-
 export type ConexaoInstagram = {
   actorId: string;
   organizationId: string;
@@ -416,16 +316,29 @@ export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
       },
     });
 
+    // Registro da autorização no núcleo (core.connections), na mesma
+    // transação da conexão legada: as duas tabelas nunca discordam.
     const externalAccount = await transacao.coreExternalAccount.upsert({
       where: { provider_namespace_externalId: { provider: INSTAGRAM_PROVIDER, namespace, externalId: contaId } },
       create: { provider: INSTAGRAM_PROVIDER, namespace, externalId: contaId, displayName: entrada.perfil.username },
       update: { displayName: entrada.perfil.username, observedAt: new Date() },
     });
-    const coreData = { organizationId: entrada.organizationId, externalAccountId: externalAccount.id,
-      authorizedById: entrada.actorId, status: "AUTHORIZED", scopes: entrada.escopos,
-      authorizedAt: new Date(), expiresAt: entrada.tokenExpiresAt, revokedAt: null };
-    await transacao.coreConnection.upsert({ where: { legacyConnectionId: conexao.id },
-      create: { ...coreData, legacyConnectionId: conexao.id }, update: coreData });
+    const coreData = {
+      organizationId: entrada.organizationId,
+      externalAccountId: externalAccount.id,
+      authorizedById: entrada.actorId,
+      status: "AUTHORIZED",
+      scopes: entrada.escopos,
+      authorizedAt: new Date(),
+      expiresAt: entrada.tokenExpiresAt,
+      revokedAt: null,
+    };
+    await transacao.coreConnection.upsert({
+      where: { legacyConnectionId: conexao.id },
+      create: { ...coreData, legacyConnectionId: conexao.id },
+      update: coreData,
+    });
+
     await transacao.operationsAuditEvent.create({
       data: {
         actorId: entrada.actorId,
@@ -444,13 +357,175 @@ export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
   });
 }
 
-/** O que o painel mostra do login próprio, sem tocar no token. */
-export async function estadoDoInstagram(organizationId: string) {
+/**
+ * O login próprio já tem o que precisa para abrir o consentimento?
+ *
+ * A tela pergunta antes de oferecer o botão. Sem isto o operador clica,
+ * atravessa o redirecionamento e volta com "INSTAGRAM_APP_ID não configurado" —
+ * um erro correto, na hora errada, quando já não dá para fazer nada a respeito.
+ *
+ * Consulta o cofre, não o `process.env`: é de lá que as duas chaves vêm, e a
+ * resposta precisa mudar assim que alguém as preencher, sem esperar deploy.
+ * `META_TOKEN_ENCRYPTION_KEY` entra na conta porque sem ela o token até chega,
+ * mas não tem como ser gravado.
+ */
+export async function instagramConfigurado() {
+  const [appId, appSecret] = await Promise.all([
+    obterCredencial("INSTAGRAM_APP_ID"),
+    obterCredencial("INSTAGRAM_APP_SECRET"),
+  ]);
+  return Boolean(appId && appSecret && process.env.META_TOKEN_ENCRYPTION_KEY);
+}
+
+/**
+ * Relê o perfil no Instagram e atualiza o que a tela mostra.
+ *
+ * Por que existe: a conta é gravada uma vez, no consentimento, e depois disso
+ * seguidor e publicação congelam. Mostrar 2.140 seguidores de dois meses atrás
+ * como se fosse de agora é o tipo de número sem procedência que a casa não
+ * aceita — ou o valor é relido, ou a tela diz quando foi lido. Aqui ele é
+ * relido, e `lastSyncedAt` registra quando.
+ *
+ * Não renova nada: se o token estiver vencido, a Meta recusa e o erro fica
+ * gravado na conexão. Quem renova é a rotina diária.
+ */
+export async function sincronizarInstagram(actorId: string, organizationId: string) {
+  const conexao = await prisma.organizationIntegrationConnection.findUnique({
+    where: {
+      organizationId_provider: { organizationId, provider: INSTAGRAM_PROVIDER },
+    },
+    select: { id: true, tokenCiphertext: true },
+  });
+  if (!conexao?.tokenCiphertext) throw new Error("Instagram não conectado para este cliente.");
+
+  let perfil: PerfilInstagram;
+  try {
+    perfil = await buscarPerfil(decifrarToken(conexao.tokenCiphertext));
+  } catch (erro) {
+    const mensagem = erro instanceof Error ? erro.message : String(erro);
+    await prisma.organizationIntegrationConnection.update({
+      where: { id: conexao.id },
+      data: { lastSyncStatus: "SYNC_FAILED", lastSyncError: mensagem },
+    });
+    throw erro;
+  }
+
+  const contaId = String(perfil.user_id ?? perfil.id);
+  const agora = new Date();
+
+  await prisma.$transaction(async (transacao) => {
+    await transacao.instagramAccount.upsert({
+      where: { instagramAccountId: contaId },
+      create: {
+        instagramAccountId: contaId,
+        organizationId,
+        username: perfil.username,
+        name: perfil.name ?? null,
+        accountType: perfil.account_type ?? null,
+        profilePictureUrl: perfil.profile_picture_url ?? null,
+        followersCount: perfil.followers_count ?? null,
+        mediaCount: perfil.media_count ?? null,
+        origem: ORIGEM_LOGIN_PROPRIO,
+        status: "ACTIVE",
+        lastSyncedAt: agora,
+        rawMetadata: perfil as object,
+      },
+      update: {
+        username: perfil.username,
+        name: perfil.name ?? null,
+        accountType: perfil.account_type ?? null,
+        profilePictureUrl: perfil.profile_picture_url ?? null,
+        followersCount: perfil.followers_count ?? null,
+        mediaCount: perfil.media_count ?? null,
+        // A origem entra também na atualização, senão uma linha que chegou
+        // antes pelo Facebook continuaria marcada assim e sumiria do bloco do
+        // login próprio, que filtra por `origem`.
+        origem: ORIGEM_LOGIN_PROPRIO,
+        lastSyncedAt: agora,
+        rawMetadata: perfil as object,
+      },
+      // `organizationId` fica de fora de propósito, ao contrário de
+      // `salvarConexaoInstagram`: mudar a conta de cliente é consequência de um
+      // consentimento novo, nunca de uma releitura de perfil.
+    });
+
+    await transacao.organizationIntegrationConnection.update({
+      where: { id: conexao.id },
+      data: {
+        accountName: perfil.username,
+        externalId: contaId,
+        lastSyncedAt: agora,
+        lastSyncStatus: "SYNCED",
+        lastSyncError: null,
+      },
+    });
+
+    await transacao.operationsAuditEvent.create({
+      data: {
+        actorId,
+        organizationId,
+        action: "INSTAGRAM_ACCOUNT_SYNCED",
+        entityType: "OrganizationIntegrationConnection",
+        entityId: conexao.id,
+        metadata: {
+          conta: perfil.username,
+          seguidores: perfil.followers_count ?? null,
+          publicacoes: perfil.media_count ?? null,
+        },
+      },
+    });
+  });
+
+  return {
+    conta: perfil.username,
+    seguidores: perfil.followers_count ?? null,
+    publicacoes: perfil.media_count ?? null,
+    lidoEm: agora.toISOString(),
+  };
+}
+
+/**
+ * O que o painel mostra do login próprio, sem tocar no token.
+ *
+ * Devolve data como texto ISO porque quem consome é componente de cliente: o
+ * `Date` cruzaria a fronteira como string mesmo, e tipar como `Date` faria o
+ * componente confiar num método que não existe do outro lado.
+ */
+export type EstadoDoInstagram = {
+  conexao: {
+    id: string;
+    contaId: string | null;
+    conta: string | null;
+    status: string;
+    escopos: string[];
+    tokenExpiresAt: string | null;
+    lastSyncedAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncError: string | null;
+  };
+  contas: {
+    username: string;
+    name: string | null;
+    accountType: string | null;
+    followersCount: number | null;
+    mediaCount: number | null;
+    profilePictureUrl: string | null;
+    /** Quando seguidor e publicação foram lidos. Sem isto o número não tem data. */
+    lidoEm: string | null;
+  }[];
+};
+
+export async function estadoDoInstagram(
+  organizationId: string,
+): Promise<EstadoDoInstagram | null> {
+  if (!organizationId) return null;
+
   const conexao = await prisma.organizationIntegrationConnection.findUnique({
     where: {
       organizationId_provider: { organizationId, provider: INSTAGRAM_PROVIDER },
     },
     select: {
+      id: true,
       accountName: true,
       externalId: true,
       status: true,
@@ -472,9 +547,26 @@ export async function estadoDoInstagram(organizationId: string) {
       followersCount: true,
       mediaCount: true,
       profilePictureUrl: true,
+      lastSyncedAt: true,
     },
     orderBy: { username: "asc" },
   });
 
-  return { conexao, contas };
+  return {
+    conexao: {
+      id: conexao.id,
+      contaId: conexao.externalId,
+      conta: conexao.accountName,
+      status: conexao.status,
+      escopos: Array.isArray(conexao.scopes) ? (conexao.scopes as string[]) : [],
+      tokenExpiresAt: conexao.tokenExpiresAt?.toISOString() ?? null,
+      lastSyncedAt: conexao.lastSyncedAt?.toISOString() ?? null,
+      lastSyncStatus: conexao.lastSyncStatus,
+      lastSyncError: conexao.lastSyncError,
+    },
+    contas: contas.map(({ lastSyncedAt, ...conta }) => ({
+      ...conta,
+      lidoEm: lastSyncedAt?.toISOString() ?? null,
+    })),
+  };
 }

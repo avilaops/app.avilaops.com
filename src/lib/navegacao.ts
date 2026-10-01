@@ -19,6 +19,7 @@ export type SecaoApp =
   | "reconciliation"
   | "transactions"
   | "ledger"
+  | "dre"
   | "import"
   | "mercadopago"
   | "reports"
@@ -116,7 +117,7 @@ export const navegacao: GrupoNavegacao[] = [
     label: "Operação",
     slug: "operacao",
     icone: "operacao",
-    descricao: "Clientes, entregas e o que a casa vende",
+    descricao: "Clientes, projetos e o que a casa vende",
     bloco: "operacao",
     items: [
       { href: "/operacao", label: "Visão central", section: "operations", icone: "inicio", descricao: "O dia da operação num lugar só" },
@@ -130,7 +131,7 @@ export const navegacao: GrupoNavegacao[] = [
         somenteDono: true,
       },
       { href: "/leads", label: "Leads", section: "leads", icone: "hub", descricao: "Quem chegou e ainda não é cliente" },
-      { href: "/projetos", label: "Entregas", section: "projects", icone: "entregas", descricao: "Projetos em andamento e prazos" },
+      { href: "/projetos", label: "Projetos", section: "projects", icone: "entregas", descricao: "Projetos por cliente, com prazo, link e mídia" },
       {
         // Mora em Operação e não em Casa: a loja é do cliente, não da casa —
         // o vizinho certo é "Clientes". Com ela o grupo fecha nos sete itens
@@ -251,6 +252,16 @@ export const navegacao: GrupoNavegacao[] = [
         descricao: "Lançamentos esperando conferência",
       },
       {
+        // Logo abaixo da visão geral porque responde a outra pergunta sobre o
+        // mesmo dinheiro: a de cima diz quanto entrou e saiu, esta diz quanto
+        // sobrou. Quem procura resultado não procura extrato.
+        href: "/financeiro/dre",
+        label: "Resultado (DRE)",
+        section: "dre",
+        icone: "operacao",
+        descricao: "Receita, custo e margem por competência",
+      },
+      {
         href: "/financeiro/contas",
         label: "Contas a pagar e receber",
         section: "ledger",
@@ -330,7 +341,7 @@ export const abasCelular: AbaCelular[] = [
   },
   {
     href: "/projetos",
-    label: "Entregas",
+    label: "Projetos",
     icone: "entregas",
     secoes: ["projects"],
   },

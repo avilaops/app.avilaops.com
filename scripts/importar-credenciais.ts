@@ -133,12 +133,44 @@ function escolher(ocorrencias: Ocorrencia[]) {
   return [...ocorrencias].sort((a, b) => posicao(a.arquivo) - posicao(b.arquivo))[0];
 }
 
+/**
+ * Carrega um único arquivo como fonte, em vez de varrer o monorepo.
+ *
+ * É o que serve para produção: o `.env` que o container lê fica no servidor e
+ * não está no repositório, então varrer o repo importaria valor de
+ * desenvolvimento por cima do que está no ar.
+ */
+function carregarDeUmArquivo(caminho: string) {
+  const texto = fs.readFileSync(caminho, "utf8");
+  const rel = path.basename(caminho);
+
+  for (const linha of texto.split("\n")) {
+    const atribuicao = linha.trim().match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
+    if (!atribuicao || !interessa(atribuicao[1])) continue;
+
+    const valor = atribuicao[2].trim().replace(/^["']|["']$/g, "");
+    if (!valor || valor.startsWith("GERAR_") || valor.startsWith("UM_TOKEN")) continue;
+
+    if (!valores.has(atribuicao[1])) valores.set(atribuicao[1], []);
+    valores.get(atribuicao[1])!.push({ arquivo: rel, valor });
+  }
+}
+
 async function principal() {
   const argumentos = process.argv.slice(2);
   const aplicar = argumentos.includes("--aplicar");
   const filtro = argumentos.find((a) => a.startsWith("--so="))?.split("=")[1]?.split(",") ?? null;
+  const arquivoUnico = argumentos.find((a) => a.startsWith("--arquivo="))?.split("=")[1];
 
+  // Os consumidores saem sempre do código do repositório: quem lê cada chave é
+  // o mesmo aqui e lá, e é isso que diz o que quebra ao girar uma delas.
   andar(RAIZ);
+
+  if (arquivoUnico) {
+    valores.clear();
+    carregarDeUmArquivo(arquivoUnico);
+    console.log(`Fonte de valores: ${arquivoUnico}\n`);
+  }
 
   const chaves = [...new Set([...valores.keys(), ...consumidores.keys()])]
     .filter((chave) => !filtro || filtro.some((prefixo) => chave.startsWith(prefixo)))

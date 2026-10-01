@@ -114,6 +114,8 @@ model BankTransaction {
   scopeSource          String?  @map("scope_source")
   /// Categoria de origem (a do extrato) preservada para auditoria.
   category             String?
+  /// Conta do plano de contas. Movimentação sem lançamento entra no DRE por ela.
+  accountCode          String?  @map("account_code")
   importedAt           DateTime @default(now()) @map("imported_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -186,25 +188,31 @@ model FinanceAuditEvent {
 }
 
 model LedgerEntry {
-  coreInvoiceLink CoreInvoiceLedgerLink?
-  id              BigInt                 @id @default(autoincrement())
-  direction       String
-  status          String                 @default("OPEN")
-  description     String
-  counterparty    String?
-  amount          Decimal                @db.Decimal(14, 2)
-  currency        String                 @default("BRL")
+  coreInvoiceLink  CoreInvoiceLedgerLink?
+  id               BigInt    @id @default(autoincrement())
+  direction        String
+  status           String    @default("OPEN")
+  description      String
+  counterparty     String?
+  amount           Decimal   @db.Decimal(14, 2)
+  currency         String    @default("BRL")
   /// EMPRESA ou PESSOAL: o que separa o caixa da Ávila do caixa do Nicolas.
-  scope           String                 @default("EMPRESA")
-  dueDate         DateTime               @map("due_date")
-  paidAt          DateTime?              @map("paid_at")
-  category        String?
-  referenceType   String?                @map("reference_type")
-  referenceId     String?                @map("reference_id")
-  note            String?
-  createdBy       String?                @map("created_by")
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
+  scope            String    @default("EMPRESA")
+  dueDate          DateTime  @map("due_date")
+  paidAt           DateTime? @map("paid_at")
+  category         String?
+  /// Conta do plano de contas (src/lib/plano-de-contas.ts). É o que agrupa o DRE.
+  accountCode      String?   @map("account_code")
+  /// Primeiro mês de competência. Nulo = o próprio vencimento.
+  competenceStart  DateTime? @map("competence_start")
+  /// Em quantos meses o valor se distribui. Nulo ou 1 = mês único.
+  competenceMonths Int?      @map("competence_months")
+  referenceType    String?   @map("reference_type")
+  referenceId      String?   @map("reference_id")
+  note             String?
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@index([direction, status, dueDate])
   @@index([scope, status, dueDate])
@@ -1064,6 +1072,10 @@ model Project {
   organizationId String    @map("organization_id")
   brandId        String?   @map("brand_id")
   title          String
+  /// O que o projeto é, em texto livre: escopo, contexto, o combinado.
+  description    String?
+  /// Link principal: site publicado, board, repositório, pasta de arquivos.
+  url            String?
   status         String    @default("PLANNING")
   priority       String    @default("MEDIUM")
   ownerName      String?   @map("owner_name")
@@ -1077,6 +1089,7 @@ model Project {
   tasks        OperationalTask[]
   approvals    Approval[]
   deliverables Deliverable[]
+  files        ProjectFile[]
 
   @@index([organizationId, status])
   @@index([brandId, status])
@@ -1207,8 +1220,6 @@ model MetaPage {
 }
 
 model InstagramAccount {
-  accountType          String?   @map("account_type")
-  origem               String    @default("facebook")
   id                   String    @id @default(cuid())
   organizationId       String?   @map("organization_id")
   businessAccountRefId String?   @map("business_account_ref_id")
@@ -1216,6 +1227,13 @@ model InstagramAccount {
   instagramAccountId   String    @unique @map("instagram_account_id")
   username             String
   name                 String?
+  /// BUSINESS | MEDIA_CREATOR, como o Instagram devolve. Só o login próprio
+  /// informa; pelo caminho do Facebook o campo não vem e fica nulo.
+  accountType          String?   @map("account_type")
+  /// Como a conta chegou: `facebook` (vinculada a uma Página) ou
+  /// `instagram_login` (o cliente autorizou direto, sem Página).
+  /// O padrão é `facebook` porque toda linha que existia antes veio por ali.
+  origem               String    @default("facebook")
   profilePictureUrl    String?   @map("profile_picture_url")
   followersCount       Int?      @map("followers_count")
   mediaCount           Int?      @map("media_count")
@@ -1230,10 +1248,10 @@ model InstagramAccount {
   page            MetaPage?            @relation(fields: [pageRefId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+  @@index([origem])
   @@index([businessAccountRefId])
   @@index([pageRefId])
   @@map("instagram_accounts")
-  @@index([origem])
   @@schema("operations")
 }
 
@@ -2229,6 +2247,31 @@ model PlatformCredential {
 
   @@index([categoria, status])
   @@map("platform_credentials")
+  @@schema("operations")
+}
+
+
+/// Mídia do projeto: imagem, PDF ou vídeo que sustenta o combinado.
+///
+/// Vive separado de `OrganizationBrandAsset` de propósito. Ativo de marca é
+/// identidade do cliente e tem versão e substituição; arquivo de projeto é
+/// prova do trabalho, e vários convivem sem um aposentar o outro.
+model ProjectFile {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  name       String
+  kind       String   @default("outro")
+  mimeType   String   @map("mime_type")
+  sizeBytes  Int      @map("size_bytes")
+  storageKey String   @map("storage_key")
+  notes      String?
+  uploadedBy String?  @map("uploaded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("project_files")
   @@schema("operations")
 }
 

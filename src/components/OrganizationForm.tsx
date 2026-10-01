@@ -4,6 +4,8 @@ import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { classifyCpfCnpj, normalizarDocumento } from "@/lib/cpf-cnpj";
 import type { CnpjLookupData } from "@/lib/cnpj-lookup";
+import type { FichaCadastral } from "@/lib/ficha-cadastral";
+import { nomeProprio } from "@/lib/format";
 import FichaDaReceita from "@/components/FichaDaReceita";
 import { SEGMENTOS_PADRAO, segmentoPeloCnae } from "@/lib/segmentos";
 
@@ -34,6 +36,32 @@ export function formatCpfCnpj(value: string): string {
   );
 }
 
+/**
+ * Campos da ficha que o cadastro rápido não pede, mas que a ficha completa do
+ * cliente guarda. Vindo de uma ficha em PDF, aparecem aqui para conferência e
+ * entram junto no cadastro, em vez de serem redigitados depois.
+ */
+const CAMPOS_EXTRAS_DA_FICHA: Array<{
+  nome: string;
+  rotulo: string;
+  campo: keyof FichaCadastral;
+  tipo?: string;
+}> = [
+  { nome: "stateRegistration", rotulo: "Inscrição estadual", campo: "inscricaoEstadual" },
+  { nome: "municipalRegistration", rotulo: "Inscrição municipal", campo: "inscricaoMunicipal" },
+  { nome: "ownerName", rotulo: "Responsável", campo: "responsavel" },
+  { nome: "phone", rotulo: "Telefone", campo: "telefone" },
+  { nome: "whatsapp", rotulo: "WhatsApp", campo: "whatsapp" },
+  { nome: "email", rotulo: "E-mail", campo: "email", tipo: "email" },
+  { nome: "postalCode", rotulo: "CEP", campo: "cep" },
+  { nome: "street", rotulo: "Logradouro", campo: "logradouro" },
+  { nome: "number", rotulo: "Número", campo: "numero" },
+  { nome: "complement", rotulo: "Complemento", campo: "complemento" },
+  { nome: "district", rotulo: "Bairro", campo: "bairro" },
+  { nome: "city", rotulo: "Cidade", campo: "cidade" },
+  { nome: "state", rotulo: "UF", campo: "uf" },
+];
+
 export default function OrganizationForm({
   segmentos = [...SEGMENTOS_PADRAO],
 }: {
@@ -59,6 +87,13 @@ export default function OrganizationForm({
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const legalNameInputRef = useRef<HTMLInputElement>(null);
+  const fichaInputRef = useRef<HTMLInputElement>(null);
+
+  const [ficha, setFicha] = useState<FichaCadastral | null>(null);
+  const [fichaVersao, setFichaVersao] = useState(0);
+  const [fichaLendo, setFichaLendo] = useState(false);
+  const [fichaAviso, setFichaAviso] = useState("");
+  const [fichaErro, setFichaErro] = useState("");
 
   const classified = classifyCpfCnpj(cpfCnpjInput);
 
@@ -79,10 +114,11 @@ export default function OrganizationForm({
       if (palpite) setSegmento((atual) => atual || palpite);
       if (data) {
         if (nameInputRef.current && !nameInputRef.current.value) {
-          nameInputRef.current.value = data.nome_fantasia || data.razao_social || "";
+          nameInputRef.current.value = nomeProprio(data.nome_fantasia || data.razao_social);
         }
         if (legalNameInputRef.current && data.razao_social) {
-          legalNameInputRef.current.value = data.razao_social;
+          // A Receita devolve tudo em caixa alta; o cadastro guarda como nome próprio.
+          legalNameInputRef.current.value = nomeProprio(data.razao_social);
         }
       }
     } catch (caught) {
@@ -91,6 +127,52 @@ export default function OrganizationForm({
       );
     } finally {
       setLookupLoading(false);
+    }
+  }
+
+  async function importarFicha(arquivo: File) {
+    setFichaLendo(true);
+    setFichaErro("");
+    setFichaAviso("");
+    try {
+      const corpo = new FormData();
+      corpo.append("arquivo", arquivo);
+      const response = await fetch("/api/fichas/ler", { method: "POST", body: corpo });
+      const result = (await response.json()) as {
+        ficha?: FichaCadastral;
+        campos?: string[];
+        error?: string;
+      };
+      if (!response.ok || !result.ficha) {
+        throw new Error(result.error ?? "Não foi possível ler a ficha.");
+      }
+      const lida = result.ficha;
+
+      // A ficha é a fonte que a pessoa acabou de escolher: os campos que ela
+      // traz substituem o que estava digitado, e os que ela não traz ficam.
+      const nome = lida.nomeFantasia || lida.razaoSocial;
+      if (nome && nameInputRef.current) nameInputRef.current.value = nome;
+      if (lida.razaoSocial && legalNameInputRef.current) {
+        legalNameInputRef.current.value = lida.razaoSocial;
+      }
+      if (lida.cpfCnpj) {
+        setCpfCnpjInput(formatCpfCnpj(lida.cpfCnpj));
+        setCnpjData(null);
+        setLookupError("");
+        // CNPJ da ficha passa pela Receita como o digitado: situação
+        // cadastral e razão social oficial chegam antes de salvar.
+        if (lida.cpfCnpj.length === 14) void runCnpjLookup(lida.cpfCnpj);
+      }
+      setFicha(lida);
+      setFichaVersao((versao) => versao + 1);
+      setFichaAviso(
+        `${result.campos?.length ?? 0} campos lidos de ${arquivo.name}. Confira antes de criar.`,
+      );
+    } catch (caught) {
+      setFichaErro(caught instanceof Error ? caught.message : "Não foi possível ler a ficha.");
+    } finally {
+      setFichaLendo(false);
+      if (fichaInputRef.current) fichaInputRef.current.value = "";
     }
   }
 
@@ -142,6 +224,11 @@ export default function OrganizationForm({
           domainAvailabilityStatus: form.get("domainAvailabilityStatus"),
           cpfCnpj: classified?.documento ?? "",
           cnpjData: classified?.kind === "CNPJ" ? cnpjData : null,
+          perfil: ficha
+            ? Object.fromEntries(
+                CAMPOS_EXTRAS_DA_FICHA.map(({ nome }) => [nome, form.get(nome) ?? ""]),
+              )
+            : null,
         }),
       });
       const result = (await response.json()) as {
@@ -156,6 +243,8 @@ export default function OrganizationForm({
       formEl.isConnected && formEl.reset();
       setCpfCnpjInput("");
       setCnpjData(null);
+      setFicha(null);
+      setFichaAviso("");
       setSegmento("");
       setNovoSegmento("");
       setHasCurrentSite("");
@@ -233,8 +322,30 @@ export default function OrganizationForm({
             <div>
               <h2>Entrada operacional do cliente</h2>
             </div>
-            <span className="status-chip">Dados mínimos</span>
+            <div className="form-title-acoes">
+              <span className="status-chip">Dados mínimos</span>
+              <button
+                className="row-action"
+                type="button"
+                onClick={() => fichaInputRef.current?.click()}
+                disabled={fichaLendo}
+              >
+                {fichaLendo ? "Lendo ficha…" : "Importar ficha PDF"}
+              </button>
+              <input
+                ref={fichaInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+                onChange={(event) => {
+                  const arquivo = event.target.files?.[0];
+                  if (arquivo) void importarFicha(arquivo);
+                }}
+              />
+            </div>
           </div>
+          {fichaAviso ? <p className="inline-feedback feedback-success">{fichaAviso}</p> : null}
+          {fichaErro ? <p className="inline-feedback feedback-error">{fichaErro}</p> : null}
 
           <div className="operations-form-grid">
             <label>
@@ -316,6 +427,23 @@ export default function OrganizationForm({
               </select>
             </label>
           </div>
+
+          {ficha ? (
+            <div className="conditional-form-block" key={fichaVersao}>
+              <div className="form-block-heading">
+                <span className="eyebrow">Da ficha cadastral</span>
+                <strong>Contato, inscrições e endereço</strong>
+              </div>
+              <div className="operations-form-grid">
+                {CAMPOS_EXTRAS_DA_FICHA.map(({ nome, rotulo, campo, tipo }) => (
+                  <label key={nome}>
+                    {rotulo}
+                    <input name={nome} type={tipo ?? "text"} defaultValue={ficha[campo] ?? ""} />
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {hasCurrentSite === "YES" ? (
             <div className="conditional-form-block">

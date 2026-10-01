@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import CabecalhoTela from "@/components/sistema/CabecalhoTela";
-import { contextoDaSecao } from "@/lib/navegacao";
 import AcoesAssinatura from "@/components/AcoesAssinatura";
-import VarreduraCobrancaButton from "@/components/VarreduraCobrancaButton";
+import { ACOES_DO_MODULO } from "@/components/financeiro/acoes";
+import Aviso from "@/components/financeiro/Aviso";
+import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
+import { FaixaIndicadores, Indicador } from "@/components/financeiro/Indicadores";
+import Painel from "@/components/financeiro/Painel";
+import EstadoVazio from "@/components/hub-social/EstadoVazio";
+import { Button } from "@/components/shadcn/button";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { contar, formatCurrency, formatDate } from "@/lib/format";
 import { linkDoPagamento } from "@/lib/mercadopago";
-import { montarPainel, WEBHOOK_ESPERADO, type Gravidade } from "@/lib/mercadopago-painel";
+import { montarPainel, WEBHOOK_ESPERADO, type LinhaAssinatura } from "@/lib/mercadopago-painel";
+import { contextoDaSecao } from "@/lib/navegacao";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +42,32 @@ const STATUS_PAGAMENTO: Record<string, string> = {
   charged_back: "Chargeback",
 };
 
-const classePorGravidade: Record<Gravidade, string> = {
-  erro: "mp-sinal mp-sinal-erro",
-  atencao: "mp-sinal mp-sinal-atencao",
-  ok: "mp-sinal mp-sinal-ok",
+const MEIO: Record<string, string> = {
+  credit_card: "Cartão de crédito",
+  debit_card: "Cartão de débito",
+  bank_transfer: "Pix ou transferência",
+  account_money: "Saldo Mercado Pago",
+  ticket: "Boleto",
 };
+
+const PLANO: Record<string, string> = { SITE: "Site", LOJA: "Loja", LOJA_PRO: "Loja Pro" };
+
+/**
+ * Nome humano da linha. A referência externa do Mercado Pago é o slug da loja
+ * quando a assinatura nasceu na plataforma, mas também pode ser
+ * `arxisvr:u-smoke-…:starter:monthly` ou `auto:YvBFX…`, que apareciam como
+ * título. Sem loja, o título é o motivo que a própria assinatura declara; a
+ * referência técnica vai para uma linha discreta, cortada, com o valor
+ * inteiro no `title` para conferir.
+ */
+function titulo(l: LinhaAssinatura) {
+  return l.loja?.nome ?? (l.mp?.motivo || "Assinatura sem loja");
+}
+
+function referencia(l: LinhaAssinatura) {
+  if (l.loja) return l.loja.slug;
+  return l.mp?.loja ?? null;
+}
 
 export default async function MercadoPagoPage() {
   const admin = await getAdmin();
@@ -52,211 +79,237 @@ export default async function MercadoPagoPage() {
   const comProblema = painel.linhas.filter((l) => l.divergencias.some((d) => d.gravidade === "erro"));
   const ativas = painel.linhas.filter((l) => l.mp?.status === "authorized").length;
   const aguardandoCartao = painel.linhas.filter((l) => l.mp?.status === "pending").length;
+  const recusados = painel.pagamentos.filter((p) => p.status === "rejected").length;
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
-      <CabecalhoTela
+      <CabecalhoFinanceiro
         titulo="Mercado Pago"
         descricao="A conta que cobra a mensalidade das lojas, comparada com o que a plataforma registra."
-        {...contextoDaSecao("mercadopago")}
-        acoes={
-          <>
-          <div className="page-header-actions">
-          <Link className="text-button" href="/financeiro/mercadopago/cobrar">
-          Cobrança avulsa
-          </Link>
-          <VarreduraCobrancaButton />
-          </div>
-          </>
-        }
+        voltar={contextoDaSecao("mercadopago").voltar}
+        acoes={[
+          { tipo: "link", rotulo: "Cobrança avulsa", href: "/financeiro/mercadopago/cobrar", icone: "cobranca" },
+          ...ACOES_DO_MODULO.filter((a) => a.tipo !== "sincronizar"),
+          { tipo: "varredura-cobranca" },
+        ]}
       />
 
-      {!painel.configurado && (
-        <section className="mp-alerta">
-          <h2>Mercado Pago não configurado</h2>
-          <p>
-            Falta <code>MP_ACCESS_TOKEN</code> no ambiente deste app. Sem ele nada nesta tela carrega -
-            a cobrança da mensalidade em si continua rodando pelo lojas.avilaops.com.
-          </p>
-        </section>
-      )}
+      {!painel.configurado ? (
+        <EstadoVazio
+          titulo="Mercado Pago não configurado"
+          descricao="Conecte a conta do Mercado Pago para consultar as cobranças. Não foi possível verificar a situação dos recebimentos."
+        />
+      ) : null}
 
-      {painel.falhas.length > 0 && (
-        <section className="mp-alerta" aria-label="Falhas de leitura">
-          <h2>Nem tudo carregou</h2>
-          <ul>
-            {painel.falhas.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-          <p>O resto da tela mostra o que deu para ler - não é a foto completa.</p>
-        </section>
-      )}
+      {painel.falhas.length > 0 && painel.configurado ? (
+        <div className="mb-4">
+          <Aviso gravidade="erro" titulo="Nem tudo carregou">
+            <ul className="m-0 mt-1 pl-4">
+              {painel.falhas.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+            <p className="m-0 mt-1">O resto da tela mostra o que deu para ler, não a foto completa.</p>
+          </Aviso>
+        </div>
+      ) : null}
 
-      {painel.configurado && (
+      {painel.configurado ? (
         <>
-          <section className="metric-grid" aria-label="Resumo da cobrança">
-            <article className="metric">
-              <span>Receita recorrente</span>
-              <strong>{formatCurrency(painel.receitaMensalCentavos / 100)}</strong>
-              <small>{ativas} assinatura(s) ativa(s)</small>
-            </article>
-            <article className="metric">
-              <span>Aguardando cartão</span>
-              <strong>{aguardandoCartao}</strong>
-              <small>criadas mas nunca autorizadas</small>
-            </article>
-            <article className="metric">
-              <span>Divergências</span>
-              <strong>{comProblema.length}</strong>
-              <small>plataforma e Mercado Pago discordando</small>
-            </article>
-            <article className="metric">
-              <span>Conta em uso</span>
-              <strong>{painel.conta?.apelido ?? "-"}</strong>
-              <small>{painel.conta ? `${painel.conta.email} · ${painel.conta.pais}` : "não identificada"}</small>
-            </article>
-          </section>
+          <FaixaIndicadores rotulo="Resumo da cobrança">
+            <Indicador
+              rotulo="Receita recorrente"
+              valor={formatCurrency(painel.receitaMensalCentavos / 100)}
+              detalhe={contar(ativas, "assinatura ativa", "assinaturas ativas")}
+            />
+            <Indicador
+              rotulo="Aguardando cartão"
+              valor={aguardandoCartao.toLocaleString("pt-BR")}
+              detalhe="Criadas e nunca autorizadas"
+              tom={aguardandoCartao > 0 ? "atencao" : "neutro"}
+            />
+            <Indicador
+              rotulo="Divergências"
+              valor={comProblema.length.toLocaleString("pt-BR")}
+              detalhe="Plataforma e Mercado Pago discordando"
+              tom={comProblema.length > 0 ? "saida" : "neutro"}
+            />
+            <Indicador
+              rotulo="Pagamentos recusados"
+              valor={recusados.toLocaleString("pt-BR")}
+              detalhe={`Entre os ${painel.pagamentos.length.toLocaleString("pt-BR")} mais recentes`}
+              tom={recusados > 0 ? "atencao" : "neutro"}
+            />
+          </FaixaIndicadores>
 
-          <section className="mp-painel" aria-label="Saúde da integração">
-            <h2>Notificações</h2>
-            {painel.saudeWebhook ? (
-              <div className={classePorGravidade[painel.saudeWebhook.gravidade]}>
-                <strong>{painel.saudeWebhook.titulo}</strong>
-                <p>{painel.saudeWebhook.detalhe}</p>
-              </div>
-            ) : (
-              <div className={classePorGravidade.ok}>
-                <strong>Webhook no lugar certo</strong>
-                <p>
-                  {painel.webhook?.aplicacao} está avisando <code>{WEBHOOK_ESPERADO}</code> e escuta{" "}
-                  {painel.webhook?.topicos.length} tópico(s). As faturas aparecem na hora.
+          <details className="mb-4"><summary className="cursor-pointer py-3 text-sm font-semibold">Detalhes da conta e das notificações</summary><Painel titulo="Conta e notificações">
+            <div className="grid gap-3 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+              {/* O apelido da conta é um identificador de 40 caracteres sem
+                  espaço: numa célula de indicador ele estourava a largura. Aqui
+                  ele quebra onde precisar. */}
+              <dl className="m-0 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[13px]">
+                <dt className="text-muted-foreground">Conta</dt>
+                <dd className="m-0 min-w-0 font-mono text-[12px] [overflow-wrap:anywhere] text-foreground">
+                  {painel.conta?.apelido ?? "Não identificada"}
+                </dd>
+                <dt className="text-muted-foreground">E-mail</dt>
+                <dd className="m-0 min-w-0 [overflow-wrap:anywhere] text-foreground">{painel.conta?.email ?? "Não informado"}</dd>
+                <dt className="text-muted-foreground">País</dt>
+                <dd className="m-0 text-foreground">{painel.conta?.pais === "MLB" ? "Brasil" : (painel.conta?.pais ?? "Não informado")}</dd>
+              </dl>
+              <div className="min-w-0">
+                {painel.saudeWebhook ? (
+                  <Aviso gravidade={painel.saudeWebhook.gravidade} titulo={painel.saudeWebhook.titulo}>
+                    {painel.saudeWebhook.detalhe}
+                  </Aviso>
+                ) : (
+                  <Aviso gravidade="ok" titulo="Webhook no lugar certo">
+                    {painel.webhook?.aplicacao} avisa <code className="[overflow-wrap:anywhere]">{WEBHOOK_ESPERADO}</code> e escuta{" "}
+                    {contar(painel.webhook?.topicos.length ?? 0, "tópico", "tópicos")}. As faturas aparecem na hora.
+                  </Aviso>
+                )}
+                <p className="m-0 mt-2 text-[12px] text-muted-foreground">
+                  A configuração de webhook não tem API: só o painel do Mercado Pago altera. Esta tela
+                  serve para descobrir que ela quebrou antes do cliente.
                 </p>
               </div>
-            )}
-            <p className="mp-nota">
-              A configuração de webhook não tem API: só o painel do Mercado Pago altera. Esta tela
-              serve para você descobrir que ela quebrou antes do cliente descobrir.
-            </p>
-          </section>
+            </div>
+          </Painel>
 
-          <section className="mp-painel" aria-label="Assinaturas">
-            <h2>Mensalidades</h2>
+          </details>
+          <Painel titulo="Mensalidades" descricao="Com problema primeiro.">
             {painel.linhas.length === 0 ? (
-              <p className="table-empty">Nenhuma assinatura e nenhuma loja ainda.</p>
+              <EstadoVazio compacto titulo="Nenhuma assinatura e nenhuma loja ainda." />
             ) : (
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Loja</th>
-                      <th>Plano</th>
-                      <th>Mercado Pago</th>
-                      <th>Plataforma</th>
-                      <th>Valor</th>
-                      <th>Próxima</th>
-                      <th>Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {painel.linhas.map((l, i) => {
-                      // Chave estável: id da assinatura, senão o slug da loja, senão a posição.
-                      const chave = l.mp?.id ?? l.loja?.slug ?? `linha-${i}`;
-                      const pior = l.divergencias.find((d) => d.gravidade === "erro") ?? l.divergencias[0];
-                      return (
-                        <tr key={chave} className={pior?.gravidade === "erro" ? "mp-linha-erro" : undefined}>
-                          <td>
-                            <strong>
-                              {l.mp ? (
-                                <Link href={`/financeiro/mercadopago/${l.mp.id}`}>{l.loja?.nome ?? l.mp.loja ?? "-"}</Link>
-                              ) : (
-                                (l.loja?.nome ?? "-")
-                              )}
-                            </strong>
-                            <small>{l.loja?.slug ?? l.mp?.pagador ?? ""}</small>
-                            {pior && (
-                              <p className={classePorGravidade[pior.gravidade]}>
-                                <strong>{pior.titulo}</strong> {pior.detalhe}
-                              </p>
-                            )}
-                          </td>
-                          <td>{l.loja?.plano ?? "-"}</td>
-                          <td>{l.mp ? (STATUS_ASSINATURA[l.mp.status] ?? l.mp.status) : "sem assinatura"}</td>
-                          <td>
-                            {l.loja ? (STATUS_LOJA[l.loja.status] ?? l.loja.status) : "sem loja"}
-                            {l.loja?.assinaturaStatus && <small>{l.loja.assinaturaStatus}</small>}
-                          </td>
-                          <td>{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "-"}</td>
-                          <td>{l.mp?.proximaCobranca ? formatShortDate(l.mp.proximaCobranca) : "-"}</td>
-                          <td>
-                            {l.loja?.assinaturaId ? (
-                              <AcoesAssinatura
-                                slug={l.loja.slug}
-                                nome={l.loja.nome}
-                                status={l.mp?.status ?? "pending"}
-                                valorCentavos={l.mp?.valorCentavos ?? 0}
-                              />
-                            ) : l.mp?.linkCadastroCartao ? (
-                              <a className="text-button" href={l.mp.linkCadastroCartao} target="_blank" rel="noopener">
-                                Link do cartão
-                              </a>
-                            ) : (
-                              <span className="mp-nota">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="m-0 list-none p-0">
+                {painel.linhas.map((l, i) => {
+                  const chave = l.mp?.id ?? l.loja?.slug ?? `linha-${i}`;
+                  const pior = l.divergencias.find((d) => d.gravidade === "erro") ?? l.divergencias[0];
+                  const ref = referencia(l);
+                  return (
+                    <li
+                      key={chave}
+                      className="grid min-w-0 gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0 min-[900px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]"
+                    >
+                      <div className="min-w-0">
+                        <strong className="block break-words text-[15px] font-semibold text-foreground">
+                          {l.mp ? (
+                            <Link href={`/financeiro/mercadopago/${l.mp.id}`} className="hover:underline">
+                              {titulo(l)}
+                            </Link>
+                          ) : (
+                            titulo(l)
+                          )}
+                        </strong>
+                        {ref ? (
+                          <details className="text-[12px] text-muted-foreground">
+                            <summary className="inline-flex min-h-11 cursor-pointer items-center underline">Ver referência</summary>
+                            <span className="block font-mono [overflow-wrap:anywhere]">{ref}</span>
+                          </details>
+                        ) : null}
+                        {pior ? (
+                          <div className="mt-2">
+                            <Aviso compacto gravidade={pior.gravidade} titulo={pior.titulo}>
+                              <span>{pior.detalhe}</span>
+                            </Aviso>
+                          </div>
+                        ) : null}
+                      </div>
+                      <dl className="m-0 grid min-w-0 grid-cols-2 content-start gap-x-3 gap-y-1 text-[13px]">
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Mercado Pago</dt>
+                          <dd className="m-0 text-foreground">{l.mp ? (STATUS_ASSINATURA[l.mp.status] ?? "Outro estado") : "Sem assinatura"}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Plataforma</dt>
+                          <dd className="m-0 text-foreground">
+                            {l.loja ? (STATUS_LOJA[l.loja.status] ?? "Outro estado") : "Sem loja"}
+                            {l.loja ? ` · ${PLANO[l.loja.plano] ?? l.loja.plano}` : ""}
+                          </dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Valor</dt>
+                          <dd className="m-0 text-foreground tabular-nums">{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "Sem valor"}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Próxima</dt>
+                          <dd className="m-0 text-foreground">{l.mp?.proximaCobranca ? formatDate(l.mp.proximaCobranca) : "Sem data"}</dd>
+                        </div>
+                      </dl>
+                      <div className="flex min-w-0 items-start justify-end max-[899px]:justify-start">
+                        {l.loja?.assinaturaId ? (
+                          <AcoesAssinatura
+                            slug={l.loja.slug}
+                            nome={l.loja.nome}
+                            status={l.mp?.status ?? "pending"}
+                            valorCentavos={l.mp?.valorCentavos ?? 0}
+                          />
+                        ) : l.mp?.linkCadastroCartao ? (
+                          <Button asChild variant="outline" size="sm" className="min-h-9">
+                            <a href={l.mp.linkCadastroCartao} target="_blank" rel="noopener">
+                              Link do cartão
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
-          </section>
+          </Painel>
 
-          <section className="mp-painel" aria-label="Pagamentos recebidos">
-            <h2>Últimos recebimentos</h2>
+          <Painel titulo="Últimos recebimentos">
             {painel.pagamentos.length === 0 ? (
-              <p className="table-empty">Nenhum pagamento nesta conta ainda.</p>
+              <EstadoVazio compacto titulo="Nenhum pagamento nesta conta ainda." />
             ) : (
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Data</th>
-                      <th>Descrição</th>
-                      <th>Pagador</th>
-                      <th>Meio</th>
-                      <th>Situação</th>
-                      <th>Bruto</th>
-                      <th>Líquido</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {painel.pagamentos.map((p) => (
-                      <tr key={p.id}>
-                        <td>{formatShortDate(p.data)}</td>
-                        <td>
-                          <a href={linkDoPagamento(p.id)} target="_blank" rel="noopener">
-                            {p.descricao ?? `#${p.id}`}
-                          </a>
-                        </td>
-                        <td>{p.email ?? "-"}</td>
-                        <td>{p.meio ?? "-"}</td>
-                        <td>
-                          {STATUS_PAGAMENTO[p.status] ?? p.status}
-                          {p.detalhe && p.status !== "approved" && <small>{p.detalhe}</small>}
-                        </td>
-                        <td>{formatCurrency(p.valorCentavos / 100)}</td>
-                        <td>{p.liquidoCentavos !== null ? formatCurrency(p.liquidoCentavos / 100) : "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="m-0 list-none p-0">
+                {painel.pagamentos.map((p) => {
+                  const recusado = p.status === "rejected" || p.status === "cancelled";
+                  return (
+                    <li
+                      key={p.id}
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5 border-b border-border py-3 last:border-b-0"
+                    >
+                      <a
+                        href={linkDoPagamento(p.id)}
+                        target="_blank"
+                        rel="noopener"
+                        className="line-clamp-2 min-w-0 text-[14px] font-medium text-foreground hover:underline"
+                        title={p.descricao ?? undefined}
+                      >
+                        {p.descricao ?? `Pagamento ${p.id}`}
+                      </a>
+                      <span
+                        className={cn(
+                          "text-right text-[14px] whitespace-nowrap tabular-nums",
+                          recusado ? "text-muted-foreground line-through" : "text-[color:var(--green)]",
+                        )}
+                      >
+                        {formatCurrency(p.valorCentavos / 100)}
+                      </span>
+                      <span className="min-w-0 truncate text-[12px] text-muted-foreground">
+                        {formatDate(p.data)} · {p.meio ? (MEIO[p.meio] ?? "Outro meio") : "Meio não informado"}
+                        {p.email ? ` · ${p.email}` : ""}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-right text-[12px] whitespace-nowrap",
+                          recusado ? "text-[color:var(--red)]" : "text-muted-foreground",
+                        )}
+                        title={p.detalhe ?? undefined}
+                      >
+                        {STATUS_PAGAMENTO[p.status] ?? "Outro estado"}
+                        {p.liquidoCentavos !== null && !recusado ? ` · líquido ${formatCurrency(p.liquidoCentavos / 100)}` : ""}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
-          </section>
+          </Painel>
         </>
-      )}
+      ) : null}
     </AppShell>
   );
 }

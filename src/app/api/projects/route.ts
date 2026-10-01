@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { ERRO_URL_DE_PROJETO, urlDeProjetoValida } from "@/lib/projects";
 
 const ALLOWED_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
@@ -18,6 +19,8 @@ export async function POST(request: NextRequest) {
     organizationId?: unknown;
     brandId?: unknown;
     title?: unknown;
+    description?: unknown;
+    url?: unknown;
     priority?: unknown;
     ownerName?: unknown;
     dueAt?: unknown;
@@ -26,6 +29,8 @@ export async function POST(request: NextRequest) {
   const organizationId = cleanText(body?.organizationId, 40);
   const brandId = cleanText(body?.brandId, 40);
   const title = cleanText(body?.title, 160);
+  const description = cleanText(body?.description, 4000);
+  const url = cleanText(body?.url, 500);
   const ownerName = cleanText(body?.ownerName, 100);
   const priorityInput = cleanText(body?.priority, 10).toUpperCase();
   const priority = ALLOWED_PRIORITIES.has(priorityInput) ? priorityInput : "MEDIUM";
@@ -39,6 +44,10 @@ export async function POST(request: NextRequest) {
       { error: "Informe um título com pelo menos 3 caracteres." },
       { status: 400 },
     );
+  }
+
+  if (!urlDeProjetoValida(url)) {
+    return NextResponse.json({ error: ERRO_URL_DE_PROJETO }, { status: 400 });
   }
 
   let dueAt: Date | null = null;
@@ -73,6 +82,8 @@ export async function POST(request: NextRequest) {
         organizationId,
         brandId: brandId || null,
         title,
+        description: description || null,
+        url: url || null,
         priority,
         ownerName: ownerName || null,
         dueAt,

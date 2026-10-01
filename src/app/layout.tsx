@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Toaster } from "@/components/shadcn/sonner";
 import { scriptInicial } from "@/lib/tema-noturno";
 import "./globals.css";
 
@@ -35,10 +36,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Ávila Ops",
+    title: "Avila Ops",
   },
   metadataBase: new URL(siteUrl),
-  title: "Ávila OS - operação digital",
+  title: "Avila Ops - operação digital",
   description,
   // `noindex` tira da busca, mas não tira o card do WhatsApp: o link da
   // plataforma é justamente o que a gente manda para o cliente entrar.
@@ -56,19 +57,19 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
   openGraph: {
-    title: "Ávila OS - operação digital",
+    title: "Avila Ops - operação digital",
     description,
     url: siteUrl,
-    siteName: "Ávila OS",
+    siteName: "Avila Ops",
     locale: "pt_BR",
     type: "website",
     images: [
-      { url: "/og-default.png", width: 1200, height: 630, alt: "Ávila OS" },
+      { url: "/og-default.png", width: 1200, height: 630, alt: "Avila Ops" },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ávila OS - operação digital",
+    title: "Avila Ops - operação digital",
     description,
     images: ["/og-default.png"],
   },
@@ -87,7 +88,12 @@ export default function RootLayout({
         */}
         <script dangerouslySetInnerHTML={{ __html: scriptInicial() }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Retorno de ação (sincronizar, conciliar, importar) sai aqui, por
+            cima, e some sozinho: dentro do layout ele desalinhava os botões. */}
+        <Toaster />
+      </body>
     </html>
   );
 }
