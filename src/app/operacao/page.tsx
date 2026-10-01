@@ -6,7 +6,7 @@ import { Grupo, IconeTile, LinhaInfo, LinhaLink } from "@/components/sistema/Lis
 import Status from "@/components/sistema/Status";
 import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
-import { formatCurrency, formatShortDate } from "@/lib/format";
+import { formatCurrency, formatShortDate, nomeProprio } from "@/lib/format";
 import { getOperationsDashboard } from "@/lib/operations";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function OperationsPage() {
     ...data.priorityTasks.map((task) => ({
       chave: `tarefa-${task.id}`,
       titulo: task.title,
-      descricao: `${task.organization.name}${task.project ? ` · ${task.project.title}` : ""}`,
+      descricao: `${nomeProprio(task.organization.name)}${task.project ? ` · ${task.project.title}` : ""}`,
       status: task.status,
       quando: prazo(task.dueAt),
       href: task.project ? `/projetos/${task.project.id}` : `/clientes/${task.organization.id}`,
@@ -51,7 +51,7 @@ export default async function OperationsPage() {
     ...data.upcomingDomains.map((domain) => ({
       chave: `dominio-${domain.id}`,
       titulo: domain.fqdn,
-      descricao: domain.organization.name,
+      descricao: nomeProprio(domain.organization.name),
       status: "renewal_due",
       quando: prazo(domain.expiresAt),
       href: `/clientes/${domain.organization.id}`,
@@ -152,7 +152,7 @@ export default async function OperationsPage() {
                 <LinhaLink
                   key={organization.id}
                   href={`/clientes/${organization.id}`}
-                  titulo={organization.name}
+                  titulo={nomeProprio(organization.name)}
                   descricao={`${organization.segment ?? "Segmento não definido"} · ${organization._count.projects} projetos · ${organization._count.domains} domínios`}
                   icone="clientes"
                   valor={<Status status={organization.status} />}

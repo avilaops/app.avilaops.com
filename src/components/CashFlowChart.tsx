@@ -16,7 +16,11 @@ export default function CashFlowChart({ points }: { points: ChartPoint[] }) {
     );
   }
 
-  const width = 720;
+  // Proporção 4:1. O painel passou a ocupar a largura inteira quando o quadro
+  // de contagens saiu do lado dele, e a 3:1 o gráfico esticava para 370px de
+  // altura num desktop de 1440 — cinco pontos ocupando meia tela. A conta é a
+  // mesma; só a moldura ficou mais larga.
+  const width = 960;
   const height = 240;
   const left = 48;
   const right = 18;

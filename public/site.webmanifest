@@ -21,7 +21,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#2563eb",
+  "theme_color": "#0054fe",
   "background_color": "#0a0a0a",
   "display": "standalone",
   "start_url": "/operacao"

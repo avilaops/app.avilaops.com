@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import JobPostingEditor from "@/components/JobPostingEditor";
 import { getAdmin } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
@@ -39,27 +39,26 @@ export default async function JobPostingDetailPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="jobs">
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">
-            <Link href="/vagas" className="text-link">
-              Recrutamento
-            </Link>{" "}
-            · {posting.ref}
+      <CabecalhoTela
+        titulo={posting.title}
+        descricao={[
+          posting.ref,
+          posting.area,
+          posting.locationType,
+          posting.contract,
+          posting.publishedAt ? `no ar desde ${formatDateTime(posting.publishedAt)}` : "nunca publicada",
+          isExpired(posting) ? "prazo de inscrição vencido" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        voltar={{ href: "/vagas", rotulo: "Voltar para Vagas" }}
+        icone="vagas"
+        acoes={
+          <span className={`status-pill ${statusPillClass[posting.status] ?? ""}`}>
+            {STATUS_LABELS[posting.status] ?? posting.status}
           </span>
-          <h1>{posting.title}</h1>
-          <p>
-            {posting.area} · {posting.locationType} · {posting.contract}
-            {posting.publishedAt
-              ? ` · no ar desde ${formatDateTime(posting.publishedAt)}`
-              : " · nunca publicada"}
-            {isExpired(posting) ? " · prazo de inscrição vencido" : ""}
-          </p>
-        </div>
-        <span className={`status-pill ${statusPillClass[posting.status] ?? ""}`}>
-          {STATUS_LABELS[posting.status] ?? posting.status}
-        </span>
-      </header>
+        }
+      />
 
       {estagios.length > 0 ? (
         <section className="client-summary-strip">
