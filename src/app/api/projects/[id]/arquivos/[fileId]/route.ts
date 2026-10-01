@@ -8,6 +8,17 @@ import {
   readLocalOrganizationBrandAsset,
 } from "@/lib/brand-asset-storage";
 
+/**
+ * Cabeçalho HTTP não carrega caractere fora do Latin-1: um nome como
+ * "proposta — v2.pdf" (travessão) derrubava a resposta com TypeError, e acento
+ * chegava embaralhado. O nome real vai em `filename*` (RFC 5987) e uma versão
+ * ASCII fica de reserva no `filename`.
+ */
+function dispositionInline(nome: string) {
+  const ascii = nome.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "");
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nome)}`;
+}
+
 /** Serve o arquivo do projeto. Mesmo caminho dos ativos de marca. */
 export async function GET(
   _request: Request,
@@ -34,8 +45,17 @@ export async function GET(
     return new Response(Readable.toWeb(local) as ReadableStream, {
       headers: {
         "Content-Type": arquivo.mimeType || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${arquivo.name.replace(/"/g, "")}"`,
+        "Content-Disposition": dispositionInline(arquivo.name),
         "Cache-Control": "private, max-age=60",
+        // `nosniff`: o navegador não reinterpreta o tipo declarado.
+        "X-Content-Type-Options": "nosniff",
+        // O arquivo vem de fora (cliente, fornecedor) e é servido na origem do
+        // painel: um SVG aberto direto com <script> rodaria com a sessão de
+        // quem abrisse. `sandbox` só no SVG, porque no PDF ele bloqueia o
+        // visualizador do Chrome.
+        ...(arquivo.mimeType === "image/svg+xml"
+          ? { "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" }
+          : {}),
       },
     });
   }
