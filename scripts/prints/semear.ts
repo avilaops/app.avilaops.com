@@ -65,6 +65,24 @@ async function main() {
   }
   const [aurora, horizonte, vale] = organizacoes;
 
+  // O vínculo loja → cliente que a área /lojas cruza com a plataforma. Três
+  // das cinco lojas fingidas ficam vinculadas; as outras duas continuam órfãs
+  // de propósito, porque "loja que ninguém reivindica" é justamente o estado
+  // que só essa tela revela — e print que não o mostra não o prova.
+  for (const org of [aurora, horizonte, vale]) {
+    await prisma.organizationIntegration.upsert({
+      where: { organizationId_provider: { organizationId: org.id, provider: "lojas_avilaops" } },
+      update: { publicId: org.slug, accountName: org.name, status: "ACTIVE" },
+      create: {
+        organizationId: org.id,
+        provider: "lojas_avilaops",
+        publicId: org.slug,
+        accountName: org.name,
+        status: "ACTIVE",
+      },
+    });
+  }
+
   const dominios = [
     { org: aurora, fqdn: "padariaaurora.example", status: "active", plano: "Free Website", sync: 12, dns: 9, expira: 40 },
     { org: aurora, fqdn: "aurorapaes.example", status: "active", plano: "Free Website", sync: 12, dns: 4, expira: 300 },
@@ -213,6 +231,65 @@ async function main() {
       update: {},
       create: { organizationId: horizonte.id, formRefId: formulario.id, pageRefId: pagina.id, adAccountRefId: conta.id, leadgenId: `exemplo-lead-${i}`, createdTime: haMin(30 + i * 200), processingStatus: s, fieldData: [{ name: "full_name", values: ["Pessoa Exemplo"] }, { name: "phone_number", values: ["+55 11 90000-0000"] }] },
     });
+  }
+
+  // Movimentações bancárias: sem elas a tela do Financeiro aparece vazia nos
+  // prints e na conferência de densidade, que é justamente onde o cartão de
+  // movimentação precisa ser medido.
+  if ((await prisma.bankTransaction.count()) === 0) {
+    // `efi-production` é a conta padrão que o painel escolhe (DEFAULT_ACCOUNT_ID
+    // em src/lib/dashboard.ts). Pendurar as movimentações em outra conta faria
+    // a tela continuar vazia.
+    const conta = await prisma.bankAccount.upsert({
+      where: { id: "efi-production" },
+      update: {},
+      create: {
+        id: "efi-production",
+        provider: "efi",
+        externalId: "exemplo-0001",
+        displayName: "Conta exemplo",
+        environment: "producao",
+      },
+    });
+    // Saldo: sem um instantâneo, o cartão do topo do Financeiro sai como "-"
+    // e o print não mostra o número mais olhado da tela.
+    await prisma.balanceSnapshot.create({
+      data: { accountId: conta.id, availableBalance: "350.50", capturedAt: haMin(20) },
+    });
+
+    // `e2e` no Pix recebido sem pagador: é a única movimentação que abre a
+    // folha "Conciliar pelo comprovante". Sem ele, o caminho principal da
+    // conciliação não aparece em print nenhum — e foi assim que a folha ficou
+    // com dois formulários empilhados sem ninguém ver.
+    const movimentos = [
+      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO", e2e: "E12345678202609182137ABCDEFGHIJK" },
+      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL", e2e: null },
+      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL", e2e: null },
+      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA", e2e: null },
+      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA", e2e: null },
+    ];
+    // Estado da conciliação: sem estas linhas a fila de pendências fica em
+    // zero no print e a faixa "movimentações precisam de decisão" não aparece
+    // — que é justamente o caminho que o Financeiro existe para resolver.
+    const conciliacoes = ["PENDING", "PENDING", "MATCHED", "PENDING", "REVIEW"];
+    for (const [i, m] of movimentos.entries()) {
+      await prisma.bankTransaction.create({
+        data: {
+          accountId: conta.id,
+          externalId: `exemplo-mov-${i}`,
+          direction: m.d,
+          transactionType: m.t,
+          amount: m.v,
+          description: m.desc,
+          counterpartyName: m.quem,
+          endToEndId: m.e2e,
+          occurredAt: haDias(i),
+          rawHash: `exemplo-mov-${i}`,
+          scope: m.escopo,
+          reconciliation: { create: { status: conciliacoes[i] } },
+        },
+      });
+    }
   }
 
   if ((await prisma.studioPiece.count()) === 0) {

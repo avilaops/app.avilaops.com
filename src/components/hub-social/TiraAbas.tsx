@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 /**
- * Casca rolante das abas. As sete abas não cabem na largura do iPhone, então a
+ * Casca rolante das abas. Elas não cabem na largura do iPhone, então a
  * tira rola na horizontal — e quem abre /hub-social/estudio nascia com a tira
  * no começo, com a aba ativa fora da tela. Aqui ela entra em quadro no primeiro
  * render, mexendo só no scroll da própria tira (nunca no da página).

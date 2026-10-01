@@ -50,10 +50,11 @@ describe("mapa de navegação", () => {
     }
   });
 
-  // Grupo comprido obriga a rolar a coluna do desktop e a folha "Mais".
-  it("nenhum grupo passa de sete itens", () => {
+  // Grupo comprido obriga a rolar a coluna do desktop e a folha "Mais". O teto
+  // era sete até 18/09/2026; subiu para oito com o canal de Ícones no Hub Social.
+  it("nenhum grupo passa de oito itens", () => {
     for (const grupo of navegacao) {
-      expect(grupo.items.length).toBeLessThanOrEqual(7);
+      expect(grupo.items.length).toBeLessThanOrEqual(8);
     }
   });
 

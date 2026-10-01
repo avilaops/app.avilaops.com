@@ -12,14 +12,26 @@ import {
   evidenciaConexao,
   MensagemErro,
   MensagemStatus,
-  rotuloSeo,
+  rotuloIntegracao,
   tomNota,
-  type ConexaoSeo,
-} from "@/components/seo/comum";
+  type Conexao,
+} from "@/components/hub-social/comum";
+import { relatoDaEntrega } from "@/lib/entrega/relato";
 import type { DomainSeoAuditResult } from "@/lib/seo-audit";
 import type { PageSpeedAuditResult } from "@/lib/pagespeed";
 
-type Connection = ConexaoSeo;
+type Connection = Conexao;
+
+/**
+ * O `metadata` da conexão é JSON vindo do banco: nada garante que tenha os
+ * campos de uma auditoria completa. Enquanto era lido como
+ * `DomainSeoAuditResult` inteiro, `seoData?.robots?.ok` estourava a tela toda
+ * ("Não foi possível carregar esta tela") em qualquer linha gravada por uma
+ * versão antiga ou por uma coleta que falhou no meio. Com tudo opcional, o
+ * TypeScript passa a exigir o `?.` e o defeito não volta pela porta dos fundos.
+ */
+type Parcial<T> = { [K in keyof T]?: T[K] extends object ? Parcial<T[K]> : T[K] };
+type AuditoriaGravada = Parcial<DomainSeoAuditResult>;
 
 export default function SeoAuditPanel({
   fqdn,
@@ -37,8 +49,8 @@ export default function SeoAuditPanel({
   // Só decide a apresentação da mensagem (status ou alerta); a lógica é a mesma.
   const [falhou, setFalhou] = useState(false);
 
-  const seoData = seoConnection?.metadata as DomainSeoAuditResult | undefined;
-  const psiData = lighthouseConnection?.metadata as PageSpeedAuditResult | undefined;
+  const seoData = seoConnection?.metadata as AuditoriaGravada | undefined;
+  const psiData = lighthouseConnection?.metadata as Parcial<PageSpeedAuditResult> | undefined;
 
   async function runAudit(targetFqdn?: string) {
     setStatus("running");
@@ -94,6 +106,16 @@ export default function SeoAuditPanel({
     }
   }
 
+  /**
+   * Publica robots.txt, sitemap.xml e llms.txt no site do cliente, pela borda.
+   *
+   * Até 19/09/2026 este botão dizia "aplicar" e só gravava o texto gerado numa
+   * linha de `integrationConnection`: o site seguia sem os arquivos e a
+   * auditoria seguinte reprovava os mesmos itens. Agora a rota publica de
+   * verdade, e a frase vem de `relatoDaEntrega` — a mesma que o painel OSB e o
+   * Digital Advisor mostram, para nenhuma das três dizer "sucesso" por conta
+   * própria.
+   */
   async function runAutoFix() {
     setStatus("running");
     setMessage("");
@@ -108,13 +130,17 @@ export default function SeoAuditPanel({
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Falha ao aplicar Auto-Fix SEO.");
+        throw new Error(data.error || "Falha ao publicar os arquivos.");
       }
 
-      setMessage(`Correções seguras aplicadas em ${fqdn}. Executando uma nova auditoria.`);
-      await runAudit(fqdn);
+      const relato = relatoDaEntrega(data.result.entrega);
+      setFalhou(!relato.ok);
+      setMessage(relato.texto);
+
+      if (relato.ok) await runAudit(fqdn);
+      else setStatus("idle");
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Falha no Auto-Fix SEO.");
+      setMessage(err instanceof Error ? err.message : "Falha ao publicar os arquivos.");
       setFalhou(true);
       setStatus("idle");
     }
@@ -138,30 +164,38 @@ export default function SeoAuditPanel({
       rotulo: "robots.txt",
       valor: (
         <>
-          {verificacao(seoData?.robots.ok, "Aprovado", "Ausente ou com erro")}
-          {seoData?.robots.hasSitemap ? <span className="text-[13px] text-muted-foreground">Sitemap OK</span> : null}
+          {verificacao(seoData?.robots?.ok, "Aprovado", "Ausente ou com erro")}
+          {seoData?.robots?.hasSitemap ? <span className="text-[13px] text-muted-foreground">Sitemap OK</span> : null}
         </>
       ),
     },
     {
       rotulo: "sitemap.xml",
-      valor: seoData?.sitemap.ok
-        ? verificacao(true, `Aprovado (${seoData.sitemap.urlCount} URLs)`, "Ausente")
+      valor: seoData?.sitemap?.ok
+        ? verificacao(
+            true,
+            // Sitemap aprovado sem contagem existe: a auditoria antiga não
+            // gravava `urlCount`. Melhor o rótulo simples do que "undefined URLs".
+            typeof seoData.sitemap.urlCount === "number"
+              ? `Aprovado (${seoData.sitemap.urlCount} URLs)`
+              : "Aprovado",
+            "Ausente",
+          )
         : verificacao(false, "Aprovado", "Ausente"),
     },
-    { rotulo: "llms.txt", valor: verificacao(seoData?.llms.ok, "Aprovado", "Ausente") },
-    { rotulo: "Favicon", valor: verificacao(seoData?.favicon.ok, "Aprovado", "Faltando") },
-    { rotulo: "Manifest.json", valor: verificacao(seoData?.manifest.ok, "Aprovado", "Ausente") },
-    { rotulo: "URL canônica", valor: verificacao(seoData?.homeHtml.hasCanonical, "Aprovada", "Faltando") },
+    { rotulo: "llms.txt", valor: verificacao(seoData?.llms?.ok, "Aprovado", "Ausente") },
+    { rotulo: "Favicon", valor: verificacao(seoData?.favicon?.ok, "Aprovado", "Faltando") },
+    { rotulo: "Manifest.json", valor: verificacao(seoData?.manifest?.ok, "Aprovado", "Ausente") },
+    { rotulo: "URL canônica", valor: verificacao(seoData?.homeHtml?.hasCanonical, "Aprovada", "Faltando") },
     {
       rotulo: "Open Graph",
       valor: verificacao(
-        Boolean(seoData?.homeHtml.hasOgTitle && seoData?.homeHtml.hasOgDescription),
+        Boolean(seoData?.homeHtml?.hasOgTitle && seoData?.homeHtml?.hasOgDescription),
         "Aprovado",
         "Incompleto",
       ),
     },
-    { rotulo: "Schema.org / JSON-LD", valor: verificacao(seoData?.homeHtml.hasJsonLd, "Detectado", "Ausente") },
+    { rotulo: "Schema.org / JSON-LD", valor: verificacao(seoData?.homeHtml?.hasJsonLd, "Detectado", "Ausente") },
   ];
 
   const ocupado = status === "running";
@@ -172,7 +206,7 @@ export default function SeoAuditPanel({
         <CardTitle className="text-[17px] min-[821px]:text-[15px]">Auditoria de {fqdn}</CardTitle>
         <CardDescription>Verifica indexação, metadados e experiência de carregamento.</CardDescription>
         <CardAction>
-          <BadgeStatus {...rotuloSeo(seoConnection?.status, "Sem auditoria")} />
+          <BadgeStatus {...rotuloIntegracao(seoConnection?.status, "Sem auditoria")} />
         </CardAction>
       </CardHeader>
 
@@ -186,7 +220,7 @@ export default function SeoAuditPanel({
             variant="outline"
             onClick={runAutoFix}
             disabled={ocupado}
-            title="Aplica somente correções automáticas já autorizadas e executa uma nova auditoria"
+            title="Publica robots.txt, sitemap.xml e llms.txt no domínio e confere se entraram no ar"
             className={BOTAO}
           >
             Aplicar correções seguras

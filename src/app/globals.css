@@ -421,6 +421,9 @@ a {
   display: inline-flex;
   min-height: 30px;
   align-items: center;
+  /* Controle não herda a tipografia da célula que o abriga: dentro de
+     `.metrica-valor`, que é mono, o botão saía monoespaçado. */
+  font-family: var(--fonte);
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -635,6 +638,64 @@ a {
   margin-top: 10px;
 }
 
+/* O gráfico do Financeiro ocupa a largura toda desde que o painel de
+   contagens saiu daqui (os números foram para os chips de filtro). */
+.chart-section {
+  display: block;
+  margin-top: 10px;
+}
+
+/* Estado e escopo, um sob o outro, como duas fileiras de chips do mesmo
+   bloco: é um filtro só, aplicado à mesma lista. */
+.filter-rows {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+
+/* Explicação que abre a um toque. Texto de regra (o que é escopo, por que o
+   identificador do Pix é conferido) é leitura de uma vez só: aberto por
+   padrão, ele empurrava para fora da tela justamente o campo que resolve a
+   tarefa. O mesmo bloco serve a folha e a página — é um `<details>`, então
+   quem usa teclado ou leitor de tela ganha o comportamento pronto. */
+.explicacao {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.explicacao > summary {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.explicacao > summary::-webkit-details-marker {
+  display: none;
+}
+
+.explicacao > summary::before {
+  margin-right: 6px;
+  content: "?";
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+  font-size: 0.6875rem;
+}
+
+.explicacao > p {
+  max-width: 62ch;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
 .section-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -672,21 +733,30 @@ a {
 }
 
 .range-switch a,
-.filter-tabs a {
+/* `button` junto de `a` porque nem todo filtro navega: a carteira de
+   domínios troca o recorte no cliente, e um chip sem estilo da casa nasceria
+   com outro tamanho e outro alvo de toque. */
+.filter-tabs a,
+.filter-tabs button {
   padding: 5px 10px;
+  border: 0;
+  background: transparent;
   border-radius: 999px;
   color: var(--muted);
   font-size: 0.8125rem;
+  cursor: pointer;
 }
 
 .range-switch a:hover,
-.filter-tabs a:hover {
+.filter-tabs a:hover,
+.filter-tabs button:hover {
   background: var(--hover-bg);
   color: var(--text);
 }
 
 .range-switch a.active,
-.filter-tabs a.active {
+.filter-tabs a.active,
+.filter-tabs button.active {
   background: var(--active-bg);
   color: var(--text);
   font-weight: 600;
@@ -1619,6 +1689,10 @@ tbody tr:last-child td {
   font-weight: 600;
 }
 
+.client-summary-strip i {
+  font-style: normal;
+}
+
 /* Lista agrupada, no padrão de Ajustes do iOS: um cartão só, uma linha por
    número. Eram seis cartões de 16px de padding com o valor em 1.5rem - para
    seis números quase todos zerados, isso ocupava a tela inteira antes do que
@@ -2098,6 +2172,43 @@ tbody tr:last-child td {
   border-color: var(--blue);
 }
 
+/* Campo que ocupa as duas colunas da grade. Descrição, URL e mídia precisam da
+   largura inteira: texto longo numa coluna estreita vira uma tira ilegível. */
+.organization-form .campo-largo {
+  grid-column: 1 / -1;
+}
+
+.organization-form textarea {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  outline: 0;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.organization-form textarea:focus {
+  border-color: var(--blue);
+}
+
+.organization-form input[type="file"] {
+  min-height: auto;
+  padding: 9px 11px;
+  font-size: 0.8125rem;
+}
+
+.organization-form .campo-largo small {
+  color: var(--table-text);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
 .organization-form-actions {
   display: flex;
   align-items: center;
@@ -2364,6 +2475,12 @@ tbody tr:last-child td {
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
+}
+
+/* O seletor de seção substitui as abas só no celular (regra na faixa de
+   820px). Sem este padrão ele aparecia cru no desktop, ao lado das abas. */
+.seletor-secao {
+  display: none;
 }
 
 .dossier-tabs button {
@@ -2814,10 +2931,32 @@ tbody tr:last-child td {
     overflow-y: auto;
   }
 
+  /* Quatro números viravam quatro linhas empilhadas: 350px de altura antes do
+     primeiro cliente, para quatro valores de um dígito. Viram quatro colunas
+     — rótulo pequeno em cima, número embaixo — em uma linha só. */
   .client-summary-strip {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 6px;
+  }
+
+  .client-summary-strip > span {
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    text-align: center;
+  }
+
+  .client-summary-strip i {
+    color: var(--subtle-text);
+    font-size: 0.6875rem;
+  }
+
+  .client-summary-strip strong {
+    font-family: var(--mono);
+    font-size: 1.0625rem;
   }
 
   .report-hero dl {
@@ -3970,6 +4109,23 @@ tbody tr:last-child td {
   line-height: 1.5;
 }
 
+/* Procedência da contraparte: o nome que veio do comprovante não é o mesmo
+   tipo de dado que o nome que veio do extrato, e a tela precisa dizer qual é
+   qual sem obrigar a abrir a linha. */
+.party-origem {
+  margin-left: 6px;
+  color: var(--subtle-text);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reference-comprovante {
+  border-bottom: 1px dotted currentcolor;
+  cursor: help;
+  text-decoration: none;
+}
+
 .account-switch {
   display: flex;
   flex-wrap: wrap;
@@ -4245,6 +4401,17 @@ tbody tr:last-child td {
 .sheet {
   display: flex;
   width: 100%;
+  /* A folha nasce dentro da célula que abriu (a coluna de ações alinha à
+     direita) e herdava esse alinhamento: rótulo e texto de apoio saíam
+     encostados na borda errada. Diálogo não herda alinhamento de tabela.
+     Pelo mesmo motivo não herda tipografia: aberta de dentro de um número
+     (`.metrica-valor` é mono), a folha inteira saía monoespaçada — nome de
+     cliente, campo de busca e botão. Ela é uma superfície própria, e começa
+     do texto da casa. */
+  text-align: left;
+  font-family: var(--fonte);
+  font-size: 0.875rem;
+  font-weight: 400;
   max-height: calc(100vh - 40px - env(safe-area-inset-top));
   flex-direction: column;
   border-radius: 20px 20px 0 0;
@@ -4498,6 +4665,36 @@ tbody tr:last-child td {
   display: grid;
   gap: 16px;
   padding-top: 4px;
+}
+
+/* `display: grid` de classe vence o `[hidden]` da folha de estilo do
+   navegador: sem esta linha, um formulário marcado como escondido continuaria
+   na tela. */
+.form-stack[hidden] {
+  display: none;
+}
+
+/* Escolha do caminho no topo da folha: "Pelo comprovante" ou "À mão". */
+.folha-caminhos {
+  padding: 8px 0 4px;
+}
+
+/* A superfície própria que o bloco do comprovante tinha existia para separá-lo
+   da revisão manual logo abaixo. Com um caminho por vez, a moldura só somava
+   borda dentro de borda. */
+.comprovante-bloco {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+
+
+/* Só o identificador em monoespaçada: é o campo que se compara caractere a
+   caractere com o comprovante. Nome de empresa em mono fica ilegível. */
+.campo-identificador input {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
 }
 
 .field {
@@ -4851,9 +5048,9 @@ tbody tr:last-child td {
 /* Client workspace: one task-oriented section at a time. */
 .client-workspace-header{display:flex;align-items:flex-start;gap:24px;margin-bottom:20px}.client-workspace-header h1{margin:3px 0 5px;font-size:clamp(2rem,4vw,3.25rem);letter-spacing:-.045em}.client-workspace-header p{margin:0;color:var(--muted)}.client-workspace-nav{margin-bottom:24px}.client-workspace-nav>label{display:none}.client-workspace-nav>div{display:flex;width:max-content;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.client-workspace-nav a{display:flex;min-height:40px;padding:0 18px;align-items:center;border-radius:8px;color:var(--muted);font-weight:650;text-decoration:none}.client-workspace-nav a[aria-current=page]{color:var(--text);background:var(--surface-raised);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .client-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}.client-summary-lead{grid-column:1/-1;padding:28px;border:1px solid var(--blue-line);border-radius:16px;background:var(--blue-soft)}.client-summary-lead h2{margin:6px 0;font-size:1.5rem}.client-summary-lead p{margin:0 0 14px;color:var(--muted)}.client-summary-lead a,.client-summary-section a{color:var(--link-soft);font-weight:650;text-decoration:none}.client-summary-section{min-height:190px;padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.client-summary-section h2{margin:0;font-size:1.05rem}.client-summary-section dl{display:grid;gap:12px;margin:0}.client-summary-section dl>div{display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line-soft);padding-top:12px}.client-summary-section dt{color:var(--muted)}.client-summary-section dd{margin:0;text-align:right}.client-summary-number{display:block;margin-top:18px;font-size:2.4rem;letter-spacing:-.05em}.client-summary-section p{margin:3px 0 12px}.client-summary-section small{color:var(--muted)}
-.client-brands-panel{grid-column:1/-1}.client-brands-panel .seo-section-heading{align-items:flex-start}.client-brands-panel .client-summary-number{margin:0}.client-brands-list{display:grid;gap:8px;margin:16px 0}.client-brand-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line-soft)}.client-brand-row strong,.client-brand-row small{display:block}.client-brand-row small{margin-top:3px;color:var(--muted)}.client-brand-form{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:12px;padding-top:14px;border-top:1px solid var(--line-soft)}.client-brand-form .primary-button{min-height:44px;white-space:nowrap}
+.client-brands-panel{grid-column:1/-1}
 .client-finance-only .prov-grid{align-items:start}.client-finance-only .prov-card{align-self:start}
-@media(max-width:760px) {.client-workspace-header{display:block}.client-workspace-header h1{font-size:2rem}.client-workspace-nav>div{display:none}.client-workspace-nav>label{display:grid;gap:7px;color:var(--muted);font-size:.76rem}.client-workspace-nav select{min-height:48px;padding:0 14px;border:1px solid var(--editor-border);border-radius:11px;background:var(--surface);color:var(--text);font:inherit;font-weight:650}.client-summary-grid{grid-template-columns:1fr}.client-summary-lead{padding:20px}.client-summary-section{min-height:0;padding:18px}.client-summary-section dl>div{display:grid;gap:4px}.client-summary-section dd{text-align:left}}
+@media(max-width:760px) {.client-workspace-header{display:block}.client-workspace-header h1{font-size:2rem}.client-workspace-nav>div{display:none}.client-workspace-nav>label{display:grid;gap:5px;color:var(--muted);font-size:.875rem}.client-workspace-nav select{min-height:48px;padding:0 14px;border:1px solid var(--editor-border);border-radius:11px;background:var(--surface);color:var(--text);font:inherit;font-size:1rem;font-weight:650}.client-summary-grid{grid-template-columns:1fr}.client-summary-lead{padding:20px}.client-summary-section{min-height:0;padding:18px}.client-summary-section dl>div{display:grid;gap:4px}.client-summary-section dd{text-align:left}}
 
 .lg-head,
 .lg-row {
@@ -5200,7 +5397,8 @@ tbody tr:last-child td {
 
   .main-canvas {
     width: 100%;
-    padding: 16px 16px calc(var(--tab-bar-h) + env(safe-area-inset-bottom) + 28px);
+    padding: 14px var(--cel-pad-pagina)
+      calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
   }
 
   /* Título grande, como a navigation bar do iOS antes de rolar. */
@@ -5273,17 +5471,19 @@ tbody tr:last-child td {
     font-weight: 600;
   }
 
-  /* Alvos de toque: 50px para ação principal, 44px para o resto. */
+  /* Alvos de toque: 46px cobre com folga o mínimo de 44px da Apple. 50px com
+     fonte de 16px fazia três botões empilhados ocuparem meia tela. */
   .primary-button,
   .secondary-button {
-    min-height: 50px;
-    padding: 0 18px;
+    min-height: 46px;
+    padding: 0 16px;
     border-radius: 12px;
-    font-size: 1rem;
+    font-size: 0.9375rem;
   }
 
+  /* Ação de linha continua sendo alvo de toque: 44px é o piso da Apple. */
   .row-action {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 14px;
     border-radius: 10px;
     font-size: 0.9375rem;
@@ -5311,14 +5511,17 @@ tbody tr:last-child td {
     min-width: 0;
   }
 
+  /* Só a ação principal (a sincronização, que é a última do HTML) ocupa a
+     faixa inteira. A conciliação automática dividia outra faixa só para ela:
+     três faixas de botão antes do primeiro número da tela. */
   .page-header-actions .sync-control {
-    grid-column: 1 / -1;
     order: -1;
     width: 100%;
     justify-items: stretch;
   }
 
   .page-header-actions .sync-control:last-child {
+    grid-column: 1 / -1;
     order: -2;
   }
 
@@ -5335,11 +5538,19 @@ tbody tr:last-child td {
     min-height: 56px;
   }
 
+  .field {
+    gap: 5px;
+  }
+
   .field input,
   .field select,
   .field textarea {
-    min-height: 48px;
+    min-height: var(--cel-controle);
     border-radius: 12px;
+  }
+
+  .field textarea {
+    min-height: 72px;
   }
 
   .field-select .chevron {
@@ -5504,10 +5715,12 @@ tbody tr:last-child td {
   }
 
   .filter-tabs a,
-  .range-switch a {
+  .filter-tabs button,
+  .range-switch a,
+  .account-switch a {
     display: inline-flex;
     flex: 0 0 auto;
-    min-height: 36px;
+    min-height: 44px;
     align-items: center;
     padding: 0 14px;
     font-size: 0.875rem;
@@ -5527,15 +5740,18 @@ tbody tr:last-child td {
   }
 
   .scope-select {
-    min-height: 36px;
+    min-height: 44px;
     padding: 0 10px;
-    border-radius: 8px;
-    font-size: 0.875rem;
+    border-radius: 10px;
+    font-size: 1rem;
   }
 
-  /* Movimentação vira cartão de três andares. */
+  /* Movimentação vira linha de três andares dentro da própria superfície do
+     painel. Antes cada uma era um cartão com borda e sombra dentro de outro
+     cartão — três molduras para ler um Pix. Agora é o padrão do sistema:
+     uma superfície, várias linhas, um fio entre elas. */
   .tx-list {
-    gap: 10px;
+    gap: 0;
     border-top: 0;
   }
 
@@ -5543,28 +5759,52 @@ tbody tr:last-child td {
     display: none;
   }
 
+  /* Três andares de verdade: o quê + valor, quem + quando, e a linha de
+     decisão (escopo, situação e ação) junta. Antes escopo, situação e ação
+     ocupavam três andares próprios e o cartão passava de 170px para dizer
+     três coisas. */
   .tx-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "kind amount"
-      "party date"
-      "ref ref"
-      "scope actions"
-      "state actions";
-    row-gap: 6px;
-    column-gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    background: var(--surface-raised);
+      "kind kind amount"
+      "party party date"
+      "ref ref ref"
+      "scope state actions";
+    row-gap: var(--e1);
+    column-gap: var(--e2);
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 1px solid var(--separador);
+    border-radius: 0;
+    background: transparent;
   }
 
-  :root[data-theme="light"] .tx-row {
-    background: var(--surface);
+  .tx-row:last-child {
+    border-bottom: 0;
   }
 
+  /* O código cru da movimentação (PIX_SENT) é dado técnico e já está dito em
+     português na linha de cima; no celular ele só roubava um andar. */
+  .tx-kind small {
+    display: none;
+  }
+
+  /* Sem vínculo o andar some — e some inteiro: esconder só o conteúdo deixava
+     uma faixa de zero altura cercada por dois vãos. */
+  .tx-row > .tx-ref:not(:has(.reference)) {
+    display: none;
+  }
+
+  .tx-row:not(:has(.reference)) {
+    grid-template-areas:
+      "kind kind amount"
+      "party party date"
+      "scope state actions";
+  }
+
+  :root[data-theme="light"] .tx-row,
   .tx-row:hover {
-    background: var(--surface-raised);
+    background: transparent;
   }
 
   .tx-kind {
@@ -5573,13 +5813,14 @@ tbody tr:last-child td {
 
   .tx-kind strong {
     font-size: 0.9375rem;
+    line-height: 1.25;
     white-space: normal;
   }
 
   .tx-amount {
     grid-area: amount;
     align-self: start;
-    font-size: 1rem;
+    font-size: 0.9375rem;
   }
 
   .tx-party {
@@ -5602,16 +5843,24 @@ tbody tr:last-child td {
 
   .tx-scope {
     grid-area: scope;
-    padding-top: 4px;
   }
 
   .tx-state {
     grid-area: state;
+    align-self: center;
   }
 
   .tx-actions {
     grid-area: actions;
-    align-self: end;
+    align-self: center;
+  }
+
+  /* Na linha de decisão o botão é ação de linha, não ação de tela. */
+  .tx-actions .secondary-button,
+  .tx-actions .primary-button {
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 0.875rem;
   }
 
 /* Conta a pagar/receber vira cartão: o quê + valor, quem + quando,
@@ -5772,20 +6021,38 @@ tbody tr:last-child td {
     border-radius: 20px 20px 0 0;
   }
 
-  /* Lista de clientes: identidade + estado na primeira linha, números embaixo. */
-  /* Uma linha por cliente. Antes eram duas faixas — identidade em cima, os
-     quatro contadores numa grade embaixo - e cada cliente ocupava quase 3 cm:
-     numa lista de 22, rolar era o único jeito de ver quem existe. Os rótulos
-     ("Marcas", "Projetos"...) se repetiam em toda linha sem dizer nada de
-     novo, então saem daqui e ficam só os números. */
+  /* Lista de clientes: identidade + estado na primeira linha, o que está
+     aberto na segunda.
+
+     A tira de números disputava a linha com o nome e ganhava: "M 0 P 0 T 0
+     D 2" ficava inteira enquanto "Clínica Horizonte" virava "Clínica
+     Horiz…". Pior, `.client-identity` tinha `min-width: 60%` dentro de uma
+     grade cujas colunas somam 100% — os números subiam por cima do nome em
+     quem tem nome comprido. Agora o nome tem a linha inteira menos o selo, e
+     os contadores descem para a segunda linha, por extenso e só quando
+     existem. */
   .client-row {
     position: relative;
     min-height: 56px;
-    grid-template-columns: minmax(0, 1fr) auto auto 16px;
-    grid-template-areas: "identity signals pill chevron";
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+    grid-template-areas:
+      "identity pill chevron"
+      "signals signals signals";
     align-items: center;
-    gap: 10px;
-    padding: 10px 0;
+    gap: 2px 10px;
+    padding: 8px 0;
+  }
+
+  /* Só a lista de organizações: a identidade ocupa as duas linhas da
+     esquerda. Em cima o nome disputa espaço apenas com o selo; embaixo, o
+     número do cliente divide a linha com os contadores. Nenhum dos dois pares
+     briga pela mesma largura — era essa briga que cortava o nome em
+     "Clínica Horiz…". Vaga e projeto continuam com os sinais numa faixa
+     própria: lá os valores são data e nome, não números de um dígito. */
+  .org-row {
+    grid-template-areas:
+      "identity pill chevron"
+      "identity signals signals";
   }
 
   .client-index {
@@ -5795,6 +6062,11 @@ tbody tr:last-child td {
   .client-identity {
     grid-area: identity;
     min-width: 0;
+    align-self: center;
+  }
+
+  .client-legal {
+    display: none;
   }
 
   .client-identity > div {
@@ -5807,14 +6079,6 @@ tbody tr:last-child td {
     font-size: 0.9375rem;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  /* No celular o nome perdia a disputa por espaco: sobravam sete caracteres e
-     reticencias ("Mello...", "Parts..."), e a lista deixava de responder
-     "quem sao meus clientes". A tira de numeros e o item que menos importa
-     nessa tela, entao e ela que encolhe. */
-  .client-identity {
-    min-width: 60%;
   }
 
   .client-identity small {
@@ -5842,25 +6106,37 @@ tbody tr:last-child td {
     color: var(--subtle-text);
   }
 
-  /* Os contadores viram uma tira de números com a inicial do rótulo lida por
-     leitor de tela (o dt continua no HTML, só não ocupa espaço). */
+  /* Segunda linha: "3 projetos · 2 domínios", alinhada com o nome (a sigla de
+     uma letra só era legível para quem já sabia o que ela media). Contador em
+     zero não aparece — numa carteira nova quase todos são zero, e quatro
+     zeros por linha é a definição de ruído. O <dt> continua no HTML para o
+     leitor de tela, que não lê `content`. */
   .client-signals {
     grid-area: signals;
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
+
+  .org-signals {
+    justify-content: flex-end;
   }
 
   .client-signals div {
     display: flex;
     align-items: baseline;
-    gap: 2px;
+    gap: 3px;
     padding: 0;
     border-left: 0;
   }
 
-  .client-signals div::before {
+  .org-signals div[data-zero="sim"] {
+    display: none;
+  }
+
+  .org-signals div::after {
     color: var(--subtle-text);
-    content: attr(data-sigla);
+    content: attr(data-unidade);
     font-size: 0.6875rem;
   }
 
@@ -5878,6 +6154,13 @@ tbody tr:last-child td {
     color: var(--subtle-text);
     font-size: 0.8125rem;
     text-align: center;
+  }
+
+  .org-signals dd {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.6875rem;
+    text-align: left;
   }
 
   /* Projetos não entra na tira: os valores lá são nome e data, não números de
@@ -5899,10 +6182,6 @@ tbody tr:last-child td {
   .project-signals div {
     display: grid;
     gap: 2px;
-  }
-
-  .project-signals div::before {
-    content: none;
   }
 
   .project-signals dt {
@@ -6268,16 +6547,24 @@ tbody tr:last-child td {
    campos (abaixo disso o Safari do iPhone dá zoom sozinho ao focar).
    ========================================================================== */
 @media (max-width: 820px) {
-  /* Uma coluna. O `span-2`/`span-3` do desktop deixaria buraco na grade. */
+  /* Duas colunas que, por padrão, cada campo ocupa inteiras — ou seja, uma
+     coluna na prática. A grade de duas existe para os campos curtos por
+     natureza (CEP, número, cidade, UF): emparelhados, o endereço cai de oito
+     faixas para cinco sem apertar nada. */
   .dossier-grid.two,
   .dossier-grid.three,
   .dossier-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e3);
   }
 
+  .dossier-grid > *,
   .span-2,
   .span-3 {
+    grid-column: span 2;
+  }
+
+  .dossier-grid > .campo-curto {
     grid-column: span 1;
   }
 
@@ -6285,31 +6572,36 @@ tbody tr:last-child td {
      contexto da tela inteira. */
   .dossier-grid input,
   .dossier-grid select,
-  .dossier-grid textarea,
   .client-dossier input,
-  .client-dossier select,
-  .client-dossier textarea {
-    min-height: 48px;
+  .client-dossier select {
+    min-height: var(--cel-controle);
     font-size: 1rem;
   }
 
+  /* Campo de texto nasce com três linhas e cresce quando o conteúdo pedir.
+     96px vazios eram quase dois campos comuns de altura. */
   .dossier-grid textarea,
   .client-dossier textarea {
-    min-height: 96px;
-    padding: 12px;
-    line-height: 1.5;
+    min-height: 72px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    line-height: 1.45;
   }
 
   .dossier-grid label,
   .client-dossier .full-field {
-    gap: 8px;
+    gap: 5px;
     font-size: 0.875rem;
   }
 
-  /* O botão do CEP mora na grade e virava um campo órfão sem rótulo. */
+  /* O botão do CEP mora na grade e não tem rótulo: alinhado pela base, ele
+     encosta no campo do CEP em vez de flutuar acima dele. */
   .cep-button {
-    min-height: 48px;
-    margin-top: 4px;
+    min-height: var(--cel-controle);
+    align-self: end;
+    padding: 0 10px;
+    font-size: 0.875rem;
+    white-space: nowrap;
   }
 
   /* Um cartão de upload por linha: dois lado a lado em 390px deixam o
@@ -6704,69 +6996,69 @@ tbody tr:last-child td {
 .cred-n8n textarea { width: 100%; min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
 
 /* Saúde em tempo real ----------------------------------------------------- */
-.health-page-header { margin-bottom: 1.25rem; }
-.health-page-header .eyebrow { color: var(--green); font-size: .7rem; letter-spacing: .16em; font-weight: 800; }
-.health-dashboard { display: grid; gap: 1.25rem; padding-bottom: 3rem; }
-.health-hero { position: relative; overflow: hidden; padding: clamp(1.4rem, 3vw, 2.4rem); border: 1px solid rgba(74,222,128,.2); border-radius: 24px; background: radial-gradient(circle at 88% 0%, rgba(34,197,94,.18), transparent 38%), linear-gradient(135deg, rgba(13,31,27,.96), rgba(9,14,20,.96)); }
-.health-hero > div { color: #86efac; font-size: .74rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.health-live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; margin-right: .45rem; box-shadow: 0 0 0 6px rgba(74,222,128,.1); animation: health-pulse 2s infinite; }
-.health-hero > strong { display: block; max-width: 720px; margin-top: 1rem; color: #f8fafc; font-size: clamp(1.7rem, 4vw, 3.2rem); letter-spacing: -.045em; line-height: 1; }
-.health-hero p { max-width: 620px; color: #94a3b8; margin: .85rem 0 0; }
-.health-refresh { position: absolute; right: 1.5rem; bottom: 1.5rem; padding: .72rem 1rem; border: 1px solid rgba(134,239,172,.35); border-radius: 999px; background: rgba(15,23,42,.55); color: #dcfce7; cursor: pointer; font-weight: 750; }
-.health-refresh:disabled { opacity: .6; }
-.health-summary { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); overflow: hidden; }
-.health-summary > div { padding: 1rem 1.2rem; border-right: 1px solid var(--line); }
-.health-summary > div:last-child { border-right: 0; }
-.health-summary span, .health-summary strong { display: block; }
-.health-summary span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
-.health-summary strong { margin-top: .25rem; font-size: 1.45rem; }
-.health-section { border: 1px solid var(--line); border-radius: 20px; background: var(--surface); overflow: hidden; }
-.health-section-title { display: flex; justify-content: space-between; align-items: end; padding: 1.2rem 1.35rem; border-bottom: 1px solid var(--line); }
-.health-section-title span { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: .66rem; font-weight: 800; }
-.health-section-title h2 { margin: .2rem 0 0; font-size: 1.08rem; }
-.health-section-title small { color: var(--muted); }
-.health-service { display: grid; grid-template-columns: 24px minmax(150px, 1.2fr) minmax(140px, 1fr) 100px; align-items: center; gap: 1rem; min-height: 72px; padding: .85rem 1.35rem; border-bottom: 1px solid var(--line); }
-.health-service:last-child { border-bottom: 0; }
-.health-service:hover { background: rgba(148,163,184,.035); }
-.health-orb { width: 12px; height: 12px; border-radius: 50%; background: #64748b; box-shadow: 0 0 0 5px rgba(100,116,139,.1); }
-.health-orb.healthy { background: #22c55e; box-shadow: 0 0 0 5px rgba(34,197,94,.1), 0 0 18px rgba(34,197,94,.35); }
-.health-orb.slow { background: #f59e0b; box-shadow: 0 0 0 5px rgba(245,158,11,.1); }
-.health-orb.down { background: #ef4444; box-shadow: 0 0 0 5px rgba(239,68,68,.1); }
-.health-service-name strong, .health-service-name small, .health-latency strong, .health-latency small { display: block; }
-.health-service-name small, .health-latency small { color: var(--muted); font-size: .74rem; margin-top: .18rem; }
-.health-latency { text-align: right; }
-.health-sparkline { width: 100%; height: 36px; overflow: visible; }
-.health-sparkline polyline { fill: none; stroke: #38bdf8; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.health-no-history { color: var(--muted); font-size: .72rem; }
-.health-server-grid { display: grid; grid-template-columns: repeat(2, 1fr); }
-.health-server { padding: 1.15rem 1.35rem; }
-.health-server + .health-server { border-left: 1px solid var(--line); }
-.health-server header, .health-server footer, .health-gauges span { display: flex; justify-content: space-between; align-items: center; }
-.health-server header small, .health-server footer { color: var(--muted); font-size: .72rem; }
-.health-state { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .35rem; }
-.health-gauges { display: grid; gap: .7rem; margin: 1rem 0; }
-.health-gauges span { color: var(--muted); font-size: .72rem; }
-.health-gauges b { color: var(--foreground); }
-.health-gauges i { display: block; height: 5px; margin-top: .3rem; background: rgba(148,163,184,.12); border-radius: 99px; overflow: hidden; }
-.health-gauges em { display: block; height: 100%; border-radius: inherit; }
-.health-dashboard .good { color: #22c55e; }
-.health-dashboard .warning { color: #f59e0b; }
-.health-dashboard .danger { color: #ef4444; }
-.health-gauges em.good, .health-state.good { background: #22c55e; }
-.health-gauges em.warning, .health-state.warning { background: #f59e0b; }
-.health-gauges em.danger, .health-state.danger { background: #ef4444; }
-.health-error, .health-empty { padding: 1rem 1.25rem; color: #fca5a5; border: 1px solid rgba(239,68,68,.25); border-radius: 14px; background: rgba(239,68,68,.06); }
-@keyframes health-pulse { 50% { box-shadow: 0 0 0 10px rgba(74,222,128,0); } }
-@media (max-width: 760px) {
-  .health-refresh { position: static; margin-top: 1rem; }
-  .health-summary { grid-template-columns: repeat(2, 1fr); }
-  .health-summary > div:nth-child(2) { border-right: 0; }
-  .health-summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-  .health-server-grid { grid-template-columns: 1fr; }
-  .health-server + .health-server { border-left: 0; border-top: 1px solid var(--line); }
-  .health-service { grid-template-columns: 18px 1fr auto; gap: .65rem; padding: .85rem 1rem; }
-  .health-sparkline { display: none; }
-  .health-latency strong { font-size: .9rem; }
+/* =========================================================================
+   Saúde em tempo real (19/09/2026)
+   -------------------------------------------------------------------------
+   A tela tinha linguagem própria: herói escuro com gradiente e brilho verde
+   dentro de um painel claro, quatro cartões de número, uma seção contornada
+   por servidor e uma linha de 72px por serviço. Eram 77 textos abaixo de
+   12px num documento de 3.179px.
+   Agora ela usa o mesmo grupo, a mesma linha dobrável e o mesmo BadgeStatus
+   do resto do painel. Sobrou daqui só o que não existe no sistema: o número
+   clicável que abre a evidência, a sparkline e a barra de ocupação.
+   ========================================================================= */
+
+/* Barra fina de CPU, memória e disco. As cores são as do `capacityLevel`,
+   que é a mesma função que o backend usa para classificar. */
+.health-barra {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 99px;
+  background: var(--superficie-suave);
+  overflow: hidden;
+}
+
+.health-barra em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.health-barra em.good {
+  background: var(--green);
+}
+
+.health-barra em.warning {
+  background: var(--amber);
+}
+
+.health-barra em.danger {
+  background: var(--red);
+}
+
+.health-sparkline {
+  width: 100%;
+  max-width: 160px;
+  height: 28px;
+  overflow: visible;
+}
+
+.health-sparkline polyline {
+  fill: none;
+  stroke: var(--marca-azul);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.health-spark-down {
+  fill: var(--red);
+}
+
+.health-no-history {
+  color: var(--texto-terciario);
+  font-size: 0.75rem;
 }
 
 /* Assistente de cadastro: fica acima da ficha do cliente e responde três
@@ -6862,12 +7154,15 @@ tbody tr:last-child td {
 }
 
 /* Estado do ambiente, não resposta a uma ação: fica discreto, ao contrário da
-   mensagem azul, que responde a algo que a pessoa acabou de fazer. */
+   mensagem azul, que responde a algo que a pessoa acabou de fazer. O discreto
+   vem do tom da superfície, não de um tracejado — o sistema visual não tem
+   borda tracejada em lugar nenhum. */
 .cadastro-ia-aviso {
   margin: 0;
   padding: 10px 12px;
-  border: 1px dashed var(--line);
+  border: 0;
   border-radius: var(--radius-sm);
+  background: var(--superficie-suave);
   color: var(--muted);
   font-size: 0.8125rem;
 }
@@ -6978,13 +7273,78 @@ tbody tr:last-child td {
   font-size: 0.75rem;
 }
 
-@media (max-width: 760px) {
+/* Uma superfície e um fio entre as linhas — o mesmo desenho dos Ajustes do
+   iPhone que o resto do painel usa. Eram seis cartões tracejados dentro do
+   cartão do assistente, que já está dentro da ficha: cartão em cartão em
+   cartão, justamente o que o sistema visual saiu para matar. */
+.cadastro-ia-perguntar .grupo-superficie {
+  box-shadow: none;
+  outline: 1px solid var(--separador);
+  outline-offset: -1px;
+}
+
+.cadastro-ia-perguntar .linha {
+  padding: 9px var(--e3);
+}
+
+@media (max-width: 820px) {
   .cadastro-ia {
-    padding: 16px;
+    gap: var(--e3);
+    margin-bottom: var(--cel-gap-secao);
+    padding: var(--cel-pad-cartao);
+    border-radius: var(--cel-raio);
+  }
+
+  /* O painel é um resumo, não uma capa: 22px de título com três botões de
+     50px empilhados embaixo comiam quase uma tela antes do primeiro campo. */
+  .cadastro-ia-topo {
+    gap: var(--e2);
+  }
+
+  .cadastro-ia-topo h2 {
+    margin: 2px 0 0;
+    font-size: 1.125rem;
+  }
+
+  .cadastro-ia-topo h2 small {
+    margin-top: 2px;
+  }
+
+  /* Duas ações por linha, altura de ação de linha. Elas são atalhos de
+     preenchimento, não a ação principal da tela. */
+  .cadastro-ia-acoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e2);
+    width: 100%;
   }
 
   .cadastro-ia-acoes button {
-    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 0.875rem;
+  }
+
+  .cadastro-ia-acoes button:last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
+
+  .cadastro-ia-resumo,
+  .cadastro-ia-aviso,
+  .cadastro-ia-mensagem,
+  .cadastro-ia-erro {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .cadastro-ia-aviso,
+  .cadastro-ia-mensagem,
+  .cadastro-ia-erro {
+    padding: 8px 10px;
+  }
+
+  .cadastro-ia-lista li {
+    padding: 10px 12px;
   }
 }
 
@@ -7178,6 +7538,30 @@ tbody tr:last-child td {
   --fonte: var(--font-manrope), Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
+/* ---------- Densidade do celular (18/09/2026) ----------
+   A escala de espaço acima é a do desktop. No telefone ela sobrava: cinco
+   campos de formulário comiam a tela inteira e um cartão de movimentação
+   gastava 176px para dizer três coisas. Estes tokens são a régua do celular —
+   quem for compactar uma tela nova mexe aqui, não em cada componente. Eles não
+   encolhem alvo de toque (mínimo 44px) nem a fonte dos campos (16px, senão o
+   Safari dá zoom). */
+@media (max-width: 820px) {
+  :root {
+    --e5: 16px;
+    --e6: 18px;
+    --e7: 22px;
+    --e8: 28px;
+    --e9: 34px;
+    --cel-pad-pagina: 16px;
+    --cel-gap-secao: 16px;
+    --cel-pad-cartao: 14px;
+    --cel-linha: 52px;
+    --cel-controle: 48px;
+    --cel-raio: 14px;
+    --cel-nav: 64px;
+  }
+}
+
 :root[data-theme="dark"] {
   --marca-azul-suave: rgba(91, 140, 245, 0.16);
   --marca-vermelho-suave: rgba(236, 111, 124, 0.16);
@@ -7239,6 +7623,28 @@ body {
   transition: background 120ms ease;
 }
 
+/* Cada parte na sua coluna, dita por nome e não pela ordem de chegada.
+   Sem isto a colocação automática depende de quantos filhos a linha tem: numa
+   linha sem ícone tudo deslizava uma coluna para a esquerda, o texto caía na
+   coluna de largura automática e o valor na elástica — e a fila de selos
+   saía desalinhada, cada um numa posição conforme o tamanho da descrição.
+   Coluna vazia tem largura zero, então a linha com ícone não muda em nada. */
+.linha > .icone-tile {
+  grid-column: 1;
+}
+
+.linha > .linha-texto {
+  grid-column: 2;
+}
+
+.linha > .linha-valor {
+  grid-column: 3;
+}
+
+.linha > .chevron {
+  grid-column: 4;
+}
+
 .linha + .linha {
   box-shadow: inset 0 1px 0 var(--separador);
 }
@@ -7260,6 +7666,15 @@ body {
   background: var(--active-bg);
 }
 
+.linha-botao {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .linha-estatica {
   cursor: default;
 }
@@ -7274,10 +7689,16 @@ body {
   gap: 2px;
 }
 
+/* Sem corte o título transbordava a célula e passava por cima do valor da
+   direita — a fila da Home mostrava o domínio escrito por cima do selo de
+   renovação. A descrição já era cortada assim; o título passa a ser também. */
 .linha-texto strong {
+  overflow: hidden;
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .linha-texto small {
@@ -7296,6 +7717,90 @@ body {
 
 .linha .chevron {
   color: var(--texto-terciario);
+}
+
+/* Métrica que só existe no desktop. No celular o mesmo número é o título do
+   bloco da lista, com a mesma folha de evidência: mostrar os dois empurrava a
+   primeira loja para fora da primeira tela. `display: contents` some com o
+   invólucro e deixa a métrica ser filha direta da grade, como as outras. */
+.metrica-oculta-no-celular {
+  display: contents;
+}
+
+@media (max-width: 820px) {
+  .metrica-oculta-no-celular {
+    display: none;
+  }
+}
+
+/* Aviso de uma linha, no tom do texto secundário: é informação que orienta,
+   não alarme. A caixa vermelha de borda existia para falha de leitura, e usá-la
+   aqui dava a um recado de rotina o peso de um erro. */
+.aviso-inline {
+  margin: 0;
+  padding: 0 var(--e1);
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* ---------- Linha que abre no lugar ---------- */
+.linha-dobravel + .linha-dobravel,
+.linha-dobravel + .linha,
+.linha + .linha-dobravel {
+  box-shadow: inset 0 1px 0 var(--separador);
+}
+
+/* O triângulo nativo do <summary> some: quem indica o estado é o chevron, que
+   é o mesmo símbolo do resto das listas do painel. */
+.linha-dobravel > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.linha-dobravel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.linha-dobravel > summary .chevron {
+  transition: transform 140ms ease;
+}
+
+.linha-dobravel[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+
+.linha-dobra {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--e2) var(--e4);
+  padding: 0 var(--e4) var(--e4);
+}
+
+.linha-dobra > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.linha-dobra dt,
+.linha-dobra .rotulo {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+.linha-dobra dd,
+.linha-dobra .valor {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linha-dobravel > summary .chevron {
+    transition: none;
+  }
 }
 
 /* ---------- Quadradinho de ícone ---------- */
@@ -7458,7 +7963,7 @@ body {
 @media (max-width: 820px) {
   .tab-bar {
     display: block;
-    padding: 0 var(--e4) calc(var(--e3) + env(safe-area-inset-bottom));
+    padding: 0 var(--e4) calc(var(--e2) + env(safe-area-inset-bottom));
     border-top: 0;
     background: transparent;
     -webkit-backdrop-filter: none;
@@ -7479,7 +7984,7 @@ body {
 
   .tab-item {
     min-height: 48px;
-    border-radius: 22px;
+    border-radius: 20px;
     transition:
       background 160ms ease,
       color 160ms ease;
@@ -7492,11 +7997,42 @@ body {
   }
 
   .main-canvas {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom) + var(--e6));
+    padding-bottom: calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
+  }
+
+  /* 26px: a régua de título de tela no celular. 30px empurrava o primeiro
+     grupo para baixo da dobra em quase toda tela. */
+  .tela-cabecalho {
+    margin-bottom: var(--e4);
   }
 
   .tela-cabecalho h1 {
-    font-size: 1.875rem;
+    font-size: 1.625rem;
+  }
+
+  .tela-cabecalho p {
+    font-size: 0.875rem;
+  }
+
+  .pilha {
+    gap: var(--cel-gap-secao);
+    padding-bottom: var(--e3);
+  }
+
+  /* Linha de lista: 52px quando só tem título, ~58px com descrição. Era 68–70
+     porque o respiro vertical do desktop vinha junto. */
+  .linha {
+    min-height: var(--cel-linha);
+    gap: var(--e3);
+    padding: 9px var(--e4);
+  }
+
+  .linha-texto strong {
+    line-height: 1.3;
+  }
+
+  .linha-texto small {
+    line-height: 1.35;
   }
 }
 
@@ -8232,6 +8768,12 @@ a.metrica-alvo:focus-visible {
   outline-offset: 2px;
 }
 
+@media (max-width: 820px) {
+  .aba-hub {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .aba-hub,
   a.metrica-alvo {
@@ -8275,79 +8817,103 @@ main [data-slot="select-trigger"]:focus-visible {
   border-color: var(--marca-azul);
 }
 
-/* =========================================================================
-   Densidade do celular (19/09/2026)
-   -------------------------------------------------------------------------
-   O redesenho acertou a linguagem e errou a escala: o painel ficou uns 25–35%
-   grande demais no telefone. Quatro campos consumiam uma viewport inteira.
+/* Marcadores de escolha múltipla (os ciclos do plano). Pílula clara, sem
+   contorno pesado: marcada fica com a superfície e o azul da marca. */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+}
 
-   A causa era de token, não de tela. A escala `--e1`…`--e9` do sistema visual é
-   declarada única e **não varia por viewport**: o `--e6` de 24px que respira num
-   monitor de 1440 é o mesmo que empilha em 375. Toda tela herdava o espaçamento
-   do desktop.
+.chip-toggle {
+  min-height: 40px;
+  padding: 0 var(--e4);
+  border: 0;
+  border-radius: 999px;
+  background: var(--superficie-suave);
+  color: var(--texto-secundario);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
 
-   Os degraus maiores da escala encolhem dentro do celular, sem inventar valor
-   fora dela. `--e1` a `--e4` não mudam: são gaps internos, e a 4, 8, 12 e 16px
-   já estavam certos.
+.chip-toggle[aria-pressed="true"] {
+  background: var(--marca-azul-suave);
+  color: var(--marca-azul);
+  box-shadow: var(--sombra-1);
+}
 
-   Alcance real, medido e não suposto: `var(--e5)` e `var(--e6)` aparecem em 14
-   regras — a pilha das telas novas, a grade da Home, o cabeçalho de tela. As
-   outras ~8.000 linhas deste arquivo são anteriores ao sistema visual e usam
-   pixel na mão, então NÃO compactam por aqui. É por isso que as seções abaixo
-   existem: elas tratam, uma a uma, as telas que a passada de densidade precisa
-   corrigir agora (ficha do cliente, assistente, financeiro, barra de abas).
+.chip-toggle:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 2px;
+}
 
-   O que este bloco garante é o futuro: componente novo que use a escala já
-   nasce denso no telefone, e quem migrar uma tela antiga para os tokens ganha
-   a densidade de graça.
-
-   Este bloco fica no fim do arquivo de propósito. Há blocos de 820px, 560px e
-   400px espalhados acima, em ordem que não é decrescente; morando por último,
-   estes tokens valem qualquer que seja a ordem dos outros.
-
-   O que NÃO se toca, e vale como contrato desta seção:
-   - alvo interativo ≥ 44px;
-   - fonte de campo = 16px, senão o Safari dá zoom ao focar;
-   - nenhuma cor muda, então o contraste dos dois temas fica como estava;
-   - `env(safe-area-inset-*)` continua em toda barra fixa.
-   ========================================================================= */
-@media (max-width: 820px) {
-  :root {
-    /* A escala, um degrau mais apertada. */
-    --e5: 16px; /* era 20 */
-    --e6: 18px; /* era 24 — o gap entre grupos, o que mais pesava */
-    --e7: 22px; /* era 32 */
-    --e8: 28px; /* era 40 */
-    --e9: 34px; /* era 48 */
-
-    /* Densidade: o que governa altura e respiro no telefone. */
-    --d-pagina: 16px; /* padding lateral da página */
-    --d-cartao: 14px; /* padding interno de superfície */
-    --d-linha: 52px; /* linha de lista simples */
-    --d-linha-dupla: 60px; /* linha com título e descrição */
-    --d-controle: 48px; /* altura de campo de uma linha */
-    --d-campo-gap: 16px; /* entre um campo e o próximo */
-    --d-nav: 64px; /* altura real da cápsula de abas */
+@media (prefers-reduced-motion: reduce) {
+  .chip-toggle {
+    transition: none;
   }
 }
 
-/* ---------- Tipografia: nada de título maior na tela menor ---------- */
+/* =========================================================================
+   Compactação do celular (19/09/2026)
+   -------------------------------------------------------------------------
+   A régua de densidade existia desde o PR #21, mas boa parte da tela não a
+   consumia: a pilha do sistema ainda abria 24px entre seções, a linha tinha
+   57px, o cartão do cliente 18px de padding e a movimentação do financeiro
+   139px de altura. Medido a 390×844 em produção, isso custava de 25% a 35%
+   do conteúdo útil da primeira tela.
+   Aqui a régua passa a valer de verdade. Nada de `scale()`: cada valor é
+   corrigido na origem, e os mínimos de acessibilidade ficam — alvo de toque
+   de 44px e campo com 16px de fonte.
+   ========================================================================= */
 @media (max-width: 820px) {
-  /*
-   * O `h1` do celular estava em 1,875rem contra 1,75rem do desktop — a tela
-   * menor com o título maior. Some a anomalia, e o título passa a caber na
-   * mesma linha da barra de contexto em 375px.
-   */
+  :root {
+    --cel-pad-pagina: 16px;
+    --cel-gap-secao: 14px;
+    --cel-pad-cartao: 12px;
+    --cel-linha: 50px;
+    --cel-controle: 48px;
+    --cel-raio: 14px;
+    --cel-nav: 62px;
+    /* Entre um campo e o outro dentro do mesmo formulário. */
+    --cel-gap-campo: 14px;
+  }
+
+  /* ---- Estrutura da página ---- */
+  .pilha {
+    gap: var(--cel-gap-secao);
+    padding-bottom: var(--e4);
+  }
+
+  /* As ações ganham a própria linha abaixo do título. Em linha com ele, a
+     190px que sobram espremiam o subtítulo em quatro linhas atrás dos botões:
+     acontece em Domínios, Google e Campanhas, então a correção é aqui. */
+  .tela-cabecalho {
+    flex-wrap: wrap;
+    gap: var(--e2);
+    margin-bottom: var(--e4);
+  }
+
+  .tela-cabecalho-acoes {
+    width: 100%;
+  }
+
+  .tela-cabecalho-acoes > * {
+    flex: 1 1 0;
+    justify-content: center;
+    text-align: center;
+  }
+
   .tela-cabecalho h1 {
-    font-size: 1.625rem;
+    font-size: 1.75rem;
   }
 
   .tela-cabecalho p {
     font-size: 0.875rem;
-  }
-
-  .tela-cabecalho {
-    margin-bottom: var(--e4);
   }
 
   .tela-cabecalho .icone-tile {
@@ -8355,270 +8921,1677 @@ main [data-slot="select-trigger"]:focus-visible {
     height: 36px;
     flex-basis: 36px;
   }
-}
-
-/* ---------- Linha de lista: duas alturas, não uma ---------- */
-@media (max-width: 820px) {
-  /*
-   * `.linha` tinha 56px para todo caso. Linha só de rótulo não precisa disso, e
-   * linha com descrição precisa de um pouco mais. `:has(small)` separa as duas
-   * sem tocar em nenhum componente.
-   *
-   * Em iOS anterior ao 15.4, sem `:has()`, toda linha fica com os 52px do piso —
-   * e como é `min-height`, a que tem descrição cresce pelo conteúdo. Degrada
-   * para apertado, nunca para cortado.
-   */
-  .linha {
-    min-height: var(--d-linha);
-    padding: var(--e2) var(--e4);
-  }
-
-  .linha:has(small) {
-    min-height: var(--d-linha-dupla);
-  }
 
   .grupo {
-    gap: var(--e1);
-  }
-
-  .pilha {
-    gap: var(--e5);
-  }
-}
-
-/* ---------- Campos: o textarea vazio era o maior desperdício ---------- */
-@media (max-width: 820px) {
-  /*
-   * `.field textarea` tinha `min-height: 92px` e nenhuma regra de celular, então
-   * quatro textareas vazios ocupavam mais que a viewport inteira — era o que a
-   * tela de "Descrição da empresa" mostrava.
-   *
-   * `field-sizing: content` faz a caixa nascer do tamanho do conteúdo e crescer
-   * ao digitar. Onde o navegador não suporta (Safari antigo), vale o
-   * `min-height` de 76px, que já é 16px menor que o de antes.
-   */
-  .field {
     gap: 6px;
   }
 
-  .field input,
-  .field select,
-  .field textarea {
-    min-height: var(--d-controle);
-    padding-right: 14px;
-    padding-left: 14px;
-    /* 16px trava o zoom do Safari ao focar. Não é escolha de estilo. */
-    font-size: 16px;
+  .grupo-cabecalho h2 {
+    font-size: 0.6875rem;
+  }
+
+  /* ---- Linhas de lista ---- */
+  .linha {
+    min-height: var(--cel-linha);
+    gap: var(--e3);
+    padding: 9px var(--e4);
+  }
+
+  .linha-texto strong {
+    font-size: 0.9375rem;
+    line-height: 1.25;
+  }
+
+  .linha-texto small {
+    font-size: 0.78125rem;
+    line-height: 1.3;
+  }
+
+  .icone-tile {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+    border-radius: 8px;
+  }
+
+  .icone-tile svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* ---- Resumos numéricos ---- */
+  .servicos-resumo > div {
+    padding: 10px var(--e4);
+  }
+
+  .servicos-resumo strong {
+    font-size: 1.125rem;
+  }
+
+  .metrica-alvo {
+    min-height: var(--cel-linha);
+    padding: 9px var(--e4);
+  }
+
+  .metrica-valor {
+    font-size: 1rem;
+  }
+
+  /* ---- Formulários ---- */
+  .form-stack {
+    gap: var(--cel-gap-campo);
+  }
+
+  .field {
+    gap: 4px;
+  }
+
+  .field > span:first-child {
+    font-size: 0.8125rem;
   }
 
   .field textarea {
-    /* Mesmo piso do textarea da ficha do cliente: as duas famílias de campo
-       convivem na mesma tela e não podem ter alturas diferentes para a mesma
-       coisa. */
-    min-height: 56px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    field-sizing: content;
+    min-height: 68px;
   }
 
-  .field-grid {
-    gap: var(--d-campo-gap);
-  }
-
-  .field-help {
+  .field-help,
+  .field small {
+    font-size: 0.75rem;
     line-height: 1.35;
   }
-}
 
-/* ---------- Ficha do cliente: onde o desperdício era maior ---------- */
-@media (max-width: 820px) {
-  /*
-   * A conta do que havia: rótulo (17px) + 8px de gap + textarea de 96px + 18px
-   * até o campo seguinte = ~139px por campo de texto longo. Quatro deles vazios
-   * passavam de 550px — mais que meia viewport de iPhone mostrando caixa vazia.
-   *
-   * `field-sizing: content` resolve na raiz: a caixa nasce do tamanho do
-   * conteúdo e cresce ao digitar, em vez de reservar espaço para um texto que
-   * talvez nunca venha. Os 56px de piso são para o navegador que não suporta —
-   * continua sendo caixa de várias linhas (e `resize: vertical` segue lá), só
-   * não nasce ocupando meia tela. 96 → 56 são 40px por campo; na aba de
-   * contato, com quatro deles vazios, são 160px de volta.
-   *
-   * O input de uma linha NÃO encolhe: 48px é alvo de toque, e 16px de fonte é o
-   * que impede o Safari de dar zoom ao focar.
-   */
-  .dossier-grid.two,
-  .dossier-grid.three,
-  .dossier-grid {
-    gap: var(--d-campo-gap);
-  }
-
-  .dossier-grid textarea,
-  .client-dossier textarea {
-    min-height: 56px;
-    padding: 10px 12px;
-    line-height: 1.45;
-    field-sizing: content;
-  }
-
-  .dossier-grid label,
-  .client-dossier .full-field {
-    gap: 6px;
-  }
-
-  .asset-upload-card {
-    padding: var(--d-cartao);
-  }
-}
-
-/* ---------- Cápsula de abas: 64px, e o conteúdo reservando isso ---------- */
-@media (max-width: 820px) {
-  /*
-   * A barra roubava área útil duas vezes: a cápsula em si, e a reserva de
-   * `padding-bottom` que estava dessincronizada dela.
-   *
-   * A cápsula media 56px (4 + 48 + 4) mais 12px de respiro embaixo = 68px, e o
-   * conteúdo reservava `76px + 24px` = 100px. Trinta e dois pixels de folga
-   * sobre uma barra que já era alta.
-   *
-   * Agora a aba tem os 44px do piso de toque, a cápsula fecha em 52px, e a
-   * reserva deriva de `--d-nav` em vez de um número solto que ninguém lembra de
-   * atualizar quando a barra muda.
-   */
-  .tab-item {
-    min-height: 44px;
-    border-radius: 18px;
+  /* ---- Barra de abas: cápsula mais baixa ---- */
+  .tab-bar {
+    padding: 0 var(--e3) calc(var(--e2) + env(safe-area-inset-bottom));
   }
 
   .tab-capsula {
-    padding: var(--e1);
+    padding: 3px;
     border-radius: 24px;
   }
 
-  .tab-bar {
-    padding: 0 var(--e4) calc(var(--e3) + env(safe-area-inset-bottom));
+  .tab-item {
+    min-height: 44px;
+    gap: 2px;
+    border-radius: 20px;
+    font-size: 0.6875rem;
   }
 
-  .main-canvas {
-    padding: var(--e4) var(--d-pagina)
-      calc(var(--d-nav) + env(safe-area-inset-bottom) + var(--e3));
-  }
-}
-
-/* ---------- Financeiro: a movimentação em quatro linhas, não cinco ---------- */
-@media (max-width: 820px) {
-  /*
-   * O cartão tinha cinco faixas de grade — `ref` ganhava uma linha inteira mesmo
-   * quando não havia referência, e `actions` atravessava duas. Com o padding de
-   * 12/14 e o raio grande, uma movimentação simples passava de 150px.
-   *
-   * Agora são quatro faixas e a referência divide a linha com o escopo. O que
-   * a pessoa lê de relance continua em cima e intacto: o quê, e quanto.
-   */
-  .tx-row {
-    grid-template-areas:
-      "kind amount"
-      "party date"
-      "scope ref"
-      "state actions";
-    row-gap: 4px;
-    padding: 10px 12px;
-    border-radius: var(--raio-m);
+  .tab-item svg {
+    width: 21px;
+    height: 21px;
   }
 
-  .tx-scope {
-    padding-top: 0;
-  }
-
-  .tx-ref {
-    align-self: center;
-    text-align: right;
-  }
-
-  /* Filtro é tira que rola; ele não precisa de 22px em cima e embaixo. */
-  .filter-strip {
-    gap: var(--e2);
-    margin: var(--e3) 0;
-  }
-
-  .filter-chip {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 12px;
-  }
-}
-
-/* ---------- Assistente de cadastro ---------- */
-.cadastro-ia-titulo h2 {
-  margin: 0;
-  font-size: 1.0625rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.cadastro-ia-titulo p {
-  margin: 2px 0 0;
-  color: var(--texto-secundario);
-  font-size: 0.8125rem;
-}
-
-/*
- * A descrição de `LinhaInfo` trunca numa linha, que é o certo num menu: ali o
- * texto é legenda. Aqui ele é o conteúdo — "Exigida na emissão de nota para
- * alguns regimes." é a razão de o campo importar, e cortada no meio não diz
- * nada. Escopado a este painel para não afrouxar a regra do componente.
- */
-.cadastro-ia-perguntar .linha-texto small {
-  overflow: visible;
-  white-space: normal;
-}
-
-@media (max-width: 820px) {
-  .cadastro-ia {
+  /* ---- Ficha do cliente ---- */
+  .client-summary-grid {
     gap: var(--e3);
-    margin-bottom: var(--e5);
-    padding: var(--d-cartao);
+  }
+
+  .client-summary-lead {
+    padding: var(--e4);
+    border-radius: var(--cel-raio);
+  }
+
+  .client-summary-lead h2 {
+    margin: 4px 0;
+    font-size: 1.25rem;
+  }
+
+  .client-summary-section {
+    padding: var(--e3) var(--e4);
+    border-radius: var(--cel-raio);
+  }
+
+  .client-summary-section h2 {
+    font-size: 0.9375rem;
+  }
+
+  .client-summary-section dl {
+    gap: 8px;
+  }
+
+  .client-summary-section dl > div {
+    padding-top: 8px;
+  }
+
+  .client-summary-number {
+    margin-top: 10px;
+    font-size: 1.75rem;
+  }
+
+  .client-workspace-header {
+    gap: var(--e3);
+  }
+
+  .client-workspace-header h1 {
+    font-size: 1.75rem;
+  }
+
+  /* ---- Assistente de cadastro ---- */
+  .cadastro-ia {
+    padding: var(--cel-pad-cartao);
+    border-radius: var(--cel-raio);
   }
 
   .cadastro-ia-topo {
     gap: var(--e2);
   }
 
-  /*
-   * Três botões de largura total empilhados custavam ~150px para oferecer o que
-   * cabe em duas linhas de chips. `1 1 auto` com base de 140px põe dois por
-   * linha em 375px e três a partir de 430px, sem nenhum deles sair cortado.
-   */
-  .cadastro-ia-acoes {
-    gap: var(--e2);
+  .cadastro-ia-topo h2 {
+    font-size: 1.0625rem;
+  }
+
+  .cadastro-ia-topo h2 small {
+    font-size: 0.78125rem;
   }
 
   .cadastro-ia-acoes button {
-    flex: 1 1 140px;
-    min-height: 44px;
-    padding: 0 var(--e3);
+    min-height: 40px;
     font-size: 0.8125rem;
   }
 
-  .cadastro-ia-resumo {
-    font-size: 0.75rem;
-    line-height: 1.4;
-  }
-
+  .cadastro-ia-resumo,
   .cadastro-ia-aviso,
-  .cadastro-ia-mensagem,
-  .cadastro-ia-erro {
-    padding: 8px 10px;
-    font-size: 0.75rem;
+  .cadastro-ia-mensagem {
+    font-size: 0.78125rem;
     line-height: 1.4;
   }
 
-  .cadastro-ia-lista {
-    gap: var(--e2);
+  .cadastro-ia-barra {
+    height: 4px;
   }
 
-  .cadastro-ia-lista li {
-    padding: var(--e3);
+  /* ---- Financeiro ---- */
+  .tx-row {
+    row-gap: 2px;
+    padding: 8px 0;
+    font-size: 0.8125rem;
+  }
+
+  .tx-row .tx-amount,
+  .tx-row .tx-amount strong {
+    font-size: 0.9375rem;
+  }
+
+  .tx-row .status-pill,
+  .tx-row .tx-scope {
+    font-size: 0.6875rem;
+  }
+
+  .section-panel {
+    padding: var(--cel-pad-cartao);
+    border-radius: var(--cel-raio);
+  }
+
+  .metric-grid {
+    gap: 8px;
+  }
+
+  .metric-grid > * {
+    padding: 10px 12px;
+  }
+
+  /* ---- Cabeçalho antigo (telas ainda não migradas) ---- */
+  .page-header {
+    gap: var(--e3);
+    margin-bottom: var(--e4);
+  }
+
+  .page-header h1 {
+    font-size: 1.625rem;
+  }
+
+  .page-header p {
+    font-size: 0.875rem;
+  }
+
+  .primary-button,
+  .secondary-button {
+    min-height: 44px;
+  }
+}
+
+/* =========================================================================
+   Compactação do celular, segunda passada (19/09/2026)
+   -------------------------------------------------------------------------
+   A primeira passada acertou a régua do sistema, mas as telas antigas
+   (financeiro, lista de clientes e ficha) continuavam com o espaço da versão
+   desktop: movimentação de 131px, quatro métricas em 278px, cabeçalho com
+   158px só de botões, cartão da ficha com 255px. Medido a 390x844 em
+   produção, era ali que estava o resto do desperdício.
+   Alvo de toque continua em 44px e campo continua com 16px de fonte.
+   ========================================================================= */
+@media (max-width: 820px) {
+  /* ---- Financeiro: movimentação ---- */
+  .tx-row {
+    row-gap: 1px;
+    padding: 7px 0;
+    line-height: 1.25;
+  }
+
+  .tx-kind,
+  .tx-party,
+  .tx-date,
+  .tx-scope {
+    font-size: 0.78125rem;
+  }
+
+  .tx-row .status-pill {
+    min-height: 20px;
+    padding: 0 7px;
+    font-size: 0.6875rem;
+  }
+
+  .tx-row .row-action {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 0.78125rem;
+  }
+
+  /* ---- Financeiro: números do topo ---- */
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  /* Rótulo em cima, valor embaixo. Abaixo de 560px o valor ia para uma
+     segunda coluna `auto`, e num cartão de ~170px essa coluna ficava com a
+     largura toda: "Capturado em 18/09/2026, 23:34" era escrito por baixo de
+     "R$ 350,50", e "Saídas · 30 dias" sumia atrás do próprio número. Lado a
+     lado só cabe quando o cartão ocupa a linha inteira; aqui são dois por
+     linha. */
+  .metric-grid > .metric {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 2px;
+  }
+
+  .metric-grid > .metric > span,
+  .metric-grid > .metric > .balance-card-head,
+  .metric-grid > .metric > strong,
+  .metric-grid > .metric > small,
+  .metric-grid > .metric > .progress-track {
+    grid-column: 1;
+    grid-row: auto;
+    text-align: left;
+  }
+
+  .metric-grid > * {
+    min-height: 0;
+    padding: 8px 10px;
+  }
+
+  .metric-grid strong,
+  .metric-grid .metric-value {
+    font-size: 1.0625rem;
+    line-height: 1.2;
+  }
+
+  .metric-grid span,
+  .metric-grid small {
+    font-size: 0.6875rem;
+    line-height: 1.3;
+  }
+
+  /* ---- Cabeçalho com muitas ações ---- */
+  .page-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .page-header-actions > * {
+    width: 100%;
+  }
+
+  .page-header-actions .primary-button,
+  .page-header-actions .secondary-button {
+    min-height: 44px;
+    padding: 0 10px;
+    font-size: 0.8125rem;
+  }
+
+  .attention-band {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .chart-wrap {
+    height: 150px;
+  }
+
+  .health-list > * {
+    min-height: 44px;
+    padding: 6px 0;
+  }
+
+  /* ---- Lista de clientes e de projetos ---- */
+  .client-row {
+    gap: 8px;
+    padding: 7px 0;
+  }
+
+  .client-summary-strip > * {
+    padding: 2px 4px;
+  }
+
+  .client-summary-number {
+    margin-top: 6px;
+    font-size: 1.5rem;
+  }
+
+  /* ---- Ficha do cliente ---- */
+  .client-summary-section {
+    padding: 10px 12px;
+  }
+
+  .client-summary-section h2 {
+    font-size: 0.9375rem;
+  }
+
+  .client-summary-section dl {
+    gap: 6px;
+  }
+
+  .client-summary-section dl > div {
+    padding-top: 6px;
+  }
+
+  .client-summary-section dt,
+  .client-summary-section dd,
+  .client-summary-section p,
+  .client-summary-section small {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  .client-summary-section p {
+    margin: 2px 0 8px;
+  }
+
+  .client-summary-lead {
+    padding: 12px 14px;
+  }
+
+  .client-summary-lead h2 {
+    font-size: 1.125rem;
+  }
+
+  .client-summary-lead p {
+    margin: 0 0 10px;
+    font-size: 0.8125rem;
+  }
+
+  .client-workspace-header {
+    gap: 10px;
+  }
+
+  .client-workspace-header h1 {
+    font-size: 1.625rem;
+  }
+
+  /* ---- Painéis genéricos das telas antigas ---- */
+  .operations-panel,
+  .section-panel {
+    padding: var(--cel-pad-cartao);
+  }
+
+  .operations-panel-heading,
+  .section-panel > header {
+    margin-bottom: 8px;
+  }
+
+  .field-help {
+    margin-top: 2px;
+  }
+}
+
+/* Descricao na linha do projeto: duas linhas no maximo. Texto longo empurrando
+   a lista para baixo transforma uma lista em um monte de paragrafos. */
+.project-row .project-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 4px;
+  opacity: 0.75;
+  line-height: 1.45;
+}
+
+/* Mídia do projeto. Miniatura só para imagem; PDF e vídeo viram etiqueta, que
+   custa nada e diz a mesma coisa. */
+.projeto-descricao {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+
+.projeto-link {
+  margin: 0;
+  word-break: break-all;
+}
+
+.projeto-midia-envio {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.projeto-midia-envio small {
+  color: var(--table-text);
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.projeto-midia-lista {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.projeto-midia-lista li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+}
+
+.projeto-midia-lista img,
+.projeto-midia-icone {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.projeto-midia-icone {
+  display: grid;
+  place-items: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--table-text);
+}
+
+.projeto-midia-dados {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.projeto-midia-dados a {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projeto-midia-dados small {
+  color: var(--table-text);
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.projeto-midia-lista button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--table-text);
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.projeto-midia-lista button:hover {
+  border-color: var(--blue);
+  color: var(--text);
+}
+
+/* =========================================================================
+   Compactação do celular, terceira passada: a ficha do cliente (19/09/2026)
+   -------------------------------------------------------------------------
+   O formulário da ficha usa `label` direto na grade, com regra própria, e
+   ficou de fora das duas passadas anteriores: cada campo gastava 141px a
+   390px de largura, o que deixava menos de quatro campos por tela. Aqui ele
+   passa a seguir a mesma régua dos outros formulários.
+   ========================================================================= */
+@media (max-width: 820px) {
+  .dossier-grid {
+    gap: 10px;
+  }
+
+  .dossier-grid label,
+  .client-dossier .full-field {
+    gap: 4px;
+    font-size: 0.8125rem;
+  }
+
+  .dossier-grid label small,
+  .client-dossier .full-field small,
+  .dossier-grid label .field-help {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .dossier-grid input,
+  .dossier-grid select,
+  .client-dossier input,
+  .client-dossier select {
+    min-height: 46px;
+  }
+
+  .dossier-grid textarea,
+  .client-dossier textarea {
+    min-height: 64px;
+    line-height: 1.35;
+  }
+
+  .dossier-hero-panel {
+    padding: var(--cel-pad-cartao);
+  }
+
+  .dossier-hero-panel h2 {
+    font-size: 1.0625rem;
+  }
+
+  .dossier-hero-panel p {
+    font-size: 0.8125rem;
+  }
+
+  .dossier-tabs {
+    gap: 4px;
+  }
+
+  .dossier-tabs button {
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 0.8125rem;
+  }
+
+  .dossier-actions {
+    gap: 8px;
+  }
+
+  /* Assistente: o cabeçalho ocupava 168px, quase um quinto da tela. */
+  .cadastro-ia-topo {
+    gap: 8px;
+  }
+
+  .cadastro-ia-acoes button {
+    min-height: 38px;
+  }
+
+  .cadastro-ia-barra {
+    margin: 2px 0;
+  }
+}
+
+/* Quarta passada: o que sobrou de alto no financeiro (19/09/2026). O gráfico
+   guardava 200px de mínimo mesmo com a altura já reduzida, o cartão de métrica
+   ficou em 120px por causa do respiro antigo, e a lista de saúde mantinha
+   12px por linha. */
+@media (max-width: 820px) {
+  .chart-wrap {
+    min-height: 0;
+    height: 150px;
+  }
+
+  .metric {
+    min-height: 0;
+    padding: 8px 10px;
+    gap: 1px;
+  }
+
+  .metric > strong {
+    font-size: 1.125rem;
+    line-height: 1.15;
+  }
+
+  .metric > span,
+  .metric > small {
+    font-size: 0.6875rem;
+    line-height: 1.3;
+  }
+
+  .health-list {
+    margin: 12px 0;
+  }
+
+  .health-list > div {
+    padding: 7px 0;
+  }
+}
+
+/* =========================================================================
+   A tira de contas do Financeiro (19/09/2026)
+   -------------------------------------------------------------------------
+   Correcao da passada anterior, que leu errado uma medicao. `.filter-tabs`,
+   `.range-switch` e `.account-switch` ja viram fileira rolavel de chips no
+   celular (`overflow-x: auto`, mais acima): o que parecia estouro era o
+   trilho funcionando. A passada anterior tratou isso como defeito e, junto,
+   baixou o alvo de toque dos chips de 44px para 32px. Fica so o que era de
+   fato necessario: `min-width: 0` para o trilho nao empurrar a faixa, e a
+   tira de contas numa linha propria no celular, porque sao sete nomes longos
+   ("Mercado Pago · CNPJ 67.954.417") disputando largura com a data da
+   ultima sincronizacao.
+   O alvo de toque de 44px dos chips volta a valer.
+   ========================================================================= */
+.account-switch,
+.filter-tabs,
+.range-switch {
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .connection-strip > .account-switch {
+    flex: 1 1 100%;
+  }
+}
+
+/* =========================================================================
+   Cofre de credenciais na linguagem do sistema (19/09/2026)
+   -------------------------------------------------------------------------
+   A tela era a última escrita em Tailwind de tema escuro fixo
+   (`bg-gray-900`, `text-gray-200`, `text-[11px]`): fundo preto num painel
+   claro, 153 textos abaixo de 12px e 74 alvos de toque abaixo de 44px, num
+   documento de 11.376px no celular. Cada chave era um cartão aberto com
+   máscara, botões, consumidores e origem à mostra o tempo todo.
+   Agora é o mesmo padrão do resto: uma superfície por categoria, uma linha
+   dobrável por chave. Fechada, a linha diz o nome, a máscara e o estado; o
+   resto fica a um toque. As classes abaixo são só o que faltava.
+   ========================================================================= */
+
+/* Interruptor de filtro. Existe porque `<input type=checkbox>` nativo dá 13px
+   de alvo, e a barra de ferramentas é tocada no celular. */
+.chip-filtro {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 var(--e4);
+  border: 0;
+  border-radius: var(--raio-p);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.chip-filtro:hover {
+  color: var(--texto);
+}
+
+.chip-filtro-ativo {
+  background: var(--marca-azul-suave);
+  color: var(--marca-azul);
+  font-weight: 600;
+}
+
+.chip-filtro:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+/* Dentro da dobra, o que não é par de rótulo e valor ocupa a linha inteira:
+   a dobra é uma grade de colunas automáticas, e botão espremido numa coluna
+   de 140px quebra o texto no meio. */
+.dobra-largura {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  grid-column: 1 / -1;
+  gap: var(--e2);
+}
+
+.dobra-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.dobra-acoes .campo-busca {
+  min-width: 180px;
+  flex: 1 1 220px;
+}
+
+.dobra-acoes .primary-button,
+.dobra-acoes .secondary-button {
+  min-height: 40px;
+  padding: 0 var(--e4);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 820px) {
+  .chip-filtro,
+  .dobra-acoes .primary-button,
+  .dobra-acoes .secondary-button {
+    min-height: 44px;
+  }
+
+  /* O alvo de toque manda: no celular a ação ocupa a linha toda em vez de
+     dividir 390px com outra. */
+  .dobra-acoes .primary-button,
+  .dobra-acoes .secondary-button {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+}
+
+/* =========================================================================
+   As primitivas antigas falando a língua do sistema (19/09/2026)
+   -------------------------------------------------------------------------
+   Sobraram 21 telas escritas com as primitivas de antes do redesenho:
+   `.page-header`, `.section-panel`, `.operations-panel`, `.metric-grid`,
+   `.operations-grid`. Elas desenham contorno de 1px em volta de cada caixa,
+   título de 22px e cartão dentro de cartão — a linguagem que o painel
+   abandonou em 17/09.
+   Reescrever as 21 telas uma a uma multiplicaria por 21 a chance de quebrar
+   uma regra de negócio, e deixaria a 22ª (a que ninguém listou) para trás.
+   Então a correção é onde a primitiva é definida, não onde ela é usada:
+   daqui para frente `.section-panel` É uma superfície do sistema, com o
+   mesmo raio, a mesma sombra e sem contorno. Quem escrever tela nova
+   continua usando `Grupo` e `LinhaLink`; quem já escreveu não precisa ser
+   reescrito para ficar coerente.
+   Nada aqui muda estrutura de DOM, dado, rota ou permissão.
+   ========================================================================= */
+
+/* ---- Cabeçalho de tela ---- */
+.page-header h1,
+.operations-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.page-header p,
+.operations-header p {
+  color: var(--texto-secundario);
+  font-size: 0.875rem;
+}
+
+/* ---- Superfícies ---- */
+.section-panel,
+.operations-panel,
+.module-card,
+.client-summary-section,
+.dossier-hero-panel {
+  border: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+/* Cartão dentro de cartão: o de dentro perde a sombra e vira só uma área de
+   tom diferente. É o que separa "dois objetos" de "um objeto com uma parte
+   destacada". */
+.section-panel .section-panel,
+.operations-panel .operations-panel,
+.section-panel .module-card,
+.operations-panel .module-card,
+.client-summary-section .module-card {
+  border-radius: var(--raio-p);
+  background: var(--superficie-suave);
+  box-shadow: none;
+}
+
+/* ---- Números do topo: uma superfície dividida, não N cartões ---- */
+.metric-grid {
+  gap: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  overflow: hidden;
+}
+
+.metric-grid > * {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.metric-grid > * + * {
+  box-shadow: inset 1px 0 0 var(--separador);
+}
+
+.metric-grid .metric-label,
+.metric-grid > * > span:first-child {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+/* ---- Fios entre linhas, no lugar de borda em volta ---- */
+.connection-strip,
+.attention-band {
+  border: 0;
+  border-radius: var(--raio-m);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+/* ---- Listas antigas: a linha é o objeto, não o cartão ---- */
+.ios-row,
+.client-row,
+.lead-row,
+.project-row {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--separador);
+}
+
+.ios-row:last-child,
+.client-row:last-child,
+.lead-row:last-child,
+.project-row:last-child {
+  box-shadow: none;
+}
+
+/* ---- Tipografia: nada de texto de sistema abaixo de 12px ---- */
+.section-heading small,
+.operations-panel-heading small,
+.metric-grid small,
+.field-help,
+.muted small {
+  font-size: 0.75rem;
+}
+
+@media (max-width: 820px) {
+  /* No celular a grade de quatro números vira duas colunas, e o fio muda de
+     lado junto — senão a segunda linha herda o fio da esquerda e some. */
+  .metric-grid > * + * {
+    box-shadow: inset 1px 0 0 var(--separador);
+  }
+
+  .metric-grid > *:nth-child(2n + 1) {
+    box-shadow: none;
+  }
+
+  .metric-grid > *:nth-child(n + 3) {
+    box-shadow: inset 0 1px 0 var(--separador);
+  }
+
+  .metric-grid > *:nth-child(2n):nth-child(n + 3) {
+    box-shadow: inset 1px 0 0 var(--separador), inset 0 1px 0 var(--separador);
+  }
+
+  .page-header h1,
+  .operations-header h1 {
+    font-size: 1.75rem;
+  }
+}
+
+/* =========================================================================
+   A coluna do desktop, sem contorno (19/09/2026)
+   -------------------------------------------------------------------------
+   A coluna já tinha a estrutura certa — grupos, ícone por item, conta no
+   rodapé — mas ainda se separava do conteúdo por um fio de 1px, e cada
+   grupo por outro. No sistema, o que separa é o tom do fundo e o espaço,
+   não a linha: a coluna divide o fundo cinza da página e o conteúdo é que
+   é a superfície branca.
+   O item aceso passa a ser uma peça branca com sombra 1, o mesmo gesto da
+   cápsula do celular. Antes era só um fundo levemente diferente, que no
+   tema claro quase não se via.
+   A navegação em si não muda: a fonte continua sendo `lib/navegacao.ts`.
+   Nada de favoritos ou atalhos inventados — o que não existe como rota não
+   entra na coluna.
+   ========================================================================= */
+.sidebar {
+  border-right: 0;
+  background: transparent;
+}
+
+.nav-group + .nav-group {
+  margin-top: var(--e5);
+  padding-top: 0;
+  border-top: 0;
+}
+
+.nav-eyebrow {
+  margin: 0 var(--e2) var(--e1);
+  color: var(--texto-terciario);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.side-nav {
+  gap: 2px;
+}
+
+.nav-group {
+  gap: 2px;
+}
+
+.nav-link {
+  min-height: 36px;
+  padding: 0 var(--e2);
+  border-radius: var(--raio-p);
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.nav-link:hover {
+  background: var(--hover-bg);
+  color: var(--texto);
+}
+
+.nav-link-active,
+.nav-link-active:hover {
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.nav-link:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+.sidebar-footer {
+  padding: var(--e3) var(--e2) 0;
+  border-top: 1px solid var(--separador);
+}
+
+.brand-lockup {
+  margin-bottom: var(--e2);
+}
+
+/* =========================================================================
+   Número alinhado e o piso de 12px (19/09/2026)
+   -------------------------------------------------------------------------
+   Duas coisas que a varredura de tipografia achou.
+   1. Valor em dinheiro empilhado numa coluna dançava, porque a Manrope tem
+      largura variável por algarismo: R$ 1.111,00 e R$ 8.888,00 não terminam
+      no mesmo lugar. `tabular-nums` resolve sem trocar a fonte.
+   2. Sobraram dois textos abaixo de 12px, que é onde o texto deixa de ser
+      legível em pé no ônibus: o número do cliente na lista e o rótulo do
+      saldo no financeiro.
+   ========================================================================= */
+
+/* Onde tem número que se compara na vertical. Não vale para texto corrido:
+   `tabular-nums` deixa o "1" com a largura do "8" e isso abre buraco no meio
+   da frase. */
+.tx-amount,
+.tx-amount strong,
+.metric-grid strong,
+.metric-value,
+.metrica-valor,
+.linha-valor,
+.servicos-resumo strong,
+.client-summary-number,
+.system-balance,
+.balance-card strong,
+.kv-linha dd,
+.health-evidence {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Piso de 12px para o que o olho precisa ler. Sobraram estes dois: o número
+   do cliente na lista e o rótulo do saldo no financeiro, os dois em 11px.
+   O título de grupo (`.grupo-cabecalho h2`) fica de fora de propósito: 11px
+   em caixa alta com 0,06em de entreletra é rótulo de seção, o mesmo gesto
+   dos Ajustes do iPhone, e não texto para ler. */
+.client-row small,
+.balance-card-head span {
+  font-size: 0.75rem;
+}
+
+/* ---- Lista de clientes: busca, linhas densas e paginação ----
+   A lista antiga era uma grade de quatro colunas com seis filhos por linha:
+   em janela média a pílula de status caía numa linha própria e cada cliente
+   ocupava 100px de altura. Com a carteira crescendo, a lista precisa caber
+   muita gente por tela e ser achada pela busca, não pela rolagem. */
+.filtro-clientes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.filtro-clientes select,
+.filtro-clientes-busca {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.filtro-clientes select {
+  padding: 0 10px;
+}
+
+.filtro-clientes-busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: var(--muted);
+}
+
+.filtro-clientes-busca:focus-within {
+  border-color: var(--blue-line);
+}
+
+.filtro-clientes-busca input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.filtro-clientes-carregando {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: filtro-girar 0.7s linear infinite;
+}
+
+@keyframes filtro-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lista-clientes-contagem {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.lista-clientes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha-cliente {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 220px) auto 36px;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 6px 4px;
+  box-shadow: inset 0 -1px 0 var(--separador, var(--line-soft));
+}
+
+.linha-cliente:hover {
+  background: var(--hover-bg);
+}
+
+.linha-cliente-numero {
+  color: var(--subtle-text, var(--muted));
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.linha-cliente-identidade {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.linha-cliente-nome {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A linha inteira abre o cliente; o botão de ações fica por cima disso. */
+.linha-cliente-nome::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.linha-cliente-identidade small,
+.linha-cliente-sinais {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acoes-cliente-botao {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.acoes-cliente-botao:hover,
+.acoes-cliente-botao:focus-visible {
+  background: var(--active-bg);
+  color: var(--text);
+}
+
+.acoes-cliente-menu {
+  display: grid;
+  gap: 2px;
+}
+
+.acoes-cliente-menu a,
+.acoes-cliente-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.acoes-cliente-menu a:hover,
+.acoes-cliente-menu button:hover {
+  background: var(--input-bg);
+}
+
+.acoes-cliente-menu small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.acoes-cliente-menu .acao-perigo {
+  color: var(--red);
+}
+
+.campo-confirmacao {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+.campo-confirmacao input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.paginacao-clientes {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.paginacao-clientes > :last-child {
+  justify-self: end;
+}
+
+.client-workspace-acoes {
+  margin-left: auto;
+}
+
+@media (max-width: 820px) {
+  .filtro-clientes {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filtro-clientes-busca {
+    grid-column: 1 / -1;
+  }
+
+  .filtro-clientes-busca input,
+  .filtro-clientes select {
+    font-size: 1rem; /* abaixo de 16px o iPhone dá zoom ao focar */
+  }
+
+  .linha-cliente {
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+    grid-template-areas:
+      "identidade status acoes"
+      "identidade sinais acoes";
+    gap: 2px 10px;
+    padding: 8px 0;
+  }
+
+  .linha-cliente-numero {
+    display: none;
+  }
+
+  .linha-cliente-identidade {
+    grid-area: identidade;
+  }
+
+  .linha-cliente > [data-tom] {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .linha-cliente-sinais {
+    grid-area: sinais;
+    justify-self: end;
+    max-width: 40vw;
+  }
+
+  .linha-cliente .acoes-cliente-botao {
+    grid-area: acoes;
+  }
+
+  .client-workspace-header {
+    position: relative;
+  }
+
+  .client-workspace-acoes {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+}
+
+/* ---- Área do cliente compacta (29/09/2026) ----
+   A ficha tinha 2.500px de altura no desktop e a aba de arquivos quase
+   4.000px: campo alto, espaço generoso e duas colunas numa tela que cabe
+   três. Aqui só se aperta o ritmo; nenhum campo sai. */
+.client-workspace-header {
+  margin-bottom: 14px;
+}
+
+.client-workspace-header h1 {
+  font-size: clamp(1.625rem, 2.6vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+
+.client-workspace-nav {
+  margin-bottom: 16px;
+}
+
+.client-dossier {
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dossier-hero-panel {
+  padding: 10px 16px;
+}
+
+.dossier-hero-panel .dossier-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.dossier-hero-panel .dossier-progress > span {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.dossier-hero-panel .dossier-progress > div {
+  flex: 0 1 320px;
+}
+
+/* A ficha é grade: sem isto as abas em linha única (que rolam de lado)
+   alargavam a coluna e empurravam a página inteira para fora da tela. */
+.client-dossier > * {
+  min-width: 0;
+}
+
+/* Sete abas numa linha só; antes quebravam em duas linhas de texto cada. */
+.dossier-tabs {
+  flex-wrap: nowrap;
+  gap: 4px;
+  scrollbar-width: none;
+}
+
+.dossier-tabs button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.dossier-tab {
+  padding: 18px;
+}
+
+.dossier-grid {
+  gap: 12px 14px;
+}
+
+.dossier-grid label,
+.client-dossier .full-field {
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.dossier-grid input,
+.dossier-grid select,
+.client-dossier input,
+.client-dossier select {
+  min-height: 36px;
+}
+
+.client-dossier textarea {
+  padding: 8px 11px;
+}
+
+.dossier-grid .cep-button {
+  align-self: end;
+  min-height: 36px;
+}
+
+.grupo-campos + .grupo-campos {
+  margin-top: 16px;
+}
+
+.dossier-actions {
+  margin-top: 0;
+}
+
+/* Assistente: a lista do que falta em duas colunas no desktop. */
+.cadastro-ia {
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 16px;
+}
+
+@media (min-width: 900px) {
+  .cadastro-ia-perguntar .grupo-superficie {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cadastro-ia-perguntar .linha {
+    min-height: 48px;
+    box-shadow: inset 0 -1px 0 var(--separador);
+  }
+
+  .cadastro-ia-perguntar .linha + .linha {
+    box-shadow: inset 0 -1px 0 var(--separador);
+  }
+
+  .cadastro-ia-perguntar .linha:nth-child(odd) {
+    box-shadow: inset 0 -1px 0 var(--separador), inset -1px 0 0 var(--separador);
+  }
+}
+
+/* Arquivos da marca: uma linha por tipo. */
+.lista-arquivos-marca {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-arquivos-marca > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 52px;
+  padding: 6px 0;
+  box-shadow: inset 0 -1px 0 var(--line-soft);
+}
+
+.arquivo-marca-texto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+
+.arquivo-marca-texto strong {
+  flex-basis: 100%;
+}
+
+.arquivo-marca-texto small {
+  max-width: 60%;
+}
+
+.arquivo-marca-detalhes[open] {
+  flex-basis: 100%;
+}
+
+.arquivo-marca-texto strong {
+  font-size: 0.875rem;
+}
+
+.arquivo-marca-texto small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arquivo-marca-enviar {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+/* O `input` real fica escondido dentro do rótulo. As regras gerais da ficha
+   dão `width: 100%` e altura mínima a todo input, o que desfazia o
+   `sr-only` e esticava a página 550px para a direita. */
+.arquivo-marca-enviar {
+  position: relative;
+}
+
+.client-dossier .arquivo-marca-enviar input[type="file"] {
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
+.arquivo-marca-enviar:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.arquivo-marca-enviar.enviando {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.arquivo-marca-detalhes {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.arquivo-marca-detalhes summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.arquivo-marca-detalhes > div {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+
+@media (max-width: 820px) {
+  .lista-arquivos-marca {
+    grid-template-columns: 1fr;
+  }
+
+  .dossier-tab {
+    padding: 14px;
+  }
+}
+
+/* ---- Área do cliente: cabeçalho, resumo e cartões mais baixos (30/09/2026) ----
+   O cabeçalho usava ~200px (sobretítulo, nome em 52px, número) antes das
+   abas, em toda seção. O "Próxima ação" do resumo era um cartão de 180px
+   para uma frase. E os cartões de Serviços e Financeiro, numa grade de
+   linhas, esticavam até o mais alto da fileira: o "Cofre" do financeiro
+   ficava 300px abaixo do fim do cartão ao lado. */
+.client-workspace-header {
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.client-workspace-titulo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.client-workspace-titulo .seo-back {
+  font-size: 0.8125rem;
+}
+
+.client-workspace-header h1 {
+  margin: 0;
+  font-size: clamp(1.375rem, 2.2vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.client-workspace-header p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+
+.client-workspace-nav a {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.client-summary-grid {
+  gap: 12px;
+}
+
+.client-summary-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  padding: 12px 18px;
+}
+
+.client-summary-lead > * {
+  grid-column: 1;
+}
+
+.client-summary-lead h2 {
+  margin: 2px 0 0;
+  font-size: 1.0625rem;
+}
+
+.client-summary-lead p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.client-summary-lead > a {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  white-space: nowrap;
+}
+
+.client-summary-grid .linha {
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Colunas em vez de fileiras: cada cartão tem a altura do que contém. */
+.prov-section {
+  margin-top: 12px;
+}
+
+@media (min-width: 821px) {
+  .prov-grid,
+  .client-finance-only .prov-grid {
+    display: block;
+    columns: 300px 3;
+    column-gap: 12px;
+  }
+
+  .prov-grid > .prov-card {
+    display: flex;
+    margin-bottom: 12px;
+    break-inside: avoid;
+  }
+}
+
+.prov-card {
+  gap: 10px;
+  padding: 14px;
+}
+
+.prov-card .ios-row {
+  min-height: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+/* Complemento do PR #55: preserva a compactação já integrada na main. */
+@media (max-width: 820px) {
+  .tela-cabecalho h1 { font-size: 1.625rem; }
+  .field textarea,
+  .dossier-grid textarea,
+  .client-dossier textarea {
+    min-height: 56px;
+    field-sizing: content;
+  }
+  .cadastro-ia-perguntar .linha-texto small {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 }

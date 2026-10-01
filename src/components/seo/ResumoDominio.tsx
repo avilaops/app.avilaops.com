@@ -3,7 +3,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import ListaChaveValor from "@/components/hub-social/ListaChaveValor";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Button } from "@/components/shadcn/button";
-import { CartaoLista, evidenciaConexao, tomNota } from "@/components/seo/comum";
+import { CartaoLista, evidenciaConexao, tomNota } from "@/components/hub-social/comum";
 import { P, type Audit, type Connection, type Performance } from "@/components/seo/dados";
 
 /** Aba Resumo do domínio: notas, Core Web Vitals e até três prioridades. */
@@ -29,7 +29,7 @@ export default function ResumoDominio({
   const desempenho = typeof perf?.performanceScore === "number" ? perf.performanceScore : null;
 
   return (
-    <div className="grid gap-6 min-[821px]:grid-cols-2 min-[821px]:items-start">
+    <div className="grid gap-6 max-[820px]:gap-4 min-[821px]:grid-cols-2 min-[821px]:items-start">
       <div className="space-y-4">
         <GradeMetricas rotulo="Notas do domínio">
           <Metrica

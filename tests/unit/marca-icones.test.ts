@@ -188,15 +188,39 @@ describe("trecho para o site", () => {
     expect(html).toContain('href="/site.webmanifest"');
   });
 
-  it("o manifesto lista os dois ícones e usa o fundo como cor de tema", () => {
+  it("o manifesto lista os três ícones e usa o fundo como cor de tema", () => {
     const json = JSON.parse(manifesto("Saúde Pet Brasil", "#0a5533")) as {
       name: string;
-      icons: { sizes: string }[];
+      icons: { sizes: string; purpose: string }[];
       theme_color: string;
     };
     expect(json.name).toBe("Saúde Pet Brasil");
-    expect(json.icons.map((i) => i.sizes)).toEqual(["192x192", "512x512"]);
+    expect(json.icons.map((i) => i.sizes)).toEqual(["192x192", "512x512", "512x512"]);
     expect(json.theme_color).toBe("#0A5533");
+  });
+
+  /**
+   * Eram dois ícones e nenhum `purpose` até 19/09/2026. Sem entrada
+   * `maskable` o ícone ganha moldura em vez de preencher o squircle do
+   * Android; só com `maskable` o sistema recorta num círculo de 80% sem ter
+   * reserva. O conjunto certo tem os dois papéis, e o maskable é arquivo
+   * próprio porque precisa da folga de 22% da zona segura.
+   */
+  it("o manifesto traz any e maskable, e o maskable é um arquivo à parte", () => {
+    const json = JSON.parse(manifesto("Ávila", null)) as {
+      icons: { src: string; purpose: string }[];
+    };
+    expect(json.icons.map((i) => i.purpose)).toEqual(["any", "any", "maskable"]);
+    expect(json.icons.find((i) => i.purpose === "maskable")?.src).toBe("/icone-maskable-512.png");
+  });
+
+  /** Sem `start_url` o navegador não considera o site instalável. */
+  it("o manifesto tem o que torna o site instalável", () => {
+    const json = JSON.parse(manifesto("Ávila", null, "/app")) as Record<string, unknown>;
+    expect(json.start_url).toBe("/app/");
+    expect(json.scope).toBe("/app/");
+    expect(json.id).toBe("/app/");
+    expect(json.display).toBe("standalone");
   });
 
   it("sem cor escolhida o tema cai no branco em vez de ficar vazio", () => {

@@ -23,6 +23,13 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# `sharp` é externo (serverExternalPackages), e o rastreamento do standalone
+# leva o pacote de libvips só pela casca: 20 KB com o index.js e sem o
+# `libvips-cpp.so`, que tem 18 MB. Como a imagem final copia apenas o
+# standalone, não sobra de onde carregar a biblioteca, e toda rota que gera
+# imagem — peça do Estúdio, ícones da marca — morre com
+# "ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.3: cannot open shared object file".
+COPY --from=build /app/node_modules/@img ./node_modules/@img
 COPY --from=build /app/prisma ./prisma
 ARG GIT_SHA=desconhecido
 ARG BUILT_AT=desconhecido

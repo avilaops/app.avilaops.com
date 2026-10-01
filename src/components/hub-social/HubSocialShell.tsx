@@ -7,7 +7,7 @@ import AbasHubSocial from "@/components/hub-social/AbasHubSocial";
 import { canalDoPathname } from "@/lib/hub-social";
 
 /**
- * Um AppShell para as sete telas. O layout (servidor) não sabe o pathname;
+ * Um AppShell para as telas da área. O layout (servidor) não sabe o pathname;
  * este wrapper sabe, e é dele que sai qual item do menu acende e qual aba
  * está ativa.
  */

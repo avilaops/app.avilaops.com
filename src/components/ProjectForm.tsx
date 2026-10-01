@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { nomeProprio } from "@/lib/format";
 
 type OrganizationOption = {
   id: string;
@@ -124,7 +125,7 @@ export default function ProjectForm({
                 </option>
                 {organizations.map((organization) => (
                   <option value={organization.id} key={organization.id}>
-                    {organization.name}
+                    {nomeProprio(organization.name)}
                   </option>
                 ))}
               </select>

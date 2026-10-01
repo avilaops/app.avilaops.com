@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { relatoDaEntrega } from "@/lib/entrega/relato";
+import { nomeProprio } from "@/lib/format";
 
 export interface OsbDomainRow {
   id: string;
@@ -108,8 +110,12 @@ export default function OsbDashboardClient({
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Falha no Auto-Fix.");
 
-      setMessage(`⚡ Auto-Fix SEO aplicado para ${fqdn}!`);
-      window.location.reload();
+      // Recarregar a página apaga a mensagem; só vale a pena quando a nota da
+      // linha mudou de fato, ou seja, quando os arquivos entraram no ar.
+      const relato = relatoDaEntrega(data.result.entrega);
+      setMessage(relato.texto);
+      if (relato.ok) window.location.reload();
+      else setStatus("idle");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Erro no Auto-Fix.");
       setStatus("idle");
@@ -163,7 +169,8 @@ export default function OsbDashboardClient({
       ) : null}
 
       <div className="osb-controls" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
-        <div className="filter-buttons" style={{ display: "flex", gap: "0.5rem" }}>
+        {/* Quebra em linhas: os cinco filtros somam 444px e saem da tela a 390px. */}
+        <div className="filter-buttons" style={{ display: "flex", flexWrap: "wrap", minWidth: 0, gap: "0.5rem" }}>
           <button
             onClick={() => setFilter("ALL")}
             style={{ padding: "0.5rem 1rem", borderRadius: "6px", border: "none", background: filter === "ALL" ? "#3b82f6" : "#333", color: "#fff", cursor: "pointer" }}
@@ -238,7 +245,7 @@ export default function OsbDashboardClient({
               {filteredRows.map((r) => (
                 <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                   <td style={{ padding: "0.8rem" }}>
-                    <strong>{r.organizationName}</strong>
+                    <strong>{nomeProprio(r.organizationName)}</strong>
                     <div style={{ fontSize: "0.85rem", color: "#888" }}>{r.fqdn}</div>
                   </td>
                   <td style={{ padding: "0.8rem" }}>

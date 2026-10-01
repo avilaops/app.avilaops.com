@@ -98,3 +98,44 @@ export function LinhaInfo(props: LinhaProps) {
     </div>
   );
 }
+
+/**
+ * Linha que age sem navegar: leva a um campo da mesma página, abre um editor.
+ * Um `<button>` de verdade, para o teclado e o leitor de tela saberem que dá
+ * para acionar — a `LinhaInfo` tem a mesma cara e não faz nada.
+ */
+export function LinhaBotao({
+  aoClicar,
+  ...props
+}: LinhaProps & { aoClicar: () => void }) {
+  return (
+    <button type="button" className="linha linha-botao" onClick={aoClicar}>
+      <Conteudo {...props} seta />
+    </button>
+  );
+}
+
+/**
+ * Linha que abre no lugar, para o item que tem detalhe e não tem página.
+ *
+ * Existe porque a alternativa era empilhar seis pares de rótulo e valor dentro
+ * de um cartão por item: no celular isso vira uma tela de rolagem para cada
+ * linha da tabela, e quem está procurando uma coisa passa por tudo. Fechada,
+ * a linha mostra o nome, um resumo e um valor — e o resto fica a um toque.
+ *
+ * `<details>` de verdade: abre sem JavaScript, o Ctrl+F do navegador acha o
+ * conteúdo fechado, e o leitor de tela anuncia o estado sozinho.
+ */
+export function LinhaDobravel({
+  children,
+  ...props
+}: LinhaProps & { children: ReactNode }) {
+  return (
+    <details className="linha-dobravel">
+      <summary className="linha">
+        <Conteudo {...props} seta />
+      </summary>
+      <div className="linha-dobra">{children}</div>
+    </details>
+  );
+}

@@ -12,6 +12,7 @@ export type SecaoApp =
   | "operations"
   | "clients"
   | "client-requests"
+  | "lojas"
   | "leads"
   | "projects"
   | "overview"
@@ -36,6 +37,7 @@ export type SecaoApp =
   | "fiscal"
   | "credito"
   | "estudio"
+  | "icones"
   | "automacoes";
 
 export type ItemNavegacao = {
@@ -94,6 +96,7 @@ const ICONE_DO_CANAL: Partial<Record<SecaoApp, NomeIcone>> = {
   whatsapp: "whatsapp",
   newsletter: "newsletter",
   estudio: "estudio",
+  icones: "icones",
 };
 
 const DESCRICAO_DO_CANAL: Partial<Record<SecaoApp, string>> = {
@@ -104,6 +107,7 @@ const DESCRICAO_DO_CANAL: Partial<Record<SecaoApp, string>> = {
   whatsapp: "Webhooks, flows e eventos",
   newsletter: "Contatos, campanhas e envios",
   estudio: "Peças de vídeo e imagem",
+  icones: "Favicon, atalho e manifesto",
 };
 
 export const navegacao: GrupoNavegacao[] = [
@@ -126,6 +130,16 @@ export const navegacao: GrupoNavegacao[] = [
       },
       { href: "/leads", label: "Leads", section: "leads", icone: "hub", descricao: "Quem chegou e ainda não é cliente" },
       { href: "/projetos", label: "Entregas", section: "projects", icone: "entregas", descricao: "Projetos em andamento e prazos" },
+      {
+        // Mora em Operação e não em Casa: a loja é do cliente, não da casa —
+        // o vizinho certo é "Clientes". Com ela o grupo fecha nos sete itens
+        // que a coluna mostra sem rolar.
+        href: "/lojas",
+        label: "Lojas",
+        section: "lojas",
+        icone: "lojas",
+        descricao: "Vitrines e catálogos dos clientes na plataforma",
+      },
       { href: "/operacao/servicos", label: "Serviços", section: "services", icone: "config", descricao: "Catálogo de planos e preços" },
     ],
   },
@@ -154,7 +168,7 @@ export const navegacao: GrupoNavegacao[] = [
         label: "Automações",
         section: "automacoes",
         icone: "automacoes",
-        descricao: "Fluxos do n8n e credenciais",
+        descricao: "Fluxos, execuções e credenciais do n8n",
         // Cofre do n8n: chave de terceiro é do dono.
         somenteDono: true,
       },
@@ -164,8 +178,10 @@ export const navegacao: GrupoNavegacao[] = [
     // Onde o cliente é encontrado e falado com, mais o Estúdio que produz o que
     // vai nesses canais. Eram "Canais" (6) e "Conteúdo" (Estúdio), separados em
     // 10/09/2026 pelo teto de sete itens; em 16/09/2026 viraram uma área própria
-    // fora de Operação, /hub-social, e o grupo fechou exatamente nos sete. A
-    // ordem é a das abas da área (src/lib/hub-social.ts é a fonte).
+    // fora de Operação, /hub-social. O teto subiu para oito em 18/09/2026, quando
+    // Ícones entrou: ele nasceu de um limite de rolagem, não de uma regra do
+    // produto, e oito ainda cabem na coluna do desktop e na tela "Mais" sem
+    // rolar. A ordem é a das abas da área (src/lib/hub-social.ts é a fonte).
     label: "Hub Social",
     slug: "hub-social",
     icone: "hub",
@@ -405,4 +421,34 @@ export function tomDoGrupo(slug?: string): "azul" | "vermelho" | "amarelo" | "ne
     default:
       return "azul";
   }
+}
+
+/**
+ * De onde a tela veio e com que cara ela se apresenta, a partir da seção.
+ *
+ * Existe porque cada página repetia a mesma decisão à mão — qual ícone, qual
+ * cor, para onde volta o botão do celular — e repetição de decisão é onde a
+ * coerência vaza: em 19/09/2026 havia h1 de 22px numa tela e 28px na vizinha,
+ * e metade das telas antigas não tinha caminho de volta no celular.
+ *
+ * A resposta já estava aqui: o mapa sabe em que grupo cada seção mora, e o
+ * grupo tem ícone, cor e slug. `CabecalhoTela` só precisa receber.
+ */
+export function contextoDaSecao(section: SecaoApp): {
+  icone: NomeIcone;
+  tom: ReturnType<typeof tomDoGrupo>;
+  voltar?: { href: string; rotulo: string };
+} {
+  for (const grupo of navegacao) {
+    const item = grupo.items.find((i) => i.section === section);
+    if (!item) continue;
+    return {
+      icone: item.icone ?? grupo.icone ?? "operacao",
+      tom: tomDoGrupo(grupo.slug),
+      voltar: grupo.slug ? { href: `/mais/${grupo.slug}`, rotulo: `Voltar para ${grupo.label}` } : undefined,
+    };
+  }
+  // Seção que não está no menu (uma subtela, por exemplo) fica sem volta: o
+  // chute seria pior que a ausência, porque levaria para o lugar errado.
+  return { icone: "operacao", tom: "azul" };
 }

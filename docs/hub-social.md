@@ -1,6 +1,6 @@
 # Hub Social (`/hub-social`)
 
-Os sete canais por onde o cliente é encontrado, falado com e abastecido de
+Os oito canais por onde o cliente é encontrado, falado com e abastecido de
 conteúdo. Saíram do setor **Operação** em 16/09/2026 e passaram a ser uma área
 própria, com layout e barra de abas compartilhados, uma rota por canal.
 
@@ -22,11 +22,15 @@ padrões de aba, cinco de estado vazio e nenhum cabeçalho em comum.
 | `/operacao/whatsapp`                                   | `/hub-social/whatsapp`                                  |
 | `/operacao/newsletter`                                 | `/hub-social/newsletter`                                |
 | `/operacao/estudio` (+ `/[id]`)                        | `/hub-social/estudio` (+ `/[id]`)                       |
+| (não existia)                                         | `/hub-social/icones`                                    |
 
 A ordem das abas é a de `src/lib/hub-social.ts`, que é a fonte única: o grupo
 "Hub Social" do menu (`src/lib/navegacao.ts`) e a barra de abas leem dela. As
 `section`s (`seo`, `domains`, `google-suite`, `meta`, `whatsapp`, `newsletter`,
 `estudio`) não mudaram — `SideNav` e `MobileNav` continuam acendendo por elas.
+Ícones (`/hub-social/icones`, seção `icones`) nasceu aqui em 18/09/2026 e não
+tem endereço antigo; foi com ele que o teto de itens por grupo subiu de sete
+para oito (`tests/unit/navegacao.test.ts`).
 
 `/operacao` (Visão central) continua existindo; só o card de domínios dele passou
 a apontar para o novo lugar.
@@ -53,13 +57,13 @@ São contratos com a Meta; mexer neles derruba integração de cliente. Só o
 
 ## Primitivos criados
 
-Em `src/components/hub-social/`, para uso das sete telas — e, daqui para frente,
+Em `src/components/hub-social/`, para uso das telas da área — e, daqui para frente,
 das outras telas do app que hoje repetem os mesmos padrões à mão:
 
 | Primitivo           | O que resolve                                                                 |
 | ------------------- | ----------------------------------------------------------------------------- |
 | `CabecalhoPagina`   | eyebrow, título, subtítulo e ações; no lugar de `page-header`/`operations-header` |
-| `AbasHubSocial`     | a barra de sete abas, ativa por `usePathname()`; no celular, chips roláveis     |
+| `AbasHubSocial`     | a barra de abas, ativa por `usePathname()`; no celular, chips roláveis     |
 | `Metricas`          | grade `auto-fit`, que acaba com o card órfão de grades 3+1 e 3+2               |
 | `TabelaResponsiva`  | tabela no desktop e cartão de andares no celular, com DOM único               |
 | `ListaChaveValor`   | rótulo/valor com valor monoespaçado e botão de copiar                          |
@@ -69,7 +73,7 @@ das outras telas do app que hoje repetem os mesmos padrões à mão:
 | `FolhaEvidencia`    | "qual evidência produziu este valor?", nos moldes de `HealthEvidenceSheet`     |
 | `HubSocialShell`    | o `AppShell` da área mais as abas                                             |
 
-Apoio em `src/lib/`: `hub-social.ts` (os sete canais), `status-rotulos.ts`
+Apoio em `src/lib/`: `hub-social.ts` (os oito canais), `status-rotulos.ts`
 (`MAPA_STATUS` e `OBJETIVO_CAMPANHA` — fim dos badges em inglês vindos crus da
 API) e `evidencia.ts` (o tipo `Evidencia` e o cálculo de frescor). Os três têm
 teste unitário.

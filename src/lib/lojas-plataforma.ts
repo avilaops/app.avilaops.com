@@ -68,6 +68,61 @@ export interface LojaDaPlataforma {
 
 export const listarLojas = () => chamar<LojaDaPlataforma[]>("/api/admin/tenants");
 
+/**
+ * A ficha da loja. O endpoint devolve o tenant inteiro (sem os tokens de
+ * gateway, que a plataforma nunca serve em claro); aqui declaramos só o que
+ * esta tela lê. Campo novo lá não quebra nada aqui.
+ */
+export interface FichaDaLoja extends Omit<LojaDaPlataforma, "_count"> {
+  segmento: string;
+  dominios: string[];
+  logoUrl: string | null;
+  emailRemetente: string | null;
+  cepOrigem: string | null;
+  despachoDiasUteis: number;
+  freteGratisAcima: number | null;
+  /** Nulo quando o lojista nunca conectou o canal do Mercado Livre. */
+  mlConectadoEm: string | null;
+  mlNickname: string | null;
+  /** Chave pública do Mercado Pago: presente significa gateway configurado. */
+  mpPublicKey: string | null;
+  atualizadoEm: string;
+  _count: { produtos: number; pedidos: number; categorias: number };
+}
+
+/**
+ * Produto do catálogo de uma loja.
+ *
+ * `imagemOrigem` vem junto de propósito: na plataforma ele declara se a foto é
+ * do SKU exato (`propria`), de outro item da mesma família (`representativa`)
+ * ou um desenho (`ilustracao`). Quem acompanha o catálogo de fora precisa ver
+ * isso — foto plausível de produto errado gera compra errada e devolução.
+ */
+export interface ProdutoDaLoja {
+  id: string;
+  slug: string;
+  nome: string;
+  marca: string | null;
+  sku: string | null;
+  precoCentavos: number;
+  precoDeCentavos: number | null;
+  imagens: string[];
+  imagemOrigem: string;
+  destaque: boolean;
+  ativo: boolean;
+  disponibilidade: string;
+  estoque: number | null;
+  atualizadoEm: string;
+  criadoEm: string;
+  categoria: { nome: string; slug: string } | null;
+}
+
+export const lerLoja = (slug: string) =>
+  chamar<FichaDaLoja>(`/api/admin/tenants/${encodeURIComponent(slug)}`);
+
+export const listarProdutosDaLoja = (slug: string) =>
+  chamar<ProdutoDaLoja[]>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos`);
+
 export type AcaoAssinatura =
   | { acao: "cancelar" }
   | { acao: "pausar" }

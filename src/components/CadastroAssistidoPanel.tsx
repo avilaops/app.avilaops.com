@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Grupo, LinhaInfo } from "@/components/sistema/Lista";
+import { Grupo, LinhaBotao } from "@/components/sistema/Lista";
+import { irParaCampo } from "@/lib/ficha-campo";
 
 /**
  * Assistente de cadastro: mostra o que falta na ficha do cliente, de onde
@@ -215,17 +216,15 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
 
   return (
     <section className="cadastro-ia">
-      {/* Três blocos viraram dois: o nome do painel e, numa linha só, o quanto
-          dele está preenchido. O eyebrow em caixa alta somado a um `h2` de 22px
-          com um `small` embaixo custava quase 90px de altura para dizer o que
-          cabe em duas linhas. */}
       <header className="cadastro-ia-topo">
-        <div className="cadastro-ia-titulo">
-          <h2>Assistente de cadastro</h2>
-          <p>
-            {analise.completude}% preenchido · {analise.preenchidos} de {analise.totalCampos}{" "}
-            campos
-          </p>
+        <div>
+          <span className="eyebrow">ASSISTENTE DE CADASTRO</span>
+          <h2>
+            {analise.completude}% preenchido
+            <small>
+              {analise.preenchidos} de {analise.totalCampos} campos acompanhados
+            </small>
+          </h2>
         </div>
         <div className="cadastro-ia-acoes">
           <button
@@ -383,14 +382,6 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
         </div>
       ) : null}
 
-      {/* Eram seis cartões de borda tracejada, um por campo, dentro do cartão do
-          assistente, dentro da superfície da página — cartão dentro de cartão
-          dentro de cartão, que é exatamente o que o sistema visual existe para
-          evitar.
-
-          `Grupo` + `LinhaInfo` já são uma superfície com linhas separadas por
-          fio: a estrutura da tela de Ajustes do iPhone. Não há CSS novo aqui, só
-          o componente certo no lugar do improviso. */}
       {soComOCliente.length > 0 ? (
         <div className="cadastro-ia-perguntar">
           <Grupo
@@ -398,10 +389,12 @@ export default function CadastroAssistidoPanel({ painelInicial }: { painelInicia
             acao={<span className="cadastro-ia-contador">{soComOCliente.length} campos</span>}
           >
             {soComOCliente.map((lacuna) => (
-              <LinhaInfo
+              <LinhaBotao
                 key={lacuna.chave}
                 titulo={lacuna.rotulo}
                 descricao={lacuna.porque ?? lacuna.grupo}
+                valor="Preencher"
+                aoClicar={() => irParaCampo(lacuna.chave)}
               />
             ))}
           </Grupo>

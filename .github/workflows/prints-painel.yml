@@ -13,8 +13,14 @@ on:
       - "src/app/**"
       - "src/components/**"
       - "src/lib/navegacao.ts"
+      - "src/lib/lojas-painel.ts"
+      - "src/lib/lojas-plataforma.ts"
       - "scripts/prints/**"
       - ".github/workflows/prints-painel.yml"
+      # `next.config.ts` decide o que entra no bundle standalone, e é esse
+      # bundle que serve as capturas. Quando o rastreamento deixou o
+      # libvips do sharp para trás, quem descobriu foi este job.
+      - "next.config.ts"
   workflow_dispatch:
 permissions:
   contents: read
@@ -44,22 +50,47 @@ jobs:
       - run: npx prisma migrate deploy
       - name: Dados fictícios
         run: npx tsx scripts/prints/semear.ts
+      # Mesmo teto que o estágio `build` do Dockerfile já recebe. O `next build`
+      # deste projeto passa de 1,9 GB em "Running TypeScript" e o padrão do Node
+      # fica em ~2 GB: sem isto o job morre com "JavaScript heap out of memory"
+      # antes de tirar um print. Fica só neste passo — o app que sobe depois
+      # segue com o limite padrão, como em produção.
       - name: Build
         run: npx next build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+      # Dois segundos aqui contra cinco minutos de captura: sem esta sonda, um
+      # binário nativo que não carrega só aparece como uma tela em 500 no fim
+      # do job, com a causa enterrada no log do app.
+      - name: Conferir o sharp no bundle
+        run: node scripts/prints/conferir-sharp.mjs
       # `next.config.ts` usa output: "standalone", e o Next avisa no próprio log
       # que `next start` não funciona com isso: serve a página mas devolve 404
       # em parte dos chunks, e a árvore some na hidratação. Print silenciosamente
       # errado é pior que print ausente, então o app sobe pelo server.js do
       # bundle, com os estáticos copiados para dentro dele.
+      # A área /lojas lê a plataforma por HTTP, não o banco: sem esta peça os
+      # prints dela sairiam no estado "não configurada". Nenhum segredo — é um
+      # servidor local com dados fictícios, como o `semear.ts` é para o banco.
+      - name: Subir a plataforma de lojas fingida
+        run: |
+          node scripts/prints/lojas-falsa.mjs > lojas-falsa.log 2>&1 &
+          npx --yes wait-on http://127.0.0.1:4599 --timeout 30000 || true
       - name: Subir o app
         run: |
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
+          # Mesmo buraco que a imagem de produção tinha: o rastreamento leva o
+          # pacote de libvips só pela casca, sem o `.so`, e as telas que geram
+          # imagem devolvem 500 — o print sai, mas da tela de erro.
+          cp -r node_modules/@img .next/standalone/node_modules/
           node .next/standalone/server.js > next.log 2>&1 &
           npx --yes wait-on http://127.0.0.1:3000/login --timeout 120000
         env:
           HOSTNAME: 127.0.0.1
           PORT: "3000"
+          LOJAS_API_URL: http://127.0.0.1:4599
+          LOJAS_ADMIN_TOKEN: token-de-conferencia
       - name: Playwright
         run: |
           npm install --no-save playwright@1.62.1
@@ -69,6 +100,9 @@ jobs:
       - name: Log do app
         if: always()
         run: tail -n 200 next.log || true
+      - name: Log da plataforma fingida
+        if: always()
+        run: tail -n 50 lojas-falsa.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

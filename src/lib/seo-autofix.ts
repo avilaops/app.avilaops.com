@@ -1,3 +1,20 @@
+/**
+ * O "Auto-Fix SEO" — agora com o verbo valendo o que diz.
+ *
+ * Até 19/09/2026 esta função gerava o texto dos três arquivos, gravava numa
+ * linha de `integrationConnection` e devolvia sucesso. O site do cliente
+ * continuava sem `robots.txt`, sem `sitemap.xml` e sem `llms.txt`: a
+ * auditoria seguinte reprovava exatamente os mesmos itens, e três telas
+ * diferentes anunciavam "aplicado com sucesso" em cima disso.
+ *
+ * O que ela faz hoje: publica os arquivos na borda do Cloudflare
+ * (`entrega/publicar.ts`), guarda a situação apurada domínio a domínio e
+ * re-audita. Quando não dá para publicar — domínio fora da conta, ou sem
+ * proxy — o resultado diz o motivo em vez de inventar sucesso.
+ */
+import { publicarEntrega } from "@/lib/entrega/publicar";
+import type { SituacaoDominio } from "@/lib/entrega/tipos";
+import { arquivosDoSite } from "@/lib/entrega/conteudo";
 import { prisma } from "@/lib/prisma";
 import { runSeoAuditForDomain } from "@/lib/seo-audit";
 
@@ -9,6 +26,8 @@ export interface AutoFixResult {
   generatedSitemap: string;
   generatedLlms: string;
   appliedAt: string;
+  /** O que aconteceu na borda. É esta a evidência de que foi aplicado. */
+  entrega: SituacaoDominio;
   updatedScore?: number;
 }
 
@@ -23,57 +42,29 @@ export async function generateAndApplySeoAutoFix(fqdn: string): Promise<AutoFixR
   }
 
   const companyName = domain.organization.name || fqdn;
-  const baseUrl = `https://${fqdn}`;
 
-  // 1. Generate standard robots.txt
-  const generatedRobots = [
-    "# Gerado automaticamente por Ávila Ops Auto-Fix SEO",
-    "User-agent: *",
-    "Allow: /",
-    "",
-    `Sitemap: ${baseUrl}/sitemap.xml`,
-  ].join("\n");
+  // O texto dos três arquivos vem de `entrega/conteudo.ts`, o mesmo módulo que
+  // a borda publica. Enquanto viviam aqui, o que a tela mostrava e o que seria
+  // servido eram dois textos mantidos à mão em lugares diferentes.
+  const [robots, sitemap, llms] = arquivosDoSite({ fqdn, empresa: companyName });
 
-  // 2. Generate standard sitemap.xml
-  const generatedSitemap = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    "  <url>",
-    `    <loc>${baseUrl}/</loc>`,
-    `    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>`,
-    "    <changefreq>weekly</changefreq>",
-    "    <priority>1.0</priority>",
-    "  </url>",
-    "</urlset>",
-  ].join("\n");
-
-  // 3. Generate standard llms.txt (AI Crawler Information)
-  const generatedLlms = [
-    `# ${companyName}`,
-    `> Website: ${baseUrl}`,
-    "",
-    "## Informações Institucionais",
-    `- **Empresa**: ${companyName}`,
-    `- **Domínio Oficial**: ${fqdn}`,
-    "- **Status da Infraestrutura**: Ávila Ops Digital Operating System (Monitored & Secure)",
-    "",
-    "## Resumo de Serviços",
-    `${companyName} oferece soluções integradas operadas via plataforma Ávila Ops.`,
-    "",
-    "## Links Relevantes",
-    `- [Página Inicial](${baseUrl}/)`,
-    `- [Sitemap](${baseUrl}/sitemap.xml)`,
-  ].join("\n");
+  const publicacao = await publicarEntrega({ apenas: [fqdn] });
+  const entrega = publicacao.dominios.find((situacao) => situacao.fqdn === fqdn);
+  if (!entrega) {
+    throw new Error(`${fqdn} não está entre os domínios ativos: não há o que publicar.`);
+  }
 
   const result: AutoFixResult = {
     fqdn,
-    generatedRobots,
-    generatedSitemap,
-    generatedLlms,
+    generatedRobots: robots.corpo,
+    generatedSitemap: sitemap.corpo,
+    generatedLlms: llms.corpo,
     appliedAt: new Date().toISOString(),
+    entrega,
   };
 
-  // Save generated assets to IntegrationConnection for provider seo_autofix
+  const naBorda = entrega.confirmados.length === entrega.publicados.length && !entrega.foraDeAlcance;
+
   await prisma.integrationConnection.upsert({
     where: {
       provider_siteUrl: {
@@ -84,20 +75,22 @@ export async function generateAndApplySeoAutoFix(fqdn: string): Promise<AutoFixR
     create: {
       provider: PROVIDER,
       siteUrl: fqdn,
-      status: "ACTIVE",
+      status: naBorda ? "ACTIVE" : "WARNING",
       lastSyncedAt: new Date(),
-      lastSyncStatus: "SUCCESS",
+      lastSyncStatus: naBorda ? "SUCCESS" : "ERROR",
+      lastSyncError: motivo(entrega),
       metadata: JSON.parse(JSON.stringify(result)),
     },
     update: {
-      status: "ACTIVE",
+      status: naBorda ? "ACTIVE" : "WARNING",
       lastSyncedAt: new Date(),
-      lastSyncStatus: "SUCCESS",
+      lastSyncStatus: naBorda ? "SUCCESS" : "ERROR",
+      lastSyncError: motivo(entrega),
       metadata: JSON.parse(JSON.stringify(result)),
     },
   });
 
-  // Re-run SEO Audit to update the score
+  // Re-audita para a nota refletir o que está no ar agora.
   try {
     const auditRes = await runSeoAuditForDomain(fqdn);
     result.updatedScore = auditRes.score;
@@ -106,4 +99,12 @@ export async function generateAndApplySeoAutoFix(fqdn: string): Promise<AutoFixR
   }
 
   return result;
+}
+
+function motivo(entrega: SituacaoDominio): string | null {
+  if (entrega.erro) return entrega.erro;
+  if (entrega.foraDeAlcance === "sem-zona") return "Domínio fora da conta Cloudflare da casa.";
+  if (entrega.foraDeAlcance === "sem-proxy") return "Domínio sem proxy: o tráfego não passa pela borda.";
+  const faltando = entrega.publicados.filter((caminho) => !entrega.confirmados.includes(caminho));
+  return faltando.length ? `Publicado sem resposta pela borda: ${faltando.join(", ")}.` : null;
 }

@@ -2,8 +2,9 @@ import Link from "next/link";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import GradeMetricas, { Metrica } from "@/components/hub-social/Metricas";
 import { Button } from "@/components/shadcn/button";
-import { CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK, MensagemStatus } from "@/components/seo/comum";
+import { CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK, MensagemStatus } from "@/components/hub-social/comum";
 import { BASE, hrefDominio, P, type SeoItem } from "@/components/seo/dados";
+import { nomeProprio } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** Visão geral do SEO: quatro contadores auditáveis e as cinco prioridades. */
@@ -121,7 +122,7 @@ export default function VisaoGeral({
                         {item.domain.fqdn}
                       </span>
                       <span className="block truncate text-[13px] text-muted-foreground">
-                        {item.domain.organization.name}
+                        {nomeProprio(item.domain.organization.name)}
                       </span>
                     </span>
                     <span className="text-[13px] text-muted-foreground min-[821px]:text-right min-[821px]:text-sm min-[821px]:text-foreground">

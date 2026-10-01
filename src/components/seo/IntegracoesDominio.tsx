@@ -5,7 +5,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BingWebmasterPanel from "@/components/BingWebmasterPanel";
 import IndexNowPanel from "@/components/IndexNowPanel";
 import SearchConsolePanel from "@/components/SearchConsolePanel";
-import { CartaoLista, Chevron, formatarDataHora, LINHA_ITEM, LINHA_LINK, rotuloSeo } from "@/components/seo/comum";
+import { CartaoLista, Chevron, formatarDataHora, LINHA_ITEM, LINHA_LINK, rotuloIntegracao } from "@/components/hub-social/comum";
 import { connectionData, property, sitemap, type Connection, type SeoItem } from "@/components/seo/dados";
 import type { listSitemaps } from "@/lib/search-console";
 import { cn } from "@/lib/utils";
@@ -60,19 +60,19 @@ export default function IntegracoesDominio({
     {
       chave: "indexnow",
       nome: "IndexNow",
-      badge: <BadgeStatus {...rotuloSeo(indexNowConnection?.lastSyncStatus)} />,
+      badge: <BadgeStatus {...rotuloIntegracao(indexNowConnection?.lastSyncStatus)} />,
       connection: indexNowConnection,
     },
     {
       chave: "bing",
       nome: "Bing Webmaster Tools",
-      badge: <BadgeStatus {...rotuloSeo(bingConnection?.lastSyncStatus)} />,
+      badge: <BadgeStatus {...rotuloIntegracao(bingConnection?.lastSyncStatus)} />,
       connection: bingConnection,
     },
   ];
 
   return (
-    <section aria-label="Integrações do domínio" className="grid gap-6 min-[821px]:grid-cols-3 min-[821px]:items-start">
+    <section aria-label="Integrações do domínio" className="grid gap-6 max-[820px]:gap-4 min-[821px]:grid-cols-3 min-[821px]:items-start">
       <div className="min-[821px]:col-span-1">
         <CartaoLista rotulo="Integrações">
           <ul className="m-0 list-none p-0">

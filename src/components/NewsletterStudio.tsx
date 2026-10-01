@@ -218,7 +218,7 @@ export default function NewsletterStudio({
   const brutoMetricas = { ...metrics };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-[820px]:gap-4">
       <GradeMetricas rotulo="Base de contatos">
         <Metrica
           rotulo="Inscritos"
@@ -275,7 +275,7 @@ export default function NewsletterStudio({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="contatos" className="flex flex-col gap-6">
+        <TabsContent value="contatos" className="flex flex-col gap-6 max-[820px]:gap-4">
           <ImportarContatos
             aoEnviar={importContacts}
             ocupado={busy === "import"}

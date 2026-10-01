@@ -62,7 +62,10 @@ async function desenhar(
 ): Promise<Buffer> {
   const largura = spec.paisagem ? Math.round((spec.largura / spec.altura) * lado) : lado;
   const altura = lado;
-  const folga = Math.round((Math.min(largura, altura) * opcoes.margem) / 100);
+  // A folga escolhida vale para todos, menos onde o formato exige mais: o
+  // maskable precisa da zona segura de 22% ou o Android corta a marca.
+  const margem = Math.max(opcoes.margem, spec.margemMinima ?? 0);
+  const folga = Math.round((Math.min(largura, altura) * margem) / 100);
   const interno = {
     largura: Math.max(1, largura - folga * 2),
     altura: Math.max(1, altura - folga * 2),

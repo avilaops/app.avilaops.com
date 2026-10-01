@@ -77,7 +77,7 @@ export default function RespostasIA({ locations, localId, aoMudarLocal }: Respos
         <CardDescription>Escolha o local e simule uma avaliação; a resposta sai no tom de voz da marca.</CardDescription>
       </CardHeader>
 
-      <CardContent className="grid gap-6 px-5 min-[821px]:grid-cols-2">
+      <CardContent className="grid gap-6 max-[820px]:gap-4 px-5 min-[821px]:grid-cols-2">
         <form onSubmit={gerar} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="ia-local">Local</Label>

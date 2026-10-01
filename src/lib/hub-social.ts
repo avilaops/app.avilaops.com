@@ -7,7 +7,7 @@ export type CanalHubSocial = {
   section: SecaoApp;
 };
 
-/** Os sete canais, na ordem das abas. `navegacao.ts` monta o grupo do menu daqui. */
+/** Os oito canais, na ordem das abas. `navegacao.ts` monta o grupo do menu daqui. */
 export const canaisHubSocial: readonly CanalHubSocial[] = [
   { chave: "seo", href: "/hub-social/seo", label: "SEO", section: "seo" },
   { chave: "dominios", href: "/hub-social/dominios", label: "Domínios", section: "domains" },
@@ -16,6 +16,7 @@ export const canaisHubSocial: readonly CanalHubSocial[] = [
   { chave: "whatsapp", href: "/hub-social/whatsapp", label: "WhatsApp", section: "whatsapp" },
   { chave: "newsletter", href: "/hub-social/newsletter", label: "Newsletter", section: "newsletter" },
   { chave: "estudio", href: "/hub-social/estudio", label: "Estúdio", section: "estudio" },
+  { chave: "icones", href: "/hub-social/icones", label: "Ícones", section: "icones" },
 ];
 
 export function canalDoPathname(pathname: string): CanalHubSocial | null {

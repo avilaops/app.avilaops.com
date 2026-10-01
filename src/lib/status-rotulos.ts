@@ -28,7 +28,11 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   success: { texto: "Concluído", tom: "bom" },
   healthy: { texto: "Saudável", tom: "bom" },
   degraded: { texto: "Degradado", tom: "atencao" },
-  down: { texto: "Fora do ar", tom: "ruim" },
+  // A saúde em tempo real chama de SLOW o serviço que responde acima do
+  // limite sem cair. Em português isso é "degradado", não "lento": lento
+  // descreve a sensação, degradado descreve o estado do serviço.
+  slow: { texto: "Degradado", tom: "atencao" },
+  down: { texto: "Indisponível", tom: "ruim" },
   ok: { texto: "OK", tom: "bom" },
   moved: { texto: "Movido", tom: "neutro" },
   initializing: { texto: "Inicializando", tom: "info" },
@@ -71,6 +75,13 @@ export const MAPA_STATUS: Readonly<Record<string, StatusRotulado>> = {
   closed: { texto: "Encerrada", tom: "neutro" },
   any_active: { texto: "Ativa", tom: "bom" },
   any_closed: { texto: "Encerrada", tom: "neutro" },
+  // Plataforma de lojas: `Tenant.status` e o estado da assinatura no Mercado
+  // Pago, que a área de Lojas mostra lado a lado.
+  provisionando: { texto: "Configurando", tom: "info" },
+  ativa: { texto: "No ar", tom: "bom" },
+  suspensa: { texto: "Suspensa", tom: "ruim" },
+  cancelada: { texto: "Cancelada", tom: "neutro" },
+  authorized: { texto: "Assinatura ativa", tom: "bom" },
 };
 
 /** Objetivo da campanha na Marketing API (ODAX `OUTCOME_*` e os legados). */

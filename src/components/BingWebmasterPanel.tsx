@@ -13,11 +13,11 @@ import {
   formatarDataHora,
   MensagemErro,
   MensagemStatus,
-  rotuloSeo,
-  type ConexaoSeo,
-} from "@/components/seo/comum";
+  rotuloIntegracao,
+  type Conexao,
+} from "@/components/hub-social/comum";
 
-type Connection = ConexaoSeo;
+type Connection = Conexao;
 
 function metadataArrayLength(metadata: unknown, key: string) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
@@ -105,7 +105,7 @@ export default function BingWebmasterPanel({
         <CardTitle className="text-[17px] min-[821px]:text-[15px]">Bing Webmaster Tools</CardTitle>
         <CardDescription className="break-all">{fqdn}</CardDescription>
         <CardAction>
-          <BadgeStatus {...rotuloSeo(connection?.lastSyncStatus, "Nunca enviado")} />
+          <BadgeStatus {...rotuloIntegracao(connection?.lastSyncStatus, "Nunca enviado")} />
         </CardAction>
       </CardHeader>
 
@@ -156,7 +156,7 @@ export default function BingWebmasterPanel({
             { rotulo: "Enviado em", valor: formatarDataHora(connection?.lastSyncedAt), vazio: "Nunca enviado" },
             {
               rotulo: "Status",
-              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloSeo(connection.lastSyncStatus)} /> : null,
+              valor: connection?.lastSyncStatus ? <BadgeStatus {...rotuloIntegracao(connection.lastSyncStatus)} /> : null,
             },
             ...(connection?.lastSyncError ? [{ rotulo: "Erro", valor: connection.lastSyncError }] : []),
           ]}

@@ -2,6 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Grupo, LinhaInfo } from "@/components/sistema/Lista";
+import BadgeStatus from "@/components/sistema/Status";
+import Sheet from "@/components/ui/Sheet";
+import { nomeProprio } from "@/lib/format";
 
 type Brand = {
   id: string;
@@ -11,8 +15,17 @@ type Brand = {
   status: string;
 };
 
+/**
+ * Marcas do cliente: a lista, e o cadastro numa folha.
+ *
+ * O formulário ficava aberto no fim da ficha, em três colunas — no celular
+ * sobravam 90px por campo ("Ex.: Ma", "https://") e ele ocupava espaço em toda
+ * visita, enquanto cadastrar marca acontece uma vez por cliente. O estado da
+ * marca também saía cru ("ACTIVE"); agora usa o selo da casa.
+ */
 export default function BrandsPanel({ organizationId, brands }: { organizationId: string; brands: Brand[] }) {
   const router = useRouter();
+  const [aberta, setAberta] = useState(false);
   const [name, setName] = useState("");
   const [siteUrl, setSiteUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,6 +46,7 @@ export default function BrandsPanel({ organizationId, brands }: { organizationId
       setName("");
       setSiteUrl("");
       setFeedback(`Marca ${payload?.marca?.name ?? name} criada.`);
+      setAberta(false);
       router.refresh();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "Não foi possível criar a marca.");
@@ -41,26 +55,92 @@ export default function BrandsPanel({ organizationId, brands }: { organizationId
     }
   }
 
+  const formId = `marca-${organizationId}`;
+
   return (
-    <section className="client-summary-section client-brands-panel">
-      <div className="seo-section-heading">
-        <div><span className="eyebrow">IDENTIDADE</span><h2>Marcas do cliente</h2></div>
-        <span className="client-summary-number">{brands.length}</span>
-      </div>
-      <div className="client-brands-list">
-        {brands.length ? brands.map((brand) => (
-          <div className="client-brand-row" key={brand.id}>
-            <div><strong>{brand.name}</strong><small>{brand.siteUrl || `/${brand.slug}`}</small></div>
-            <span className="seo-state good">{brand.status}</span>
-          </div>
-        )) : <p>Nenhuma marca cadastrada.</p>}
-      </div>
-      <form className="client-brand-form" onSubmit={createBrand}>
-        <label className="field"><span>Nova marca</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Marca principal" required minLength={2} maxLength={120} /></label>
-        <label className="field"><span>Site (opcional)</span><input value={siteUrl} onChange={(event) => setSiteUrl(event.target.value)} placeholder="https://..." maxLength={300} /></label>
-        <button className="primary-button" type="submit" disabled={busy}>{busy ? "Criando..." : "Adicionar marca"}</button>
-      </form>
-      {feedback ? <p className="field-help" role="status">{feedback}</p> : null}
-    </section>
+    <div className="client-brands-panel">
+      <Grupo
+        titulo="Marcas"
+        acao={
+          <button type="button" className="text-button" onClick={() => setAberta(true)}>
+            Adicionar
+          </button>
+        }
+      >
+        {brands.length ? (
+          brands.map((brand) => (
+            <LinhaInfo
+              key={brand.id}
+              titulo={nomeProprio(brand.name)}
+              descricao={brand.siteUrl || `/${brand.slug}`}
+              valor={<BadgeStatus status={brand.status} />}
+            />
+          ))
+        ) : (
+          <LinhaInfo
+            titulo="Nenhuma marca cadastrada"
+            descricao="A marca é o que dá nome ao site, ao perfil e às peças do cliente."
+          />
+        )}
+      </Grupo>
+
+      {feedback ? (
+        <p className="field-help" role="status">
+          {feedback}
+        </p>
+      ) : null}
+
+      {aberta ? (
+        <Sheet
+          titulo="Nova marca"
+          aoFechar={() => setAberta(false)}
+          rodape={
+            <>
+              <button type="submit" form={formId} className="primary-button" disabled={busy}>
+                {busy ? "Criando…" : "Adicionar marca"}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setAberta(false)}
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+            </>
+          }
+        >
+          <form id={formId} className="form-stack" onSubmit={createBrand}>
+            <label className="field">
+              <span>Nome da marca</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Ex.: Marca principal"
+                required
+                minLength={2}
+                maxLength={120}
+                autoFocus
+              />
+            </label>
+            <label className="field">
+              <span>Site (opcional)</span>
+              <input
+                value={siteUrl}
+                onChange={(event) => setSiteUrl(event.target.value)}
+                placeholder="https://..."
+                maxLength={300}
+                inputMode="url"
+              />
+            </label>
+            {feedback ? (
+              <p className="inline-feedback feedback-error" role="alert">
+                {feedback}
+              </p>
+            ) : null}
+          </form>
+        </Sheet>
+      ) : null}
+    </div>
   );
 }

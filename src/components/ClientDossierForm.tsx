@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, MouseEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Sheet from "@/components/ui/Sheet";
 import { Icone } from "@/components/ui/Icones";
 import GeradorDeIcones from "@/components/GeradorDeIcones";
+import { EVENTO_IR_PARA_CAMPO } from "@/lib/ficha-campo";
 
 type Plan = {
   id: string;
@@ -173,6 +174,7 @@ const assetTypes = [
   "Ícone 192x192",
   "Ícone 512x512",
   "Apple Touch Icon",
+  "Ícone maskable 512",
   "Preview image",
   "Open Graph Image",
   "Banner desktop",
@@ -241,6 +243,7 @@ export default function ClientDossierForm({
   initialTab?: (typeof tabs)[number][0];
 }) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number][0]>(initialTab);
   const [secoesAbertas, setSecoesAbertas] = useState(false);
   // A barra de "salvar" só existe quando há o que salvar: barra fixa
@@ -258,6 +261,26 @@ export default function ClientDossierForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const planGroups = useMemo(() => groupedPlans(plans), [plans]);
+
+  // O assistente acima lista o que falta; clicar num item abre a aba onde o
+  // campo mora e põe o cursor nele. A aba vem do próprio DOM (`data-tab`),
+  // então campo novo na ficha não precisa de tabela paralela para funcionar.
+  useEffect(() => {
+    function aoPedirCampo(evento: Event) {
+      const nome = (evento as CustomEvent<string>).detail;
+      const campo = formRef.current?.querySelector<HTMLElement>(`[name="${CSS.escape(nome)}"]`);
+      const aba = campo?.closest<HTMLElement>("[data-tab]")?.dataset.tab;
+      if (!campo || !aba) return;
+      setActiveTab(aba as (typeof tabs)[number][0]);
+      // Espera a aba aparecer: campo em `display: none` não recebe foco.
+      requestAnimationFrame(() => {
+        campo.scrollIntoView({ behavior: "smooth", block: "center" });
+        campo.focus({ preventScroll: true });
+      });
+    }
+    window.addEventListener(EVENTO_IR_PARA_CAMPO, aoPedirCampo);
+    return () => window.removeEventListener(EVENTO_IR_PARA_CAMPO, aoPedirCampo);
+  }, []);
   const keywordEmEdicao = organization.seoKeywords.find((item) => item.id === editandoKeyword);
   const primaryContact = organization.contacts.find((item) => item.isPrimary) ?? organization.contacts[0];
   const primaryAddress = organization.addresses.find((item) => item.isPrimary) ?? organization.addresses[0];
@@ -325,6 +348,7 @@ export default function ClientDossierForm({
       organization: {
         name: form.get("name"),
         legalName: form.get("legalName"),
+        cpfCnpj: form.get("cpfCnpj"),
         segment: form.get("segment"),
         siteUrl: form.get("siteUrl"),
       },
@@ -335,6 +359,7 @@ export default function ClientDossierForm({
         whatsapp: form.get("whatsapp"),
         email: form.get("email"),
         bestContactTime: form.get("bestContactTime"),
+        responsibleCpf: form.get("responsibleCpf"),
         stateRegistration: form.get("stateRegistration"),
         municipalRegistration: form.get("municipalRegistration"),
         companyDescription: form.get("companyDescription"),
@@ -451,9 +476,9 @@ export default function ClientDossierForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as { error?: string; aviso?: string };
       if (!response.ok) throw new Error(result.error ?? "Não foi possível salvar.");
-      setMessage("Ficha salva com sucesso.");
+      setMessage(result.aviso ? `Ficha salva. ${result.aviso}` : "Ficha salva com sucesso.");
       // Salvou: a barra de "alterações não salvas" some, senão ela mente.
       setTemAlteracao(false);
       router.refresh();
@@ -567,8 +592,8 @@ export default function ClientDossierForm({
     }
   }
 
-  async function uploadAsset(event: MouseEvent<HTMLButtonElement>, assetType: string) {
-    const card = event.currentTarget.closest<HTMLElement>("[data-asset-card]");
+  async function uploadAsset(origem: HTMLElement, assetType: string) {
+    const card = origem.closest<HTMLElement>("[data-asset-card]");
     if (!card) return;
     const fileInput = card.querySelector<HTMLInputElement>('input[type="file"]');
     const dimensionsInput = card.querySelector<HTMLInputElement>('input[name="dimensions"]');
@@ -682,7 +707,14 @@ export default function ClientDossierForm({
   }
 
   return (
+    // `noValidate`: as sete abas são um formulário só, e as escondidas ficam
+    // em `display: none`. Até 28/09/2026 cada cartão de arquivo tinha um
+    // `<input type="file" required>`; com 19 deles vazios o navegador barrava
+    // o envio sem conseguir mostrar o balão em campo invisível, e "Salvar
+    // ficha" simplesmente não fazia nada. Quem valida é a API.
     <form
+      ref={formRef}
+      noValidate
       className={temAlteracao ? "client-dossier tem-alteracao" : "client-dossier"}
       onSubmit={save}
       onChange={() => {
@@ -692,12 +724,17 @@ export default function ClientDossierForm({
       {/* Só o quanto falta. O nome e a razão social já são o título da página e
           os dois primeiros campos da aba; a régua das seis etapas se repetia em
           toda ficha sem dizer em qual delas o cliente está. */}
-      <section className="operations-panel dossier-hero-panel">
-        <div className="dossier-progress">
-          <span>{onboardingProgress || progress}% preenchido</span>
-          <div><i style={{ width: `${onboardingProgress || progress}%` }} /></div>
-        </div>
-      </section>
+      {/* Na seção de cadastro o assistente já mostra a completude, contada
+          campo a campo. Duas porcentagens diferentes na mesma tela (5% e 17%)
+          só deixavam a pessoa sem saber em qual acreditar. */}
+      {initialTab !== "registration" ? (
+        <section className="operations-panel dossier-hero-panel">
+          <div className="dossier-progress">
+            <span>{onboardingProgress || progress}% preenchido</span>
+            <div><i style={{ width: `${onboardingProgress || progress}%` }} /></div>
+          </div>
+        </section>
+      ) : null}
 
       {/* No celular, sete abas lado a lado ficavam cortadas nas duas bordas e
           não davam para ler nem alcançar. No lugar delas, a seção atual com um
@@ -752,17 +789,14 @@ export default function ClientDossierForm({
         ))}
       </nav>
 
-      <section className={activeTab === "overview" ? "dossier-tab active" : "dossier-tab"}>
+      <section data-tab="overview" className={activeTab === "overview" ? "dossier-tab active" : "dossier-tab"}>
         <div className="dossier-grid three">
           <label>Nome fantasia<input name="name" defaultValue={organization.name} /></label>
           <label>Razão social<input name="legalName" defaultValue={organization.legalName ?? ""} /></label>
-          <label>CPF/CNPJ<input disabled defaultValue={organization.cpfCnpj ?? ""} /></label>
+          <label>CPF/CNPJ<input name="cpfCnpj" inputMode="numeric" defaultValue={organization.cpfCnpj ?? ""} placeholder="Só números; o CNPJ é consultado na Receita ao salvar" /></label>
           <label>Segmento<input name="segment" defaultValue={organization.segment ?? ""} /></label>
-          <label>Proprietário<input disabled defaultValue={primaryContact?.name ?? valueOf(organization.profile?.ownerName)} /></label>
-          <label>Telefone<input disabled defaultValue={primaryContact?.phone ?? valueOf(organization.profile?.phone)} /></label>
-          <label>WhatsApp<input disabled defaultValue={primaryContact?.whatsapp ?? valueOf(organization.profile?.whatsapp)} /></label>
           <label>Site<input name="siteUrl" defaultValue={organization.siteUrl ?? ""} /></label>
-          <label>Domínio<input disabled defaultValue={valueOf(organization.webPresence?.primaryDomain)} /></label>
+          <label>Domínio<input name="primaryDomain" defaultValue={valueOf(organization.webPresence?.primaryDomain)} placeholder="exemplo.com.br" /></label>
           <label>Status do onboarding<select name="onboardingStage" defaultValue={valueOf(organization.profile?.onboardingStage) || "BASIC"}><option value="BASIC">Cadastro básico</option><option value="COMPLETE_DATA">Dados completos</option><option value="IDENTITY">Identidade</option><option value="SITE">Site</option><option value="INTEGRATIONS">Integrações</option><option value="PUBLISHED">Publicação</option></select></label>
           <label>Responsável interno<input name="internalOwnerName" defaultValue={valueOf(organization.profile?.internalOwnerName)} /></label>
           <label>Próxima ação<input name="nextAction" defaultValue={valueOf(organization.profile?.nextAction)} /></label>
@@ -850,48 +884,51 @@ export default function ClientDossierForm({
         </div>
       </section>
 
-      <section className={activeTab === "registration" ? "dossier-tab active" : "dossier-tab"}>
-        <div className="dossier-grid two">
-          <label>Inscrição estadual<input name="stateRegistration" defaultValue={valueOf(organization.profile?.stateRegistration)} /></label>
-          <label>Inscrição municipal<input name="municipalRegistration" defaultValue={valueOf(organization.profile?.municipalRegistration)} /></label>
+      <section data-tab="registration" className={activeTab === "registration" ? "dossier-tab active" : "dossier-tab"}>
+        <div className="dossier-grid three">
+          <label className="campo-curto">Inscrição estadual<input name="stateRegistration" defaultValue={valueOf(organization.profile?.stateRegistration)} /></label>
+          <label className="campo-curto">Inscrição municipal<input name="municipalRegistration" defaultValue={valueOf(organization.profile?.municipalRegistration)} /></label>
           <label>Nome do proprietário<input name="ownerName" defaultValue={primaryContact?.name ?? valueOf(organization.profile?.ownerName)} /></label>
-          <label>Cargo<input name="ownerRole" defaultValue={primaryContact?.role ?? valueOf(organization.profile?.ownerRole)} /></label>
-          <label>Telefone fixo<input name="phone" defaultValue={primaryContact?.phone ?? valueOf(organization.profile?.phone)} /></label>
-          <label>WhatsApp<input name="whatsapp" defaultValue={primaryContact?.whatsapp ?? valueOf(organization.profile?.whatsapp)} /></label>
+          <label className="campo-curto">CPF do responsável<input name="responsibleCpf" inputMode="numeric" defaultValue={valueOf(organization.profile?.responsibleCpf)} /></label>
+          <label className="campo-curto">Cargo<input name="ownerRole" defaultValue={primaryContact?.role ?? valueOf(organization.profile?.ownerRole)} /></label>
+          <label className="campo-curto">Telefone fixo<input name="phone" defaultValue={primaryContact?.phone ?? valueOf(organization.profile?.phone)} /></label>
+          <label className="campo-curto">WhatsApp<input name="whatsapp" defaultValue={primaryContact?.whatsapp ?? valueOf(organization.profile?.whatsapp)} /></label>
           <label>E-mail<input name="email" type="email" defaultValue={primaryContact?.email ?? valueOf(organization.profile?.email)} /></label>
           <label>Melhor horário<input name="bestContactTime" defaultValue={primaryContact?.bestContactTime ?? valueOf(organization.profile?.bestContactTime)} /></label>
-          <label className="span-2">Observações do contato<textarea name="contactNotes" rows={2} defaultValue={primaryContact?.notes ?? ""} /></label>
-          <label className="span-2">Descrição da empresa<textarea name="companyDescription" rows={3} defaultValue={valueOf(organization.profile?.companyDescription)} /></label>
-          <label>Serviços oferecidos<textarea name="servicesOffered" rows={4} defaultValue={valueOf(organization.profile?.servicesOffered)} /></label>
-          <label>Produtos oferecidos<textarea name="productsOffered" rows={4} defaultValue={valueOf(organization.profile?.productsOffered)} /></label>
-          <label>Diferenciais comerciais<textarea name="commercialDifferentials" rows={3} defaultValue={valueOf(organization.profile?.commercialDifferentials)} /></label>
-          <label>Área de atendimento<textarea name="serviceArea" rows={3} defaultValue={valueOf(organization.profile?.serviceArea)} /></label>
-          <label>CEP<input name="postalCode" defaultValue={primaryAddress?.postalCode ?? valueOf(organization.profile?.postalCode)} /></label>
-          <button className="secondary-button cep-button" type="button" onClick={fillAddressFromCep} disabled={loadingCep}>
+          <label className="span-3">Observações do contato<textarea name="contactNotes" rows={1} defaultValue={primaryContact?.notes ?? ""} /></label>
+          <label className="span-3">Descrição da empresa<textarea name="companyDescription" rows={2} defaultValue={valueOf(organization.profile?.companyDescription)} /></label>
+          <label>Serviços oferecidos<textarea name="servicesOffered" rows={2} defaultValue={valueOf(organization.profile?.servicesOffered)} /></label>
+          <label>Produtos oferecidos<textarea name="productsOffered" rows={2} defaultValue={valueOf(organization.profile?.productsOffered)} /></label>
+          <label>Diferenciais comerciais<textarea name="commercialDifferentials" rows={2} defaultValue={valueOf(organization.profile?.commercialDifferentials)} /></label>
+          <label>Área de atendimento<textarea name="serviceArea" rows={2} defaultValue={valueOf(organization.profile?.serviceArea)} /></label>
+          <label className="campo-curto">CEP<input name="postalCode" defaultValue={primaryAddress?.postalCode ?? valueOf(organization.profile?.postalCode)} /></label>
+          <button className="secondary-button cep-button campo-curto" type="button" onClick={fillAddressFromCep} disabled={loadingCep}>
             {loadingCep ? "Consultando..." : "Preencher pelo CEP"}
           </button>
           <label>Logradouro<input name="street" defaultValue={primaryAddress?.street ?? valueOf(organization.profile?.street)} /></label>
-          <label>Número<input name="number" defaultValue={primaryAddress?.number ?? valueOf(organization.profile?.number)} /></label>
-          <label>Complemento<input name="complement" defaultValue={primaryAddress?.complement ?? valueOf(organization.profile?.complement)} /></label>
-          <label>Bairro<input name="district" defaultValue={primaryAddress?.district ?? valueOf(organization.profile?.district)} /></label>
-          <label>Cidade<input name="city" defaultValue={primaryAddress?.city ?? valueOf(organization.profile?.city)} /></label>
-          <label>Estado<input name="state" defaultValue={primaryAddress?.state ?? valueOf(organization.profile?.state)} /></label>
-          <label>País<input name="country" defaultValue={(primaryAddress?.country ?? valueOf(organization.profile?.country)) || "Brasil"} /></label>
+          <label className="campo-curto">Número<input name="number" defaultValue={primaryAddress?.number ?? valueOf(organization.profile?.number)} /></label>
+          <label className="campo-curto">Complemento<input name="complement" defaultValue={primaryAddress?.complement ?? valueOf(organization.profile?.complement)} /></label>
+          <label className="campo-curto">Bairro<input name="district" defaultValue={primaryAddress?.district ?? valueOf(organization.profile?.district)} /></label>
+          <label className="campo-curto">Cidade<input name="city" defaultValue={primaryAddress?.city ?? valueOf(organization.profile?.city)} /></label>
+          <label className="campo-curto">Estado<input name="state" defaultValue={primaryAddress?.state ?? valueOf(organization.profile?.state)} /></label>
+          <label className="campo-curto">País<input name="country" defaultValue={(primaryAddress?.country ?? valueOf(organization.profile?.country)) || "Brasil"} /></label>
         </div>
       </section>
 
-      <section className={activeTab === "presence" ? "dossier-tab active" : "dossier-tab"}>
+      <section data-tab="presence" className={activeTab === "presence" ? "dossier-tab active" : "dossier-tab"}>
         <Grupo titulo="Site atual">
           <label>Possui site?<select name="hasCurrentSite" defaultValue={boolValue(organization.webPresence?.hasCurrentSite)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option></select></label>
           <label>URL atual<input name="currentSiteUrl" defaultValue={valueOf(organization.webPresence?.currentSiteUrl)} /></label>
-          <label>Provedor atual<input name="currentProvider" defaultValue={valueOf(organization.webPresence?.currentProvider)} /></label>
+          <label>Provedor atual<input name="siteProvider" defaultValue={valueOf(organization.webPresence?.siteProvider) || valueOf(organization.webPresence?.currentProvider)} /></label>
           <label>Acesso disponível<input name="accessStatus" defaultValue={valueOf(organization.webPresence?.accessStatus)} /></label>
+          <label className="span-3">Observações do site<textarea name="siteNotes" rows={2} defaultValue={valueOf(organization.webPresence?.siteNotes)} /></label>
         </Grupo>
 
         <Grupo titulo="Domínio">
           <label>Possui domínio?<select name="hasDomain" defaultValue={boolValue(organization.webPresence?.hasDomain)}><option value="">Não avaliado</option><option value="YES">Sim</option><option value="NO">Não</option></select></label>
           <label>Domínio desejado<input name="desiredDomain" defaultValue={valueOf(organization.webPresence?.desiredDomain)} /></label>
           <label>Extensão preferida<input name="preferredExtension" defaultValue={valueOf(organization.webPresence?.preferredExtension)} /></label>
+          <label>Domínios alternativos<input name="alternativeDomains" defaultValue={valueOf(organization.webPresence?.alternativeDomains)} /></label>
           <label>Status disponibilidade<select name="domainAvailabilityStatus" defaultValue={valueOf(organization.webPresence?.domainAvailabilityStatus) || "NOT_CHECKED"}><option value="NOT_CHECKED">Não verificado</option><option value="AVAILABLE">Disponível</option><option value="UNAVAILABLE">Indisponível</option></select></label>
           <label>Plano de domínio<select name="selectedDomainPlanSlug" defaultValue={valueOf(organization.webPresence?.selectedDomainPlanSlug)}><option value="">Nenhum</option>{(planGroups.DOMAIN ?? []).map((plan) => <option key={plan.slug} value={plan.slug}>{plan.name} · {cents(plan)}</option>)}</select></label>
           <button className="secondary-button cep-button" type="button" onClick={checkDomain} disabled={checkingDomain}>
@@ -915,7 +952,7 @@ export default function ClientDossierForm({
         {domainCheck ? <p className="inline-feedback feedback-success">{domainCheck}</p> : null}
       </section>
 
-      <section className={activeTab === "seo" ? "dossier-tab active" : "dossier-tab"}>
+      <section data-tab="seo" className={activeTab === "seo" ? "dossier-tab active" : "dossier-tab"}>
         <div className="seo-keyword-panel">
           <div className="seo-keyword-heading">
             <div>
@@ -1038,7 +1075,7 @@ export default function ClientDossierForm({
         ) : null}
       </section>
 
-      <section className={activeTab === "assets" ? "dossier-tab active" : "dossier-tab"}>
+      <section data-tab="assets" className={activeTab === "assets" ? "dossier-tab active" : "dossier-tab"}>
         <GeradorDeIcones
           organizationId={organization.id}
           organizationName={organization.name}
@@ -1052,22 +1089,43 @@ export default function ClientDossierForm({
           }))}
         />
 
-        <div className="asset-upload-grid">
+        {/* Uma linha por tipo de arquivo. Eram 19 cartões com quatro campos
+            cada (quase 4.000px de página no desktop e 7.000px no celular)
+            para, na prática, escolher um arquivo. Escolher já envia;
+            dimensões, observações e histórico ficam em "Detalhes". */}
+        <ul className="lista-arquivos-marca">
           {assetTypes.map((assetType) => {
             const versions = organization.brandAssets.filter((item) => item.assetType === assetType);
             const current = versions.find((item) => item.isCurrent) ?? versions[0];
+            const enviando = uploadingAsset === assetType;
 
             return (
-              <article className="asset-upload-card" data-asset-card key={assetType}>
-                <div>
+              <li data-asset-card key={assetType}>
+                <div className="arquivo-marca-texto">
                   <strong>{assetType}</strong>
                   <small>
                     {current
-                      ? `Atual: ${current.name ?? "arquivo"} · v${current.version ?? "1"}`
-                      : "Nenhum arquivo enviado"}
+                      ? `${current.name ?? "arquivo"} · v${current.version ?? "1"}`
+                      : "Nenhum arquivo"}
                   </small>
+                  <details className="arquivo-marca-detalhes">
+                    <summary>Detalhes</summary>
+                    <div>
+                      <small>Preencha antes de escolher o arquivo; vale para a próxima versão enviada.</small>
+                      <input name="dimensions" placeholder="Dimensões, ex: 1200x630" />
+                      <textarea name="notes" rows={2} placeholder="Observações da versão" />
+                      {versions.length > 1 ? (
+                        <div className="asset-history">
+                          {versions.map((item) => (
+                            <span key={item.id}>
+                              v{item.version ?? "1"} · {item.name ?? "arquivo"} · {item.isCurrent ? "atual" : "anterior"}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
                 </div>
-
                 {current ? (
                   <a
                     className="asset-preview-link"
@@ -1075,47 +1133,31 @@ export default function ClientDossierForm({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Abrir prévia
+                    Prévia
                   </a>
-                ) : null}
-
-                <div className="asset-upload-form">
+                ) : (
+                  <span />
+                )}
+                <label className={enviando ? "secondary-button arquivo-marca-enviar enviando" : "secondary-button arquivo-marca-enviar"}>
+                  {enviando ? "Enviando…" : current ? "Substituir" : "Enviar"}
                   <input
                     name="file"
                     type="file"
+                    className="sr-only"
+                    disabled={enviando}
                     accept=".png,.jpg,.jpeg,.webp,.svg,.ico,.pdf,image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,application/pdf"
-                    required
+                    onChange={(event) => {
+                      if (event.currentTarget.files?.length) void uploadAsset(event.currentTarget, assetType);
+                    }}
                   />
-                  <input name="dimensions" placeholder="Dimensões, ex: 1200x630" />
-                  <textarea name="notes" rows={2} placeholder="Observações da versão" />
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={(event) => uploadAsset(event, assetType)}
-                    disabled={uploadingAsset === assetType}
-                  >
-                    {uploadingAsset === assetType ? "Enviando..." : "Enviar / substituir"}
-                  </button>
-                </div>
-
-                {versions.length > 1 ? (
-                  <details className="asset-history">
-                    <summary>Histórico ({versions.length})</summary>
-                    {versions.map((item) => (
-                      <span key={item.id}>
-                        v{item.version ?? "1"} · {item.name ?? "arquivo"} ·{" "}
-                        {item.isCurrent ? "atual" : "anterior"}
-                      </span>
-                    ))}
-                  </details>
-                ) : null}
-              </article>
+                </label>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </section>
 
-      <section className={activeTab === "integrations" ? "dossier-tab active" : "dossier-tab"}>
+      <section data-tab="integrations" className={activeTab === "integrations" ? "dossier-tab active" : "dossier-tab"}>
         <Grupo titulo="Google">
           <label>GA4 Measurement ID<input name="ga4" placeholder="G-XXXXXXXXXX" defaultValue={integrationByProvider.google_analytics_4?.publicId ?? ""} /></label>
           <label>Google Tag Manager<input name="gtm" placeholder="GTM-XXXXXXX" defaultValue={integrationByProvider.google_tag_manager?.publicId ?? ""} /></label>
@@ -1135,7 +1177,7 @@ export default function ClientDossierForm({
         <p className="inline-feedback">Não salve senhas ou tokens aqui. Credenciais sensíveis devem usar o cofre de integrações.</p>
       </section>
 
-      <section className={activeTab === "opportunities" ? "dossier-tab active" : "dossier-tab"}>
+      <section data-tab="opportunities" className={activeTab === "opportunities" ? "dossier-tab active" : "dossier-tab"}>
         {/* Cada serviço é um cartão: a situação de hoje e a oferta ficam juntas,
             porque a segunda só faz sentido lendo a primeira. Na grade de duas
             colunas anterior esse par se desfazia no celular e sobravam dez
