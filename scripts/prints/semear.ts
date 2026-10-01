@@ -192,6 +192,43 @@ async function main() {
       lastSyncStatus: "SUCCESS",
     },
   });
+  // Instagram pelo login próprio, com o token dentro da janela de renovação:
+  // é o estado que o print precisa mostrar, porque é nele que a tela ganha a
+  // badge de renovação automática e o bloco inteiro aparece.
+  await prisma.organizationIntegrationConnection.upsert({
+    where: { organizationId_provider: { organizationId: horizonte.id, provider: "instagram_login" } },
+    update: {},
+    create: {
+      organizationId: horizonte.id,
+      provider: "instagram_login",
+      status: "ACTIVE",
+      accountName: "clinicahorizonte",
+      externalId: "17841400000000001",
+      scopes: ["instagram_business_basic", "instagram_business_manage_comments"],
+      tokenExpiresAt: emDias(6),
+      lastSyncedAt: haMin(90),
+      lastSyncStatus: "REFRESHED",
+    },
+  });
+
+  // A conta que veio pelo login próprio. Sem ela o bloco "Conta conectada" não
+  // aparece em captura nenhuma, e é justamente onde mora o número com data.
+  await prisma.instagramAccount.upsert({
+    where: { instagramAccountId: "17841400000000001" },
+    update: {},
+    create: {
+      instagramAccountId: "17841400000000001",
+      organizationId: horizonte.id,
+      username: "clinicahorizonte",
+      name: "Clínica Horizonte",
+      accountType: "BUSINESS",
+      origem: "instagram_login",
+      followersCount: 3187,
+      mediaCount: 214,
+      lastSyncedAt: haMin(90),
+    },
+  });
+
   const bm = await prisma.metaBusinessAccount.upsert({
     where: { businessId: "exemplo-bm-1" },
     update: {},
@@ -294,6 +331,44 @@ async function main() {
       });
     }
   }
+
+  // Projetos. Sem isto a tela ficava vazia em toda captura, e a de detalhe não
+  // era capturada — ou seja, descrição, link, mídia e edição passavam batido
+  // pela revisão visual do CI.
+  //
+  // O id é fixo de propósito: `capturar.mjs` precisa de uma URL estável para
+  // abrir a tela de detalhe.
+  await prisma.project.upsert({
+    where: { id: "exemplo-projeto-1" },
+    update: {},
+    create: {
+      id: "exemplo-projeto-1",
+      organizationId: horizonte.id,
+      title: "Site institucional — fase 1",
+      description:
+        "Reescrita das páginas de serviço e agendamento, com foto nova das salas. Escopo combinado: home, três páginas de especialidade e a página de contato. Publicação prevista para o fim do mês, com os textos revisados pela clínica antes de subir.",
+      url: "https://clinicahorizonte.example/preview",
+      status: "ACTIVE",
+      priority: "HIGH",
+      ownerName: "Pessoa Exemplo",
+      dueAt: emDias(12),
+      createdAt: haDias(9),
+    },
+  });
+
+  await prisma.project.upsert({
+    where: { id: "exemplo-projeto-2" },
+    update: {},
+    create: {
+      id: "exemplo-projeto-2",
+      organizationId: horizonte.id,
+      title: "Campanha de check-up anual",
+      status: "PLANNING",
+      priority: "MEDIUM",
+      dueAt: emDias(34),
+      createdAt: haDias(3),
+    },
+  });
 
   // Lançamentos com competência: sem eles o DRE nasce 100% reconhecido por
   // caixa, e o rateio do anual — que é o motivo de a competência existir —

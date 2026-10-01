@@ -2144,6 +2144,28 @@ tbody tr:last-child td {
   box-shadow: var(--shadow-soft);
 }
 
+/*
+ * O formulário da casa nasceu como folha flutuante, ancorada num botão que não
+ * tem nada embaixo. Dentro de um painel isso vira sobreposição: a folha cobre o
+ * conteúdo ao lado, como aconteceu na edição de projeto.
+ *
+ * Este modificador mantém a mesma peça — mesma borda, mesmo espaçamento, mesma
+ * grade — e só a devolve ao fluxo. É isso ou copiar o formulário inteiro com
+ * outro nome, que é justamente o que a casa não faz.
+ */
+.organization-form.form-no-fluxo {
+  position: static;
+  /* `inset`, `max-height` e `overflow` vêm da regra de celular, que transforma
+     o formulário em folha fixa de tela cheia. Zerar só a posição deixava o
+     formulário no fluxo mas ainda recortado em 100vh: no iPhone o botão
+     "Salvar alterações" ficava fora do corte, e não havia como salvar. */
+  inset: auto;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
+  margin-top: 16px;
+}
+
 .form-title {
   display: flex;
   align-items: flex-start;
