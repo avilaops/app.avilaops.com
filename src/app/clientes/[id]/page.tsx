@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import AcoesCliente from "@/components/clientes/AcoesCliente";
 import BancoDeDadosPanel from "@/components/banco-cliente/BancoDeDadosPanel";
 import CadastroAssistidoPanel from "@/components/CadastroAssistidoPanel";
 import ClientDossierForm from "@/components/ClientDossierForm";
@@ -11,7 +12,7 @@ import BrandsPanel from "@/components/BrandsPanel";
 import OperacaoPanel from "@/components/OperacaoPanel";
 import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { contar, nomeProprio } from "@/lib/format";
 import { montarPainel } from "@/lib/cadastro-ia/assistente";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
@@ -133,15 +134,23 @@ export default async function ClientDossierPage({
           havia razão social — identificador interno na linha de identidade do
           cliente. Agora é o selo da casa, com o rótulo do mapa único. */}
       <header className="client-workspace-header">
-        <Link href="/clientes" className="seo-back">‹ Clientes</Link>
-        <div>
-          <span className="eyebrow">ÁREA DE TRABALHO</span>
+        <div className="client-workspace-titulo">
+          <Link href="/clientes" className="seo-back">‹ Clientes</Link>
           <h1>{nomeProprio(organization.name)}</h1>
           <p>
             Nº {organization.clientNumber}
             {organization.legalName ? ` · ${organization.legalName}` : ""}{" "}
             <BadgeStatus status={organization.status} />
           </p>
+        </div>
+        <div className="client-workspace-acoes">
+          <AcoesCliente
+            id={organization.id}
+            nome={organization.name}
+            status={organization.status}
+            podeExcluir={ehDono(admin.role)}
+            aoExcluirIrPara="/clientes"
+          />
         </div>
       </header>
       <ClientSectionNav clientId={id} active={section} />

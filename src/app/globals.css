@@ -2477,6 +2477,12 @@ tbody tr:last-child td {
   padding-bottom: 4px;
 }
 
+/* O seletor de seção substitui as abas só no celular (regra na faixa de
+   820px). Sem este padrão ele aparecia cru no desktop, ao lado das abas. */
+.seletor-secao {
+  display: none;
+}
+
 .dossier-tabs button {
   min-height: 38px;
   padding: 0 12px;
@@ -7655,6 +7661,15 @@ body {
   background: var(--active-bg);
 }
 
+.linha-botao {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .linha-estatica {
   cursor: default;
 }
@@ -9923,4 +9938,640 @@ main [data-slot="select-trigger"]:focus-visible {
 .client-row small,
 .balance-card-head span {
   font-size: 0.75rem;
+}
+
+/* ---- Lista de clientes: busca, linhas densas e paginação ----
+   A lista antiga era uma grade de quatro colunas com seis filhos por linha:
+   em janela média a pílula de status caía numa linha própria e cada cliente
+   ocupava 100px de altura. Com a carteira crescendo, a lista precisa caber
+   muita gente por tela e ser achada pela busca, não pela rolagem. */
+.filtro-clientes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.filtro-clientes select,
+.filtro-clientes-busca {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.filtro-clientes select {
+  padding: 0 10px;
+}
+
+.filtro-clientes-busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: var(--muted);
+}
+
+.filtro-clientes-busca:focus-within {
+  border-color: var(--blue-line);
+}
+
+.filtro-clientes-busca input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.filtro-clientes-carregando {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: filtro-girar 0.7s linear infinite;
+}
+
+@keyframes filtro-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lista-clientes-contagem {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.lista-clientes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha-cliente {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 220px) auto 36px;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 6px 4px;
+  box-shadow: inset 0 -1px 0 var(--separador, var(--line-soft));
+}
+
+.linha-cliente:hover {
+  background: var(--hover-bg);
+}
+
+.linha-cliente-numero {
+  color: var(--subtle-text, var(--muted));
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.linha-cliente-identidade {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.linha-cliente-nome {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A linha inteira abre o cliente; o botão de ações fica por cima disso. */
+.linha-cliente-nome::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.linha-cliente-identidade small,
+.linha-cliente-sinais {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acoes-cliente-botao {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.acoes-cliente-botao:hover,
+.acoes-cliente-botao:focus-visible {
+  background: var(--active-bg);
+  color: var(--text);
+}
+
+.acoes-cliente-menu {
+  display: grid;
+  gap: 2px;
+}
+
+.acoes-cliente-menu a,
+.acoes-cliente-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.acoes-cliente-menu a:hover,
+.acoes-cliente-menu button:hover {
+  background: var(--input-bg);
+}
+
+.acoes-cliente-menu small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.acoes-cliente-menu .acao-perigo {
+  color: var(--red);
+}
+
+.campo-confirmacao {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+.campo-confirmacao input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.paginacao-clientes {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.paginacao-clientes > :last-child {
+  justify-self: end;
+}
+
+.client-workspace-acoes {
+  margin-left: auto;
+}
+
+@media (max-width: 820px) {
+  .filtro-clientes {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filtro-clientes-busca {
+    grid-column: 1 / -1;
+  }
+
+  .filtro-clientes-busca input,
+  .filtro-clientes select {
+    font-size: 1rem; /* abaixo de 16px o iPhone dá zoom ao focar */
+  }
+
+  .linha-cliente {
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+    grid-template-areas:
+      "identidade status acoes"
+      "identidade sinais acoes";
+    gap: 2px 10px;
+    padding: 8px 0;
+  }
+
+  .linha-cliente-numero {
+    display: none;
+  }
+
+  .linha-cliente-identidade {
+    grid-area: identidade;
+  }
+
+  .linha-cliente > [data-tom] {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .linha-cliente-sinais {
+    grid-area: sinais;
+    justify-self: end;
+    max-width: 40vw;
+  }
+
+  .linha-cliente .acoes-cliente-botao {
+    grid-area: acoes;
+  }
+
+  .client-workspace-header {
+    position: relative;
+  }
+
+  .client-workspace-acoes {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+}
+
+/* ---- Área do cliente compacta (29/09/2026) ----
+   A ficha tinha 2.500px de altura no desktop e a aba de arquivos quase
+   4.000px: campo alto, espaço generoso e duas colunas numa tela que cabe
+   três. Aqui só se aperta o ritmo; nenhum campo sai. */
+.client-workspace-header {
+  margin-bottom: 14px;
+}
+
+.client-workspace-header h1 {
+  font-size: clamp(1.625rem, 2.6vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+
+.client-workspace-nav {
+  margin-bottom: 16px;
+}
+
+.client-dossier {
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dossier-hero-panel {
+  padding: 10px 16px;
+}
+
+.dossier-hero-panel .dossier-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.dossier-hero-panel .dossier-progress > span {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.dossier-hero-panel .dossier-progress > div {
+  flex: 0 1 320px;
+}
+
+/* A ficha é grade: sem isto as abas em linha única (que rolam de lado)
+   alargavam a coluna e empurravam a página inteira para fora da tela. */
+.client-dossier > * {
+  min-width: 0;
+}
+
+/* Sete abas numa linha só; antes quebravam em duas linhas de texto cada. */
+.dossier-tabs {
+  flex-wrap: nowrap;
+  gap: 4px;
+  scrollbar-width: none;
+}
+
+.dossier-tabs button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.dossier-tab {
+  padding: 18px;
+}
+
+.dossier-grid {
+  gap: 12px 14px;
+}
+
+.dossier-grid label,
+.client-dossier .full-field {
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.dossier-grid input,
+.dossier-grid select,
+.client-dossier input,
+.client-dossier select {
+  min-height: 36px;
+}
+
+.client-dossier textarea {
+  padding: 8px 11px;
+}
+
+.dossier-grid .cep-button {
+  align-self: end;
+  min-height: 36px;
+}
+
+.grupo-campos + .grupo-campos {
+  margin-top: 16px;
+}
+
+.dossier-actions {
+  margin-top: 0;
+}
+
+/* Assistente: a lista do que falta em duas colunas no desktop. */
+.cadastro-ia {
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 16px;
+}
+
+@media (min-width: 900px) {
+  .cadastro-ia-perguntar .grupo-superficie {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cadastro-ia-perguntar .linha {
+    min-height: 48px;
+    box-shadow: inset 0 -1px 0 var(--separador);
+  }
+
+  .cadastro-ia-perguntar .linha + .linha {
+    box-shadow: inset 0 -1px 0 var(--separador);
+  }
+
+  .cadastro-ia-perguntar .linha:nth-child(odd) {
+    box-shadow: inset 0 -1px 0 var(--separador), inset -1px 0 0 var(--separador);
+  }
+}
+
+/* Arquivos da marca: uma linha por tipo. */
+.lista-arquivos-marca {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-arquivos-marca > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 52px;
+  padding: 6px 0;
+  box-shadow: inset 0 -1px 0 var(--line-soft);
+}
+
+.arquivo-marca-texto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+
+.arquivo-marca-texto strong {
+  flex-basis: 100%;
+}
+
+.arquivo-marca-texto small {
+  max-width: 60%;
+}
+
+.arquivo-marca-detalhes[open] {
+  flex-basis: 100%;
+}
+
+.arquivo-marca-texto strong {
+  font-size: 0.875rem;
+}
+
+.arquivo-marca-texto small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arquivo-marca-enviar {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+/* O `input` real fica escondido dentro do rótulo. As regras gerais da ficha
+   dão `width: 100%` e altura mínima a todo input, o que desfazia o
+   `sr-only` e esticava a página 550px para a direita. */
+.arquivo-marca-enviar {
+  position: relative;
+}
+
+.client-dossier .arquivo-marca-enviar input[type="file"] {
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
+.arquivo-marca-enviar:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.arquivo-marca-enviar.enviando {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.arquivo-marca-detalhes {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.arquivo-marca-detalhes summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.arquivo-marca-detalhes > div {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+
+@media (max-width: 820px) {
+  .lista-arquivos-marca {
+    grid-template-columns: 1fr;
+  }
+
+  .dossier-tab {
+    padding: 14px;
+  }
+}
+
+/* ---- Área do cliente: cabeçalho, resumo e cartões mais baixos (30/09/2026) ----
+   O cabeçalho usava ~200px (sobretítulo, nome em 52px, número) antes das
+   abas, em toda seção. O "Próxima ação" do resumo era um cartão de 180px
+   para uma frase. E os cartões de Serviços e Financeiro, numa grade de
+   linhas, esticavam até o mais alto da fileira: o "Cofre" do financeiro
+   ficava 300px abaixo do fim do cartão ao lado. */
+.client-workspace-header {
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.client-workspace-titulo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.client-workspace-titulo .seo-back {
+  font-size: 0.8125rem;
+}
+
+.client-workspace-header h1 {
+  margin: 0;
+  font-size: clamp(1.375rem, 2.2vw, 1.75rem);
+  line-height: 1.15;
+}
+
+.client-workspace-header p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+
+.client-workspace-nav a {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.client-summary-grid {
+  gap: 12px;
+}
+
+.client-summary-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  padding: 12px 18px;
+}
+
+.client-summary-lead > * {
+  grid-column: 1;
+}
+
+.client-summary-lead h2 {
+  margin: 2px 0 0;
+  font-size: 1.0625rem;
+}
+
+.client-summary-lead p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.client-summary-lead > a {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  white-space: nowrap;
+}
+
+.client-summary-grid .linha {
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Colunas em vez de fileiras: cada cartão tem a altura do que contém. */
+.prov-section {
+  margin-top: 12px;
+}
+
+@media (min-width: 821px) {
+  .prov-grid,
+  .client-finance-only .prov-grid {
+    display: block;
+    columns: 300px 3;
+    column-gap: 12px;
+  }
+
+  .prov-grid > .prov-card {
+    display: flex;
+    margin-bottom: 12px;
+    break-inside: avoid;
+  }
+}
+
+.prov-card {
+  gap: 10px;
+  padding: 14px;
+}
+
+.prov-card .ios-row {
+  min-height: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
