@@ -17,7 +17,18 @@ import Sheet from "@/components/ui/Sheet";
  * de 60 s no protocolo, e "a tela respondeu ok" é a informação que o operador
  * veio buscar — um toast que evapora em três segundos a perderia.
  */
-export default function AcoesDaTela({ id, nome, online }: { id: string; nome: string; online: boolean }) {
+export default function AcoesDaTela({
+  id,
+  nome,
+  online,
+  podeRevogar = false,
+}: {
+  id: string;
+  nome: string;
+  online: boolean;
+  /** Revogar é irreversível e só o dono pode; para o sócio o botão não existe. */
+  podeRevogar?: boolean;
+}) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState("");
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
@@ -68,7 +79,7 @@ export default function AcoesDaTela({ id, nome, online }: { id: string; nome: st
       const corpo = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) throw new Error(corpo.error ?? "Não consegui revogar.");
       setConfirmando(false);
-      setAviso({ tipo: "ok", texto: "token apagado — a tela volta ao código de pareamento" });
+      setAviso({ tipo: "ok", texto: "token apagado: a tela volta ao código de pareamento" });
       router.refresh();
     } catch (e) {
       setAviso({ tipo: "erro", texto: e instanceof Error ? e.message : "Não consegui revogar." });
@@ -86,15 +97,23 @@ export default function AcoesDaTela({ id, nome, online }: { id: string; nome: st
         <button type="button" className="row-action" onClick={() => setFolhaAviso(true)} disabled={!online || !!ocupado}>
           Avisar
         </button>
-        <button type="button" className="row-action" onClick={() => setConfirmando(true)} disabled={!!ocupado}>
-          Revogar
-        </button>
+        {podeRevogar ? (
+          <button type="button" className="row-action" onClick={() => setConfirmando(true)} disabled={!!ocupado}>
+            Revogar
+          </button>
+        ) : null}
       </div>
 
       {/* Revogar funciona com a tela fora do ar — é assim que se recupera uma
           tela que ninguém alcança. Os outros dois precisam de alguém do outro
           lado para responder dentro dos 60 s do protocolo. */}
-      {!online ? <p className="field-help">Sem pulso: só revogar funciona enquanto a tela não voltar.</p> : null}
+      {!online ? (
+        <p className="field-help">
+          {podeRevogar
+            ? "Sem pulso: só revogar funciona enquanto a tela não voltar."
+            : "Sem pulso: recarregar e avisar voltam quando a tela voltar. Revogar é com o dono da conta."}
+        </p>
+      ) : null}
 
       {aviso ? (
         <p className={`inline-feedback ${aviso.tipo === "ok" ? "feedback-success" : "feedback-error"}`} role="status">
@@ -134,7 +153,7 @@ export default function AcoesDaTela({ id, nome, online }: { id: string; nome: st
               <textarea value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={140} rows={3} autoFocus />
             </label>
             <p className="field-help">
-              Aparece por cima do que a tela mostra e sai sozinho. Até 140 caracteres — é um recado para quem está
+              Aparece por cima do que a tela mostra e sai sozinho. Até 140 caracteres: é um recado para quem está
               na frente da tela, não um cartaz.
             </p>
           </div>

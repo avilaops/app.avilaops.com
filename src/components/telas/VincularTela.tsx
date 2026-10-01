@@ -106,7 +106,7 @@ export default function VincularTela({ codigo, dica }: { codigo: string; dica: s
                 />
               </label>
               <p className="field-help">
-                Separados por vírgula. Em branco, a tela herda a allowlist do agente — que é o que você quer em
+                Separados por vírgula. Em branco, a tela herda a allowlist do agente, que é o que você quer em
                 quase todo caso.
               </p>
             </details>

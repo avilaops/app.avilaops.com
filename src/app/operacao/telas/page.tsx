@@ -8,7 +8,7 @@ import BadgeStatus from "@/components/sistema/Status";
 import AcoesDaTela from "@/components/telas/AcoesDaTela";
 import AcoesDoAgente from "@/components/telas/AcoesDoAgente";
 import VincularTela from "@/components/telas/VincularTela";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
 import { AgenteIndisponivel, agenteConfigurado, lerPainelDeTelas } from "@/lib/avila-tv";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -128,7 +128,7 @@ function FichaDaTela({ tela, origensPadrao }: { tela: TelaNoPainel; origensPadra
         <div className="dobra-largura">
           <span className="rotulo">Allowlist do comando exibir ({heranca})</span>
           <span className="valor">
-            {tela.origensEfetivas.length ? tela.origensEfetivas.join(" · ") : "nenhuma — exibir vai recusar qualquer endereço"}
+            {tela.origensEfetivas.length ? tela.origensEfetivas.join(" · ") : "nenhuma: exibir vai recusar qualquer endereço"}
           </span>
         </div>
       )}
@@ -155,7 +155,7 @@ export default async function TelasPage() {
         {cabecalho()}
         <EstadoVazio
           titulo="Este ambiente não fala com o agente"
-          descricao="Falta AVILA_TV_API_KEY (e, fora de produção, AVILA_TV_API_URL). Sem a chave o painel não lê nem comanda tela nenhuma — e isso é proposital: a chave abre a operação inteira das telas."
+          descricao="Falta AVILA_TV_API_KEY (e, fora de produção, AVILA_TV_API_URL). Sem a chave o painel não lê nem comanda tela nenhuma, e isso é proposital: a chave abre a operação inteira das telas."
         />
       </AppShell>
     );
@@ -173,7 +173,7 @@ export default async function TelasPage() {
         {cabecalho()}
         <EstadoVazio
           titulo="O agente não respondeu"
-          descricao={`${motivo} As telas continuam exibindo o que já estava nelas — o agente só é necessário para comandar e para medir.`}
+          descricao={`${motivo} As telas continuam exibindo o que já estava nelas; o agente só é necessário para comandar e para medir.`}
         />
       </AppShell>
     );
@@ -184,6 +184,12 @@ export default async function TelasPage() {
   const pendentes = painel.link.pendentes;
   const resumo = resumirTelas(telas, pendentes, agora);
   const maisNova = versaoMaisNova(telas);
+  // Revogar é irreversível e a rota recusa quem não é o dono: o botão some
+  // para o sócio, em vez de oferecer uma porta que vai dizer não.
+  const podeRevogar = ehDono(admin.role);
+  // Sem a saúde, "ainda sem amostra" seria mentira: a amostra pode existir e
+  // só a leitura dela ter falhado. A página diz qual dos dois é.
+  const semSaude = painel.saude === null;
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="telas">
@@ -218,7 +224,7 @@ export default async function TelasPage() {
         <Metrica
           rotulo={`Disponibilidade (${JANELA_DIAS} d)`}
           valor={resumo.disponibilidade === null ? "—" : formatarDisponibilidade(resumo.disponibilidade)}
-          detalhe={resumo.disponibilidade === null ? "ainda sem amostra" : "média das telas ativas"}
+          detalhe={semSaude ? "o agente não devolveu a saúde" : resumo.disponibilidade === null ? "ainda sem amostra" : "média das telas ativas"}
           tom={resumo.disponibilidade !== null && resumo.disponibilidade < PISO_DISPONIBILIDADE ? "atencao" : "neutro"}
           evidencia={evidenciaDoAgente(`Disponibilidade (${JANELA_DIAS} d)`, {
             caminho: `GET /api/link/saude?dias=${JANELA_DIAS}`,
@@ -229,13 +235,14 @@ export default async function TelasPage() {
         />
         <Metrica
           rotulo={`Quedas (${JANELA_DIAS} d)`}
-          valor={resumo.quedas}
-          detalhe="somadas"
-          tom={resumo.quedas ? "atencao" : "neutro"}
+          // Zero quedas sem a leitura de saúde seria número inventado.
+          valor={semSaude ? "—" : resumo.quedas}
+          detalhe={semSaude ? "o agente não devolveu a saúde" : "somadas"}
+          tom={!semSaude && resumo.quedas ? "atencao" : "neutro"}
           evidencia={evidenciaDoAgente(`Quedas (${JANELA_DIAS} d)`, {
             caminho: `GET /api/link/saude?dias=${JANELA_DIAS}`,
             lidoEm: painel.lidoEm,
-            formula: "soma das quedas de todas as telas ativas. Uma queda é uma transição de online para offline entre duas amostras de um minuto — piscada mais curta que os 2 min do protocolo não vira queda.",
+            formula: "soma das quedas de todas as telas ativas. Uma queda é uma transição de online para offline entre duas amostras de um minuto. Piscada mais curta que os 2 min do protocolo não vira queda.",
             bruto: (painel.saude?.telas ?? []).map((t) => ({ dispositivo: t.dispositivo, quedas: t.quedas, maiorQuedaMin: t.maiorQuedaMin, ultimaQuedaEm: t.ultimaQuedaEm })),
           })}
         />
@@ -318,9 +325,9 @@ export default async function TelasPage() {
                       /* Recarregar e avisar são comandos de tela. Num agente
                          eles voltariam `comando_desconhecido`, e oferecer um
                          botão que sempre falha é pior que não oferecer. */
-                      <AcoesDoAgente id={tela.id} nome={tela.nome} />
+                      <AcoesDoAgente id={tela.id} nome={tela.nome} podeRevogar={podeRevogar} />
                     ) : (
-                      <AcoesDaTela id={tela.id} nome={tela.nome} online={tela.estado === "online"} />
+                      <AcoesDaTela id={tela.id} nome={tela.nome} online={tela.estado === "online"} podeRevogar={podeRevogar} />
                     )}
                   </div>
                 )}

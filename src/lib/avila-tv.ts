@@ -147,6 +147,14 @@ async function chamar<T>(caminho: string, init: { method?: string; body?: unknow
     const falha = new Error(frase);
     if (typeof corpo.erro === "string") falha.name = corpo.erro;
     if (resposta.status === 401) throw new AgenteIndisponivel("O agente recusou a chave (AVILA_TV_API_KEY).");
+    // O agente nunca responde 5xx: o erro dele é 409 de propósito, porque a
+    // Cloudflare troca 502/504 do origin pela página dela. Então 5xx aqui é o
+    // caminho até o agente (túnel caído, PC desligado: 502, 521, 530), e não
+    // um pedido recusado. É o caso mais comum de "fora do ar" e precisa cair
+    // no mesmo estado que o timeout, não virar "o agente respondeu 530".
+    if (resposta.status >= 500) {
+      throw new AgenteIndisponivel(`Não consegui falar com o agente Ávila TV: o caminho até ele respondeu ${resposta.status}.`);
+    }
     throw falha;
   }
 

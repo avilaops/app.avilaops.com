@@ -10,11 +10,11 @@ import type { RespostaLink, RespostaSaude } from "@/lib/avila-tv";
  * lista a que caiu no meio da lista, ou que mostra "0 telas" quando na verdade
  * não conseguiu perguntar, é pior que nenhuma tela.
  */
-const estado = vi.hoisted(() => ({ configurado: true, falhar: false }));
+const estado = vi.hoisted(() => ({ configurado: true, falhar: false, semSaude: false, papel: "OWNER" }));
 
 vi.mock("@/lib/auth", () => ({
-  getAdmin: async () => ({ id: "1", nome: "Nicolas Ávila", role: "OWNER", email: "nicolas@avilaops.com" }),
-  ehDono: () => true,
+  getAdmin: async () => ({ id: "1", nome: "Nicolas Ávila", role: estado.papel, email: "nicolas@avilaops.com" }),
+  ehDono: (role: string) => role === "OWNER",
 }));
 
 // Sem `await original()`: `avila-tv.ts` importa `server-only`, que só existe
@@ -26,7 +26,7 @@ vi.mock("@/lib/avila-tv", () => {
     agenteConfigurado: () => estado.configurado,
     lerPainelDeTelas: async () => {
       if (estado.falhar) throw new AgenteIndisponivel("Não consegui falar com o agente Ávila TV: o agente demorou demais para responder.");
-      return { lidoEm: "2026-09-19T12:00:00.000Z", link, saude };
+      return { lidoEm: "2026-09-19T12:00:00.000Z", link, saude: estado.semSaude ? null : saude };
     },
   };
 });
@@ -94,6 +94,8 @@ describe("tela de Telas (Ávila TV)", () => {
   beforeEach(() => {
     estado.configurado = true;
     estado.falhar = false;
+    estado.semSaude = false;
+    estado.papel = "OWNER";
   });
 
   it("põe quem caiu antes de quem está no ar", async () => {
@@ -133,7 +135,7 @@ describe("tela de Telas (Ávila TV)", () => {
     estado.configurado = false;
     const html = await montar();
     expect(html).toContain("Este ambiente não fala com o agente");
-    expect(html).not.toContain("Telas vinculadas");
+    expect(html).not.toContain("Telas e agentes vinculados");
   });
 
   it("com o agente fora do ar, mostra o motivo em vez de um retrato velho", async () => {
@@ -141,7 +143,7 @@ describe("tela de Telas (Ávila TV)", () => {
     const html = await montar();
     expect(html).toContain("O agente não respondeu");
     expect(html).toContain("o agente demorou demais para responder");
-    expect(html).not.toContain("Telas vinculadas");
+    expect(html).not.toContain("Telas e agentes vinculados");
   });
 
   it("mostra o agente como ponte, e não como tela que não exibe nada", async () => {
@@ -161,5 +163,28 @@ describe("tela de Telas (Ávila TV)", () => {
     // telas da mesma página, então a prova é a contagem.
     expect(html).toContain("Olhar a LAN");
     expect(html.match(/Recarregar/g)?.length).toBe(2);
+  });
+
+  it("para o sócio, nenhuma linha oferece revogar", async () => {
+    estado.papel = "SOCIO";
+    const html = await montar();
+    expect(html).toContain("Recarregar");
+    expect(html).not.toContain(">Revogar<");
+  });
+
+  it("para o dono, cada tela e o agente oferecem revogar", async () => {
+    const html = await montar();
+    expect(html.match(/>Revogar</g)?.length).toBe(3);
+  });
+
+  /**
+   * Sem a leitura de saúde, "ainda sem amostra" seria mentira: a amostra pode
+   * existir e só a leitura ter falhado. A lista abre assim mesmo.
+   */
+  it("com a saúde fora, a lista abre e os números de 7 dias dizem que não vieram", async () => {
+    estado.semSaude = true;
+    const html = await montar();
+    expect(html).toContain("Telas e agentes vinculados");
+    expect(html).toContain("o agente não devolveu a saúde");
   });
 });

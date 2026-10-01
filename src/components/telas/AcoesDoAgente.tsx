@@ -36,7 +36,16 @@ const TOM: Record<string, string> = {
   offline: "text-[color:var(--red)]",
 };
 
-export default function AcoesDoAgente({ id, nome }: { id: string; nome: string }) {
+export default function AcoesDoAgente({
+  id,
+  nome,
+  podeRevogar = false,
+}: {
+  id: string;
+  nome: string;
+  /** Revogar é irreversível e só o dono pode; para o sócio o botão não existe. */
+  podeRevogar?: boolean;
+}) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState("");
   const [erro, setErro] = useState("");
@@ -90,9 +99,11 @@ export default function AcoesDoAgente({ id, nome }: { id: string; nome: string }
         <button type="button" className="row-action" onClick={olharLan} disabled={!!ocupado}>
           {ocupado === "lan" ? "Perguntando…" : "Olhar a LAN"}
         </button>
-        <button type="button" className="row-action" onClick={() => setConfirmando(true)} disabled={!!ocupado}>
-          Revogar
-        </button>
+        {podeRevogar ? (
+          <button type="button" className="row-action" onClick={() => setConfirmando(true)} disabled={!!ocupado}>
+            Revogar
+          </button>
+        ) : null}
       </div>
 
       {erro ? (
@@ -118,7 +129,7 @@ export default function AcoesDoAgente({ id, nome }: { id: string; nome: string }
             ))}
           </ul>
         ) : (
-          <p className="field-help">Este agente não declarou nenhum aparelho — está instalado onde ainda não há nada na LAN.</p>
+          <p className="field-help">Este agente não declarou nenhum aparelho: está instalado onde ainda não há nada na LAN.</p>
         )
       ) : null}
 
@@ -126,7 +137,7 @@ export default function AcoesDoAgente({ id, nome }: { id: string; nome: string }
         <Confirmacao
           titulo="Revogar este agente?"
           alvo={nome}
-          descricao="O token é apagado e a conexão cai. Os aparelhos da LAN continuam funcionando — o que se perde é o caminho até eles, e ele só volta com alguém aprovando um código novo no lugar."
+          descricao="O token é apagado e a conexão cai. Os aparelhos da LAN continuam funcionando. O que se perde é o caminho até eles, e ele só volta com alguém aprovando um código novo no lugar."
           reversivel={false}
           rotuloConfirmar="Revogar"
           confirmando={ocupado === "revogar"}

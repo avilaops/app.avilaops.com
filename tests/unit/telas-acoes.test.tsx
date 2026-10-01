@@ -7,8 +7,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: () => undefined }),
 }));
 
-const marcacao = (online: boolean) =>
-  renderToStaticMarkup(<AcoesDaTela id="tela-cozinha" nome="Tela da cozinha" online={online} />);
+const marcacao = (online: boolean, podeRevogar = true) =>
+  renderToStaticMarkup(<AcoesDaTela id="tela-cozinha" nome="Tela da cozinha" online={online} podeRevogar={podeRevogar} />);
 
 describe("ações de uma tela", () => {
   it("com a tela no ar, os três comandos ficam disponíveis", () => {
@@ -38,5 +38,16 @@ describe("ações de uma tela", () => {
       { rotulo: "Revogar", desabilitado: false },
     ]);
     expect(html).toContain("Sem pulso: só revogar funciona enquanto a tela não voltar.");
+  });
+
+  /**
+   * Revogar é irreversível e a rota recusa quem não é o dono. Mostrar o botão
+   * ao sócio seria oferecer uma porta que sempre diz não.
+   */
+  it("para quem não é o dono, revogar não aparece e a tela não promete o que ele não pode", () => {
+    const html = marcacao(false, false);
+    expect(html).not.toContain(">Revogar<");
+    expect(html).not.toContain("só revogar funciona");
+    expect(html).toContain("Revogar é com o dono da conta.");
   });
 });

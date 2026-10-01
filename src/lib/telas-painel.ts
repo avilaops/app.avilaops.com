@@ -144,7 +144,7 @@ export function alertasDaTela(tela: TelaNoPainel, agora: Date, maisNova: string 
 
   const idade = dias(tela.tokenTrocadoEm, agora);
   if (idade !== null && idade > DIAS_PARA_ROTACIONAR) {
-    fora.push({ gravidade: "aviso", texto: `token com ${Math.floor(idade)} dias — o protocolo prevê rotação a cada ${DIAS_PARA_ROTACIONAR}` });
+    fora.push({ gravidade: "aviso", texto: `token com ${Math.floor(idade)} dias, e o protocolo prevê rotação a cada ${DIAS_PARA_ROTACIONAR}` });
   }
 
   return fora;
@@ -216,7 +216,7 @@ export function formatarUptime(segundos: number | null | undefined): string | nu
 
 /** A linha de resumo da tela fechada: o essencial sem abrir o detalhe. */
 export function descricaoDaTela(tela: TelaNoPainel): string {
-  if (tela.revogadoEm) return "revogada — volta ao código de pareamento se reconectar";
+  if (tela.revogadoEm) return "revogada: volta ao código de pareamento se reconectar";
   const partes: string[] = [tela.estado === "online" ? "no ar" : "sem pulso"];
   if (ehAgente(tela)) {
     // Um agente não exibe nada: o que ele tem para contar é quantos aparelhos
