@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { baixarCobrancaPorIdExterno } from "@/lib/assinaturas";
 import { markDeliverablePaidAndNotify } from "@/lib/deliverables";
 import { getPagamentoStatus } from "@/lib/mercadopago-cobranca";
+import { segredoDoWebhook, verificarAssinatura } from "@/lib/mercadopago-assinatura";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,9 +10,15 @@ import { prisma } from "@/lib/prisma";
  *
  * Vale aqui a mesma regra do webhook do Efí, e pelo mesmo motivo: **o corpo do
  * POST é aviso, não prova**. Ele chega por HTTP, é reenviado pelo próprio
- * Mercado Pago, pode chegar fora de ordem e pode ser forjado por quem conheça
- * o formato. O id do pagamento é uma pista; quem diz se entrou dinheiro é a
- * API. Um POST forjado, no pior caso, faz uma consulta a mais.
+ * Mercado Pago, pode chegar fora de ordem e diz apenas o id. O id é uma pista;
+ * quem diz se entrou dinheiro é a API.
+ *
+ * O que mudou em 19/09/2026: além dessa regra, a notificação agora precisa
+ * **provar que veio do Mercado Pago** (`x-signature`, verificada em
+ * `mercadopago-assinatura.ts`) antes de o endpoint fazer qualquer coisa — e
+ * sem o segredo configurado ele não processa nada. Confiar na reconsulta era
+ * suficiente para proteger o saldo, mas deixava o endpoint aberto para
+ * qualquer um fazer o app consultar ids à vontade.
  *
  * E **o endpoint é idempotente por natureza**: receber o mesmo evento dez
  * vezes tem que dar no mesmo. A baixa guarda o instante do pagamento e não
@@ -25,16 +32,14 @@ import { prisma } from "@/lib/prisma";
 const PAGO = "approved";
 
 /**
- * Segredo na URL, igual ao do Efí.
+ * Primeira barreira: o token na URL, igual ao do Efí.
  *
- * O Mercado Pago assina a notificação em `x-signature`, mas a assinatura
- * depende de um segredo por aplicação que ainda não está no servidor. Até lá,
- * o token na query tira o endpoint de "qualquer um chama" — e a confirmação
- * pela API continua sendo o que de fato protege o dinheiro.
- *
- * Sem `MP_WEBHOOK_TOKEN` configurado, segue aceitando.
+ * Continua valendo depois da assinatura entrar, e por um motivo prático: é
+ * conferido antes de qualquer cálculo, então corta tráfego besta sem custo.
+ * Sem `MP_WEBHOOK_TOKEN` configurado, não barra nada — quem barra é a
+ * assinatura, abaixo.
  */
-function autorizado(request: NextRequest): boolean {
+function tokenConfere(request: NextRequest): boolean {
   const esperado = process.env.MP_WEBHOOK_TOKEN?.trim();
   if (!esperado) return true;
 
@@ -44,6 +49,53 @@ function autorizado(request: NextRequest): boolean {
     "";
 
   return recebido === esperado;
+}
+
+/**
+ * Segunda barreira, e a que de fato prova quem chamou: `x-signature`.
+ *
+ * **Falha fechada.** Sem `MP_WEBHOOK_SECRET` no ambiente, este endpoint não
+ * processa nada — era o oposto até 19/09/2026, quando a ausência do segredo
+ * fazia o webhook aceitar qualquer chamada. O webhook do PayPal, nesta mesma
+ * casa, sempre recusou notificação sem o id dele; não havia motivo para o
+ * gateway que traz o dinheiro ser o mais aberto dos três.
+ *
+ * O detalhe que evita perder dinheiro: a recusa por falta de segredo é **503, e
+ * não 401**. A culpa é nossa, não de quem chamou, e o Mercado Pago reenvia o
+ * que não recebeu 2xx — então, no instante em que o segredo entrar no servidor,
+ * os eventos retidos chegam e as faturas fecham sozinhas. Um 401 aqui diria
+ * "não insista" para um aviso legítimo, e a fatura ficaria paga com a cobrança
+ * aberta até alguém notar à mão.
+ *
+ * Por isso também a ordem de deploy não se inverte: a variável entra no
+ * servidor antes deste código. Ao contrário, toda baixa automática para — e
+ * depois volta sozinha, mas para.
+ */
+function assinaturaConfere(request: NextRequest): { ok: true } | { ok: false; status: number; erro: string } {
+  const segredo = segredoDoWebhook();
+  if (!segredo) {
+    console.error(
+      "MP_WEBHOOK_SECRET ausente: notificação do Mercado Pago recusada com 503. " +
+        "O Mercado Pago vai reenviar; configure o segredo da aplicação para a baixa voltar.",
+    );
+    return { ok: false, status: 503, erro: "Webhook sem segredo configurado." };
+  }
+
+  const vereditco = verificarAssinatura({
+    cabecalho: request.headers.get("x-signature"),
+    requestId: request.headers.get("x-request-id"),
+    // O manifesto usa o `data.id` da QUERY, não o do corpo. São o mesmo valor
+    // quando os dois vêm, mas é o da query que entra na conta.
+    dataId: request.nextUrl.searchParams.get("data.id"),
+    segredo,
+  });
+
+  if (!vereditco.valida) {
+    console.warn(`Notificação do Mercado Pago recusada: ${vereditco.motivo}.`);
+    return { ok: false, status: 401, erro: "Assinatura inválida." };
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -77,8 +129,13 @@ function idDoPagamento(
 }
 
 export async function POST(request: NextRequest) {
-  if (!autorizado(request)) {
+  if (!tokenConfere(request)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  const assinatura = assinaturaConfere(request);
+  if (!assinatura.ok) {
+    return NextResponse.json({ error: assinatura.erro }, { status: assinatura.status });
   }
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

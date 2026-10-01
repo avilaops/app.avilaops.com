@@ -254,32 +254,53 @@ da conta PF em aberto (ou a baixa manual dela está combinada).
 
 ### Fase 1 — o dinheiro cai na conta certa e a baixa chega
 
-- `notification_url` em toda cobrança nascida aqui (`createPixCharge`,
-  `createBoletoCharge`, `createCardCharge`, `criarLinkPagamento`), montada de
-  `APP_URL` + `/api/webhooks/mercadopago` + o token, se houver. Resolve P0-2 sem
-  disputar a URL global com as lojas.
-- Verificação de `x-signature` no webhook, com `MP_WEBHOOK_SECRET`: ausente,
-  segue no comportamento de hoje (compatível); presente, **recusa 401** o que
-  não bate. Resolve P0-3.
-- `MP_ACCESS_TOKEN` do CNPJ em produção, e `MP_*` documentadas no
-  `.env.example`. Resolve P0-4.
-- Remover o fallback de leitura de `docs/.env.production`.
-- Teste do webhook, espelhando `webhook-efi.test.ts`: assinatura válida,
-  inválida, ausente, evento repetido, id desconhecido, tópico que não é
-  pagamento. Sem isto, nada acima é verificável. Resolve parte do P2-11.
-- **O painel diz de qual conta está falando.** Com a migração progressiva da
-  Fase 0, as assinaturas das lojas ficam na conta PF e o token é da PJ: a tela
-  precisa ler as duas contas, ou avisar em tela que só enxerga a nova. Sem isso
-  ela acusa divergência em toda loja ativa, e um painel que grita errado deixa de
-  ser lido — que é o oposto do motivo dele existir.
+**Código escrito em 01/10/2026.** Nada aqui depende de qual conta é a conta: a
+troca de token é configuração de servidor, e por isso este trabalho pôde sair na
+frente dela.
+
+- ✅ **`notification_url` em toda cobrança nascida aqui** — PIX, boleto, cartão
+  (`mercadopago-cobranca.ts`) e link avulso (`criarLinkPagamento`), montada em
+  `urlDeNotificacao()` a partir de `APP_URL` mais o token, quando existe.
+  Resolve P0-2 sem disputar a URL global com as lojas: cada cobrança carrega o
+  próprio endereço de volta.
+- ✅ **`x-signature` verificada**, em `mercadopago-assinatura.ts` — função pura,
+  10 casos de teste, incluindo o manifesto sem `data.id` (que é onde a conta
+  erra calada) e a assinatura legítima de OUTRO pagamento. Resolve P0-3.
+- ✅ **Falha fechada, sem perder o aviso.** Sem `MP_WEBHOOK_SECRET` o webhook
+  não processa nada — e responde **503, não 401**. A culpa é nossa, o Mercado
+  Pago reenvia o que não recebeu 2xx, e no instante em que o segredo entrar no
+  servidor os eventos retidos chegam e as faturas fecham sozinhas. Um 401 diria
+  "não insista" para um aviso legítimo.
+- ✅ **`MP_*` documentadas no `.env.example`**, com o que cada uma decide — a do
+  token diz em qual conta o dinheiro entra. Resolve P0-4.
+- ✅ **Fallback de `docs/.env.production` removido.** Era conveniente e foi
+  problema três vezes; a pior delas é a que importa agora: fazia o app cobrar
+  com um token que ninguém sabia qual era.
+- ✅ **Teste do webhook** (`tests/integration/webhook-mercadopago.test.ts`):
+  assinatura válida, ausente, de outro segredo, de outro pagamento, segredo
+  ausente, token da query, recusa da API, evento repetido, fora de ordem, id
+  desconhecido, id não numérico e tópico que não é pagamento. O gateway ativo
+  deixa de ser o único sem teste. Resolve parte do P2-11.
+- ✅ **O painel diz de qual conta está falando.** "Assinatura sumiu do Mercado
+  Pago" (erro) virou "Assinatura não está nesta conta" (atenção), nomeando a
+  conta do token: com a migração progressiva, não achar o id aqui é o esperado,
+  e um painel que pinta de vermelho o estado saudável de toda loja ativa deixa
+  de ser lido.
+- ✅ **Cobrança de entregável deixa de nascer com o gateway errado** — as duas
+  criações passam `provider: "MERCADO_PAGO"` explícito. O default do schema e as
+  linhas gravadas desde 31/08 são migração: ficam na Fase 2. Resolve a metade de
+  frente do P1-6.
 
 Ordem interna que não se inverte: **a variável entra no servidor antes do código
 que a exige.** Subir o "recusa sem segredo" com o segredo ainda ausente para a
-baixa de todas as faturas de uma vez.
+baixa de todas as faturas de uma vez — por 503, então ela volta sozinha, mas
+para.
 
 **Pronto quando**: uma cobrança de teste emitida em produção fecha a fatura
 sozinha, e o painel do dono mostra o webhook em verde — conferido no navegador,
-não só na API.
+não só na API. **Isto continua pendente**, e depende da Fase 0: sem a credencial
+da conta do CNPJ e sem `MP_WEBHOOK_SECRET` no servidor, não há como provar em
+produção. O código está pronto para o dia em que houver.
 
 ### Fase 2 — a mensalidade se cobra sozinha
 

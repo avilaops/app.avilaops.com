@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 /**
  * Cliente da API do Mercado Pago da Avila Ops — a conta que **cobra**, não a
  * dos lojistas (cada loja tem a sua, guardada cifrada no lojas.avilaops.com).
@@ -14,42 +11,70 @@ const BASE = "https://api.mercadopago.com";
 export class MercadoPagoIndisponivel extends Error {}
 
 /**
- * O nome no `.env.production` da raiz tem a grafia errada de origem (ACCES,
- * sem o segundo S). Ler os dois evita renomear em todos os projetos que já
- * dependem dele.
+ * A credencial vem do ambiente, e só dele.
+ *
+ * Até 19/09/2026 havia um fallback que lia `../docs/.env.production` do
+ * monorepo quando `MP_ACCESS_TOKEN` faltava. Era conveniente e foi um problema
+ * três vezes: derrubou o build inteiro quando o arquivo mudou de pasta,
+ * mantinha segredo de produção sendo lido de disco, e — o pior — fazia o app
+ * cobrar com um token que ninguém sabia qual era, porque o ambiente dizia uma
+ * coisa e o arquivo dizia outra. Com a cobrança migrando para a conta do CNPJ,
+ * "qual token está em uso" deixou de ser detalhe: é a diferença entre receber
+ * no CNPJ e receber na pessoa física.
+ *
+ * Sem a variável, `mercadoPagoConfigurado()` devolve falso e as telas dizem que
+ * não está configurado — que é a verdade, e não um token surpresa.
  */
 function credencial(): { token: string; clientId: string } {
-  const doAmbiente = process.env.MP_ACCESS_TOKEN ?? "";
-  const clientIdAmbiente = process.env.MP_CLIENT_ID ?? "";
-  if (doAmbiente) return { token: doAmbiente, clientId: clientIdAmbiente };
+  return {
+    token: process.env.MP_ACCESS_TOKEN?.trim() ?? "",
+    clientId: process.env.MP_CLIENT_ID?.trim() ?? "",
+  };
+}
 
-  // Em desenvolvimento o arquivo do monorepo é a fonte; em produção as
-  // variáveis vêm do ambiente e este bloco nem roda.
-  //
-  // O caminho é montado em tempo de execução, e não como especificador
-  // estático: antes era `new URL("../../../.env.production", import.meta.url)`,
-  // que o Turbopack tenta **resolver durante o build**. Quando o arquivo saiu
-  // da raiz para `docs/` (29/08/2026), o build inteiro do app passou a falhar
-  // com "Module not found" — um atalho de conveniência de desenvolvimento
-  // derrubando a compilação de produção. Assim ele volta a ser o que sempre
-  // deveria ter sido: uma tentativa, protegida pelo `catch`.
+/**
+ * Para onde o Mercado Pago avisa que esta cobrança mudou de estado.
+ *
+ * Vai no corpo de CADA cobrança nascida aqui, e existe por um conflito real: a
+ * URL global da aplicação do Mercado Pago é uma só, e está (corretamente)
+ * apontada para o `lojas.avilaops.com`, que recebe os eventos de assinatura das
+ * lojas. Sem `notification_url`, a cobrança deste app depende dessa mesma URL —
+ * ou seja, um dos dois sistemas fica sem ser avisado, e a fatura só fecha
+ * quando alguém clica em sincronizar. Com o campo, cada cobrança carrega o
+ * próprio endereço de volta e os dois convivem.
+ *
+ * O token da query entra quando existe: é a primeira barreira do webhook, antes
+ * da assinatura `x-signature`.
+ *
+ * Devolve string VAZIA quando o endereço não é alcançável de fora — e aí o
+ * campo nem vai no corpo. O Mercado Pago recusa `notification_url` com host
+ * local, e recusa o PAGAMENTO INTEIRO por causa dela: com `APP_URL` apontando
+ * para `localhost`, mandar o campo trocaria "em desenvolvimento o webhook não
+ * chega", que é esperado, por "em desenvolvimento não se emite cobrança", que
+ * é defeito.
+ */
+export function urlDeNotificacao(): string {
+  const base = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/+$/, "");
+
+  let endereco: URL;
   try {
-    const caminho = join(process.cwd(), "..", "docs", ".env.production");
-    const bruto = readFileSync(caminho, "utf8");
-    const env = Object.fromEntries(
-      bruto
-        .split(/\r?\n/)
-        .map((l) => /^([A-Z0-9_]+)=(.*)$/.exec(l.trim()))
-        .filter((m): m is RegExpExecArray => m !== null)
-        .map((m) => [m[1], m[2].trim().replace(/^["']|["']$/g, "")]),
-    );
-    return {
-      token: env.MERCADO_PAGO_ACCES_TOKEN_PROD ?? env.MP_ACCESS_TOKEN ?? "",
-      clientId: clientIdAmbiente || (env.MERCADO_PAGO_CLIENT_ID ?? ""),
-    };
+    endereco = new URL(`${base}/api/webhooks/mercadopago`);
   } catch {
-    return { token: "", clientId: clientIdAmbiente };
+    return "";
   }
+
+  const local =
+    endereco.protocol !== "https:" ||
+    endereco.hostname === "localhost" ||
+    endereco.hostname.endsWith(".local") ||
+    // Sem ponto no nome não há DNS público: `app`, `web`, nomes de container.
+    !endereco.hostname.includes(".") ||
+    /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(endereco.hostname);
+  if (local) return "";
+
+  const token = process.env.MP_WEBHOOK_TOKEN?.trim();
+  if (token) endereco.searchParams.set("token", token);
+  return endereco.toString();
 }
 
 export function mercadoPagoConfigurado(): boolean {
@@ -404,6 +429,7 @@ export async function criarLinkPagamento(input: {
       // genérico do Mercado Pago e o cliente abre contestação sem saber o que é.
       statement_descriptor: "AVILAOPS",
       back_urls: { success: "https://app.avilaops.com/financeiro/mercadopago" },
+      ...(urlDeNotificacao() ? { notification_url: urlDeNotificacao() } : {}),
     },
   });
   return {
