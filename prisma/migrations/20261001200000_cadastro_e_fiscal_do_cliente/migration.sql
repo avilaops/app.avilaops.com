@@ -220,9 +220,15 @@ ALTER TABLE operations.organization_addresses
   ADD CONSTRAINT organization_addresses_tipo_dominio
     CHECK (type IN ('MAIN', 'BILLING', 'DELIVERY', 'FISCAL'));
 
+-- `source` responde "quem disse que este é o endereço", e por isso a lista
+-- inclui `FICHA_PDF`: endereço lido da ficha cadastral que o cliente assinou
+-- vale mais que endereço digitado por quem atendeu, e menos que o da Receita.
+-- `MANUAL` e `FICHA_PDF` são os dois valores que a aplicação grava hoje; os
+-- outros três existem porque já alimentam endereço em outros caminhos.
 ALTER TABLE operations.organization_addresses
   ADD CONSTRAINT organization_addresses_origem_dominio
-    CHECK (source IS NULL OR source IN ('MANUAL', 'RECEITA_FEDERAL', 'SEFAZ', 'CEP', 'IMPORTACAO'));
+    CHECK (source IS NULL OR source IN
+      ('MANUAL', 'FICHA_PDF', 'RECEITA_FEDERAL', 'SEFAZ', 'CEP', 'IMPORTACAO'));
 
 INSERT INTO operations.audit_events (organization_id, action, entity_type, entity_id, metadata)
 SELECT organization_id, 'CADASTRO_VALOR_FORA_DO_DOMINIO', 'organization_contacts', id,
