@@ -10619,6 +10619,8 @@ main [data-slot="select-trigger"]:focus-visible {
 .money, .lg-amount, .credit-value, .score-value { font-family: var(--fonte); font-variant-numeric: tabular-nums; }
 .lg-kind strong, .lg-party { overflow-wrap: anywhere; white-space: normal; }
 .ledger-actions { flex-wrap: wrap; }
+/* A regra legada de links não deve sobrepor a cor do botão shadcn. */
+a[data-slot="button"][data-variant="default"] { @apply text-primary-foreground; }
 @media (max-width: 820px) {
   .tab-item { min-height: 52px; }
   .main-canvas { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }

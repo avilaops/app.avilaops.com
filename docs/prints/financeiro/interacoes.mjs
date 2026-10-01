@@ -32,7 +32,7 @@ try {
  await foto('teclado-simulado');await p.keyboard.press('Escape');assert.equal(await dialog.count(),0);
  checks.push('Modal: foco contido, Escape e rodapé com viewport reduzida (teclado simulado).');
  await p.evaluate(()=>{delete window.visualViewport.height;window.visualViewport.dispatchEvent(new Event('resize'));});
- await p.goto(base+'/financeiro?conta=cartao-bb',{waitUntil:'networkidle'});
+ await p.goto(base+'/financeiro?conta=cartao-assai&range=30',{waitUntil:'networkidle'});
  assert.equal(await p.getByRole('button',{name:/^Revisar /}).count(),0);
  await foto('lista-vazia');checks.push('Conta sem movimentações: estado vazio, sem saldo inventado.');
  await p.goto(base+'/financeiro/importar',{waitUntil:'networkidle'});
@@ -53,8 +53,11 @@ try {
  assert.match(await p.locator('main').innerText(),/Assinatura cancelada no Mercado Pago/);assert.doesNotMatch(await p.locator('main').innerText(),/vale cancelar/);
  await foto('assinatura-cancelada');checks.push('Cancelada não recomenda cancelar novamente.');
  for(const rota of ['/mais','/mais/hub-social']){
-  await p.goto(base+rota,{waitUntil:'networkidle'});const imgs=p.locator('img[src^="/icones-3d/"]');
-  assert(await imgs.count()>=5);assert(await imgs.evaluateAll(xs=>xs.every(i=>i.complete&&i.naturalWidth>0)));
+  await p.goto(base+rota,{waitUntil:'networkidle'});const imgs=p.locator('img[src^="/icones-3d/"]:visible');
+  assert(await imgs.count()>=5);
+  for(const img of await imgs.all()){await img.scrollIntoViewIfNeeded();await img.evaluate(i=>i.decode());}
+  assert(await imgs.evaluateAll(xs=>xs.every(i=>i.complete&&i.naturalWidth>0)));
+  await p.evaluate(()=>window.scrollTo(0,0));
   assert(await p.locator('img[src*="hub-social.png"]').count()>0);await foto(rota.replaceAll('/','-').slice(1));
  }
  checks.push('Menus: imagens carregadas e novo Hub Social.');
