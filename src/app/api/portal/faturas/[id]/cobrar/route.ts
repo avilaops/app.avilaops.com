@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessaoPortal, ehDaCasa } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { participaDaEmpresa } from "@/lib/nucleo/acesso";
 import { criarCobrancaDaFatura, CobrancaIndisponivelError } from "@/lib/assinaturas";
 
 export const runtime = "nodejs";
@@ -33,6 +34,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id } = await params;
+  if (!(await participaDaEmpresa(sessao.id, sessao.organizationId))) {
+    return NextResponse.json({ erro: "Sem acesso a esta empresa." }, { status: 403 });
+  }
   const corpo = (await request.json().catch(() => null)) as { metodo?: unknown } | null;
   const metodo = corpo?.metodo === "BOLETO" ? "BOLETO" : corpo?.metodo === "PAYPAL" ? "PAYPAL" : "PIX";
 
@@ -48,6 +52,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
   if (fatura.status === "CANCELLED") {
     return NextResponse.json({ erro: "Esta fatura foi cancelada." }, { status: 409 });
+  }
+  const [recebivel] = await prisma.$queryRaw<{ outstanding: unknown; amount: unknown }[]>`
+    SELECT outstanding,amount FROM core.receivables
+    WHERE source='INVOICE' AND source_id=${fatura.id} AND organization_id=${sessao.organizationId}`;
+  if (!recebivel || Number(recebivel.outstanding) !== Number(recebivel.amount)) {
+    return NextResponse.json({ erro: "Esta fatura possui pagamento registrado. Fale com o atendimento para conciliar o saldo." }, { status: 409 });
   }
 
   try {

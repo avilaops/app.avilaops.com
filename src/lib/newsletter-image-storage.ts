@@ -27,7 +27,7 @@ function storageRoot(): string {
   const configured = process.env.NEWSLETTER_STORAGE_PATH;
   return configured
     ? path.resolve(/*turbopackIgnore: true*/ configured)
-    : path.join(process.cwd(), "storage", "newsletter");
+    : path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "newsletter");
 }
 
 export async function saveCampaignImage(buffer: Buffer, mimeType: string): Promise<string> {
@@ -35,25 +35,26 @@ export async function saveCampaignImage(buffer: Buffer, mimeType: string): Promi
   if (!extension) throw new Error("Formato de imagem não suportado.");
 
   const fileName = `${crypto.randomBytes(16).toString("hex")}.${extension}`;
-  await mkdir(storageRoot(), { recursive: true });
-  await writeFile(path.join(storageRoot(), fileName), buffer);
+  await mkdir(/*turbopackIgnore: true*/ storageRoot(), { recursive: true });
+  // Uploads são dados de runtime, não arquivos para incluir no build.
+  await writeFile(path.join(/*turbopackIgnore: true*/ storageRoot(), fileName), buffer);
   return fileName;
 }
 
 export function campaignImagePath(fileName: string): string | null {
   if (!/^[a-f0-9]{32}\.(png|jpg|webp|gif)$/.test(fileName)) return null;
-  return path.join(storageRoot(), fileName);
+  return path.join(/*turbopackIgnore: true*/ storageRoot(), fileName);
 }
 
 export async function readCampaignImage(fileName: string) {
   const absolute = campaignImagePath(fileName);
   if (!absolute) return null;
   try {
-    const info = await stat(absolute);
+    const info = await stat(/*turbopackIgnore: true*/ absolute);
     if (!info.isFile()) return null;
     const extension = path.extname(absolute).slice(1);
     const mimeType = extension === "jpg" ? "image/jpeg" : `image/${extension}`;
-    return { bytes: await readFile(absolute), size: info.size, mimeType };
+    return { bytes: await readFile(/*turbopackIgnore: true*/ absolute), size: info.size, mimeType };
   } catch {
     return null;
   }
