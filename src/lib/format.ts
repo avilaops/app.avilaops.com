@@ -49,6 +49,9 @@ export function formatCompactCurrency(value: number, currency = "BRL") {
     style: "currency",
     currency,
     notation: "compact",
+    // Explícito: sem o mínimo, o ICU de cada Node decide entre "2 mil" e
+    // "2,0 mil" (a moeda BRL puxa duas casas por padrão).
+    minimumFractionDigits: 0,
     maximumFractionDigits: 1,
   }).format(value);
 }
