@@ -22,7 +22,7 @@ const CNPJ_VALIDO = "11222333000181";
  * PDF mínimo, montado à mão, com uma linha de texto por item. Dados fictícios:
  * a ficha real de cliente não entra no repositório.
  */
-function pdfComLinhas(linhas: string[]): Uint8Array {
+function pdfComLinhas(linhas: string[]): Uint8Array<ArrayBuffer> {
   // WinAnsi: os acentos do português cabem num byte cada.
   const escapar = (texto: string) =>
     Array.from(texto)
@@ -59,7 +59,7 @@ function pdfComLinhas(linhas: string[]): Uint8Array {
   return new Uint8Array(Buffer.from(pdf, "latin1"));
 }
 
-async function enviarFicha(bytes: Uint8Array, nome = "ficha.pdf") {
+async function enviarFicha(bytes: Uint8Array<ArrayBuffer>, nome = "ficha.pdf") {
   const form = new FormData();
   form.append("arquivo", new File([bytes], nome, { type: "application/pdf" }));
   const request = new NextRequest("http://localhost/api/fichas/ler", { method: "POST", body: form });
@@ -112,8 +112,8 @@ describe("leitura da ficha em PDF", () => {
 
     expect(status).toBe(200);
     expect(json.ficha).toMatchObject({
-      razaoSocial: "TESTE FICHA PDF EQUIPAMENTOS LTDA",
-      nomeFantasia: "TESTE FICHA PDF",
+      razaoSocial: "Teste Ficha Pdf Equipamentos Ltda",
+      nomeFantasia: "Teste Ficha Pdf",
       cpfCnpj: CNPJ_VALIDO,
       inscricaoEstadual: "123.456.789.110",
       logradouro: "Rua das Flores",

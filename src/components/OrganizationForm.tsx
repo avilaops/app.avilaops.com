@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { classifyCpfCnpj, onlyDigits } from "@/lib/cpf-cnpj";
 import type { CnpjLookupData } from "@/lib/cnpj-lookup";
 import type { FichaCadastral } from "@/lib/ficha-cadastral";
+import { nomeProprio } from "@/lib/format";
 
 function formatCpfCnpj(value: string): string {
   const digits = onlyDigits(value).slice(0, 14);
@@ -100,10 +101,11 @@ export default function OrganizationForm() {
       setCnpjData(data);
       if (data) {
         if (nameInputRef.current && !nameInputRef.current.value) {
-          nameInputRef.current.value = data.nome_fantasia || data.razao_social || "";
+          nameInputRef.current.value = nomeProprio(data.nome_fantasia || data.razao_social);
         }
         if (legalNameInputRef.current && data.razao_social) {
-          legalNameInputRef.current.value = data.razao_social;
+          // A Receita devolve tudo em caixa alta; o cadastro guarda como nome próprio.
+          legalNameInputRef.current.value = nomeProprio(data.razao_social);
         }
       }
     } catch (caught) {

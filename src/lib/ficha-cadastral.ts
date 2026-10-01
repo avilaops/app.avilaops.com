@@ -1,4 +1,5 @@
 import { classifyCpfCnpj, onlyDigits } from "@/lib/cpf-cnpj";
+import { nomeProprio } from "@/lib/format";
 
 /**
  * Leitura de ficha cadastral (o PDF que o cliente manda com "Razão Social:",
@@ -193,8 +194,26 @@ export function lerFichaCadastral(texto: string): FichaCadastral {
     }
   }
 
+  // Ficha costuma vir toda em caixa alta. Nome, razão social e endereço
+  // entram como nome próprio ("Ludus Equipamentos para Musculação Ltda"),
+  // igual o painel já os exibe; sigla de UF, e-mail e números ficam como estão.
+  for (const campo of CAMPOS_DE_NOME) {
+    const valor = ficha[campo];
+    if (valor) ficha[campo] = nomeProprio(valor);
+  }
+
   return ficha;
 }
+
+const CAMPOS_DE_NOME: CampoFicha[] = [
+  "razaoSocial",
+  "nomeFantasia",
+  "responsavel",
+  "logradouro",
+  "complemento",
+  "bairro",
+  "cidade",
+];
 
 /** Quantos campos a leitura achou — para a tela dizer o que veio da ficha. */
 export function camposPreenchidos(ficha: FichaCadastral): CampoFicha[] {

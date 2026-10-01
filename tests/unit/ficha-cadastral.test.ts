@@ -21,8 +21,8 @@ const FICHA_LUDUS = [
 describe("leitura de ficha cadastral", () => {
   it("lê a ficha da Ludus campo a campo", () => {
     expect(lerFichaCadastral(FICHA_LUDUS)).toEqual({
-      razaoSocial: "LUDUS EQUIPAMENTOS PARA MUSCULAÇÃO LTDA",
-      nomeFantasia: "LUDUS EQUIPAMENTOS",
+      razaoSocial: "Ludus Equipamentos para Musculação Ltda",
+      nomeFantasia: "Ludus Equipamentos",
       cpfCnpj: "66058955000108",
       inscricaoEstadual: "718.319.130.117",
       logradouro: "Rua Copacabana",
@@ -53,11 +53,11 @@ describe("leitura de ficha cadastral", () => {
   it("aceita rótulo em caixa alta e sem acento", () => {
     const ficha = lerFichaCadastral("RAZAO SOCIAL: ACME LTDA\nNOME FANTASIA: ACME\nENDERECO: AV. BRASIL, 100 - SALA 3");
     expect(ficha).toMatchObject({
-      razaoSocial: "ACME LTDA",
-      nomeFantasia: "ACME",
-      logradouro: "AV. BRASIL",
+      razaoSocial: "Acme Ltda",
+      nomeFantasia: "Acme",
+      logradouro: "Av. Brasil",
       numero: "100",
-      complemento: "SALA 3",
+      complemento: "Sala 3",
     });
   });
 
@@ -71,12 +71,12 @@ describe("leitura de ficha cadastral", () => {
 
   it("o primeiro valor do campo vence (rodapé repete o nome)", () => {
     const ficha = lerFichaCadastral("Razão Social: PRIMEIRA LTDA\n...\nRazão Social: ASSINATURA");
-    expect(ficha.razaoSocial).toBe("PRIMEIRA LTDA");
+    expect(ficha.razaoSocial).toBe("Primeira Ltda");
   });
 
   it("palavra de rótulo no meio de um valor não vira campo", () => {
     const ficha = lerFichaCadastral("Nome de Fantasia: CASA DO CEP\nBairro: Centro");
-    expect(ficha.nomeFantasia).toBe("CASA DO CEP");
+    expect(ficha.nomeFantasia).toBe("Casa do Cep");
     expect(ficha.cep).toBeUndefined();
   });
 
