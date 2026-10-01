@@ -6663,7 +6663,7 @@ tbody tr:last-child td {
     padding: 10px 16px;
     border: 1px solid var(--line);
     border-radius: 14px;
-    background: var(--card, #fff);
+    background: var(--superficie);
     color: var(--text);
     text-align: left;
   }
@@ -6726,7 +6726,7 @@ tbody tr:last-child td {
     gap: 12px;
     padding: 12px 16px;
     border-top: 1px solid var(--line);
-    background: var(--card, #fff);
+    background: var(--superficie);
   }
 
   .barra-acao span {
