@@ -25,7 +25,13 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run lint
+      # O projeto passou de 2 GB de heap no `tsc` e o runner derrubava o job
+      # com "JavaScript heap out of memory" — exit 134, sem nenhum erro de
+      # tipo na saída, o que faz o job parecer uma reprovação de tipagem.
+      # 6 GB cabe folgado no runner de 16 GB e dá margem para o projeto crescer.
       - run: npx tsc --noEmit
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - name: Subir banco descartável
         run: docker compose -f docker-compose.test.yml up -d --wait
       - name: Criar papel exigido pelas migrações
