@@ -1,10 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
+import { Inter } from "next/font/google";
 import { scriptInicial } from "@/lib/tema-noturno";
 import "./globals.css";
 
-/* Manrope e a fonte da identidade; `variable` deixa o CSS decidir onde aplica. */
-const manrope = Manrope({ subsets: ["latin"], display: "swap", variable: "--font-manrope" });
+/*
+ * Inter: a fonte padrão de produto de software — neutra, feita para tela e com
+ * algarismos tabulares quando o número precisa alinhar. Até 01/10/2026 era a Manrope, de cara mais
+ * "estúdio de design" do que de software house. `variable` deixa o CSS
+ * decidir onde aplica.
+ */
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.avilaops.com";
 const description =
@@ -73,7 +78,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning data-theme="light" className={manrope.variable} style={{ colorScheme: "light" }}>
+    <html lang="pt-BR" suppressHydrationWarning data-theme="light" className={inter.variable} style={{ colorScheme: "light" }}>
       <head>
         {/*
           Modo noturno da casa: 18h escurece, 6h clareia. Precisa rodar antes do

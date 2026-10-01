@@ -896,6 +896,46 @@ model IdentidadeDaCasa {
   /// Muda a cada troca de ícone. É o que deixa a URL do ícone ser cacheada
   /// para sempre sem o navegador segurar a imagem antiga depois da troca.
   iconeVersao   String?  @map("icone_versao")
+
+  /// Dados cadastrais e fiscais da casa: o que vai no cabeçalho da nota de
+  /// serviço (NFS-e), em contrato e em fatura. Tudo opcional porque a linha
+  /// nasce antes de alguém preencher — quem emite nota confere o que falta.
+  razaoSocial                String? @map("razao_social")
+  /// Só dígitos.
+  cnpj                       String?
+  inscricaoMunicipal         String? @map("inscricao_municipal")
+  inscricaoEstadual          String? @map("inscricao_estadual")
+  /// SIMPLES_NACIONAL | MEI | LUCRO_PRESUMIDO | LUCRO_REAL
+  regimeTributario           String? @map("regime_tributario")
+  /// CNAE principal, só dígitos.
+  cnae                       String?
+  /// Item da lista da LC 116/2003, como "1.07". É o que a prefeitura chama de
+  /// "código do serviço".
+  codigoServico              String? @map("codigo_servico")
+  /// Código de tributação do município, quando a prefeitura usa um próprio.
+  codigoTributacaoMunicipal  String? @map("codigo_tributacao_municipal")
+  /// Alíquota do ISS em porcentagem: 2.00 = 2%.
+  aliquotaIss                Decimal? @map("aliquota_iss") @db.Decimal(5, 2)
+  emailFiscal                String? @map("email_fiscal")
+  telefone                   String?
+  site                       String?
+  cep                        String?
+  logradouro                 String?
+  numero                     String?
+  complemento                String?
+  bairro                     String?
+  municipio                  String?
+  uf                         String?
+  /// Código IBGE do município (7 dígitos): a NFS-e identifica a cidade por ele.
+  codigoMunicipioIbge        String? @map("codigo_municipio_ibge")
+
+  /// Certificado digital A1 da casa (.pfx + senha), cifrado com a mesma chave
+  /// do cofre de credenciais. Nunca em claro: nem o arquivo, nem a senha.
+  certificadoCipher          String? @map("certificado_cipher")
+  /// Titular, CNPJ, emissor e validade lidos do próprio certificado — o que a
+  /// tela mostra sem precisar decifrar nada.
+  certificadoInfo            Json?   @map("certificado_info")
+
   atualizadoPor String?  @map("atualizado_por")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -2034,7 +2074,7 @@ model PlatformCredential {
   id            String    @id @default(cuid())
   /// Nome da variável de ambiente, tal como o código lê: `META_APP_ID`.
   chave         String    @unique
-  /// meta | whatsapp | instagram | threads | google | mercadopago | mercadolivre | x | outros
+  /// meta | whatsapp | instagram | threads | google | mercadopago | mercadolivre | x | bancos | outros
   categoria     String
   rotulo        String?
   descricao     String?
@@ -2054,6 +2094,10 @@ model PlatformCredential {
   consumidores  Json?
   /// De onde o valor veio: "importado:<arquivo>" ou "manual".
   origem        String?
+  /// Nome da instituição, para chave de banco cadastrada à mão na tela da
+  /// empresa (Nubank, Inter, um banco que o catálogo não conhece). Nulo para
+  /// as chaves que o código lê, que se agrupam pela `categoria`.
+  grupo         String?
   atualizadoPor String?   @map("atualizado_por")
   rotacionadoEm DateTime? @map("rotacionado_em")
   createdAt     DateTime  @default(now()) @map("created_at")

@@ -173,3 +173,72 @@ export function financeiraPorSlug(slug: string): Financeira | null {
 export function chavesDoFinanceiro(): string[] {
   return FINANCEIRAS.flatMap((f) => f.campos.map((c) => c.chave));
 }
+
+// ---------------------------------------------------------------------------
+// Campos livres: banco que o código não lê, cadastrado à mão
+// ---------------------------------------------------------------------------
+//
+// Nubank, Wise, Inter, um banco que entrar amanhã: nenhum código lê chave
+// deles, e o catálogo continua sem inventar campo. Mas o dono precisa de um
+// lugar cifrado para o que hoje estaria num bloco de notas — então a ficha
+// aceita campos que ELE nomeia, e a tela diz na cara que nada lê aquilo.
+//
+// Só vale para instituição sem campo no catálogo. Campo livre no Mercado Pago
+// seria exatamente o `MERCADO_PAGO_ACCES_TOKEN_PROD` de novo: um token
+// guardado com capricho num nome que o código não lê.
+
+export const PREFIXO_LIVRE = "BANCO_";
+
+/** "Banco Inter S.A." → "banco-inter-s-a". É o endereço da ficha. */
+export function slugDaInstituicao(nome: string): string {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+function trechoDeChave(texto: string, limite: number) {
+  return slugDaInstituicao(texto).replace(/-/g, "_").toUpperCase().slice(0, limite);
+}
+
+/** ("Nubank", "Client ID") → "BANCO_NUBANK__CLIENT_ID". O `__` separa os dois nomes. */
+export function chaveLivre(instituicao: string, rotulo: string): string {
+  const banco = trechoDeChave(instituicao, 30);
+  const campo = trechoDeChave(rotulo, 40);
+  if (!banco) throw new Error("Informe o nome da instituição.");
+  if (!campo) throw new Error("Informe o nome do campo.");
+  return `${PREFIXO_LIVRE}${banco}__${campo}`;
+}
+
+/**
+ * Pode receber campo livre? Instituição do catálogo COM campos, não: o código
+ * lê aquelas chaves pelo nome, e campo à mão ali seria chave órfã.
+ */
+export function aceitaCampoLivre(nome: string): boolean {
+  const slug = slugDaInstituicao(nome);
+  const doCatalogo = FINANCEIRAS.find(
+    (f) => f.slug === slug || slugDaInstituicao(f.nome) === slug,
+  );
+  return !doCatalogo || doCatalogo.campos.length === 0;
+}
+
+export type InstituicaoLivre = { slug: string; nome: string; total: number };
+
+/** As instituições cadastradas à mão que NÃO estão no catálogo. */
+export function instituicoesLivres(
+  credenciais: ReadonlyArray<{ chave: string; grupo: string | null }>,
+): InstituicaoLivre[] {
+  const porSlug = new Map<string, InstituicaoLivre>();
+  for (const credencial of credenciais) {
+    if (!credencial.chave.startsWith(PREFIXO_LIVRE) || !credencial.grupo) continue;
+    const slug = slugDaInstituicao(credencial.grupo);
+    if (financeiraPorSlug(slug)) continue;
+    const atual = porSlug.get(slug) ?? { slug, nome: credencial.grupo, total: 0 };
+    atual.total += 1;
+    porSlug.set(slug, atual);
+  }
+  return [...porSlug.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}

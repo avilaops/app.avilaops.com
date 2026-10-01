@@ -1,11 +1,18 @@
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import CabecalhoTela from "@/components/sistema/CabecalhoTela";
-import { Grupo, LinhaInfo } from "@/components/sistema/Lista";
+import { Grupo } from "@/components/sistema/Lista";
+import CamposLivres, { type CampoLivreNaTela } from "@/app/empresa/credenciais/financeiro/CamposLivres";
 import FormularioDaFinanceira from "@/app/empresa/credenciais/financeiro/[slug]/FormularioDaFinanceira";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { listarCredenciais } from "@/lib/credenciais";
-import { financeiraPorSlug } from "@/lib/credenciais-financeiro";
+import {
+  PREFIXO_LIVRE,
+  financeiraPorSlug,
+  slugDaInstituicao,
+} from "@/lib/credenciais-financeiro";
+
+const VOLTAR = { href: "/empresa/credenciais", rotulo: "Voltar para Credenciais" };
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +26,53 @@ export default async function FichaDaFinanceira({
   if (!ehDono(admin.role)) redirect("/mais");
 
   const { slug } = await params;
-  const financeira = financeiraPorSlug(slug);
-  if (!financeira) notFound();
-
   const guardadas = await listarCredenciais();
+
+  // Os campos à mão desta instituição, achados pelo nome guardado em `grupo`.
+  const livres = guardadas.filter(
+    (c) => c.chave.startsWith(PREFIXO_LIVRE) && c.grupo && slugDaInstituicao(c.grupo) === slug,
+  );
+  const camposLivres: CampoLivreNaTela[] = livres.map((c) => ({
+    chave: c.chave,
+    rotulo: c.rotulo ?? c.chave,
+    mascara: c.mascara,
+    atualizadoEm: c.rotacionadoEm,
+  }));
+
+  if (slug === "nova") {
+    return (
+      <AppShell adminName={admin.nome} papel={admin.role} section="menu">
+        <CabecalhoTela
+          titulo="Outra instituição"
+          descricao="Um banco ou meio de pagamento que a lista não tem."
+          voltar={VOLTAR}
+        />
+        <div className="pilha">
+          <CamposLivres instituicao={null} campos={[]} />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const financeira = financeiraPorSlug(slug);
+  if (!financeira) {
+    // Instituição cadastrada à mão: só existe enquanto tiver campo guardado.
+    if (!livres.length) notFound();
+    const nome = livres[0].grupo!;
+    return (
+      <AppShell adminName={admin.nome} papel={admin.role} section="menu">
+        <CabecalhoTela
+          titulo={nome}
+          descricao="Cadastrada à mão. Nenhuma integração lê estes campos."
+          voltar={VOLTAR}
+        />
+        <div className="pilha">
+          <CamposLivres instituicao={nome} campos={camposLivres} />
+        </div>
+      </AppShell>
+    );
+  }
+
   const porChave = new Map(guardadas.map((c) => [c.chave, c]));
 
   // O valor NUNCA vem para a tela: o que chega é a máscara que o cofre guarda
@@ -43,7 +93,7 @@ export default async function FichaDaFinanceira({
       <CabecalhoTela
         titulo={financeira.nome}
         descricao={financeira.papel}
-        voltar={{ href: "/empresa/credenciais/financeiro", rotulo: "Voltar para Financeiro" }}
+        voltar={VOLTAR}
       />
 
       <div className="pilha">
@@ -64,14 +114,9 @@ export default async function FichaDaFinanceira({
         ) : null}
 
         {campos.length === 0 ? (
-          <Grupo titulo="Nada a configurar">
-            <LinhaInfo
-              titulo="Nenhuma chave é lida pelo código hoje"
-              descricao="Quando houver integração, os campos aparecem aqui. Inventar campo agora seria desenhar uma tela que não liga em lugar nenhum."
-              icone="config"
-              tom="neutro"
-            />
-          </Grupo>
+          // Sem integração, o catálogo não inventa campo — quem nomeia é o
+          // dono, e a tela diz que nada lê o que for guardado aqui.
+          <CamposLivres instituicao={financeira.nome} campos={camposLivres} />
         ) : (
           <FormularioDaFinanceira slug={financeira.slug} nome={financeira.nome} campos={campos} />
         )}

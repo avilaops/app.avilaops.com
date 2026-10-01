@@ -26,6 +26,7 @@ export type CategoriaCredencial =
   | "mercadopago"
   | "mercadolivre"
   | "x"
+  | "bancos"
   | "outros";
 
 export type StatusCredencial = "ATIVO" | "PENDENTE" | "APOSENTADA";
@@ -189,6 +190,7 @@ export type CredencialEmLista = {
   preenchida: boolean;
   consumidores: string[];
   origem: string | null;
+  grupo: string | null;
   atualizadoPor: string | null;
   rotacionadoEm: string | null;
   atualizadoEm: string;
@@ -216,6 +218,7 @@ export async function listarCredenciais(): Promise<CredencialEmLista[]> {
     preenchida: Boolean(linha.valorCipher),
     consumidores: Array.isArray(linha.consumidores) ? (linha.consumidores as string[]) : [],
     origem: linha.origem,
+    grupo: linha.grupo,
     atualizadoPor: linha.atualizadoPor,
     rotacionadoEm: linha.rotacionadoEm?.toISOString() ?? null,
     atualizadoEm: linha.updatedAt.toISOString(),
@@ -250,6 +253,14 @@ export type EntradaCredencial = {
   consumidores?: string[];
   origem?: string;
   status?: StatusCredencial;
+  /** Nome da instituição, para chave de banco cadastrada à mão. */
+  grupo?: string | null;
+  /**
+   * Força a chave a ser tratada como segredo. Sem isto, vale `ehSegredo()`,
+   * que decide pelo nome — e campo livre ("Senha do app", "Conta") tem nome
+   * que ninguém previu.
+   */
+  segredo?: boolean;
 };
 
 export async function salvarCredencial(entrada: EntradaCredencial, atorId: string) {
@@ -265,7 +276,8 @@ export async function salvarCredencial(entrada: EntradaCredencial, atorId: strin
     categoria: entrada.categoria ?? categoriaDaChave(chave),
     rotulo: entrada.rotulo ?? null,
     descricao: entrada.descricao ?? null,
-    segredo: ehSegredo(chave),
+    segredo: entrada.segredo ?? ehSegredo(chave),
+    grupo: entrada.grupo ?? undefined,
     consumidores: entrada.consumidores ?? undefined,
     origem: entrada.origem ?? "manual",
     atualizadoPor: atorId,
