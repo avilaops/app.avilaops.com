@@ -1,25 +1,37 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import AcoesCliente from "@/components/clientes/AcoesCliente";
+import FiltroClientes from "@/components/clientes/FiltroClientes";
 import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import BadgeStatus from "@/components/sistema/Status";
 import { contextoDaSecao } from "@/lib/navegacao";
 import OrganizationForm from "@/components/OrganizationForm";
-import { Icone } from "@/components/ui/Icones";
-import { getAdmin } from "@/lib/auth";
+import { ehDono, getAdmin } from "@/lib/auth";
+import { buscarClientes, lerFiltro, resumoDosClientes } from "@/lib/clientes-busca";
 import { nomeProprio } from "@/lib/format";
-import { getOrganizations } from "@/lib/operations";
 
-const statusLabels: Record<string, string> = {
-  ACTIVE: "Ativo",
-  ONBOARDING: "Onboarding",
-  PAUSED: "Pausado",
-  ARCHIVED: "Arquivado",
-};
-
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
-  const organizations = await getOrganizations();
+  const filtro = lerFiltro(await searchParams);
+  const [resultado, resumo] = await Promise.all([buscarClientes(filtro), resumoDosClientes()]);
+  const podeExcluir = ehDono(admin.role);
+  const fim = resultado.inicio + resultado.itens.length - 1;
+
+  function linkDaPagina(pagina: number) {
+    const params = new URLSearchParams();
+    if (filtro.q) params.set("q", filtro.q);
+    if (filtro.status !== "abertos") params.set("status", filtro.status);
+    if (filtro.ordem !== "nome") params.set("ordem", filtro.ordem);
+    if (pagina > 1) params.set("pagina", String(pagina));
+    const query = params.toString();
+    return query ? `/clientes?${query}` : "/clientes";
+  }
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="clients">
@@ -27,117 +39,114 @@ export default async function ClientsPage() {
         titulo="Clientes"
         descricao="Organizações, marcas e o que está aberto em cada uma."
         {...contextoDaSecao("clients")}
-        acoes={
-          <>
-          <OrganizationForm />
-          </>
-        }
+        acoes={<OrganizationForm />}
       />
 
-      {/* Quatro números que antes viravam quatro linhas empilhadas no celular
-          — 350px antes do primeiro cliente, quase todos zerados. Viram uma
-          tira de quatro colunas: o mesmo dado, uma linha de altura. */}
+      {/* Contados no banco: somar na página exigia carregar a carteira inteira
+          só para mostrar quatro números. */}
       <section className="client-summary-strip">
         <span>
-          <i>Organizações</i>
-          <strong>{organizations.length}</strong>
+          <i>Em aberto</i>
+          <strong>{resumo.abertos}</strong>
         </span>
         <span>
-          <i>Onboarding</i>
-          <strong>
-            {organizations.filter((item) => item.status === "ONBOARDING").length}
-          </strong>
+          <i>Em implantação</i>
+          <strong>{resumo.implantacao}</strong>
         </span>
         <span>
           <i>Marcas</i>
-          <strong>
-            {organizations.reduce((sum, item) => sum + item._count.brands, 0)}
-          </strong>
+          <strong>{resumo.marcas}</strong>
         </span>
         <span>
-          <i>Projetos</i>
-          <strong>
-            {organizations.reduce((sum, item) => sum + item._count.projects, 0)}
-          </strong>
+          <i>Arquivados</i>
+          <strong>{resumo.arquivados}</strong>
         </span>
       </section>
 
       <section className="operations-panel clients-panel">
-        <div className="operations-panel-heading">
-          <div>
-            <h2>Organizações cadastradas</h2>
-          </div>
-        </div>
+        <FiltroClientes q={filtro.q} status={filtro.status} ordem={filtro.ordem} />
 
-        {organizations.length === 0 ? (
+        <p className="lista-clientes-contagem" aria-live="polite">
+          {resultado.total === 0
+            ? "Nenhum cliente"
+            : `${resultado.inicio.toLocaleString("pt-BR")}–${fim.toLocaleString("pt-BR")} de ${resultado.total.toLocaleString("pt-BR")} ${resultado.total === 1 ? "cliente" : "clientes"}`}
+          {filtro.q ? <> para <strong>“{filtro.q}”</strong></> : null}
+        </p>
+
+        {resultado.total === 0 ? (
           <div className="operations-empty clients-empty">
-            <span className="empty-index">00</span>
-            <strong>Nenhum cliente cadastrado.</strong>
+            <strong>{filtro.q ? "Nada bate com essa busca." : "Nenhum cliente nesta situação."}</strong>
+            <p>
+              {filtro.status === "abertos"
+                ? "Clientes arquivados não aparecem aqui. Troque o filtro para “Todos” para incluí-los."
+                : "Troque o filtro de situação ou limpe a busca."}
+            </p>
           </div>
         ) : (
-          <div className="clients-list">
-            {organizations.map((organization, index) => {
-              const nome = nomeProprio(organization.name);
-              // `data-zero` é o que some no celular: numa carteira em que quase
-              // todo contador está em 0, "M 0 P 0 T 0 D 2" era ruído ocupando o
-              // espaço do nome. No desktop, onde a grade tem colunas fixas, os
-              // quatro continuam visíveis para comparar um cliente com o outro.
+          <ul className="lista-clientes">
+            {resultado.itens.map((cliente) => {
+              const nome = nomeProprio(cliente.name);
+              const documento = formatarDocumento(cliente.cpfCnpj);
+              const detalhe = [cliente.legalName, documento, cliente.segment].filter(Boolean).join(" · ");
               const sinais = [
-                { rotulo: "Marcas", unidade: ["marca", "marcas"], valor: organization._count.brands },
-                { rotulo: "Projetos", unidade: ["projeto", "projetos"], valor: organization._count.projects },
-                { rotulo: "Tarefas", unidade: ["tarefa", "tarefas"], valor: organization._count.tasks },
-                { rotulo: "Domínios", unidade: ["domínio", "domínios"], valor: organization._count.domains },
-              ];
+                cliente._count.brands ? `${cliente._count.brands} ${cliente._count.brands === 1 ? "marca" : "marcas"}` : "",
+                cliente._count.projects ? `${cliente._count.projects} ${cliente._count.projects === 1 ? "projeto" : "projetos"}` : "",
+                cliente._count.domains ? `${cliente._count.domains} ${cliente._count.domains === 1 ? "domínio" : "domínios"}` : "",
+                cliente._count.subscriptions ? `${cliente._count.subscriptions} ${cliente._count.subscriptions === 1 ? "assinatura" : "assinaturas"}` : "",
+              ].filter(Boolean);
               return (
-                <article className="client-row org-row" key={organization.id}>
-                  <span className="client-index">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div className="client-identity">
-                    <span>{nome.slice(0, 2).toLocaleUpperCase("pt-BR")}</span>
-                    <div>
-                      <Link className="client-name-link" href={`/clientes/${organization.id}`}>
-                        {nome}
-                      </Link>
-                      {/* A razão social sai no celular: ela repete o nome com
-                          mais palavras, e o espaço dela na segunda linha é o
-                          que faz caber "3 projetos · 2 domínios" ali. */}
-                      <small>
-                        Nº {organization.clientNumber}
-                        {(organization.legalName ?? organization.segment) ? (
-                          <span className="client-legal">
-                            {` · ${organization.legalName ?? organization.segment}`}
-                          </span>
-                        ) : null}
-                      </small>
-                    </div>
+                <li key={cliente.id} className="linha-cliente">
+                  <span className="linha-cliente-numero">{cliente.clientNumber}</span>
+                  <div className="linha-cliente-identidade">
+                    <Link href={`/clientes/${cliente.id}`} className="linha-cliente-nome">
+                      {nome}
+                    </Link>
+                    <small>{detalhe || "Sem razão social nem documento"}</small>
                   </div>
-                  {/* O rótulo aparece por extenso e em minúscula no celular
-                      ("3 projetos"), e volta a ser coluna de tabela no desktop.
-                      A sigla de uma letra que existia aqui só era legível para
-                      quem já sabia o que ela media. */}
-                  <dl className="client-signals org-signals">
-                    {sinais.map((sinal) => (
-                      <div
-                        key={sinal.rotulo}
-                        data-unidade={sinal.unidade[sinal.valor === 1 ? 0 : 1]}
-                        data-zero={sinal.valor === 0 ? "sim" : undefined}
-                      >
-                        <dt>{sinal.rotulo}</dt>
-                        <dd>{sinal.valor}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <span className={`status-pill status-${organization.status.toLowerCase()}`}>
-                    {statusLabels[organization.status] ?? organization.status}
-                  </span>
-                  <Icone nome="chevron" tamanho={16} className="chevron" />
-                </article>
+                  <span className="linha-cliente-sinais">{sinais.join(" · ")}</span>
+                  <BadgeStatus status={cliente.status} />
+                  <AcoesCliente
+                    id={cliente.id}
+                    nome={cliente.name}
+                    status={cliente.status}
+                    podeExcluir={podeExcluir}
+                  />
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
+
+        {resultado.paginas > 1 ? (
+          <nav className="paginacao-clientes" aria-label="Páginas">
+            {resultado.pagina > 1 ? (
+              <Link className="secondary-button" href={linkDaPagina(resultado.pagina - 1)} rel="prev">
+                Anterior
+              </Link>
+            ) : (
+              <span />
+            )}
+            <span>
+              Página {resultado.pagina.toLocaleString("pt-BR")} de {resultado.paginas.toLocaleString("pt-BR")}
+            </span>
+            {resultado.pagina < resultado.paginas ? (
+              <Link className="secondary-button" href={linkDaPagina(resultado.pagina + 1)} rel="next">
+                Próxima
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </section>
     </AppShell>
   );
+}
+
+/** 33000167000101 → 33.000.167/0001-01; CPF idem. Outro formato sai como veio. */
+function formatarDocumento(valor: string | null) {
+  if (!valor) return "";
+  if (/^\d{14}$/.test(valor)) return valor.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  if (/^\d{11}$/.test(valor)) return valor.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  return valor;
 }

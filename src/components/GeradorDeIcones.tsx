@@ -133,7 +133,7 @@ export default function GeradorDeIcones({
           </div>
         </div>
         <p className="icon-generator-hint">
-          Envie primeiro uma logo em PNG, JPG, WEBP ou SVG em um dos cards abaixo. Com ela o
+          Envie primeiro uma logo em PNG, JPG, WEBP ou SVG em uma das linhas abaixo. Com ela o
           sistema monta favicon, ícones do manifesto, Apple Touch Icon e as imagens de
           compartilhamento.
         </p>

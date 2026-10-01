@@ -1,5 +1,5 @@
 import type { Evidencia } from "@/lib/evidencia";
-import type { LojaDaPlataforma, ProdutoDaLoja } from "@/lib/lojas-plataforma";
+import type { LojaDaPlataforma, ProdutoDaLoja, RotinaDaPlataforma, SaudeDasRotinas } from "@/lib/lojas-plataforma";
 
 /**
  * O acompanhamento das lojas dos clientes, do lado de cá.
@@ -409,4 +409,139 @@ export function evidenciaDaPlataforma(
     observacao:
       "Leitura direta da plataforma de lojas a cada carga desta tela. O Ávila OS não guarda cópia deste estado.",
   };
+}
+
+/* ─────────────────────────── rotinas ─────────────────────────── */
+
+/**
+ * O que roda sozinho na plataforma, do lado de cá.
+ *
+ * Quem decide se uma rotina está atrasada ou falhando é a própria plataforma
+ * (`emAtraso`, `falhando`, `saudavel` vêm prontos): recalcular isso aqui
+ * significaria repetir a cadência e o fuso em dois lugares e vê-los
+ * discordar no primeiro deploy. Esta tela lê e ordena, não julga.
+ */
+export type ResumoDasRotinas = {
+  total: number;
+  /** Nem atrasada nem falhando — o estado em que ninguém precisa olhar. */
+  emPaz: number;
+  comProblema: number;
+  /** As que precisam de gente, primeiro a pior. */
+  problemas: RotinaDaPlataforma[];
+  /** Quando a plataforma rodou alguma coisa pela última vez. */
+  ultimaAtividadeEm: string | null;
+  /** `false` quando o relógio está desligado neste container. */
+  agendadorLigado: boolean;
+};
+
+export function resumirRotinas(saude: SaudeDasRotinas | null): ResumoDasRotinas {
+  const rotinas = saude?.rotinas ?? [];
+  const problemas = ordenarRotinas(rotinas).filter((r) => !r.saudavel);
+  const datas = rotinas.map((r) => r.ultimaEm).filter((d): d is string => Boolean(d));
+  return {
+    total: rotinas.length,
+    emPaz: rotinas.filter((r) => r.saudavel).length,
+    comProblema: problemas.length,
+    problemas,
+    ultimaAtividadeEm: datas.length ? datas.reduce((a, b) => (a > b ? a : b)) : null,
+    agendadorLigado: saude?.agendador.ligado ?? false,
+  };
+}
+
+/** Falhando na frente, depois atrasada, depois pela ordem do catálogo. */
+export function ordenarRotinas(rotinas: RotinaDaPlataforma[]): RotinaDaPlataforma[] {
+  const peso = (r: RotinaDaPlataforma) => (r.falhando ? 0 : r.emAtraso ? 1 : 2);
+  return [...rotinas].sort((a, b) => peso(a) - peso(b));
+}
+
+/**
+ * O nome curto da rotina, para o título da linha.
+ *
+ * A plataforma manda `titulo` desde 19/09/2026; antes disso só havia a frase
+ * inteira, que num celular sai cortada em "Gera e publica em lote o …". Sem o
+ * campo a tela mostra o que tem, em vez de linha sem título.
+ */
+export function tituloDaRotina(rotina: RotinaDaPlataforma): string {
+  return rotina.titulo?.trim() || rotina.descricao;
+}
+
+/** Vermelho pede gente agora, amarelo pede olhada, azul está em paz. */
+export function tomDaRotina(rotina: RotinaDaPlataforma): "vermelho" | "amarelo" | "azul" {
+  if (rotina.falhando) return "vermelho";
+  return rotina.emAtraso ? "amarelo" : "azul";
+}
+
+/**
+ * A frase de uma linha que resume o estado da rotina.
+ *
+ * Só o estado, sem repetir a cadência: ela já é a coluna de trás e aparece
+ * aberta na dobra. "toda segunda às 07:00 · ainda não venceu — toda segunda às
+ * 07:00" foi o que a primeira versão desta tela escreveu.
+ *
+ * Rotina que nunca rodou **não** é rotina com problema: é rotina que ainda não
+ * venceu (o relatório semanal, numa quarta-feira). Dizer "nunca rodou" em
+ * vermelho ensinaria a ignorar o vermelho.
+ */
+export function situacaoDaRotina(rotina: RotinaDaPlataforma, agora: Date): string {
+  if (rotina.executandoDesde) return "rodando agora";
+  if (rotina.falhando) {
+    return `falhou ${contarFalhas(rotina.falhasSeguidas)}`;
+  }
+  if (rotina.emAtraso) return `atrasada — devia ter rodado ${haQuantoTempo(rotina.proximaEm, agora)}`;
+  if (!rotina.ultimaEm) return "ainda não venceu";
+  return `rodou ${haQuantoTempo(rotina.ultimaEm, agora)}`;
+}
+
+/**
+ * "e de novo quando?" — a pergunta que sobra depois de "rodou?".
+ *
+ * `null` quando a própria situação já respondeu: numa rotina atrasada o
+ * horário da próxima execução **é** o que já passou, e a linha diria "atrasada
+ * — devia ter rodado há 2 h" com um "há 2 h" colado ao lado.
+ */
+export function proximaLegivel(rotina: RotinaDaPlataforma, agora: Date): string | null {
+  if (rotina.emAtraso || rotina.executandoDesde) return null;
+  // Venceu agora há pouco e ainda não é atraso: a passada do agendador é de um
+  // minuto, então a resposta honesta não é "há 1 min" — é que está para sair.
+  if (new Date(rotina.proximaEm).getTime() <= agora.getTime()) return "a qualquer momento";
+  return haQuantoTempo(rotina.proximaEm, agora);
+}
+
+function contarFalhas(n: number): string {
+  return n === 1 ? "na última execução" : `nas últimas ${n} execuções`;
+}
+
+/**
+ * "há 3 min", "há 2 h", "ontem" — tempo relativo, que é como se lê frescor.
+ *
+ * "19 de set., 04:27" obriga quem lê a fazer a subtração de cabeça para
+ * responder a única pergunta que importa numa tela de rotina: isso é recente?
+ * Acima de uma semana a data absoluta volta, porque aí "há 23 dias" é que
+ * vira a conta difícil.
+ */
+export function haQuantoTempo(quando: string | Date, agora: Date): string {
+  const ms = agora.getTime() - new Date(quando).getTime();
+  const futuro = ms < 0;
+  const abs = Math.abs(ms);
+  const min = Math.round(abs / 60_000);
+  if (min < 1) return futuro ? "em instantes" : "agora mesmo";
+  const prefixo = futuro ? "em" : "há";
+  if (min < 60) return `${prefixo} ${min} min`;
+  const horas = Math.round(min / 60);
+  if (horas < 24) return `${prefixo} ${horas} h`;
+  const dias = Math.round(horas / 24);
+  if (dias === 1) return futuro ? "amanhã" : "ontem";
+  if (dias <= 7) return `${prefixo} ${dias} dias`;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(quando));
+}
+
+/** "2,3 s" / "412 ms" — duração na unidade em que ela se lê. */
+export function duracaoLegivel(ms: number | null): string | null {
+  if (ms === null) return null;
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`;
 }

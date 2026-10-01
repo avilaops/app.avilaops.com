@@ -110,6 +110,17 @@ pessoa aprova, com autor, horário e evento de auditoria. Detalhes das
 barreiras, do custo e da ativação:
 [`docs/cadastro-assistido-ia.md`](docs/cadastro-assistido-ia.md).
 
+## Telas (Ávila TV)
+
+`/operacao/telas` mostra as telas pareadas pelo protocolo Ávila Link: quem está
+no ar, quem caiu, quem está esperando um nome, e a disponibilidade de cada uma
+nos últimos 7 dias. Daqui dá para vincular uma tela nova, recarregar, avisar
+quem está em frente e revogar.
+
+O estado é lido do agente `tv.avilaops.com` a cada carga da página
+(`AVILA_TV_API_URL` e `AVILA_TV_API_KEY`); este app não guarda cópia dele.
+Detalhes em [`docs/telas-avila-tv.md`](docs/telas-avila-tv.md).
+
 ## Vagas e recrutamento
 
 As vagas de `jobs.avilaops.com` vivem em `operations.job_postings` e vão para o
