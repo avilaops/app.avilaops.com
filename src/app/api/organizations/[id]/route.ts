@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { ClienteNaoEncontradoError, excluirCliente, mudarStatus, STATUS_ARQUIVAVEIS } from "@/lib/clientes-exclusao";
 import { lookupCnpj } from "@/lib/cnpj-lookup";
-import { classifyCpfCnpj, isValidCpf, onlyDigits } from "@/lib/cpf-cnpj";
+import { classifyCpfCnpj, isValidCpf, normalizarDocumento, onlyDigits } from "@/lib/cpf-cnpj";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { internalSiteUrl, resolveInternalSubdomain } from "@/lib/internal-site";
 import { prisma } from "@/lib/prisma";
@@ -149,7 +149,11 @@ export async function PUT(
   let aviso: string | undefined;
   if (orgBody.cpfCnpj !== undefined) {
     const texto = cleanText(orgBody.cpfCnpj, 18);
-    const digitos = texto ? onlyDigits(texto) : "";
+    // `normalizarDocumento`, e não `onlyDigits`: o CNPJ alfanumérico tem
+    // letras nas doze primeiras posições, e tirá-las aqui transformaria um
+    // documento válido em doze caracteres que não classificam como nada —
+    // a tela devolveria "CPF ou CNPJ inválido" para um CNPJ correto.
+    const digitos = texto ? normalizarDocumento(texto) : "";
     if (digitos !== (organization.cpfCnpj ?? "")) {
       if (!digitos) {
         documento = { cpfCnpj: null, cnpjData: Prisma.DbNull };

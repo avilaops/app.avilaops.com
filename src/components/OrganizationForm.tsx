@@ -2,7 +2,7 @@
 
 import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { classifyCpfCnpj, onlyDigits } from "@/lib/cpf-cnpj";
+import { classifyCpfCnpj, normalizarDocumento } from "@/lib/cpf-cnpj";
 import type { CnpjLookupData } from "@/lib/cnpj-lookup";
 import FichaDaReceita from "@/components/FichaDaReceita";
 import { SEGMENTOS_PADRAO, segmentoPeloCnae } from "@/lib/segmentos";
@@ -10,19 +10,28 @@ import { SEGMENTOS_PADRAO, segmentoPeloCnae } from "@/lib/segmentos";
 /** Valor do select que abre o campo de segmento novo. Não é um segmento. */
 const NOVO_SEGMENTO = "__novo__";
 
-function formatCpfCnpj(value: string): string {
-  const digits = onlyDigits(value).slice(0, 14);
-  if (digits.length <= 11) {
-    return digits
+/** Exportada para o teste: máscara errada é defeito que só a tela mostra. */
+export function formatCpfCnpj(value: string): string {
+  const doc = normalizarDocumento(value).slice(0, 14);
+
+  // Só entra na máscara de CPF enquanto o que foi digitado puder ser CPF: até
+  // onze caracteres e todos numéricos. Uma letra já diz que é CNPJ.
+  if (doc.length <= 11 && /^\d*$/.test(doc)) {
+    return doc
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   }
-  return digits
-    .replace(/(\d{2})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1/$2")
-    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+
+  // CNPJ. A máscara é posicional em vez de regex de dígito porque desde julho
+  // de 2026 as doze primeiras posições podem ter letras: `\d` descartaria
+  // justamente o que precisa aparecer no campo enquanto a pessoa digita.
+  const grupos = [doc.slice(0, 2), doc.slice(2, 5), doc.slice(5, 8), doc.slice(8, 12), doc.slice(12, 14)];
+  const separadores = ["", ".", ".", "/", "-"];
+  return grupos.reduce(
+    (saida, grupo, i) => (grupo ? saida + separadores[i] + grupo : saida),
+    "",
+  );
 }
 
 export default function OrganizationForm({

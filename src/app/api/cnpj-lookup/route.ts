@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
-import { isValidCnpj, onlyDigits } from "@/lib/cpf-cnpj";
+import { isValidCnpj, normalizarDocumento } from "@/lib/cpf-cnpj";
 import { lookupCnpj } from "@/lib/cnpj-lookup";
 
 export async function GET(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   }
 
-  const cnpj = onlyDigits(request.nextUrl.searchParams.get("cnpj") ?? "");
+  const cnpj = normalizarDocumento(request.nextUrl.searchParams.get("cnpj") ?? "");
   if (!isValidCnpj(cnpj)) {
     return NextResponse.json({ error: "CNPJ inválido." }, { status: 400 });
   }

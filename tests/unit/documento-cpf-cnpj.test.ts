@@ -5,6 +5,7 @@ import {
   isValidCpf,
   normalizarDocumento,
 } from "@/lib/cpf-cnpj";
+import { formatCpfCnpj } from "@/components/OrganizationForm";
 
 /**
  * Dígito verificador de CPF e CNPJ.
@@ -97,5 +98,32 @@ describe("classifyCpfCnpj", () => {
   it("devolve nulo quando o tamanho não é de CPF nem de CNPJ", () => {
     expect(classifyCpfCnpj("123456789")).toBeNull();
     expect(classifyCpfCnpj("")).toBeNull();
+  });
+});
+
+describe("máscara do campo de documento", () => {
+  it("formata CPF enquanto o que foi digitado ainda pode ser CPF", () => {
+    expect(formatCpfCnpj("5")).toBe("5");
+    expect(formatCpfCnpj("529982")).toBe("529.982");
+    expect(formatCpfCnpj("52998224725")).toBe("529.982.247-25");
+  });
+
+  it("formata CNPJ numérico", () => {
+    expect(formatCpfCnpj("11222333000181")).toBe("11.222.333/0001-81");
+    expect(formatCpfCnpj("112223330001")).toBe("11.222.333/0001");
+  });
+
+  // A máscara antiga usava `\d` e descartava as letras enquanto a pessoa
+  // digitava: o campo recusava um CNPJ correto antes de chegar à validação.
+  it("preserva as letras do CNPJ alfanumérico", () => {
+    expect(formatCpfCnpj("12ABC34501DE35")).toBe("12.ABC.345/01DE-35");
+    expect(formatCpfCnpj("12abc345")).toBe("12.ABC.345");
+    expect(formatCpfCnpj("12A")).toBe("12.A");
+  });
+
+  it("ignora o que não é dígito nem letra e para em catorze caracteres", () => {
+    expect(formatCpfCnpj("11.222.333/0001-81")).toBe("11.222.333/0001-81");
+    expect(formatCpfCnpj("112223330001810000")).toBe("11.222.333/0001-81");
+    expect(formatCpfCnpj("")).toBe("");
   });
 });

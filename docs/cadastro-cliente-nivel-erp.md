@@ -50,6 +50,18 @@ continuam numéricos. O cálculo é o mesmo módulo 11 com o valor de cada
 caractere lido como ASCII menos 48 — `'0'` vale 0 e `'A'` vale 17. O exemplo da
 própria Receita, `12ABC34501DE35`, está nos testes.
 
+Aceitar isso no validador não bastava: três caminhos aplicavam `onlyDigits`
+antes de classificar, e tirar as letras transformava um CNPJ válido em doze
+caracteres que não classificam como nada — a tela devolvia "CPF ou CNPJ
+inválido" para um documento correto. Passaram a usar `normalizarDocumento`:
+a edição do cliente (`PUT /api/organizations/[id]`), a consulta de CNPJ
+(`/api/cnpj-lookup`) e a máscara do campo em `OrganizationForm`, que agora é
+posicional em vez de regex de dígito — `\d` descartava justamente o que precisa
+aparecer enquanto a pessoa digita.
+
+O CNPJ da própria casa (`src/lib/dados-da-casa.ts`) continua só numérico de
+propósito: é um CNPJ existente, e CNPJ já emitido não vira alfanumérico.
+
 ### Domínios fechados
 
 O vocabulário é o que a aplicação já usa. Fechar o domínio é o ganho; traduzir
