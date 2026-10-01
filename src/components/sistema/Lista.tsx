@@ -15,16 +15,29 @@ export function Grupo({
   titulo,
   children,
   acao,
+  marca,
 }: {
   titulo?: string;
   children: ReactNode;
   acao?: ReactNode;
+  /**
+   * Logotipo à esquerda do título, para grupos que representam um provedor
+   * (`<LogoSocial />`). Decorativo: o título ao lado é que nomeia o grupo.
+   */
+  marca?: ReactNode;
 }) {
   return (
     <section className="grupo">
       {titulo || acao ? (
         <header className="grupo-cabecalho">
-          {titulo ? <h2>{titulo}</h2> : <span />}
+          {titulo ? (
+            <span className="grupo-titulo">
+              {marca}
+              <h2>{titulo}</h2>
+            </span>
+          ) : (
+            <span />
+          )}
           {acao}
         </header>
       ) : null}

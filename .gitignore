@@ -29,3 +29,4 @@ standalone-health*.tgz
 .playwright-cli/
 output/playwright/
 output/nucleo-postgres/
+output/publicacoes-validation/

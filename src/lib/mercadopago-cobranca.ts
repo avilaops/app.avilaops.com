@@ -1,4 +1,4 @@
-import { chamarMercadoPago } from "@/lib/mercadopago";
+import { chamarMercadoPago, urlDeNotificacao } from "@/lib/mercadopago";
 
 /**
  * Cobrança da mensalidade no Mercado Pago (decisão de 30/08/2026).
@@ -110,6 +110,7 @@ export async function createPixCharge(input: {
 }): Promise<PixCharge> {
   const expiraEm = new Date(Date.now() + (input.expiresInSeconds ?? 86_400) * 1000);
   const nome = partirNome(input.payer.name);
+  const notificacao = await urlDeNotificacao();
 
   const pagamento = await chamarMercadoPago<PagamentoMP>("/v1/payments", {
     method: "POST",
@@ -119,6 +120,12 @@ export async function createPixCharge(input: {
       description: input.description,
       payment_method_id: "pix",
       date_of_expiration: expiraEm.toISOString(),
+      // Para onde o Mercado Pago avisa que esta cobrança foi paga. Sem o campo,
+      // a notificação iria para a URL global da aplicação, que pertence às
+      // assinaturas das lojas — e esta fatura ficaria aberta até alguém
+      // sincronizar à mão. Vazio em desenvolvimento: o Mercado Pago recusa o
+      // pagamento inteiro quando a URL não é pública.
+      ...(notificacao ? { notification_url: notificacao } : {}),
       payer: {
         email: input.payer.email,
         ...nome,
@@ -161,6 +168,7 @@ export async function createBoletoCharge(input: {
   const vence = new Date(Date.now() + (input.expireInDays ?? 3) * 86_400_000);
   const nome = partirNome(input.payer.name);
   const endereco = input.payer.endereco;
+  const notificacao = await urlDeNotificacao();
 
   const pagamento = await chamarMercadoPago<PagamentoMP>("/v1/payments", {
     method: "POST",
@@ -170,6 +178,7 @@ export async function createBoletoCharge(input: {
       description: input.description,
       payment_method_id: "bolbradesco",
       date_of_expiration: vence.toISOString(),
+      ...(notificacao ? { notification_url: notificacao } : {}),
       payer: {
         email: input.payer.email,
         ...nome,
@@ -223,6 +232,7 @@ export async function createCardCharge(input: {
   issuerId?: string;
   idempotencyKey?: string;
 }): Promise<{ externalId: string; status: string }> {
+  const notificacao = await urlDeNotificacao();
   const pagamento = await chamarMercadoPago<PagamentoMP>("/v1/payments", {
     method: "POST",
     idempotencia: input.idempotencyKey,
@@ -231,6 +241,7 @@ export async function createCardCharge(input: {
       description: input.description,
       token: input.paymentToken,
       installments: input.installments,
+      ...(notificacao ? { notification_url: notificacao } : {}),
       ...(input.paymentMethodId ? { payment_method_id: input.paymentMethodId } : {}),
       ...(input.issuerId ? { issuer_id: input.issuerId } : {}),
       payer: {
