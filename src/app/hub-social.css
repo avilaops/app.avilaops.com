@@ -31,7 +31,7 @@
   --color-border: var(--line);
   --color-input: var(--line);
   --color-ring: var(--accent);
-  --font-sans: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: var(--fonte);
   --font-mono: var(--mono);
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -50,4 +50,13 @@
   [data-slot] * {
     border-color: var(--color-border);
   }
+}
+
+/*
+ * O globals.css pinta todo input do tema claro com fundo branco, fora de
+ * camada, e isso vence o `bg-transparent` do shadcn. A busca do seletor de
+ * conta (cmdk) ficava como um retângulo branco dentro do popover cinza.
+ */
+:root[data-theme] [data-slot="command-input"] {
+  background: transparent;
 }

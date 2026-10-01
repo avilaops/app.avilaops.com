@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
 import { Icone, type NomeIcone } from "@/components/ui/Icones";
+import IconeNavegacao, { imagensNavegacao } from "@/components/sistema/IconeNavegacao";
 
 /**
  * Lista agrupada: uma superfície branca contendo várias linhas, separadas por
@@ -37,8 +38,8 @@ export type TomIcone = "azul" | "vermelho" | "amarelo" | "neutro";
 
 export function IconeTile({ nome, tom = "azul" }: { nome: NomeIcone; tom?: TomIcone }) {
   return (
-    <span className={`icone-tile tom-${tom}`} aria-hidden="true">
-      <Icone nome={nome} tamanho={18} />
+    <span className={`icone-tile tom-${tom}${imagensNavegacao[nome] ? " icone-tile-3d" : ""}`} aria-hidden="true">
+      <IconeNavegacao nome={nome} />
     </span>
   );
 }

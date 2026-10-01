@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Icone } from "@/components/ui/Icones";
+import IconeNavegacao from "@/components/sistema/IconeNavegacao";
 import { navegacaoDoPapel, tomDoGrupo, type SecaoApp } from "@/lib/navegacao";
 
 export type { SecaoApp };
@@ -27,7 +27,7 @@ export default function SideNav({ section, papel }: { section: SecaoApp; papel: 
               >
                 {item.icone ? (
                   <span className={`nav-icone tom-${tomDoGrupo(group.slug)}`} aria-hidden="true">
-                    <Icone nome={item.icone} tamanho={16} />
+                    <IconeNavegacao nome={item.icone} tamanho={28} />
                   </span>
                 ) : null}
                 <span className="nav-link-label">{item.label}</span>

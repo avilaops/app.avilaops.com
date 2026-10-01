@@ -91,7 +91,11 @@ function conferirLinha(mp: Assinatura | null, loja: LojaDaPlataforma | null): Di
     fora.push({
       gravidade: "atencao",
       titulo: "Assinatura sem loja",
-      detalhe: `O Mercado Pago cobra por "${mp.loja ?? "sem referência"}", mas não existe loja com esse slug. Pode ser teste antigo - vale cancelar.`,
+      detalhe: mp.status === "cancelled"
+        ? `Assinatura cancelada no Mercado Pago, sem loja vinculada à referência "${mp.loja ?? "sem referência"}". Confira a origem no histórico; não é necessário cancelar novamente.`
+        : mp.status === "authorized"
+          ? `Assinatura ativa no Mercado Pago, sem loja vinculada à referência "${mp.loja ?? "sem referência"}". Confira a origem e o vínculo antes de decidir qualquer alteração.`
+          : `Assinatura ${mp.status === "paused" ? "pausada" : "aguardando autorização"}, sem loja vinculada à referência "${mp.loja ?? "sem referência"}". Confira a origem e o histórico.`,
     });
     return fora;
   }
