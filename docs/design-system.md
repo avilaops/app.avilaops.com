@@ -34,7 +34,7 @@ Manrope, carregada por `next/font` em `src/app/layout.tsx` e exposta em `--fonte
 
 | Papel | Tamanho | Peso |
 |---|---|---|
-| Título de tela (`h1`) | 1,75rem (1,875rem no celular) | 700, `-0.03em` |
+| Título de tela (`h1`) | 1,75rem (1,625rem no celular) | 700, `-0.03em` |
 | Título de grupo | 0,75rem em caixa alta | 600, `0.06em` |
 | Título de linha | 0,9375rem | 600 |
 | Descrição | 0,8125rem | 400, `--texto-secundario` |
@@ -44,6 +44,7 @@ Manrope, carregada por `next/font` em `src/app/layout.tsx` e exposta em `--fonte
 ## Espaço, raio e sombra
 
 - Espaço: `--e1` 4px, `--e2` 8, `--e3` 12, `--e4` 16, `--e5` 20, `--e6` 24, `--e7` 32, `--e8` 40, `--e9` 48. Nada fora da escala.
+- **A escala tem um degrau no celular.** Até 820px, os degraus grandes encolhem: `--e5` 16, `--e6` 18, `--e7` 22, `--e8` 28, `--e9` 34. `--e1` a `--e4` não mudam. Quem escreve componente continua usando `var(--e6)` e não precisa saber disso — o valor certo chega pelo token.
 - Raio: `--raio-p` 10px (ícone, botão), `--raio-m` 14px (superfície de lista), `--raio-g` 20px (área de conteúdo do desktop). A cápsula da barra de abas usa 26px, que é metade da altura dela.
 - Sombra: `--sombra-1` para superfície apoiada, `--sombra-2` só para o que flutua (barra de abas). Não existe terceira.
 
@@ -186,3 +187,7 @@ Os primitivos das telas do Hub Social (`components/hub-social/`) foram reescrito
 | `AbasHubSocial` | `.abas-hub`: cápsula clara numa linha só, aba ativa como peça branca, rolagem horizontal quando não cabe |
 
 Cartões do shadcn que restam nas telas seguem o contrato por CSS: sem contorno, raio médio, sombra 1. Campos de formulário mantêm um fio no tom do separador.
+
+## Complemento do PR #55
+
+A compactação já integrada na main usa os tokens --cel-*; não há segunda régua --d-*. A escala --e5 a --e9 encolhe no celular. Textareas começam com 56px e crescem com o conteúdo quando o navegador suporta field-sizing. O assistente preserva o botão Preencher que leva ao campo, com a explicação completa sem truncamento.
