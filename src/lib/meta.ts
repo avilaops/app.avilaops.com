@@ -406,6 +406,29 @@ async function getStoredMetaToken(organizationId: string) {
   return { connection, accessToken: decryptToken(encryptedAccessToken) };
 }
 
+/** Token de página restrito à conexão da empresa e ao destino escolhido. Nunca retorna ao navegador. */
+export async function tokenParaPublicacaoMeta(organizationId: string, canal: "instagram" | "facebook", destino: string) {
+  const {connection,accessToken}=await getStoredMetaToken(organizationId);
+  if(connection.status!=="ACTIVE" || (connection.tokenExpiresAt && connection.tokenExpiresAt.getTime()<=Date.now())) throw new Error("CONEXAO_META_INATIVA");
+  let cursor="";
+  for(let pagina=0;pagina<5;pagina++) {
+    const url=new URL(`https://graph.facebook.com/${await metaGraphVersion()}/me/accounts`);
+    url.searchParams.set("fields","id,access_token,instagram_business_account{id}");
+    url.searchParams.set("limit","100");
+    const proof=await appsecretProof(accessToken);
+    if(proof)url.searchParams.set("appsecret_proof",proof);
+    if(cursor)url.searchParams.set("after",cursor);
+    const response=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`},signal:AbortSignal.timeout(10000),redirect:"error",cache:"no-store"});
+    if(!response.ok)throw new Error("CONEXAO_META_SEM_ACESSO");
+    const dados=await response.json() as {data?:{id:string;access_token?:string;instagram_business_account?:{id:string}}[];paging?:{next?:string;cursors?:{after?:string}}};
+    const conta=dados.data?.find(p=>canal==="facebook"?p.id===destino:p.instagram_business_account?.id===destino);
+    if(conta?.access_token)return conta.access_token;
+    if(!dados.paging?.next || !dados.paging.cursors?.after)break;
+    cursor=dados.paging.cursors.after;
+  }
+  throw new Error("DESTINO_META_FORA_DA_CONEXAO");
+}
+
 export async function syncMetaBusiness(actorId: string, organizationId: string) {
   const { connection, accessToken } = await getStoredMetaToken(organizationId);
 
