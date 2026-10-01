@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
+import { Toaster } from "@/components/shadcn/sonner";
 import { scriptInicial } from "@/lib/tema-noturno";
 import "./globals.css";
 
@@ -82,7 +83,12 @@ export default function RootLayout({
         */}
         <script dangerouslySetInnerHTML={{ __html: scriptInicial() }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Retorno de ação (sincronizar, conciliar, importar) sai aqui, por
+            cima, e some sozinho: dentro do layout ele desalinhava os botões. */}
+        <Toaster />
+      </body>
     </html>
   );
 }

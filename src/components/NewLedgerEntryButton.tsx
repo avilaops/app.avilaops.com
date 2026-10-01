@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { Icone } from "@/components/ui/Icones";
 import Segmented from "@/components/ui/Segmented";
 import Sheet from "@/components/ui/Sheet";
@@ -19,13 +20,36 @@ const escopos = [
 ] as const;
 
 /**
- * Lançamento manual (conta a pagar ou a receber) numa folha. Mesmos campos
- * da API; o que mudou foi a forma: um campo por linha, 48px de toque e o
- * "Salvar" fixo no rodapé.
+ * Botão "Novo lançamento" com a folha embutida. As telas de contas e de
+ * crédito usam este; o cabeçalho do Financeiro abre a folha pelo menu de
+ * ações, com `FolhaNovoLancamento` direto.
  */
 export default function NewLedgerEntryButton() {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const fechar = useCallback(() => setOpen(false), []);
+  return (
+    <>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => setOpen(true)}
+      >
+        <Icone nome="adicionar" tamanho={18} />
+        Novo lançamento
+      </button>
+      {open ? <FolhaNovoLancamento aoFechar={fechar} /> : null}
+    </>
+  );
+}
+
+/**
+ * Lançamento manual (conta a pagar ou a receber) numa folha. Mesmos campos
+ * da API; o que mudou foi a forma: um campo por linha, 48px de toque e o
+ * "Salvar" fixo no rodapé. Montar é abrir, desmontar é fechar (ver `Sheet`),
+ * então o formulário sempre começa limpo.
+ */
+export function FolhaNovoLancamento({ aoFechar }: { aoFechar: () => void }) {
+  const router = useRouter();
   const [direction, setDirection] = useState<"PAYABLE" | "RECEIVABLE">(
     "RECEIVABLE",
   );
@@ -40,23 +64,7 @@ export default function NewLedgerEntryButton() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  function reset() {
-    setDirection("RECEIVABLE");
-    setDescription("");
-    setCounterparty("");
-    setAmount("");
-    setDueDate(todayIso());
-    setCategory("");
-    setScope("EMPRESA");
-    setCurrency("BRL");
-    setNote("");
-    setError("");
-  }
-
-  const fechar = useCallback(() => {
-    setOpen(false);
-    reset();
-  }, []);
+  const fechar = aoFechar;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,8 +90,8 @@ export default function NewLedgerEntryButton() {
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Falha ao lançar.");
 
-      setOpen(false);
-      reset();
+      toast.success("Lançamento salvo.");
+      aoFechar();
       router.refresh();
     } catch (caught) {
       setError(
@@ -92,19 +100,6 @@ export default function NewLedgerEntryButton() {
     } finally {
       setSaving(false);
     }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="secondary-button"
-        onClick={() => setOpen(true)}
-      >
-        <Icone nome="adicionar" tamanho={18} />
-        Novo lançamento
-      </button>
-    );
   }
 
   return (

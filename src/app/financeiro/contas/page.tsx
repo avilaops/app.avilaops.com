@@ -1,10 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
+import { AbasLink } from "@/components/financeiro/Filtros";
+import { FaixaIndicadores, Indicador } from "@/components/financeiro/Indicadores";
+import Painel from "@/components/financeiro/Painel";
+import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import { contextoDaSecao } from "@/lib/navegacao";
 import LedgerList from "@/components/LedgerList";
-import NewLedgerEntryButton from "@/components/NewLedgerEntryButton";
 import { ehDono, getAdmin } from "@/lib/auth";
 import {
   LEDGER_DIRECTIONS,
@@ -14,7 +16,7 @@ import {
   type LedgerStatus,
 } from "@/lib/contas";
 import { isFinanceScope, SCOPE_LABELS, type FinanceScope } from "@/lib/finance-escopo";
-import { formatCurrency } from "@/lib/format";
+import { contar, formatCurrency } from "@/lib/format";
 
 const directionTabs: Array<{ value: LedgerDirection | "ALL"; label: string }> = [
   { value: "ALL", label: "Tudo" },
@@ -74,116 +76,73 @@ export default async function ContasPage({
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="ledger">
-      <CabecalhoTela
+      <CabecalhoFinanceiro
         titulo="Contas a pagar e receber"
         descricao="O que vence, o que já venceu e o que a conciliação bancária deu por quitado."
-        {...contextoDaSecao("ledger")}
-        acoes={
-          <>
-          <div className="page-header-actions">
-          <NewLedgerEntryButton />
-          </div>
-          </>
-        }
+        voltar={contextoDaSecao("ledger").voltar}
       />
 
-      <section className="metric-grid" aria-label="Resumo das contas">
-        <article className="metric">
-          <span>A receber em aberto</span>
-          <strong className="positive">
-            {formatCurrency(totals.openReceivable)}
-          </strong>
-          <small>
-            {totals.overdueReceivable > 0
-              ? `${formatCurrency(totals.overdueReceivable)} já vencido`
-              : "Nada vencido"}
-          </small>
-        </article>
-        <article className="metric">
-          <span>A pagar em aberto</span>
-          <strong className="negative">
-            {formatCurrency(totals.openPayable)}
-          </strong>
-          <small>
-            {totals.overduePayable > 0
-              ? `${formatCurrency(totals.overduePayable)} já vencido`
-              : "Nada vencido"}
-          </small>
-        </article>
-        <article className="metric">
-          <span>Saldo projetado</span>
-          <strong className={totals.projectedNet >= 0 ? "positive" : "negative"}>
-            {formatCurrency(totals.projectedNet)}
-          </strong>
-          <small>Recebíveis menos obrigações em aberto</small>
-        </article>
-        <article className="metric">
-          <span>Vencem em 7 dias</span>
-          <strong>{totals.dueNext7Days}</strong>
-          <small>{totals.overdueCount} contas já vencidas</small>
-        </article>
-      </section>
+      <FaixaIndicadores rotulo="Resumo das contas">
+        <Indicador
+          rotulo="A receber em aberto"
+          valor={formatCurrency(totals.openReceivable)}
+          tom="entrada"
+          detalhe={totals.overdueReceivable > 0 ? `${formatCurrency(totals.overdueReceivable)} já vencido` : "Nada vencido"}
+        />
+        <Indicador
+          rotulo="A pagar em aberto"
+          valor={formatCurrency(totals.openPayable)}
+          tom="saida"
+          detalhe={totals.overduePayable > 0 ? `${formatCurrency(totals.overduePayable)} já vencido` : "Nada vencido"}
+        />
+        <Indicador
+          rotulo="Saldo projetado"
+          valor={formatCurrency(totals.projectedNet)}
+          tom={totals.projectedNet >= 0 ? "entrada" : "saida"}
+          detalhe="Recebíveis menos obrigações em aberto"
+        />
+        <Indicador
+          rotulo="Vencem em 7 dias"
+          valor={totals.dueNext7Days.toLocaleString("pt-BR")}
+          tom={totals.overdueCount > 0 ? "atencao" : "neutro"}
+          detalhe={totals.overdueCount > 0 ? `${contar(totals.overdueCount, "conta já vencida", "contas já vencidas")}` : "Nenhuma vencida"}
+        />
+      </FaixaIndicadores>
 
-      <section className="section-panel transactions-panel">
-        <div className="section-heading table-heading">
-          <div>
-            <span className="eyebrow">Lançamentos</span>
-            <h2>
-              {scope === "ALL"
-                ? "Empresa e pessoal"
-                : SCOPE_LABELS[scope as FinanceScope]}
-            </h2>
+      <Painel
+        titulo={scope === "ALL" ? "Empresa e pessoal" : SCOPE_LABELS[scope as FinanceScope]}
+        acao={
+          <AbasLink
+            rotulo="Escopo"
+            abas={scopeTabs.map((item) => ({ href: query({ scope: item.value }), rotulo: item.label, ativa: scope === item.value }))}
+          />
+        }
+      >
+        <div className="mb-3 flex flex-wrap gap-2">
+          <div className="min-w-0 max-[820px]:w-full">
+            <AbasLink
+              rotulo="Tipo"
+              abas={directionTabs.map((item) => ({ href: query({ direction: item.value }), rotulo: item.label, ativa: direction === item.value }))}
+            />
           </div>
-          <div className="filter-tabs" aria-label="Escopo">
-            {scopeTabs.map((item) => (
-              <Link
-                href={query({ scope: item.value })}
-                className={scope === item.value ? "active" : ""}
-                key={item.value}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <div className="section-heading table-heading">
-          <div className="filter-tabs" aria-label="Tipo">
-            {directionTabs.map((item) => (
-              <Link
-                href={query({ direction: item.value })}
-                className={direction === item.value ? "active" : ""}
-                key={item.value}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-          <div className="filter-tabs" aria-label="Situação">
-            {statusTabs.map((item) => (
-              <Link
-                href={query({ status: item.value })}
-                className={status === item.value ? "active" : ""}
-                key={item.value}
-              >
-                {item.label}
-              </Link>
-            ))}
+          <div className="min-w-0 max-[820px]:w-full">
+            <AbasLink
+              rotulo="Situação"
+              abas={statusTabs.map((item) => ({ href: query({ status: item.value }), rotulo: item.label, ativa: status === item.value }))}
+            />
           </div>
         </div>
 
         {rows.length === 0 ? (
-          <div className="table-empty">
-            <strong>Nenhuma conta neste recorte.</strong>
-            <span>
-              Lance um compromisso em &ldquo;Novo lançamento&rdquo; ou troque o
-              filtro.
-            </span>
-          </div>
+          <EstadoVazio
+            compacto
+            titulo="Nenhuma conta neste recorte."
+            descricao="Lance um compromisso em Novo lançamento ou troque o filtro."
+          />
         ) : (
           <LedgerList rows={rows} />
         )}
-      </section>
+      </Painel>
     </AppShell>
   );
 }

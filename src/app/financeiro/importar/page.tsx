@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import CabecalhoTela from "@/components/sistema/CabecalhoTela";
+import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
+import Painel from "@/components/financeiro/Painel";
 import { contextoDaSecao } from "@/lib/navegacao";
+import { ACOES_DO_MODULO } from "@/components/financeiro/acoes";
 import WiseImportPanel from "@/components/WiseImportPanel";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { contar, formatDateTime } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 export default async function ImportarPage() {
@@ -23,50 +25,35 @@ export default async function ImportarPage() {
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="import">
-      <CabecalhoTela
+      <CabecalhoFinanceiro
         titulo="Importar extrato"
-        descricao="A Wise não abre API para conta pessoal: o extrato entra por arquivo e cai na mesma fila de conciliação."
-        {...contextoDaSecao("import")}
+        descricao="Por enquanto, só a Wise entra por arquivo: ela não abre API para conta pessoal. O extrato cai na mesma fila de conciliação."
+        voltar={contextoDaSecao("import").voltar}
+        acoes={ACOES_DO_MODULO.filter((a) => a.tipo !== "link")}
       />
 
-      <section className="section-panel">
+      <Painel titulo="Wise">
         <WiseImportPanel />
-      </section>
+      </Painel>
 
       {accounts.length > 0 ? (
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <h2>O que já entrou</h2>
-            </div>
-          </div>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Conta</th>
-                  <th>Moeda</th>
-                  <th>Movimentações</th>
-                  <th>Última importação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map((account) => (
-                  <tr key={account.id}>
-                    <td>
-                      <strong>{account.displayName}</strong>
-                    </td>
-                    <td>{account.currency}</td>
-                    <td>{account._count.transactions}</td>
-                    <td>{formatDateTime(account.lastSyncAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <Painel titulo="O que já entrou">
+          <ul className="m-0 list-none p-0">
+            {accounts.map((account) => (
+              <li
+                key={account.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-border py-2.5 last:border-b-0"
+              >
+                <strong className="text-[15px] font-semibold text-foreground">{account.displayName}</strong>
+                <span className="text-[13px] text-muted-foreground">
+                  {contar(account._count.transactions, "movimentação", "movimentações")} · última importação{" "}
+                  {account.lastSyncAt ? formatDateTime(account.lastSyncAt) : "nunca"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Painel>
       ) : null}
-
     </AppShell>
   );
 }
