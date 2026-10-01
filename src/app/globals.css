@@ -10634,3 +10634,190 @@ main [data-slot="select-trigger"]:focus-visible {
     text-overflow: clip;
   }
 }
+
+/*
+ * Identidade da casa (/empresa) e as fichas de credencial.
+ *
+ * A prévia do ícone tem o mesmo tamanho do cabeçalho de propósito: quem troca
+ * o logo quer ver como ele fica no topo, e um retângulo grande mentiria sobre
+ * o resultado.
+ */
+.brand-icone {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.identidade-casa {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.identidade-previa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.identidade-previa > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.identidade-previa strong {
+  font-size: 0.9375rem;
+}
+
+.identidade-previa small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.identidade-icone {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+/*
+ * O seletor de arquivo do navegador não aceita estilo e varia em cada sistema.
+ * Ele fica fora da tela e quem abre é o botão ao lado, que é da casa.
+ */
+.campo-arquivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.identidade-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.identidade-dica {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.identidade-nome,
+.credencial-campo {
+  display: grid;
+  gap: 6px;
+}
+
+.identidade-nome > span,
+.credencial-campo > span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.identidade-nome input,
+.credencial-campo input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9375rem;
+  /* 44px de alvo no celular: abaixo disso o dedo erra o campo. */
+  min-height: 44px;
+}
+
+.identidade-nome input:focus-visible,
+.credencial-campo input:focus-visible {
+  border-color: var(--accent, #0054fe);
+  outline: none;
+}
+
+.credencial-campo small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.credencial-obrigatoria {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.credencial-estado code {
+  font-size: 0.6875rem;
+}
+
+.credenciais-form {
+  display: grid;
+  gap: 18px;
+  padding: 16px;
+}
+
+.credenciais-acoes {
+  display: grid;
+  gap: 8px;
+}
+
+.credenciais-acoes small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/*
+ * Os dois recados de formulário. Já eram usados em telas antigas sem nunca
+ * terem sido definidos — apareciam como texto solto, sem cor nem destaque.
+ */
+.aviso-erro,
+.aviso-ok {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.aviso-erro {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.aviso-ok {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+}
+
+/*
+ * Aviso da ficha de credencial: texto inteiro, em quantas linhas precisar.
+ * A `LinhaInfo` corta em uma linha, e o que se avisa aqui é em qual conta o
+ * dinheiro entra — cortar muda o sentido.
+ */
+.aviso-financeira {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.aviso-financeira strong {
+  font-size: 0.8125rem;
+}
+
+.aviso-financeira p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}

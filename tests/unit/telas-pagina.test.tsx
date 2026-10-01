@@ -33,6 +33,20 @@ vi.mock("@/lib/avila-tv", () => {
 
 vi.mock("next/navigation", () => ({ redirect: () => undefined, useRouter: () => ({ refresh: () => undefined }) }));
 
+/*
+  A moldura é dublada porque ela passou a ler o banco.
+
+  Desde 01/10/2026 o `AppShell` busca a identidade da casa (o ícone do topo,
+  configurável em /empresa) e por isso é um componente de servidor assíncrono —
+  o que o `renderToStaticMarkup`, que é síncrono, não sabe renderizar. O que
+  estes testes protegem é o CONTEÚDO da tela de Telas, não a barra lateral, e
+  dublar a moldura é mais honesto que fazê-los renderizar um shell de mentira
+  com dados reais dentro.
+*/
+vi.mock("@/components/AppShell", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
 const link: RespostaLink = {
   dispositivos: 3,
   online: 2,

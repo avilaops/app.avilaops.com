@@ -178,7 +178,7 @@ function conferirLinha(
 export async function montarPainel(): Promise<PainelMercadoPago> {
   const falhas: string[] = [];
 
-  if (!mercadoPagoConfigurado()) {
+  if (!(await mercadoPagoConfigurado())) {
     return {
       configurado: false,
       conta: null,

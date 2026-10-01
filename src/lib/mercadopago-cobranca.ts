@@ -110,7 +110,7 @@ export async function createPixCharge(input: {
 }): Promise<PixCharge> {
   const expiraEm = new Date(Date.now() + (input.expiresInSeconds ?? 86_400) * 1000);
   const nome = partirNome(input.payer.name);
-  const notificacao = urlDeNotificacao();
+  const notificacao = await urlDeNotificacao();
 
   const pagamento = await chamarMercadoPago<PagamentoMP>("/v1/payments", {
     method: "POST",
@@ -168,7 +168,7 @@ export async function createBoletoCharge(input: {
   const vence = new Date(Date.now() + (input.expireInDays ?? 3) * 86_400_000);
   const nome = partirNome(input.payer.name);
   const endereco = input.payer.endereco;
-  const notificacao = urlDeNotificacao();
+  const notificacao = await urlDeNotificacao();
 
   const pagamento = await chamarMercadoPago<PagamentoMP>("/v1/payments", {
     method: "POST",
@@ -232,7 +232,7 @@ export async function createCardCharge(input: {
   issuerId?: string;
   idempotencyKey?: string;
 }): Promise<{ externalId: string; status: string }> {
-  const notificacao = urlDeNotificacao();
+  const notificacao = await urlDeNotificacao();
   const pagamento = await chamarMercadoPago<PagamentoMP>("/v1/payments", {
     method: "POST",
     idempotencia: input.idempotencyKey,

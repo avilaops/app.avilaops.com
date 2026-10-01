@@ -101,7 +101,7 @@ export async function runMercadoPagoSync(options?: {
   actorId?: string | null;
   days?: number;
 }) {
-  if (!mercadoPagoConfigurado()) {
+  if (!(await mercadoPagoConfigurado())) {
     throw new Error("Mercado Pago não configurado (MP_ACCESS_TOKEN ausente).");
   }
 

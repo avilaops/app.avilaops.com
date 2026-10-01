@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { obterCredencial } from "@/lib/credenciais";
 
 /**
  * A assinatura que o Mercado Pago põe em `x-signature`.
@@ -101,7 +102,14 @@ export function verificarAssinatura(entrada: {
     : { valida: false, motivo: "assinatura não confere" };
 }
 
-/** O segredo da aplicação do Mercado Pago, quando o ambiente tem um. */
-export function segredoDoWebhook(): string {
-  return process.env.MP_WEBHOOK_SECRET?.trim() ?? "";
+/**
+ * O segredo da aplicação do Mercado Pago.
+ *
+ * Lido pelo cofre, que cai no `process.env` quando a chave ainda não foi
+ * guardada por lá. É o que permite trocar a assinatura do webhook pela tela de
+ * Empresa › Credenciais, junto com o token — os dois vêm da mesma aplicação, e
+ * trocar um sem o outro deixa a baixa das faturas parada.
+ */
+export async function segredoDoWebhook(): Promise<string> {
+  return (await obterCredencial("MP_WEBHOOK_SECRET"))?.trim() ?? "";
 }

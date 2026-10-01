@@ -1,8 +1,9 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import MarcaDaCasa from "@/components/MarcaDaCasa";
 import MobileNav from "@/components/MobileNav";
 import SideNav from "@/components/SideNav";
 import ThemeToggle from "@/components/ThemeToggle";
+import { identidadeDaCasa } from "@/lib/identidade-casa";
 import type { SecaoApp } from "@/lib/navegacao";
 
 type AppShellProps = {
@@ -18,19 +19,27 @@ type AppShellProps = {
  * barra superior + barra de abas (`MobileNav`). Os dois existem no DOM e o
  * CSS mostra um de cada vez — assim a troca de largura não recarrega nada.
  */
-export default function AppShell({
+export default async function AppShell({
   adminName,
   section,
   children,
   papel = "ADMIN",
 }: AppShellProps) {
+  const casa = await identidadeDaCasa();
+  // A marca leva à configuração da empresa, que é do dono. Para a equipe o
+  // destino continua sendo a operação: mandar para uma tela que redireciona de
+  // volta seria um beco.
+  const destinoDaMarca = papel === "OWNER" ? "/empresa" : "/operacao";
+
   return (
     <div className="app-frame">
       <aside className="sidebar">
-        <Link href="/operacao" className="brand-lockup" aria-label="Ávila Ops">
-          <span className="brand-mark">A</span>
-          <strong>Ávila Ops</strong>
-        </Link>
+        <MarcaDaCasa
+          nome={casa.nome}
+          inicial={casa.inicial}
+          iconeUrl={casa.iconeUrl}
+          href={destinoDaMarca}
+        />
         <ThemeToggle />
         <SideNav section={section} papel={papel} />
 
@@ -48,7 +57,12 @@ export default function AppShell({
         </div>
       </aside>
 
-      <MobileNav section={section} adminName={adminName} papel={papel} />
+      <MobileNav
+        section={section}
+        adminName={adminName}
+        papel={papel}
+        casa={{ ...casa, href: destinoDaMarca }}
+      />
 
       <main className="main-canvas">{children}</main>
     </div>
