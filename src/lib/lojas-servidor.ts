@@ -2,10 +2,13 @@ import {
   listarLojas,
   listarProdutosDaLoja,
   lerLoja,
+  lerRotinas,
   PlataformaIndisponivel,
+  RespostaDaPlataforma,
   type FichaDaLoja,
   type LojaDaPlataforma,
   type ProdutoDaLoja,
+  type SaudeDasRotinas,
 } from "@/lib/lojas-plataforma";
 import {
   juntarLojasComClientes,
@@ -31,6 +34,11 @@ export type PainelDeLojas = {
   lojas: LojaNoPainel[];
   /** A carteira, para sugerir o dono de uma loja órfã e para a escolha manual. */
   clientes: ClienteCandidato[];
+  /**
+   * O que roda sozinho na plataforma. `null` quando não deu para ler — e aí a
+   * tela diz isso, em vez de mostrar oito rotinas saudáveis que ninguém viu.
+   */
+  rotinas: SaudeDasRotinas | null;
   /** O que não deu para ler, em linguagem de gente. */
   falhas: string[];
   /** `false` quando falta `LOJAS_ADMIN_TOKEN` — a tela explica em vez de zerar. */
@@ -57,7 +65,7 @@ export async function montarPainelDeLojas(): Promise<PainelDeLojas> {
   const falhas: string[] = [];
   let configurado = true;
 
-  const [daPlataforma, doOs, clientes] = await Promise.all([
+  const [daPlataforma, doOs, clientes, rotinas] = await Promise.all([
     listarLojas().catch((erro) => {
       if (erro instanceof PlataformaIndisponivel) configurado = false;
       else falhas.push(`plataforma de lojas: ${motivo(erro)}`);
@@ -77,11 +85,22 @@ export async function montarPainelDeLojas(): Promise<PainelDeLojas> {
         falhas.push(`carteira de clientes: ${motivo(erro)}`);
         return [] as { id: string; name: string; slug: string }[];
       }),
+    // A rota é nova (19/09/2026): uma plataforma ainda não atualizada responde
+    // 404, e isso não é falha de leitura — é versão. Ficar sem o bloco de
+    // rotinas é o certo ali; encher a tela de vermelho não seria.
+    lerRotinas().catch((erro) => {
+      const semARota = erro instanceof RespostaDaPlataforma && erro.status === 404;
+      if (!semARota && !(erro instanceof PlataformaIndisponivel)) {
+        falhas.push(`rotinas da plataforma: ${motivo(erro)}`);
+      }
+      return null;
+    }),
   ]);
 
   return {
     lojas: juntarLojasComClientes(daPlataforma, doOs),
     clientes: clientes.map((c) => ({ id: c.id, nome: c.name, slug: c.slug })),
+    rotinas,
     falhas,
     configurado,
     lidoEm: new Date().toISOString(),
