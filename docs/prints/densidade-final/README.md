@@ -42,6 +42,7 @@ Chromium não substitui a conferência em iPhone físico.
 
 ## Integração
 
-Os checks do GitHub estão bloqueados por cobrança/limite da conta, antes de
-executar qualquer teste. Os resultados locais não substituem os checks exigidos:
-o merge aguarda a normalização do Actions e a revalidação do commit final.
+A execução anterior do GitHub Actions estava bloqueada por cobrança/limite da
+conta. Em 01/10, após atualizar a branch, o runner voltou a executar os jobs.
+Os resultados locais não substituem os checks exigidos: o merge depende dos
+checks verdes no head final, visíveis no próprio PR.
