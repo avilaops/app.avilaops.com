@@ -8,11 +8,13 @@ import { getAdmin } from "@/lib/auth";
 import { estadoDoInstagram, instagramConfigurado } from "@/lib/instagram";
 import { getMetaConnectionStatus, metaRedirectUri } from "@/lib/meta";
 import { prisma } from "@/lib/prisma";
+import { obterCredencial } from "@/lib/credenciais";
+import { threadsCallback } from "@/lib/threads";
 
 export default async function MetaOperationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; connected?: string; organizationId?: string }>;
+  searchParams: Promise<{ error?: string; connected?: string; threads?: string; organizationId?: string }>;
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
@@ -30,7 +32,18 @@ export default async function MetaOperationsPage({
     estadoDoInstagram(selectedOrganizationId),
     instagramConfigurado(),
   ]);
+  const instagramAtivo =
+    instagram?.conexao.status === "ACTIVE" &&
+    (!instagram.conexao.tokenExpiresAt || new Date(instagram.conexao.tokenExpiresAt) > new Date());
   const appUrl = process.env.APP_URL || "https://app.avilaops.com";
+  const [threadsApp, threadsSecret, threadsConnection] = await Promise.all([
+    obterCredencial("THREADS_APP_ID"), obterCredencial("THREADS_APP_SECRET"),
+    prisma.organizationIntegrationConnection.findUnique({
+      where: { organizationId_provider: { organizationId: selectedOrganizationId, provider: "threads_login" } },
+      select: { accountName: true, status: true, tokenExpiresAt: true },
+    }),
+  ]);
+  const threadsAccount = threadsConnection?.status === "ACTIVE" && threadsConnection.tokenExpiresAt && threadsConnection.tokenExpiresAt > new Date() ? threadsConnection.accountName : null;
   const callbackUrl = await metaRedirectUri(appUrl);
   const webhookUrl = `${appUrl.replace(/\/$/, "")}/api/webhooks/meta`;
 
@@ -39,7 +52,7 @@ export default async function MetaOperationsPage({
       <CabecalhoPagina
         titulo="Meta Business"
         subtitulo="Contas, formulários e webhooks ligados à operação."
-        meta={<BadgeStatus status={status.connected ? "connected" : "pending"} />}
+        meta={<BadgeStatus status={status.connected || threadsAccount || instagramAtivo ? "connected" : "pending"} />}
       />
 
       <MetaOperationsNav active="connection" organizationId={selectedOrganizationId} />
@@ -51,9 +64,14 @@ export default async function MetaOperationsPage({
       />
 
       <MetaBusinessPanel
+        key={selectedOrganizationId}
         initialStatus={status}
+        threadsConfigured={Boolean(threadsApp && threadsSecret && process.env.META_TOKEN_ENCRYPTION_KEY)}
+        threadsAccount={threadsAccount}
+        threadsConnected={params.threads === "1" && Boolean(threadsAccount)}
         selectedOrganizationId={selectedOrganizationId}
         callbackUrl={callbackUrl}
+        threadsCallbackUrl={threadsCallback(appUrl)}
         webhookUrl={webhookUrl}
         error={params.error}
         connected={params.connected === "1"}

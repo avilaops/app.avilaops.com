@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   INSTAGRAM_STATE_COOKIE,
   codificarEstadoInstagram,
@@ -30,7 +31,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(destino);
     }
 
-    const state = codificarEstadoInstagram(organizationId);
+    destino.searchParams.set("organizationId", organizationId);
+    const organization = await prisma.organization.findFirst({ where: { id: organizationId, status: { not: "ARCHIVED" } }, select: { id: true } });
+    if (!organization) throw new Error("Empresa não encontrada ou arquivada.");
+    const state = codificarEstadoInstagram(organizationId, admin.id);
     const store = await cookies();
     store.set(INSTAGRAM_STATE_COOKIE, state, {
       httpOnly: true,

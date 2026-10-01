@@ -9,42 +9,45 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "finance", "operations", "partnerships", "ai_core"]
+  schemas  = ["public", "finance", "operations", "partnerships", "ai_core", "core"]
 }
 
 /// Conta de acesso do portal. Guarda equipe e cliente lado a lado — o papel
 /// (`role`) diz para onde a pessoa vai, não se ela entra: OWNER e ADMIN caem na
 /// operação, CLIENT cai na própria área.
 model AdminIdentity {
-  id                  String    @id
+  coreMemberships     CoreMembership[]
+  coreIdentities      CoreIdentityLink[]
+  coreAuthorizations  CoreConnection[]
+  id                  String             @id
   nome                String
   /// A coluna sempre aceitou nulo (cliente PJ entra por CNPJ, cliente sem
   /// documento entra sem nada) e o modelo dizia o contrário: qualquer consulta
   /// que trouxesse `cpf` estourava para essas contas — na prática, cliente sem
   /// documento nunca conseguia logar. Corrigido em 30/08/2026.
-  cpf                 String?   @unique
+  cpf                 String?            @unique
   email               String
-  senhaHash           String    @map("senha_hash")
-  senhaProvisoria     Boolean   @map("senha_provisoria")
+  senhaHash           String             @map("senha_hash")
+  senhaProvisoria     Boolean            @map("senha_provisoria")
   /// OWNER | ADMIN | CLIENT
   role                String
   /// Empresa que esta conta representa. Só CLIENT usa: é o que faz a área do
   /// cliente saber o que é dele. Sem relação declarada de propósito:
   /// `organizations` vive no schema `operations` e o vínculo é por id.
-  organizationId      String?   @map("organization_id")
+  organizationId      String?            @map("organization_id")
   /// Conta desligada não entra em lugar nenhum e continua no histórico.
   /// Desligar é sempre melhor que apagar: a linha tem pedido e auditoria atrás.
-  ativo               Boolean   @default(true)
-  atualizadoEm        DateTime? @map("atualizado_em")
+  ativo               Boolean            @default(true)
+  atualizadoEm        DateTime?          @map("atualizado_em")
   /// Gravado pelo login. Serve para achar conta esquecida e para auditoria.
-  ultimoAcessoEm      DateTime? @map("ultimo_acesso_em")
-  resetTokenHash      String?   @map("reset_token_hash")
-  resetTokenExpiresAt DateTime? @map("reset_token_expires_at")
+  ultimoAcessoEm      DateTime?          @map("ultimo_acesso_em")
+  resetTokenHash      String?            @map("reset_token_hash")
+  resetTokenExpiresAt DateTime?          @map("reset_token_expires_at")
   /// Endereço pessoal de quem usa a conta, fora dos domínios que hospedamos.
   /// Sem ele a recuperação de senha é circular: o link para voltar a entrar
   /// chega na caixa que a pessoa não consegue abrir. Obrigatório em conta
   /// nova; as antigas ficam nulas até o dono preencher.
-  emailRecuperacao    String?   @map("email_recuperacao")
+  emailRecuperacao    String?            @map("email_recuperacao")
 
   @@map("portal_clients")
   @@schema("public")
@@ -88,31 +91,31 @@ model BalanceSnapshot {
 }
 
 model BankTransaction {
-  id               BigInt   @id @default(autoincrement())
-  accountId        String   @map("account_id")
-  externalId       String   @map("external_id")
-  endToEndId       String?  @map("end_to_end_id")
-  txid             String?
-  direction        String
-  transactionType  String   @map("transaction_type")
-  amount           Decimal  @db.Decimal(14, 2)
-  currency         String   @default("BRL")
-  description      String
-  counterpartyName String?  @map("counterparty_name")
+  id                   BigInt   @id @default(autoincrement())
+  accountId            String   @map("account_id")
+  externalId           String   @map("external_id")
+  endToEndId           String?  @map("end_to_end_id")
+  txid                 String?
+  direction            String
+  transactionType      String   @map("transaction_type")
+  amount               Decimal  @db.Decimal(14, 2)
+  currency             String   @default("BRL")
+  description          String
+  counterpartyName     String?  @map("counterparty_name")
   /// CPF/CNPJ da contraparte, só dígitos. O extrato do Éfi nunca traz; vem do comprovante.
-  counterpartyDocument String? @map("counterparty_document")
+  counterpartyDocument String?  @map("counterparty_document")
   /// Quem decidiu a contraparte: nulo/EFI/IMPORTACAO (extrato) ou COMPROVANTE (identificação humana conferida).
-  counterpartySource   String? @map("counterparty_source")
-  occurredAt       DateTime @map("occurred_at")
-  rawHash          String   @map("raw_hash")
+  counterpartySource   String?  @map("counterparty_source")
+  occurredAt           DateTime @map("occurred_at")
+  rawHash              String   @map("raw_hash")
   /// EMPRESA, PESSOAL, INTERNO (troca entre saldos próprios) ou INDEFINIDO.
-  scope            String   @default("INDEFINIDO")
+  scope                String   @default("INDEFINIDO")
   /// Quem decidiu o escopo: REGRA, MANUAL ou IMPORTACAO.
-  scopeSource      String?  @map("scope_source")
+  scopeSource          String?  @map("scope_source")
   /// Categoria de origem (a do extrato) preservada para auditoria.
-  category         String?
-  importedAt       DateTime @default(now()) @map("imported_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  category             String?
+  importedAt           DateTime @default(now()) @map("imported_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   account        BankAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   reconciliation Reconciliation?
@@ -183,24 +186,25 @@ model FinanceAuditEvent {
 }
 
 model LedgerEntry {
-  id            BigInt    @id @default(autoincrement())
-  direction     String
-  status        String    @default("OPEN")
-  description   String
-  counterparty  String?
-  amount        Decimal   @db.Decimal(14, 2)
-  currency      String    @default("BRL")
+  coreInvoiceLink CoreInvoiceLedgerLink?
+  id              BigInt                 @id @default(autoincrement())
+  direction       String
+  status          String                 @default("OPEN")
+  description     String
+  counterparty    String?
+  amount          Decimal                @db.Decimal(14, 2)
+  currency        String                 @default("BRL")
   /// EMPRESA ou PESSOAL: o que separa o caixa da Ávila do caixa do Nicolas.
-  scope         String    @default("EMPRESA")
-  dueDate       DateTime  @map("due_date")
-  paidAt        DateTime? @map("paid_at")
-  category      String?
-  referenceType String?   @map("reference_type")
-  referenceId   String?   @map("reference_id")
-  note          String?
-  createdBy     String?   @map("created_by")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  scope           String                 @default("EMPRESA")
+  dueDate         DateTime               @map("due_date")
+  paidAt          DateTime?              @map("paid_at")
+  category        String?
+  referenceType   String?                @map("reference_type")
+  referenceId     String?                @map("reference_id")
+  note            String?
+  createdBy       String?                @map("created_by")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
 
   @@index([direction, status, dueDate])
   @@index([scope, status, dueDate])
@@ -450,27 +454,34 @@ model AiCoreEvalRun {
 }
 
 model Organization {
-  id           String   @id @default(cuid())
+  coreMemberships CoreMembership[]
+  coreProducts    CoreProduct[]
+  coreContracts   CoreContract[]
+  coreConnections CoreConnection[]
+  coreAssetGrants CoreAssetGrant[]
+  coreOwnedAssets CoreExternalAsset[]
+  corePayments    CorePayment[]
+  id              String              @id @default(cuid())
   /// Número único do cliente (6 dígitos, a partir de 100001), usado fora do
   /// sistema: atendimento, cobrança, contratos e infraestrutura. Nunca muda.
-  clientNumber Int      @unique @default(autoincrement()) @map("client_number")
-  name         String
-  slug         String   @unique
-  legalName    String?  @map("legal_name")
-  cpfCnpj      String?  @unique @map("cpf_cnpj")
-  cnpjData     Json?    @map("cnpj_data")
+  clientNumber    Int                 @unique @default(autoincrement()) @map("client_number")
+  name            String
+  slug            String              @unique
+  legalName       String?             @map("legal_name")
+  cpfCnpj         String?             @unique @map("cpf_cnpj")
+  cnpjData        Json?               @map("cnpj_data")
   /// Retrato do próprio cliente conforme registrado por um fornecedor na NF-e
   /// mais recente recebida por ele (bloco <dest>), gravado pela sincronização
   /// da SEFAZ. Mesma natureza do `cnpj_data`: dado do cliente sobre o cliente.
   /// Item de nota, fornecedor e XML NÃO entram aqui — são dado fiscal de
   /// terceiro e não têm por que morar no cadastro comercial.
-  sefazData    Json?    @map("sefaz_data")
-  segment      String?
-  siteUrl      String?  @map("site_url")
-  status       String   @default("ACTIVE")
-  timezone     String   @default("America/Sao_Paulo")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  sefazData       Json?               @map("sefaz_data")
+  segment         String?
+  siteUrl         String?             @map("site_url")
+  status          String              @default("ACTIVE")
+  timezone        String              @default("America/Sao_Paulo")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
 
   brands                   Brand[]
   projects                 Project[]
@@ -811,19 +822,20 @@ model OrganizationRegistrationSuggestion {
 }
 
 model ServicePlan {
-  id           String   @id @default(cuid())
-  serviceType  String   @map("service_type")
-  slug         String   @unique
-  name         String
-  description  String?
-  priceCents   Int?     @map("price_cents")
-  currency     String   @default("BRL")
-  billingCycle String?  @map("billing_cycle")
-  limits       Json?
-  status       String   @default("ACTIVE")
-  sortOrder    Int      @default(0) @map("sort_order")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  coreContracts CoreContract[]
+  id            String         @id @default(cuid())
+  serviceType   String         @map("service_type")
+  slug          String         @unique
+  name          String
+  description   String?
+  priceCents    Int?           @map("price_cents")
+  currency      String         @default("BRL")
+  billingCycle  String?        @map("billing_cycle")
+  limits        Json?
+  status        String         @default("ACTIVE")
+  sortOrder     Int            @default(0) @map("sort_order")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   opportunities OrganizationServiceOpportunity[]
 
@@ -1290,27 +1302,28 @@ model DeliverableCharge {
 /// esta assinatura paga. É por esse par que o produto pergunta "qual é a minha
 /// fatura?" — o produto não conhece `Organization`, e não precisa conhecer.
 model Subscription {
-  id              String    @id @default(cuid())
-  organizationId  String    @map("organization_id")
+  coreContract    CoreContract?
+  id              String        @id @default(cuid())
+  organizationId  String        @map("organization_id")
   description     String
-  amount          Decimal   @db.Decimal(10, 2)
-  currency        String    @default("BRL")
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("BRL")
   /// Dia do vencimento, 1–28. Os dias 29, 30 e 31 não existem em todo mês, e
   /// mensalidade que some em fevereiro é conversa desagradável.
-  billingDay      Int       @map("billing_day")
+  billingDay      Int           @map("billing_day")
   /// MONTHLY | YEARLY. O anual cobra uma vez por ano, na competência do mês de
   /// aniversário, usando o mesmo `billingDay` para o vencimento. Serviço pago
   /// adiantado por ano (e-mail, domínio) não cabia no modelo mensal: gravar o
   /// valor do ano num campo lido como mensal mentiria o MRR e a tela.
-  billingCycle    String    @default("MONTHLY") @map("billing_cycle")
+  billingCycle    String        @default("MONTHLY") @map("billing_cycle")
   /// ACTIVE | PAUSED | CANCELLED
-  status          String    @default("ACTIVE")
-  startedAt       DateTime  @map("started_at")
-  endedAt         DateTime? @map("ended_at")
-  productKey      String?   @map("product_key")
-  productTenantId String?   @map("product_tenant_id")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  status          String        @default("ACTIVE")
+  startedAt       DateTime      @map("started_at")
+  endedAt         DateTime?     @map("ended_at")
+  productKey      String?       @map("product_key")
+  productTenantId String?       @map("product_tenant_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invoices     SubscriptionInvoice[]
@@ -1326,23 +1339,25 @@ model Subscription {
 /// `unique(assinatura, competência)` é o que impede faturar agosto duas vezes
 /// quando o job roda de novo — sem isso, ninguém tem coragem de reexecutar.
 model SubscriptionInvoice {
-  id             String    @id @default(cuid())
-  subscriptionId String    @map("subscription_id")
+  coreLedgerLink  CoreInvoiceLedgerLink?
+  coreAllocations CorePaymentAllocation[]
+  id              String                  @id @default(cuid())
+  subscriptionId  String                  @map("subscription_id")
   /// AAAA-MM. Competência, não data de emissão.
-  competence     String
+  competence      String
   /// MONTHLY | YEARLY | SETUP. A implantação é cobrada uma vez, no começo, e
   /// não é mensalidade — mas é fatura do mesmo cliente, aparece na mesma tela e
   /// é paga pelos mesmos meios. Separar em outra tabela renderia duas telas e
   /// dois webhooks para a mesma coisa. YEARLY é a recorrente da assinatura
   /// anual: uma por ano, na competência do mês de aniversário.
-  kind           String    @default("MONTHLY")
-  amount         Decimal   @db.Decimal(10, 2)
-  dueDate        DateTime  @map("due_date") @db.Date
+  kind            String                  @default("MONTHLY")
+  amount          Decimal                 @db.Decimal(10, 2)
+  dueDate         DateTime                @map("due_date") @db.Date
   /// OPEN | PAID | OVERDUE | CANCELLED
-  status         String    @default("OPEN")
-  paidAt         DateTime? @map("paid_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  status          String                  @default("OPEN")
+  paidAt          DateTime?               @map("paid_at")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
 
   subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   charges      SubscriptionCharge[]
@@ -1498,22 +1513,23 @@ model ServerHealthSnapshot {
 }
 
 model OrganizationIntegrationConnection {
-  id              String    @id @default(cuid())
-  organizationId  String    @map("organization_id")
+  coreConnection  CoreConnection?
+  id              String          @id @default(cuid())
+  organizationId  String          @map("organization_id")
   provider        String
-  externalId      String?   @map("external_id")
-  accountName     String?   @map("account_name")
-  status          String    @default("ACTIVE")
+  externalId      String?         @map("external_id")
+  accountName     String?         @map("account_name")
+  status          String          @default("ACTIVE")
   scopes          Json?
-  tokenType       String?   @map("token_type")
-  tokenExpiresAt  DateTime? @map("token_expires_at")
-  tokenCiphertext String?   @map("token_ciphertext")
+  tokenType       String?         @map("token_type")
+  tokenExpiresAt  DateTime?       @map("token_expires_at")
+  tokenCiphertext String?         @map("token_ciphertext")
   metadata        Json?
-  lastSyncedAt    DateTime? @map("last_synced_at")
-  lastSyncStatus  String?   @map("last_sync_status")
-  lastSyncError   String?   @map("last_sync_error")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  lastSyncedAt    DateTime?       @map("last_synced_at")
+  lastSyncStatus  String?         @map("last_sync_status")
+  lastSyncError   String?         @map("last_sync_error")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -1854,25 +1870,25 @@ model NewsletterDelivery {
 /// de src/lib/estudio/templates.ts. Os valores dos campos ficam em JSON porque
 /// cada template tem os seus.
 model StudioPiece {
-  id         String   @id @default(cuid())
-  title      String
+  id             String   @id @default(cuid())
+  title          String
   /// Cliente dono da peça. Nulo = peça da própria casa, que renderiza com a
   /// MARCA_PADRAO. Com cliente, o Estúdio usa a marca dele (nome, site, logo e
   /// cores vindas do cadastro de identidade).
-  organizationId String? @map("organization_id")
-  templateId String   @map("template_id")
+  organizationId String?  @map("organization_id")
+  templateId     String   @map("template_id")
   /// 9:16 | 1:1 | 4:5
-  format     String   @default("9:16")
-  values     Json
+  format         String   @default("9:16")
+  values         Json
   /// segundos; só vídeo
-  duration   Float?
-  narration  Boolean  @default(true)
-  voice      String   @default("pm_nicolas")
+  duration       Float?
+  narration      Boolean  @default(true)
+  voice          String   @default("pm_nicolas")
   /// { bpm, semente, db } ou nulo = sem trilha
-  soundtrack Json?
-  createdBy  String?  @map("created_by")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  soundtrack     Json?
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   renders      StudioRender[]
   organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -2016,33 +2032,34 @@ model ClientDatabaseColumn {
 ///
 /// Só OWNER lê valor decifrado (`ehDono()`); a equipe vê metadado e máscara.
 model PlatformCredential {
-  id            String    @id @default(cuid())
+  coreConnections CoreConnection[]
+  id              String           @id @default(cuid())
   /// Nome da variável de ambiente, tal como o código lê: `META_APP_ID`.
-  chave         String    @unique
+  chave           String           @unique
   /// meta | whatsapp | instagram | threads | google | mercadopago | mercadolivre | x | outros
-  categoria     String
-  rotulo        String?
-  descricao     String?
+  categoria       String
+  rotulo          String?
+  descricao       String?
   /// Falso para o que não é segredo (versão da Graph, redirect URI, escopos):
   /// esse valor aparece em tela sem precisar de revelação.
-  segredo       Boolean   @default(true)
+  segredo         Boolean          @default(true)
   /// AES-256-GCM no formato iv.tag.payload, mesma cifra dos tokens da Meta.
   /// A chave de cifra é `CREDENCIAIS_ENCRYPTION_KEY`.
-  valorCipher   String?   @map("valor_cipher")
+  valorCipher     String?          @map("valor_cipher")
   /// Máscara mostrada na lista sem decifrar nada: "97ad…ead7".
-  mascara       String?   @map("mascara")
+  mascara         String?          @map("mascara")
   /// ATIVO | PENDENTE | APOSENTADA
   /// PENDENTE = catalogada e ainda sem valor. APOSENTADA = nenhum código lê.
-  status        String    @default("PENDENTE")
+  status          String           @default("PENDENTE")
   /// Arquivos que leem esta chave, como apurado pelo inventário. Serve para
   /// saber o que quebra ao girar a credencial.
-  consumidores  Json?
+  consumidores    Json?
   /// De onde o valor veio: "importado:<arquivo>" ou "manual".
-  origem        String?
-  atualizadoPor String?   @map("atualizado_por")
-  rotacionadoEm DateTime? @map("rotacionado_em")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  origem          String?
+  atualizadoPor   String?          @map("atualizado_por")
+  rotacionadoEm   DateTime?        @map("rotacionado_em")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
   @@index([categoria, status])
   @@map("platform_credentials")
@@ -2072,4 +2089,341 @@ model ProjectFile {
   @@index([projectId, createdAt])
   @@map("project_files")
   @@schema("operations")
+}
+
+/// Núcleo central. CHECKs, triggers, views e funções vivem nas migrations core.
+/// Não armazena senhas/tokens; public.portal_clients continua sendo a identidade.
+model CoreIdentityLink {
+  id         String        @id @default(cuid())
+  identityId String        @map("identity_id")
+  issuer     String
+  subject    String
+  verifiedAt DateTime      @map("verified_at") @db.Timestamptz(3)
+  source     String
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  identity   AdminIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+
+  @@unique([issuer, subject])
+  @@index([identityId])
+  @@map("identity_links")
+  @@schema("core")
+}
+
+model CoreMembership {
+  id             String              @id @default(cuid())
+  identityId     String              @map("identity_id")
+  organizationId String              @map("organization_id")
+  role           String
+  status         String              @default("ACTIVE")
+  source         String              @default("MANUAL")
+  startsAt       DateTime            @default(now()) @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime?           @map("ends_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  identity       AdminIdentity       @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productAccess  CoreProductAccess[]
+
+  @@unique([identityId, organizationId])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("memberships")
+  @@schema("core")
+}
+
+model CoreProduct {
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  productKey     String              @map("product_key")
+  tenantId       String              @map("tenant_id")
+  environment    String              @default("production")
+  status         String              @default("PENDING")
+  usageKind      String              @default("UNCLASSIFIED") @map("usage_kind")
+  source         String
+  observedAt     DateTime            @default(now()) @map("observed_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contracts      CoreContract[]
+  access         CoreProductAccess[]
+
+  @@unique([productKey, tenantId, environment])
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("products")
+  @@schema("core")
+}
+
+model CoreProductAccess {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  membershipId   String         @map("membership_id")
+  productId      String         @map("product_id")
+  role           String
+  status         String         @default("ACTIVE")
+  expiresAt      DateTime?      @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  membership     CoreMembership @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  product        CoreProduct    @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([membershipId, productId])
+  @@index([organizationId])
+  @@map("product_access")
+  @@schema("core")
+}
+
+/// Identidade no provedor; namespace distingue apps/contas com IDs locais.
+model CoreExternalAccount {
+  id          String              @id @default(cuid())
+  provider    String
+  namespace   String
+  externalId  String              @map("external_id")
+  displayName String?             @map("display_name")
+  observedAt  DateTime            @default(now()) @map("observed_at") @db.Timestamptz(3)
+  connections CoreConnection[]
+  assets      CoreExternalAsset[]
+
+  @@unique([provider, namespace, externalId])
+  @@map("external_accounts")
+  @@schema("core")
+}
+
+model CoreConnection {
+  id                 String                             @id @default(cuid())
+  organizationId     String                             @map("organization_id")
+  externalAccountId  String                             @map("external_account_id")
+  authorizedById     String?                            @map("authorized_by_id")
+  credentialId       String?                            @map("credential_id")
+  legacyConnectionId String?                            @unique @map("legacy_connection_id")
+  status             String                             @default("PENDING")
+  scopes             String[]                           @default([])
+  authorizedAt       DateTime?                          @map("authorized_at") @db.Timestamptz(3)
+  expiresAt          DateTime?                          @map("expires_at") @db.Timestamptz(3)
+  revokedAt          DateTime?                          @map("revoked_at") @db.Timestamptz(3)
+  createdAt          DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization       Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  externalAccount    CoreExternalAccount                @relation(fields: [externalAccountId], references: [id], onDelete: Restrict)
+  authorizedBy       AdminIdentity?                     @relation(fields: [authorizedById], references: [id], onDelete: Restrict)
+  credential         PlatformCredential?                @relation(fields: [credentialId], references: [id], onDelete: Restrict)
+  legacyConnection   OrganizationIntegrationConnection? @relation(fields: [legacyConnectionId], references: [id], onDelete: Restrict)
+  grants             CoreAssetGrant[]
+  syncStates         CoreSyncState[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, status])
+  @@map("connections")
+  @@schema("core")
+}
+
+/// Ownership só com evidência; acesso via OAuth não comprova propriedade.
+model CoreExternalAsset {
+  id                  String               @id @default(cuid())
+  provider            String
+  namespace           String
+  kind                String
+  externalId          String               @map("external_id")
+  externalAccountId   String?              @map("external_account_id")
+  ownerOrganizationId String?              @map("owner_organization_id")
+  ownershipEvidence   String?              @map("ownership_evidence")
+  displayName         String?              @map("display_name")
+  source              String
+  observedAt          DateTime             @default(now()) @map("observed_at") @db.Timestamptz(3)
+  externalAccount     CoreExternalAccount? @relation(fields: [externalAccountId], references: [id], onDelete: Restrict)
+  owner               Organization?        @relation(fields: [ownerOrganizationId], references: [id], onDelete: Restrict)
+  grants              CoreAssetGrant[]
+
+  @@unique([provider, namespace, kind, externalId])
+  @@index([ownerOrganizationId])
+  @@map("external_assets")
+  @@schema("core")
+}
+
+model CoreAssetGrant {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  assetId        String            @map("asset_id")
+  connectionId   String?           @map("connection_id")
+  role           String
+  status         String            @default("PENDING")
+  source         String
+  expiresAt      DateTime?         @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  asset          CoreExternalAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  connection     CoreConnection?   @relation(fields: [connectionId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, assetId])
+  @@map("asset_grants")
+  @@schema("core")
+}
+
+model CoreSyncState {
+  id                String         @id @default(cuid())
+  connectionId      String         @map("connection_id")
+  resource          String
+  cursor            String?
+  lastAttemptAt     DateTime?      @map("last_attempt_at") @db.Timestamptz(3)
+  lastSuccessAt     DateTime?      @map("last_success_at") @db.Timestamptz(3)
+  staleAfterSeconds Int            @default(3600) @map("stale_after_seconds")
+  status            String         @default("UNKNOWN")
+  errorCode         String?        @map("error_code")
+  connection        CoreConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+
+  @@unique([connectionId, resource])
+  @@map("sync_states")
+  @@schema("core")
+}
+
+model CoreContract {
+  id                   String        @id @default(cuid())
+  organizationId       String        @map("organization_id")
+  productId            String?       @map("product_id")
+  planId               String?       @map("plan_id")
+  legacySubscriptionId String?       @unique @map("legacy_subscription_id")
+  description          String
+  amount               Decimal       @db.Decimal(14, 2)
+  currency             String
+  billingCycle         String        @map("billing_cycle")
+  billingDay           Int?          @map("billing_day")
+  status               String        @default("DRAFT")
+  termsVersion         Int           @default(1) @map("terms_version")
+  source               String
+  startsAt             DateTime      @map("starts_at") @db.Timestamptz(3)
+  endsAt               DateTime?     @map("ends_at") @db.Timestamptz(3)
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  product              CoreProduct?  @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  plan                 ServicePlan?  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  legacySubscription   Subscription? @relation(fields: [legacySubscriptionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status])
+  @@map("contracts")
+  @@schema("core")
+}
+
+/// Ponte explícita. Nenhum lançamento financeiro é criado pelo backfill.
+model CoreInvoiceLedgerLink {
+  id            String              @id @default(cuid())
+  invoiceId     String              @unique @map("invoice_id")
+  ledgerEntryId BigInt              @unique @map("ledger_entry_id")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  source        String
+  invoice       SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  ledgerEntry   LedgerEntry         @relation(fields: [ledgerEntryId], references: [id], onDelete: Restrict)
+
+  @@map("invoice_ledger_links")
+  @@schema("core")
+}
+
+model CorePayment {
+  id              String                  @id @default(cuid())
+  organizationId  String                  @map("organization_id")
+  provider        String
+  providerAccount String                  @map("provider_account")
+  externalId      String                  @map("external_id")
+  amount          Decimal                 @db.Decimal(14, 2)
+  currency        String
+  status          String                  @default("PENDING")
+  paidAt          DateTime?               @map("paid_at") @db.Timestamptz(3)
+  source          String
+  allocations     CorePaymentAllocation[]
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerAccount, externalId])
+  @@index([organizationId, status])
+  @@map("payments")
+  @@schema("core")
+}
+
+/// Alocação parcial ou integral; não muda o status da fatura automaticamente.
+model CorePaymentAllocation {
+  id        String              @id @default(cuid())
+  paymentId String              @map("payment_id")
+  invoiceId String              @map("invoice_id")
+  amount    Decimal             @db.Decimal(14, 2)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  payment   CorePayment         @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  invoice   SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, invoiceId])
+  @@index([invoiceId])
+  @@map("payment_allocations")
+  @@schema("core")
+}
+
+/// Payload deve conter referências, sem tokens/senhas; consumo exige lease.
+model CoreInboxEvent {
+  id              String    @id @default(cuid())
+  provider        String
+  providerAccount String    @map("provider_account")
+  externalId      String    @map("external_id")
+  eventType       String    @map("event_type")
+  payload         Json
+  status          String    @default("PENDING")
+  attempts        Int       @default(0)
+  availableAt     DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  lockedUntil     DateTime? @map("locked_until") @db.Timestamptz(3)
+  lockedBy        String?   @map("locked_by")
+  leaseToken      String?   @map("lease_token")
+  lastErrorCode   String?   @map("last_error_code")
+  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  @@unique([provider, providerAccount, externalId])
+  @@index([status, availableAt])
+  @@map("inbox_events")
+  @@schema("core")
+}
+
+model CoreOutboxEvent {
+  id               String    @id @default(cuid())
+  topic            String
+  deduplicationKey String    @unique @map("deduplication_key")
+  payload          Json
+  status           String    @default("PENDING")
+  attempts         Int       @default(0)
+  availableAt      DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  lockedUntil      DateTime? @map("locked_until") @db.Timestamptz(3)
+  lockedBy         String?   @map("locked_by")
+  leaseToken       String?   @map("lease_token")
+  lastErrorCode    String?   @map("last_error_code")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  @@index([status, availableAt])
+  @@map("outbox_events")
+  @@schema("core")
+}
+
+/// Identificadores históricos intencionais, sem FK que apague a evidência.
+model CoreAuditEvent {
+  id           BigInt   @id @default(autoincrement())
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  action       String
+  actorId      String?  @map("actor_id")
+  databaseRole String   @map("database_role")
+  beforeData   Json?    @map("before_data")
+  afterData    Json?    @map("after_data")
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([entityType, entityId, occurredAt])
+  @@map("audit_events")
+  @@schema("core")
+}
+
+model CoreReconciliationIssue {
+  id         String    @id @default(cuid())
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id")
+  code       String
+  status     String    @default("OPEN")
+  detectedAt DateTime  @default(now()) @map("detected_at") @db.Timestamptz(3)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+
+  @@unique([entityType, entityId, code])
+  @@map("reconciliation_issues")
+  @@schema("core")
 }

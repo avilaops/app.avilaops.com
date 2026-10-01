@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   INSTAGRAM_STATE_COOKIE,
   decodificarEstadoInstagram,
@@ -28,13 +29,18 @@ export async function GET(request: NextRequest) {
   store.delete(INSTAGRAM_STATE_COOKIE);
 
   const destino = new URL("/hub-social/meta", appUrl);
+  const estado = decodificarEstadoInstagram(state);
+  if (!state || !esperado || state !== esperado || !estado || estado.actorId !== admin.id) {
+    destino.searchParams.set("error", "Retorno do Instagram inválido ou expirado.");
+    return NextResponse.redirect(destino);
+  }
+  destino.searchParams.set("organizationId", estado.organizationId);
 
   if (erroRecebido) {
     destino.searchParams.set("error", erroRecebido);
     return NextResponse.redirect(destino);
   }
 
-  const estado = decodificarEstadoInstagram(state);
   if (!code || !state || !esperado || state !== esperado || !estado) {
     destino.searchParams.set("error", "Retorno do Instagram inválido ou expirado.");
     return NextResponse.redirect(destino);
@@ -42,6 +48,8 @@ export async function GET(request: NextRequest) {
   destino.searchParams.set("organizationId", estado.organizationId);
 
   try {
+    const organization = await prisma.organization.findFirst({ where: { id: estado.organizationId, status: { not: "ARCHIVED" } }, select: { id: true } });
+    if (!organization) throw new Error("Empresa não encontrada ou arquivada.");
     const token = await trocarCodigoInstagram(appUrl, code);
     await salvarConexaoInstagram({
       actorId: admin.id,

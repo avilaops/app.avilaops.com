@@ -70,8 +70,12 @@ function CartaoAviso({ tom, children }: Aviso) {
 
 export default function MetaBusinessPanel({
   initialStatus,
+  threadsConfigured = false,
+  threadsAccount = null,
+  threadsConnected = false,
   selectedOrganizationId,
   callbackUrl,
+  threadsCallbackUrl,
   webhookUrl,
   error,
   connected,
@@ -80,8 +84,12 @@ export default function MetaBusinessPanel({
   instagramPronto,
 }: {
   initialStatus: MetaConnectionStatus;
+  threadsConfigured?: boolean;
+  threadsAccount?: string | null;
+  threadsConnected?: boolean;
   selectedOrganizationId: string;
   callbackUrl: string;
+  threadsCallbackUrl: string;
   webhookUrl: string;
   error?: string;
   connected?: boolean;
@@ -92,7 +100,7 @@ export default function MetaBusinessPanel({
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [message, setMessage] = useState(
-    connected ? "Meta Business conectado e sincronizado." : "",
+    threadsConnected ? "Conta do Threads conectada à empresa selecionada." : connected ? "Meta Business conectado e sincronizado." : "",
   );
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState(error ?? "");
@@ -510,7 +518,7 @@ export default function MetaBusinessPanel({
             </div>
             <ListaChaveValor
               titulo="Conexão"
-              descricao="Token OAuth do cliente selecionado. Não há token de sistema fora do app."
+              descricao="Conecte as redes sociais da empresa selecionada com sua conta do Facebook ou do Instagram."
               itens={itensConexao}
             />
           </div>
@@ -518,7 +526,7 @@ export default function MetaBusinessPanel({
           <div className="flex flex-col gap-2 min-[560px]:flex-row">
             {status.configured ? (
               <Button asChild className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm">
-                <a href={oauthHref}>{status.connected ? "Reconectar Meta" : "Conectar Meta"}</a>
+                <a href={oauthHref}>{status.connected ? "Reconectar Facebook" : "Entrar com Facebook"}</a>
               </Button>
             ) : (
               <Button asChild className="min-h-[50px] w-full text-[15px] min-[560px]:w-auto min-[821px]:min-h-10 min-[821px]:text-sm">
@@ -528,10 +536,13 @@ export default function MetaBusinessPanel({
                   className="pointer-events-none opacity-50"
                   title="Configure as variáveis de ambiente antes de conectar."
                 >
-                  {status.connected ? "Reconectar Meta" : "Conectar Meta"}
+                  {status.connected ? "Reconectar Facebook" : "Entrar com Facebook"}
                 </a>
               </Button>
             )}
+          </div>
+          <p className="text-sm text-muted-foreground">Facebook: conecte suas Páginas e o Instagram profissional associado a elas.</p>
+          <div className="flex flex-col gap-2 min-[560px]:flex-row">
             <Button
               type="button"
               variant="outline"
@@ -570,7 +581,7 @@ export default function MetaBusinessPanel({
           </div>
           <p className="text-xs text-[var(--color-texto-fraco)]">
             Use o Instagram quando o cliente não tiver Página no Facebook. Com Página,
-            a conta já vem junto pelo Conectar Meta.
+            a conta já vem junto pelo Entrar com Facebook.
           </p>
 
           {conexaoIg ? (
@@ -634,6 +645,17 @@ export default function MetaBusinessPanel({
               </div>
             </div>
           ) : null}
+          <div className="rounded-xl border border-border p-4 space-y-3">
+            <h2 className="font-semibold">Threads</h2>
+            <p className="text-sm text-muted-foreground">Autorize a conta do Threads desta empresa. A conexão é independente do Facebook e do Instagram.</p>
+            <p className="text-sm">{threadsAccount ? <>Conta conectada: <strong>@{threadsAccount}</strong></> : "Nenhuma conta com autorização válida."}</p>
+            {threadsConfigured && selectedOrganizationId ? <Button asChild variant="outline" className="min-h-[50px] w-full text-[15px]">
+              <a href={`/api/integrations/threads/oauth/start?${organizationQuery}`}>{threadsAccount ? "Reconectar Threads" : "Entrar com Threads"}</a>
+            </Button> : <>
+              <Button disabled variant="outline" className="min-h-[50px] w-full text-[15px]">Entrar com Threads</Button>
+              <p className="text-sm text-muted-foreground">A conexão do Threads aguarda configuração.</p>
+            </>}
+          </div>
         </div>
 
         <ListaChaveValor
@@ -641,6 +663,7 @@ export default function MetaBusinessPanel({
           descricao="Cole no painel da Meta. Estas URLs são contratuais e não mudam."
           itens={[
             { rotulo: "OAuth Redirect URI", valor: callbackUrl, mono: true, copiar: callbackUrl },
+            { rotulo: "Threads Redirect URI", valor: threadsCallbackUrl, mono: true, copiar: threadsCallbackUrl },
             { rotulo: "Webhook Callback URL", valor: webhookUrl, mono: true, copiar: webhookUrl },
             { rotulo: "Verify Token", valor: "META_WEBHOOK_VERIFY_TOKEN", mono: true },
           ]}

@@ -85,15 +85,15 @@ export async function instagramEscopos() {
   );
 }
 
-export function codificarEstadoInstagram(organizationId: string) {
-  return `${organizationId}.${crypto.randomBytes(24).toString("hex")}`;
+export function codificarEstadoInstagram(organizationId: string, actorId: string) {
+  return `${organizationId}.${actorId}.${crypto.randomBytes(24).toString("hex")}`;
 }
 
 export function decodificarEstadoInstagram(valor: string | null) {
   if (!valor) return null;
-  const [organizationId, nonce] = valor.split(".");
-  if (!organizationId || !nonce) return null;
-  return { organizationId };
+  const [organizationId, actorId, nonce, extra] = valor.split(".");
+  if (!organizationId || !actorId || !/^[a-f0-9]{48}$/.test(nonce ?? "") || extra !== undefined) return null;
+  return { organizationId, actorId };
 }
 
 export async function montarUrlDeLoginInstagram(origin: string, state: string) {
@@ -107,7 +107,7 @@ export async function montarUrlDeLoginInstagram(origin: string, state: string) {
 }
 
 async function pedirJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const resposta = await fetch(url, { ...init, cache: "no-store" });
+  const resposta = await fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(20000) });
   const dados = (await resposta.json().catch(() => null)) as
     | (T & { error?: unknown; error_message?: string; error_type?: string })
     | null;
@@ -233,8 +233,13 @@ export type ConexaoInstagram = {
 export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
   const cifrado = cifrarToken(entrada.accessToken);
   const contaId = String(entrada.perfil.user_id ?? entrada.perfil.id);
+  const namespace = `instagram:${await exigirCredencial("INSTAGRAM_APP_ID")}`;
 
   return prisma.$transaction(async (transacao) => {
+    const existente = await transacao.instagramAccount.findUnique({ where: { instagramAccountId: contaId }, select: { organizationId: true } });
+    if (existente?.organizationId && existente.organizationId !== entrada.organizationId) {
+      throw new Error("Esta conta do Instagram já está vinculada a outra empresa. Confira a empresa selecionada.");
+    }
     const conexao = await transacao.organizationIntegrationConnection.upsert({
       where: {
         organizationId_provider: {
@@ -309,6 +314,29 @@ export async function salvarConexaoInstagram(entrada: ConexaoInstagram) {
         lastSyncedAt: new Date(),
         rawMetadata: entrada.perfil as object,
       },
+    });
+
+    // Registro da autorização no núcleo (core.connections), na mesma
+    // transação da conexão legada: as duas tabelas nunca discordam.
+    const externalAccount = await transacao.coreExternalAccount.upsert({
+      where: { provider_namespace_externalId: { provider: INSTAGRAM_PROVIDER, namespace, externalId: contaId } },
+      create: { provider: INSTAGRAM_PROVIDER, namespace, externalId: contaId, displayName: entrada.perfil.username },
+      update: { displayName: entrada.perfil.username, observedAt: new Date() },
+    });
+    const coreData = {
+      organizationId: entrada.organizationId,
+      externalAccountId: externalAccount.id,
+      authorizedById: entrada.actorId,
+      status: "AUTHORIZED",
+      scopes: entrada.escopos,
+      authorizedAt: new Date(),
+      expiresAt: entrada.tokenExpiresAt,
+      revokedAt: null,
+    };
+    await transacao.coreConnection.upsert({
+      where: { legacyConnectionId: conexao.id },
+      create: { ...coreData, legacyConnectionId: conexao.id },
+      update: coreData,
     });
 
     await transacao.operationsAuditEvent.create({
