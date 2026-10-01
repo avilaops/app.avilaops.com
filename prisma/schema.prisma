@@ -114,6 +114,8 @@ model BankTransaction {
   scopeSource          String?  @map("scope_source")
   /// Categoria de origem (a do extrato) preservada para auditoria.
   category             String?
+  /// Conta do plano de contas. Movimentação sem lançamento entra no DRE por ela.
+  accountCode          String?  @map("account_code")
   importedAt           DateTime @default(now()) @map("imported_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -186,25 +188,31 @@ model FinanceAuditEvent {
 }
 
 model LedgerEntry {
-  coreInvoiceLink CoreInvoiceLedgerLink?
-  id              BigInt                 @id @default(autoincrement())
-  direction       String
-  status          String                 @default("OPEN")
-  description     String
-  counterparty    String?
-  amount          Decimal                @db.Decimal(14, 2)
-  currency        String                 @default("BRL")
+  coreInvoiceLink  CoreInvoiceLedgerLink?
+  id               BigInt    @id @default(autoincrement())
+  direction        String
+  status           String    @default("OPEN")
+  description      String
+  counterparty     String?
+  amount           Decimal   @db.Decimal(14, 2)
+  currency         String    @default("BRL")
   /// EMPRESA ou PESSOAL: o que separa o caixa da Ávila do caixa do Nicolas.
-  scope           String                 @default("EMPRESA")
-  dueDate         DateTime               @map("due_date")
-  paidAt          DateTime?              @map("paid_at")
-  category        String?
-  referenceType   String?                @map("reference_type")
-  referenceId     String?                @map("reference_id")
-  note            String?
-  createdBy       String?                @map("created_by")
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
+  scope            String    @default("EMPRESA")
+  dueDate          DateTime  @map("due_date")
+  paidAt           DateTime? @map("paid_at")
+  category         String?
+  /// Conta do plano de contas (src/lib/plano-de-contas.ts). É o que agrupa o DRE.
+  accountCode      String?   @map("account_code")
+  /// Primeiro mês de competência. Nulo = o próprio vencimento.
+  competenceStart  DateTime? @map("competence_start")
+  /// Em quantos meses o valor se distribui. Nulo ou 1 = mês único.
+  competenceMonths Int?      @map("competence_months")
+  referenceType    String?   @map("reference_type")
+  referenceId      String?   @map("reference_id")
+  note             String?
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@index([direction, status, dueDate])
   @@index([scope, status, dueDate])

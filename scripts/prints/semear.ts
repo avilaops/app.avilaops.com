@@ -299,16 +299,18 @@ async function main() {
     // conciliação não aparece em print nenhum — e foi assim que a folha ficou
     // com dois formulários empilhados sem ninguém ver.
     const movimentos = [
-      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO", e2e: "E12345678202609182137ABCDEFGHIJK" },
-      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL", e2e: null },
-      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL", e2e: null },
-      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA", e2e: null },
-      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA", e2e: null },
+      { d: "CREDIT", t: "PIX_RECEIVED", v: "350.00", desc: "Pix recebido", quem: null, escopo: "INDEFINIDO", e2e: "E12345678202609182137ABCDEFGHIJK", conta: null },
+      { d: "DEBIT", t: "PIX_SENT", v: "3.50", desc: "Pix enviado", quem: "MERCADO DO BAIRRO LTDA", escopo: "PESSOAL", e2e: null, conta: null },
+      { d: "DEBIT", t: "PIX_SENT", v: "8.00", desc: "Pix enviado", quem: "PADARIA AURORA ME", escopo: "PESSOAL", e2e: null, conta: null },
+      { d: "DEBIT", t: "CARD_PAYMENT", v: "129.90", desc: "Assinatura de hospedagem", quem: "PORKBUN LLC", escopo: "EMPRESA", e2e: null, conta: "3.1" },
+      { d: "CREDIT", t: "TRANSFER_IN", v: "1200.00", desc: "Transferência recebida", quem: "CLINICA HORIZONTE LTDA", escopo: "EMPRESA", e2e: null, conta: "1.1" },
+      { d: "DEBIT", t: "FEE", v: "7.40", desc: "Tarifa da conta", quem: null, escopo: "EMPRESA", e2e: null, conta: "5.1" },
+      { d: "DEBIT", t: "PIX_SENT", v: "64.00", desc: "Compra não identificada", quem: null, escopo: "EMPRESA", e2e: null, conta: "9.9" },
     ];
     // Estado da conciliação: sem estas linhas a fila de pendências fica em
     // zero no print e a faixa "movimentações precisam de decisão" não aparece
     // — que é justamente o caminho que o Financeiro existe para resolver.
-    const conciliacoes = ["PENDING", "PENDING", "MATCHED", "PENDING", "REVIEW"];
+    const conciliacoes = ["PENDING", "PENDING", "MATCHED", "PENDING", "REVIEW", "MATCHED", "PENDING"];
     for (const [i, m] of movimentos.entries()) {
       await prisma.bankTransaction.create({
         data: {
@@ -323,6 +325,7 @@ async function main() {
           occurredAt: haDias(i),
           rawHash: `exemplo-mov-${i}`,
           scope: m.escopo,
+          accountCode: m.conta ?? null,
           reconciliation: { create: { status: conciliacoes[i] } },
         },
       });
@@ -366,6 +369,76 @@ async function main() {
       createdAt: haDias(3),
     },
   });
+
+  // Lançamentos com competência: sem eles o DRE nasce 100% reconhecido por
+  // caixa, e o rateio do anual — que é o motivo de a competência existir —
+  // não aparece em print nenhum.
+  if ((await prisma.ledgerEntry.count()) === 0) {
+    const inicioDoMes = new Date(
+      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
+    );
+    const inicioDoAno = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+
+    const lancamentos = [
+      {
+        direction: "RECEIVABLE",
+        // Cliente diferente do da movimentação de 1.200: repetir o mesmo valor
+        // nos dois lados faria o print parecer contagem dupla, que é
+        // exatamente o erro que o vínculo com o lançamento existe para evitar.
+        description: "Mensalidade · Padaria Aurora",
+        counterparty: "PADARIA AURORA ME",
+        amount: "480.00",
+        conta: "1.1",
+        competencia: inicioDoMes,
+        meses: 1,
+      },
+      {
+        direction: "PAYABLE",
+        description: "Domínio anual · clinicahorizonte.example",
+        counterparty: "PORKBUN LLC",
+        amount: "600.00",
+        conta: "3.2",
+        // Pago de uma vez em janeiro, despesa de cinquenta reais por mês.
+        competencia: inicioDoAno,
+        meses: 12,
+      },
+      {
+        direction: "PAYABLE",
+        description: "Honorários contábeis",
+        counterparty: "CORREA CONTABILIDADE",
+        amount: "300.00",
+        conta: "4.2",
+        competencia: inicioDoMes,
+        meses: 1,
+      },
+      {
+        direction: "PAYABLE",
+        description: "DAS · Simples Nacional",
+        counterparty: "RECEITA FEDERAL",
+        amount: "93.00",
+        conta: "2.1",
+        competencia: inicioDoMes,
+        meses: 1,
+      },
+    ];
+
+    for (const lancamento of lancamentos) {
+      await prisma.ledgerEntry.create({
+        data: {
+          direction: lancamento.direction,
+          status: "OPEN",
+          description: lancamento.description,
+          counterparty: lancamento.counterparty,
+          amount: lancamento.amount,
+          scope: "EMPRESA",
+          dueDate: lancamento.competencia,
+          accountCode: lancamento.conta,
+          competenceStart: lancamento.competencia,
+          competenceMonths: lancamento.meses,
+        },
+      });
+    }
+  }
 
   if ((await prisma.studioPiece.count()) === 0) {
     const pecas = [

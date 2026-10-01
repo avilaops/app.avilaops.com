@@ -19,6 +19,7 @@ export type SecaoApp =
   | "reconciliation"
   | "transactions"
   | "ledger"
+  | "dre"
   | "import"
   | "mercadopago"
   | "reports"
@@ -249,6 +250,16 @@ export const navegacao: GrupoNavegacao[] = [
         section: "reconciliation",
         icone: "fiscal",
         descricao: "Lançamentos esperando conferência",
+      },
+      {
+        // Logo abaixo da visão geral porque responde a outra pergunta sobre o
+        // mesmo dinheiro: a de cima diz quanto entrou e saiu, esta diz quanto
+        // sobrou. Quem procura resultado não procura extrato.
+        href: "/financeiro/dre",
+        label: "Resultado (DRE)",
+        section: "dre",
+        icone: "operacao",
+        descricao: "Receita, custo e margem por competência",
       },
       {
         href: "/financeiro/contas",
