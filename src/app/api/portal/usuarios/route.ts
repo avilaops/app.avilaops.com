@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ehDonoDoNegocio, getSessaoPortal } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { participaDaEmpresa } from "@/lib/nucleo/acesso";
 import {
   criarUsuarioDaEmpresa,
   definirAtivoNaEmpresa,
@@ -25,6 +26,9 @@ async function donoDaVez() {
   }
   if (!sessao.organizationId) {
     return { erro: NextResponse.json({ error: "Sua conta ainda não está ligada a uma empresa." }, { status: 409 }) };
+  }
+  if (!(await participaDaEmpresa(sessao.id, sessao.organizationId, true))) {
+    return { erro: NextResponse.json({ error: "Sua participação não permite administrar esta empresa." }, { status: 403 }) };
   }
   return { sessao, organizationId: sessao.organizationId };
 }

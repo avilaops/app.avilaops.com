@@ -6,6 +6,8 @@ import { getSessaoPortal, ehDaCasa, ehDonoDoNegocio } from "@/lib/auth";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import { carregarPainelDoCliente } from "@/lib/portal-cliente";
 import { listarUsuariosDaEmpresa } from "@/lib/usuarios-do-cliente";
+import { rotuloDoCiclo } from "@/lib/nucleo/format";
+import { participaDaEmpresa } from "@/lib/nucleo/acesso";
 
 export const metadata = { title: "Sua conta - Ávila Ops" };
 
@@ -40,9 +42,10 @@ export default async function PortalDoCliente() {
   if (!sessao) redirect("/login");
   if (ehDaCasa(sessao.role)) redirect("/operacao");
 
-  const painel = sessao.organizationId ? await carregarPainelDoCliente(sessao.organizationId) : null;
+  const painel = sessao.organizationId ? await carregarPainelDoCliente(sessao.id, sessao.organizationId) : null;
   // Só o dono do negócio administra gente; a equipe usa o produto e não vê esta parte.
-  const equipe = painel && ehDonoDoNegocio(sessao.role) ? await listarUsuariosDaEmpresa(sessao.organizationId!) : null;
+  const equipe = painel && ehDonoDoNegocio(sessao.role) && await participaDaEmpresa(sessao.id, painel.empresa.id, true)
+    ? await listarUsuariosDaEmpresa(painel.empresa.id) : null;
   const primeiroNome = sessao.nome.split(" ")[0];
 
   if (!painel) {
@@ -59,11 +62,7 @@ export default async function PortalDoCliente() {
         </header>
         <section className="portal-card">
           <h2>Sua conta ainda não está ligada a uma empresa</h2>
-          <p>
-            O acesso está criado, mas falta vincular a empresa que você representa. Isso é feito
-            pela nossa equipe e leva minutos: responda o e-mail de boas-vindas ou fale com a gente
-            que resolvemos.
-          </p>
+          <p>Não há uma participação vigente em empresa para esta conta. Responda ao e-mail do seu atendimento para solicitar a revisão do acesso.</p>
           <p className="portal-muted">Conta: {sessao.email}</p>
         </section>
       </main>
@@ -72,11 +71,7 @@ export default async function PortalDoCliente() {
 
   const { empresa, contatos, dominios, assinaturas, faturas, entregas, etapas } = painel;
   const etapasConcluidas = etapas.filter((e) => e.status === "DONE").length;
-  const mensal = assinaturas.filter((a) => a.status === "ACTIVE").reduce((soma, a) => soma + a.valor, 0);
-  // O que o cliente deve agora é o número que ele veio ver.
-  const emAberto = faturas
-    .filter((f) => f.status === "OPEN" || f.status === "OVERDUE")
-    .reduce((soma, f) => soma + f.valor, 0);
+  const emAberto = painel.totais.filter(t => t.emAberto > 0);
 
   return (
     <main className="portal-frame">
@@ -93,14 +88,26 @@ export default async function PortalDoCliente() {
         </form>
       </header>
 
+      <nav className="portal-shortcuts" aria-label="Nesta página">
+        <a href="#faturas">Faturas e pagamentos</a>
+        <a href="#assinaturas">Assinaturas</a>
+        <a href="#dominios">Domínios</a>
+        <a href="#dados">Seus dados</a>
+      </nav>
+
       <section className="portal-metrics">
         <div className="portal-metric">
-          <small>Mensalidade ativa</small>
-          <strong>{mensal > 0 ? formatCurrency(mensal) : "nenhuma"}</strong>
+          <small>Assinaturas ativas</small>
+          {painel.recorrencia.length ? painel.recorrencia.map(r => (
+            <div className="portal-metric-value" key={`${r.moeda}-${r.ciclo}`}><strong>{formatCurrency(r.valor, r.moeda)}</strong><span>{rotuloDoCiclo(r.ciclo)}</span></div>
+          )) : <strong>nenhuma</strong>}
         </div>
         <div className="portal-metric">
           <small>Em aberto</small>
-          <strong>{emAberto > 0 ? formatCurrency(emAberto) : "nada"}</strong>
+          {emAberto.length ? emAberto.map(t => (
+            <div className="portal-metric-value" key={t.moeda}><strong>{formatCurrency(t.emAberto, t.moeda)}</strong>{t.vencido > 0 && <span className="portal-overdue">{formatCurrency(t.vencido, t.moeda)} vencidos</span>}</div>
+          )) : <strong>Em dia</strong>}
+          {emAberto.length > 0 && <a href="#faturas">Ver faturas →</a>}
         </div>
         <div className="portal-metric">
           <small>Entregas</small>
@@ -109,6 +116,7 @@ export default async function PortalDoCliente() {
         <div className="portal-metric">
           <small>Implantação</small>
           <strong>{etapas.length ? `${etapasConcluidas}/${etapas.length}` : "a começar"}</strong>
+          {etapas.length > 0 && <progress value={etapasConcluidas} max={etapas.length} aria-label="Etapas de implantação concluídas" />}
         </div>
       </section>
 
@@ -129,7 +137,7 @@ export default async function PortalDoCliente() {
         </section>
       )}
 
-      <section className="portal-card">
+      <section className="portal-card" id="assinaturas">
         <h2>Sua assinatura</h2>
         {assinaturas.length === 0 ? (
           <p className="portal-muted">Nenhuma assinatura registrada.</p>
@@ -139,7 +147,7 @@ export default async function PortalDoCliente() {
               <li key={a.id}>
                 <span>{a.descricao}</span>
                 <em>
-                  {formatCurrency(a.valor)} · todo dia {a.diaDaCobranca} · {a.status === "ACTIVE" ? "ativa" : a.status.toLowerCase()}
+                  {formatCurrency(a.valor, a.moeda)} · {rotuloDoCiclo(a.ciclo)}{a.ciclo === "MONTHLY" ? ` · dia ${a.diaDaCobranca}` : ""} · {a.status === "ACTIVE" ? "ativa" : a.status.toLowerCase()}
                 </em>
               </li>
             ))}
@@ -155,7 +163,9 @@ export default async function PortalDoCliente() {
           competencia: f.competencia,
           tipo: f.tipo,
           valor: f.valor,
-          vencimento: f.vencimento.toISOString(),
+          saldo: f.saldo,
+          moeda: f.moeda,
+          vencimento: f.vencimento.toISOString().slice(0, 10),
           status: f.status,
           pagaEm: f.pagaEm?.toISOString() ?? null,
           cobranca: f.cobranca
@@ -170,7 +180,7 @@ export default async function PortalDoCliente() {
         }))}
       />
 
-      <section className="portal-card">
+      <section className="portal-card" id="dominios">
         <h2>Seus domínios</h2>
         {dominios.length === 0 ? (
           <p className="portal-muted">Nenhum domínio sob nossa gestão.</p>
@@ -224,7 +234,7 @@ export default async function PortalDoCliente() {
         />
       )}
 
-      <section className="portal-card">
+      <section className="portal-card" id="dados">
         <h2>Seus dados</h2>
         <ul className="portal-list">
           {empresa.razaoSocial && (
