@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { DadosInvalidos, salvarDadosFiscais } from "@/lib/dados-da-casa";
+import { DadosInvalidos, dadosFiscaisDaCasa, salvarDadosFiscais } from "@/lib/dados-da-casa";
 import { sameOrigin } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -23,7 +23,9 @@ export async function PUT(request: NextRequest) {
 
   try {
     await salvarDadosFiscais(corpo as Record<string, unknown>, admin.id);
-    return NextResponse.json({ ok: true });
+    // Devolve como ficou guardado (CNPJ só dígitos, alíquota "2,00"…): a tela
+    // adota esta versão, senão ficaria dizendo que há o que salvar.
+    return NextResponse.json({ ok: true, dados: await dadosFiscaisDaCasa() });
   } catch (erro) {
     if (erro instanceof DadosInvalidos) {
       return NextResponse.json({ erro: erro.message }, { status: 400 });

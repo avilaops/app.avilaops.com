@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Grupo } from "@/components/sistema/Lista";
 
+/** Fichas do catálogo sem campos (Nubank, Wise): existem mesmo vazias. */
+const FICHAS_DO_CATALOGO = ["Nubank", "Wise"];
+
 export type CampoLivreNaTela = {
   chave: string;
   rotulo: string;
@@ -32,7 +35,8 @@ export default function CamposLivres({
   const [erro, setErro] = useState<string | null>(null);
   const [recado, setRecado] = useState<string | null>(null);
 
-  async function guardar(rotuloDoCampo: string, valorDoCampo: string) {
+  /** Devolve se guardou: quem chama só limpa o campo digitado quando deu certo. */
+  async function guardar(rotuloDoCampo: string, valorDoCampo: string): Promise<boolean> {
     setOcupado(true);
     setErro(null);
     setRecado(null);
@@ -52,8 +56,10 @@ export default function CamposLivres({
       } else {
         router.refresh();
       }
+      return true;
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "Não consegui guardar.");
+      return false;
     } finally {
       setOcupado(false);
     }
@@ -69,7 +75,11 @@ export default function CamposLivres({
         { method: "DELETE" },
       );
       if (!resposta.ok) throw new Error("Não consegui remover.");
-      router.refresh();
+      // Instituição à mão só existe enquanto tem campo: tirar o último deixaria
+      // a tela num 404 logo depois de uma ação que deu certo.
+      const eraOUltimo = campos.length === 1 && !FICHAS_DO_CATALOGO.includes(instituicao ?? "");
+      if (eraOUltimo) router.push("/empresa/credenciais");
+      else router.refresh();
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "Não consegui remover.");
     } finally {
@@ -159,7 +169,7 @@ function CampoGuardado({
 }: {
   campo: CampoLivreNaTela;
   ocupado: boolean;
-  onSubstituir: (valor: string) => Promise<void>;
+  onSubstituir: (valor: string) => Promise<boolean>;
   onRemover: () => void;
 }) {
   const [novo, setNovo] = useState("");
@@ -182,7 +192,7 @@ function CampoGuardado({
           type="button"
           className="secondary-button"
           disabled={ocupado || !novo.trim()}
-          onClick={() => void onSubstituir(novo).then(() => setNovo(""))}
+          onClick={() => void onSubstituir(novo).then((ok) => ok && setNovo(""))}
         >
           Substituir
         </button>
@@ -192,7 +202,9 @@ function CampoGuardado({
       </div>
       <small className="credencial-estado">
         {campo.mascara ? `guardado: ${campo.mascara}` : "guardado"}
-        {campo.atualizadoEm ? ` · ${new Date(campo.atualizadoEm).toLocaleDateString("pt-BR")}` : ""}
+        {campo.atualizadoEm
+          ? ` · ${new Date(campo.atualizadoEm).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+          : ""}
       </small>
     </div>
   );

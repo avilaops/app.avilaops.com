@@ -66,6 +66,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ erro: (falha as Error).message }, { status: 400 });
   }
 
+  // Nomes diferentes podem cair na mesma chave depois de normalizados e
+  // cortados ("Conta corrente PJ" e "Conta-corrente PJ"). Sobrescrever em
+  // silêncio apagaria o valor do outro campo: recusa e pede outro nome.
+  const existente = await prisma.platformCredential.findUnique({
+    where: { chave },
+    select: { grupo: true, rotulo: true },
+  });
+  if (
+    existente &&
+    (slugDaInstituicao(existente.grupo ?? "") !== slugDaInstituicao(instituicao) ||
+      (existente.rotulo ?? "").trim().toLowerCase() !== rotulo.toLowerCase())
+  ) {
+    return NextResponse.json(
+      { erro: `Já existe um campo "${existente.rotulo}" em ${existente.grupo} com nome equivalente. Use outro nome.` },
+      { status: 409 },
+    );
+  }
+
   await salvarCredencial(
     {
       chave,

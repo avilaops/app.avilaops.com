@@ -81,12 +81,15 @@ export default function DadosFiscaisForm({
 }) {
   const router = useRouter();
   const [dados, setDados] = useState<DadosFiscaisDaCasa>(iniciais);
+  // O que está no banco. `iniciais` não serve depois de salvar: o refresh
+  // não reinicia o estado deste componente.
+  const [salvos, setSalvos] = useState<DadosFiscaisDaCasa>(iniciais);
   const [ocupado, setOcupado] = useState<"salvar" | "receita" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [recado, setRecado] = useState<string | null>(null);
 
   const faltando = obrigatorios.filter((campo) => !dados[campo].trim());
-  const mudou = JSON.stringify(dados) !== JSON.stringify(iniciais);
+  const mudou = JSON.stringify(dados) !== JSON.stringify(salvos);
 
   function mudar(campo: keyof DadosFiscaisDaCasa, valor: string) {
     setDados((atual) => ({ ...atual, [campo]: valor }));
@@ -155,8 +158,15 @@ export default function DadosFiscaisForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(dados),
       });
-      const corpo = (await resposta.json().catch(() => ({}))) as { erro?: string };
+      const corpo = (await resposta.json().catch(() => ({}))) as {
+        erro?: string;
+        dados?: DadosFiscaisDaCasa;
+      };
       if (!resposta.ok) throw new Error(corpo.erro ?? "Não consegui salvar.");
+      if (corpo.dados) {
+        setDados(corpo.dados);
+        setSalvos(corpo.dados);
+      }
       setRecado("Dados da empresa salvos.");
       router.refresh();
     } catch (falha) {

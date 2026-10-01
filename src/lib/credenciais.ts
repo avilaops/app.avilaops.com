@@ -276,7 +276,10 @@ export async function salvarCredencial(entrada: EntradaCredencial, atorId: strin
     categoria: entrada.categoria ?? categoriaDaChave(chave),
     rotulo: entrada.rotulo ?? null,
     descricao: entrada.descricao ?? null,
-    segredo: entrada.segredo ?? ehSegredo(chave),
+    // Campo livre de banco é sempre segredo, inclusive quando editado pelo
+    // cofre completo, que não manda `segredo`: o nome foi o dono que deu, e
+    // "BANCO_INTER__CONTA" não diz nada sobre ser sensível.
+    segredo: entrada.segredo ?? (chave.startsWith("BANCO_") || ehSegredo(chave)),
     grupo: entrada.grupo ?? undefined,
     consumidores: entrada.consumidores ?? undefined,
     origem: entrada.origem ?? "manual",

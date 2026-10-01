@@ -101,7 +101,7 @@ export default function CertificadoDaCasaForm({
             <div>
               <dt>Validade</dt>
               <dd>
-                {new Date(certificado.validoAte).toLocaleDateString("pt-BR")} ·{" "}
+                {new Date(certificado.validoAte).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} ·{" "}
                 <span className={`certificado-status certificado-${certificado.status.toLowerCase()}`}>
                   {ROTULO_STATUS[certificado.status]}
                   {certificado.expirado ? "" : ` (${certificado.diasParaVencer} dias)`}

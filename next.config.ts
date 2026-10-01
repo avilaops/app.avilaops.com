@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/@img/**"],
   },
+  // Artefatos de auditoria, bancos descartáveis e testes não pertencem ao runtime.
+  outputFileTracingExcludes: {
+    "/**": ["./output/**/*", "./tests/**/*", "./.git/**/*", "./.playwright-cli/**/*", "./.deploy-*/**/*"],
+  },
   turbopack: {
     root: process.cwd(),
   },

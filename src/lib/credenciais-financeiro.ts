@@ -218,12 +218,19 @@ export function chaveLivre(instituicao: string, rotulo: string): string {
  * lê aquelas chaves pelo nome, e campo à mão ali seria chave órfã.
  */
 export function aceitaCampoLivre(nome: string): boolean {
-  const slug = slugDaInstituicao(nome);
+  // Sem hífen na comparação: "MercadoPago" e "Mercado Pago" são a mesma
+  // instituição, e deixar a variante passar recriaria o token órfão.
+  const canonico = (texto: string) => slugDaInstituicao(texto).replace(/-/g, "");
+  const alvo = canonico(nome);
+  if (!alvo || SLUGS_RESERVADOS.includes(slugDaInstituicao(nome))) return false;
   const doCatalogo = FINANCEIRAS.find(
-    (f) => f.slug === slug || slugDaInstituicao(f.nome) === slug,
+    (f) => canonico(f.slug) === alvo || canonico(f.nome) === alvo,
   );
   return !doCatalogo || doCatalogo.campos.length === 0;
 }
+
+/** Endereços da tela que não podem virar nome de instituição. */
+export const SLUGS_RESERVADOS = ["nova"];
 
 export type InstituicaoLivre = { slug: string; nome: string; total: number };
 
