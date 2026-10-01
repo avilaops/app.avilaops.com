@@ -9994,6 +9994,7 @@ main [data-slot="select-trigger"]:focus-visible {
 .client-row small,
 .balance-card-head span {
   font-size: 0.75rem;
+}
 
 /* Encadeamento do DRE -------------------------------------------------------
    O demonstrativo é uma conta que se lê de cima para baixo: cada linha usa o
