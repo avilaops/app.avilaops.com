@@ -2,8 +2,16 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import { Grupo, LinhaInfo, LinhaLink } from "@/components/sistema/Lista";
+import AbasDaEmpresa from "@/app/empresa/AbasDaEmpresa";
+import DadosFiscaisForm from "@/app/empresa/DadosFiscaisForm";
 import IdentidadeDaCasaForm from "@/app/empresa/IdentidadeDaCasaForm";
 import { ehDono, getAdmin } from "@/lib/auth";
+import {
+  CAMPOS_OBRIGATORIOS_NOTA,
+  REGIMES_TRIBUTARIOS,
+  UFS,
+  dadosFiscaisDaCasa,
+} from "@/lib/dados-da-casa";
 import { formatShortDate } from "@/lib/format";
 import { identidadeDaCasa } from "@/lib/identidade-casa";
 
@@ -23,15 +31,17 @@ export default async function EmpresaPage() {
   // Marca e segredo são do dono: a equipe opera o resto.
   if (!ehDono(admin.role)) redirect("/mais");
 
-  const identidade = await identidadeDaCasa();
+  const [identidade, dados] = await Promise.all([identidadeDaCasa(), dadosFiscaisDaCasa()]);
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="menu">
       <CabecalhoTela
         titulo="Empresa"
-        descricao="A identidade da casa e os segredos que ela usa."
+        descricao="Cadastro, logo e dados de nota fiscal da Ávila Ops."
         voltar={{ href: "/mais", rotulo: "Voltar para Mais" }}
       />
+
+      <AbasDaEmpresa ativa="dados" />
 
       <div className="pilha">
         <IdentidadeDaCasaForm
@@ -40,15 +50,12 @@ export default async function EmpresaPage() {
           iconeUrl={identidade.iconeUrl}
         />
 
-        <Grupo titulo="Segredos">
-          <LinhaLink
-            href="/empresa/credenciais"
-            titulo="Credenciais"
-            descricao="Tokens e chaves das integrações, guardados cifrados"
-            icone="config"
-            tom="amarelo"
-          />
-        </Grupo>
+        <DadosFiscaisForm
+          dados={dados}
+          regimes={REGIMES_TRIBUTARIOS}
+          ufs={UFS}
+          obrigatorios={CAMPOS_OBRIGATORIOS_NOTA}
+        />
 
         <Grupo titulo="Conta pessoal">
           <LinhaLink
