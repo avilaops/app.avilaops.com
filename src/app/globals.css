@@ -5411,10 +5411,17 @@ tbody tr:last-child td {
     font-size: 1.125rem;
   }
 
+  /* A barra de abas virou uma CÁPSULA FLUTUANTE: ela tem padding próprio em
+     volta (`.tab-bar` + `.tab-capsula`), então ocupa bem mais que `--cel-nav`.
+     A folga do conteúdo ficou com a conta antiga e o último item de qualquer
+     lista terminava atrás dela — medido em /empresa/credenciais no iPhone:
+     a linha "Cofre completo" ia 82px além do topo da barra.
+     Os 28px são o padding da cápsula (`--e2` + `--e1` em cima e embaixo) mais
+     a sombra; `--e3` continua sendo o respiro entre o conteúdo e a barra. */
   .main-canvas {
     width: 100%;
     padding: 14px var(--cel-pad-pagina)
-      calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
+      calc(var(--cel-nav) + 28px + env(safe-area-inset-bottom) + var(--e3));
   }
 
   /* Título grande, como a navigation bar do iOS antes de rolar. */
