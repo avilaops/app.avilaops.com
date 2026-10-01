@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   const existingPending = await prisma.clientRegistrationRequest.findFirst({
-    where: { cpfCnpj: classified.digits, status: "PENDING" },
+    where: { cpfCnpj: classified.documento, status: "PENDING" },
     select: { id: true },
   });
   if (existingPending) {
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       nome,
       email,
       telefone: telefone || null,
-      cpfCnpj: classified.digits,
+      cpfCnpj: classified.documento,
       tipoDocumento: classified.kind,
       empresa: empresa || null,
       documentos,

@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    cpfCnpj = classified.digits;
+    cpfCnpj = classified.documento;
 
     const existing = await prisma.organization.findUnique({ where: { cpfCnpj } });
     if (existing) {

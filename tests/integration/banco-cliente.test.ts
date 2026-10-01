@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { carregarCatalogo, sincronizarCatalogo, type CatalogoPayload } from "@/lib/banco-cliente";
 import { prisma } from "@/lib/prisma";
+import { cnpjDeTeste } from "../fixtures/documento";
 
 /**
  * Sincronização do catálogo contra Postgres de verdade.
@@ -49,7 +50,7 @@ beforeEach(async () => {
   await limpar();
   const sufixo = Math.floor(Math.random() * 1e9).toString(36);
   const organizacao = await prisma.organization.create({
-    data: { name: "Vedashow de teste", slug: `${PREFIXO}${sufixo}`, cpfCnpj: `${Date.now()}${sufixo}`.slice(0, 14) },
+    data: { name: "Vedashow de teste", slug: `${PREFIXO}${sufixo}`, cpfCnpj: cnpjDeTeste(sufixo) },
   });
   organizationId = organizacao.id;
 });

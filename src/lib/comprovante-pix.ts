@@ -134,7 +134,7 @@ export function conferirComprovante(
     if (!classificado || !classificado.valid) {
       return { ok: false, erro: "CPF/CNPJ do comprovante é inválido." };
     }
-    documento = classificado.digits;
+    documento = classificado.documento;
     tipoDocumento = classificado.kind;
   }
 
