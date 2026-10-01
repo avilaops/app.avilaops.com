@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/@img/**"],
   },
+  // Artefatos de auditoria, bancos descartáveis e testes não pertencem ao runtime.
+  outputFileTracingExcludes: {
+    "/**": ["./output/**/*", "./tests/**/*", "./.git/**/*", "./.playwright-cli/**/*", "./.deploy-*/**/*"],
+  },
   turbopack: {
     root: process.cwd(),
   },
@@ -32,6 +36,13 @@ const nextConfig: NextConfig = {
         // precisam continuar chegando, com query string e tudo.
         source: "/operacao/:canal(seo|dominios|google|meta|whatsapp|newsletter|estudio)/:path*",
         destination: "/hub-social/:canal/:path*",
+        permanent: true,
+      },
+      {
+        // A lista das financeiras virou a aba Credenciais de /empresa em
+        // 01/10/2026. As fichas de cada uma continuam no mesmo endereço.
+        source: "/empresa/credenciais/financeiro",
+        destination: "/empresa/credenciais",
         permanent: true,
       },
     ];

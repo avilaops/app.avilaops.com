@@ -16,6 +16,8 @@ export type FaturaDoCliente = {
   competencia: string;
   tipo: string;
   valor: number;
+  saldo: number;
+  moeda: string;
   vencimento: string;
   status: string;
   pagaEm: string | null;
@@ -43,7 +45,7 @@ export default function FaturasDoCliente({ iniciais, pais }: { iniciais: FaturaD
 
   if (faturas.length === 0) {
     return (
-      <section className="portal-card">
+      <section className="portal-card" id="faturas">
         <h2>Suas faturas</h2>
         <p className="portal-muted">Nenhuma fatura emitida ainda.</p>
       </section>
@@ -107,43 +109,47 @@ export default function FaturasDoCliente({ iniciais, pais }: { iniciais: FaturaD
   }
 
   return (
-    <section className="portal-card">
+    <section className="portal-card" id="faturas" aria-busy={ocupada !== null}>
       <h2>Suas faturas</h2>
-      {erro && <p className="portal-erro">{erro}</p>}
+      {erro && <p className="portal-erro" role="alert">{erro}</p>}
+      <p className="portal-sr-only" role="status">{copiada ? "Código Pix copiado." : ocupada ? "Preparando pagamento…" : ""}</p>
 
       <ul className="portal-list portal-faturas">
         {faturas.map((fatura) => {
           const aberta = fatura.status === "OPEN" || fatura.status === "OVERDUE";
           const cobranca = fatura.cobranca;
           return (
-            <li key={fatura.id}>
+            <li key={fatura.id} className={fatura.status === "OVERDUE" ? "portal-invoice-overdue" : undefined}>
               <span>
                 {rotuloTipo(fatura.tipo)} {fatura.competencia}
                 <small className="portal-muted"> {fatura.descricao}</small>
               </span>
               <em>
-                {dinheiro(fatura.valor)} · {rotuloStatus(fatura.status)}
+                <strong>{dinheiro(fatura.valor, fatura.moeda)}</strong> · <span className="portal-invoice-status">{rotuloStatus(fatura.status)}</span>
                 {fatura.status === "PAID" && fatura.pagaEm
                   ? ` em ${data(fatura.pagaEm)}`
-                  : ` · vence ${data(fatura.vencimento)}`}
+                  : ` · ${fatura.status === "OVERDUE" ? "venceu" : "vence"} ${data(fatura.vencimento)}`}
               </em>
 
-              {aberta && !cobranca && (
+              {aberta && fatura.saldo < fatura.valor && (
+                <p className="portal-muted">Saldo restante: {dinheiro(fatura.saldo, fatura.moeda)}. Fale com o atendimento para pagar o saldo.</p>
+              )}
+              {aberta && fatura.saldo === fatura.valor && !cobranca && (
                 <div className="portal-acoes">
-                  {brasileira ? (
+                  {brasileira && fatura.moeda === "BRL" ? (
                     <>
-                      <button type="button" onClick={() => cobrar(fatura, "PIX")} disabled={ocupada === fatura.id}>
+                      <button type="button" onClick={() => cobrar(fatura, "PIX")} disabled={ocupada !== null}>
                         {ocupada === fatura.id ? "Gerando…" : "Pagar com Pix"}
                       </button>
-                      <button type="button" className="secundario" onClick={() => cobrar(fatura, "BOLETO")} disabled={ocupada === fatura.id}>
+                      <button type="button" className="secundario" onClick={() => cobrar(fatura, "BOLETO")} disabled={ocupada !== null}>
                         Gerar boleto
                       </button>
                     </>
-                  ) : (
-                    <button type="button" onClick={() => cobrar(fatura, "PAYPAL")} disabled={ocupada === fatura.id}>
+                  ) : !brasileira && fatura.moeda === "BRL" ? (
+                    <button type="button" onClick={() => cobrar(fatura, "PAYPAL")} disabled={ocupada !== null}>
                       {ocupada === fatura.id ? "Preparando…" : "Pagar com PayPal"}
                     </button>
-                  )}
+                  ) : <p className="portal-muted">Fale com o atendimento para pagar nesta moeda.</p>}
                 </div>
               )}
 
@@ -179,7 +185,7 @@ export default function FaturasDoCliente({ iniciais, pais }: { iniciais: FaturaD
 
       <p className="portal-muted">
         {brasileira ? "Pagamentos no Brasil são processados pelo Mercado Pago. " : "Pagamentos fora do Brasil são processados pelo PayPal. "}
-        O pagamento é confirmado automaticamente. Se demorar mais de uma hora para dar baixa, fale
+        Exibimos até 12 faturas; o total em aberto considera todas. O pagamento é confirmado automaticamente. Se demorar mais de uma hora para dar baixa, fale
         com a gente que resolvemos.
       </p>
     </section>
@@ -187,7 +193,7 @@ export default function FaturasDoCliente({ iniciais, pais }: { iniciais: FaturaD
 }
 
 function rotuloTipo(tipo: string) {
-  return tipo === "SETUP" ? "Implantação" : "Mensalidade";
+  return tipo === "SETUP" ? "Implantação" : "Assinatura";
 }
 
 function rotuloStatus(status: string) {
@@ -196,14 +202,17 @@ function rotuloStatus(status: string) {
     OVERDUE: "vencida",
     PAID: "paga",
     CANCELLED: "cancelada",
+    AWAITING_RECONCILIATION: "pagamento recebido, aguardando conciliação",
   };
   return mapa[status] ?? status.toLowerCase();
 }
 
-function dinheiro(valor: number) {
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function dinheiro(valor: number, moeda: string) {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: moeda });
 }
 
 function data(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  // DATE do PostgreSQL é um dia civil, não um instante sujeito ao fuso local.
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric",
+    timeZone: /^\d{4}-\d{2}-\d{2}$/.test(iso) ? "UTC" : "America/Sao_Paulo" });
 }

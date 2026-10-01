@@ -73,7 +73,14 @@ describe("regra de qual grupo abre", () => {
 describe("folha do menu no celular", () => {
   function render(section: SecaoApp) {
     return renderToStaticMarkup(
-      <MobileNav section={section} adminName="Pessoa Dona Exemplo" papel="OWNER" />,
+      <MobileNav
+        section={section}
+        adminName="Pessoa Dona Exemplo"
+        papel="OWNER"
+        // A marca chega resolvida pelo `AppShell`: este componente é client e
+        // não lê banco.
+        casa={{ nome: "Ávila Ops", inicial: "A", iconeUrl: null, href: "/empresa" }}
+      />,
     );
   }
 

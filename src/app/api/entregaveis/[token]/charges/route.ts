@@ -184,6 +184,13 @@ export async function POST(
         data: {
           deliverableId: deliverable.id,
           method: "PIX",
+          // O default da coluna é "EFI", de quando o entregável cobrava lá. A
+          // cobrança migrou para o Mercado Pago em 31/08/2026 e ninguém mexeu
+          // no campo: desde então toda linha nasceu com o gateway errado, o que
+          // quebra qualquer leitura por gateway (conciliação, taxa, relatório).
+          // Explícito aqui conserta daqui para frente; o default do schema e as
+          // linhas antigas são migração, e vão na Fase 2.
+          provider: "MERCADO_PAGO",
           externalId: pix.externalId,
           status: "PENDING",
           amount,
@@ -236,6 +243,7 @@ export async function POST(
         data: {
           deliverableId: deliverable.id,
           method: "BOLETO",
+          provider: "MERCADO_PAGO",
           externalId: boleto.externalId,
           status: "PENDING",
           amount,

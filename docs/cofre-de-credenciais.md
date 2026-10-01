@@ -5,8 +5,38 @@ Mercado Pago, consumer keys do X. Construído em 17/09/2026 para acabar com a
 prática de copiar a mesma credencial em doze arquivos `.env` pelo parque
 (o levantamento está em [inventario-chaves-integracoes.md](./inventario-chaves-integracoes.md)).
 
-Tela: **/operacao/credenciais**, só OWNER. Nem o sócio entra — `ehDono()`,
-não `ehDaCasa()`.
+Duas telas, uma para cada jeito de procurar, as duas só para OWNER — nem o
+sócio entra (`ehDono()`, não `ehDaCasa()`):
+
+| Tela | Para quem | Como lista |
+|---|---|---|
+| **/operacao/credenciais** | quem sabe o nome da variável | todas as chaves do parque, em ordem alfabética |
+| **/empresa/credenciais** | quem quer trocar o token de um serviço | por assunto, com rótulo em português e o que cada chave decide |
+
+A segunda nasceu em 01/10/2026 e é alcançada **pelo ícone da casa no topo** →
+Empresa → Credenciais. O caminho é esse porque o pedido era esse: trocar o
+token do Mercado Pago sem abrir arquivo de ambiente e sem precisar saber que
+ele se chama `MP_ACCESS_TOKEN`.
+
+### Por assunto: o catálogo
+
+`src/lib/credenciais-financeiro.ts` guarda, por serviço, quais chaves existem,
+o que cada uma decide, onde achar o valor no painel do provedor e se é
+obrigatória. É o que permite a tela pedir "Access Token de produção" em vez de
+dois campos em branco chamados "chave" e "valor" — e é também a trava: a rota
+`/api/empresa/credenciais` **recusa chave que não esteja no catálogo** do
+serviço. Sem isso, um erro de digitação cria credencial órfã, guardada com
+capricho e lida por ninguém; foi assim que o parque chegou a ter
+`MERCADO_PAGO_ACCES_TOKEN_PROD`, com o typo de origem, ao lado da chave certa.
+
+O catálogo não inventa campo. **Wise e Nubank aparecem na lista com ficha e
+aviso, e nenhuma chave**: a Wise entra por importação de CSV e o Nubank não tem
+integração. Desenhar campos para elas seria uma tela que não liga em lugar
+nenhum.
+
+Campo em branco **mantém** o que já está guardado. Os segredos chegam à tela
+mascarados (`97ad…ead7`), nunca em claro, e um formulário reenviado sem
+redigitá-los não pode esvaziar o cofre.
 
 ## As duas camadas
 
