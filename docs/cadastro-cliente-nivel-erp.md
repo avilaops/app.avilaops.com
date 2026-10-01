@@ -72,7 +72,7 @@ aberto de outras sessões, sem nada em troca.
 |---|---|
 | `organizations.status` | `ACTIVE`, `ONBOARDING`, `PAUSED`, `ARCHIVED` |
 | `organization_addresses.type` | `MAIN`, `BILLING`, `DELIVERY`, `FISCAL` |
-| `organization_addresses.source` | `MANUAL`, `RECEITA_FEDERAL`, `SEFAZ`, `CEP`, `IMPORTACAO` |
+| `organization_addresses.source` | `MANUAL`, `FICHA_PDF`, `RECEITA_FEDERAL`, `SEFAZ`, `CEP`, `IMPORTACAO` |
 | `organization_contacts.type` | `OWNER`, `BILLING`, `FINANCE`, `TECH`, `MARKETING`, `FISCAL`, `OTHER` |
 
 Valor fora da lista encontrado na aplicação da migração é **registrado em

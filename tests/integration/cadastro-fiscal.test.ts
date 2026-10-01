@@ -96,6 +96,28 @@ describe("domínios fechados", () => {
     ).rejects.toThrow();
   });
 
+  // Este teste existe porque o domínio de `source` nasceu sem `FICHA_PDF`, que
+  // o cadastro pela ficha em PDF grava. As duas mudanças passaram no CI
+  // separadas e só quebraram juntas na `main`: um teste que lista as origens
+  // aceitas é o que faz a próxima origem nova aparecer aqui, e não em produção.
+  it("aceita as origens de endereço que a aplicação grava e recusa origem inventada", async () => {
+    const cliente = await criarCliente({ cpfCnpj: null });
+
+    for (const [i, source] of ["MANUAL", "FICHA_PDF", "RECEITA_FEDERAL"].entries()) {
+      await expect(
+        prisma.organizationAddress.create({
+          data: { organizationId: cliente.id, city: `Cidade ${i}`, source },
+        }),
+      ).resolves.toBeTruthy();
+    }
+
+    await expect(
+      prisma.organizationAddress.create({
+        data: { organizationId: cliente.id, city: "Lugar", source: "ACHISMO" },
+      }),
+    ).rejects.toThrow();
+  });
+
   it("recusa tipo de contato fora do domínio", async () => {
     const cliente = await criarCliente({ cpfCnpj: null });
     await expect(
