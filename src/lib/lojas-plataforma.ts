@@ -16,6 +16,20 @@ const BASE = (process.env.LOJAS_API_URL ?? "https://lojas.avilaops.com").replace
 
 export class PlataformaIndisponivel extends Error {}
 
+/**
+ * A plataforma respondeu, mas com erro. O status vem junto porque 404 e 500
+ * pedem reações diferentes: rota que ainda não existe naquele deploy é versão,
+ * não avaria, e a tela deve omitir o bloco em vez de acusar falha.
+ */
+export class RespostaDaPlataforma extends Error {
+  constructor(
+    mensagem: string,
+    readonly status: number,
+  ) {
+    super(mensagem);
+  }
+}
+
 function token(): string {
   const t = process.env.LOJAS_ADMIN_TOKEN ?? "";
   if (!t) throw new PlataformaIndisponivel("LOJAS_ADMIN_TOKEN não configurado neste ambiente.");
@@ -42,7 +56,7 @@ async function chamar<T>(caminho: string, init: { method?: string; body?: unknow
       dados && typeof dados === "object" && "erro" in dados
         ? String((dados as { erro?: unknown }).erro)
         : `lojas.avilaops.com respondeu ${r.status}`;
-    throw new Error(msg);
+    throw new RespostaDaPlataforma(msg, r.status);
   }
   return dados as T;
 }
@@ -140,3 +154,45 @@ export const rodarVarreduraDeCobranca = () =>
   chamar<{ suspensas: string[]; sincronizadas: number; faturasNovas: number }>("/api/admin/cobranca/verificar", {
     method: "POST",
   });
+
+// --- Rotinas ---------------------------------------------------------------
+
+/**
+ * Uma rotina agendada da plataforma, como ela se descreve.
+ *
+ * A plataforma se agenda sozinha desde 19/09/2026 (`docs/ROTINAS.md` lá). Quem
+ * calcula atraso e saúde é ela, não esta tela: número que o Ávila OS recalcula
+ * por fora é número que começa a discordar da fonte no primeiro fuso horário.
+ */
+export interface RotinaDaPlataforma {
+  nome: string;
+  /**
+   * Duas ou três palavras. Opcional porque plataforma anterior a 19/09/2026
+   * não manda o campo — e aí a tela cai na descrição, cortada, em vez de
+   * mostrar linha sem título.
+   */
+  titulo?: string;
+  descricao: string;
+  /** Já em português: "a cada 5 min", "toda segunda às 07:00". */
+  cadencia: string;
+  proximaEm: string;
+  ultimaEm: string | null;
+  ultimaDuracaoMs: number | null;
+  ultimoResumo: unknown;
+  ultimoErro: string | null;
+  falhasSeguidas: number;
+  execucoes: number;
+  executandoDesde: string | null;
+  emAtraso: boolean;
+  falhando: boolean;
+  saudavel: boolean;
+}
+
+export interface SaudeDasRotinas {
+  agendador: { ligado: boolean; passadaSegundos: number };
+  saudavel: boolean;
+  rotinas: RotinaDaPlataforma[];
+  verificadoEm: string;
+}
+
+export const lerRotinas = () => chamar<SaudeDasRotinas>("/api/admin/rotinas");
