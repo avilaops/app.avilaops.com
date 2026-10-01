@@ -11272,3 +11272,13 @@ a[data-slot="button"][data-variant="default"] { @apply text-primary-foreground; 
   [data-slot="button"] { min-height: 44px; }
 }
 .metric > strong, .score-value strong, .score-value span, .score-delta, .score-history, .chart-label, .chart-legend strong, .lg-due time { font-family: var(--fonte); font-variant-numeric: tabular-nums; }
+
+/* Selo "Dados mínimos" e o botão de importar a ficha, empilhados à direita do
+   título do cadastro rápido. */
+.form-title-acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
