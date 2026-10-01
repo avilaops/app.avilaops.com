@@ -10,6 +10,8 @@ import OrganizationForm from "@/components/OrganizationForm";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { buscarClientes, lerFiltro, resumoDosClientes } from "@/lib/clientes-busca";
 import { nomeProprio } from "@/lib/format";
+import { prisma } from "@/lib/prisma";
+import { listaDeSegmentos } from "@/lib/segmentos";
 
 export default async function ClientsPage({
   searchParams,
@@ -19,7 +21,16 @@ export default async function ClientsPage({
   const admin = await getAdmin();
   if (!admin) redirect("/login");
   const filtro = lerFiltro(await searchParams);
-  const [resultado, resumo] = await Promise.all([buscarClientes(filtro), resumoDosClientes()]);
+  const [resultado, resumo, segmentosEmUso] = await Promise.all([
+    buscarClientes(filtro),
+    resumoDosClientes(),
+    // Segmento criado no cadastro de um cliente aparece para os próximos.
+    prisma.organization.findMany({
+      where: { segment: { not: null } },
+      distinct: ["segment"],
+      select: { segment: true },
+    }),
+  ]);
   const podeExcluir = ehDono(admin.role);
   const fim = resultado.inicio + resultado.itens.length - 1;
 
@@ -39,7 +50,7 @@ export default async function ClientsPage({
         titulo="Clientes"
         descricao="Organizações, marcas e o que está aberto em cada uma."
         {...contextoDaSecao("clients")}
-        acoes={<OrganizationForm />}
+        acoes={<OrganizationForm segmentos={listaDeSegmentos(segmentosEmUso.map((o) => o.segment))} />}
       />
 
       {/* Contados no banco: somar na página exigia carregar a carteira inteira

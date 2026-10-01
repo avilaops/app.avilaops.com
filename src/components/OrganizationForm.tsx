@@ -4,6 +4,11 @@ import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { classifyCpfCnpj, onlyDigits } from "@/lib/cpf-cnpj";
 import type { CnpjLookupData } from "@/lib/cnpj-lookup";
+import FichaDaReceita from "@/components/FichaDaReceita";
+import { SEGMENTOS_PADRAO, segmentoPeloCnae } from "@/lib/segmentos";
+
+/** Valor do select que abre o campo de segmento novo. Não é um segmento. */
+const NOVO_SEGMENTO = "__novo__";
 
 function formatCpfCnpj(value: string): string {
   const digits = onlyDigits(value).slice(0, 14);
@@ -20,18 +25,12 @@ function formatCpfCnpj(value: string): string {
     .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
 
-const segments = [
-  "Serviços profissionais",
-  "Comércio e e-commerce",
-  "Indústria e manutenção",
-  "Logística e transporte",
-  "Alimentação e bem-estar",
-  "Tecnologia",
-  "Construção e obras",
-  "Outro",
-];
-
-export default function OrganizationForm() {
+export default function OrganizationForm({
+  segmentos = [...SEGMENTOS_PADRAO],
+}: {
+  /** Padrão + os que já estão em uso (`listaDeSegmentos`). */
+  segmentos?: string[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,6 +45,8 @@ export default function OrganizationForm() {
   const [wantsCustomDomain, setWantsCustomDomain] = useState(true);
   const [checkingDomain, setCheckingDomain] = useState(false);
   const [domainCheck, setDomainCheck] = useState("");
+  const [segmento, setSegmento] = useState("");
+  const [novoSegmento, setNovoSegmento] = useState("");
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const legalNameInputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +65,9 @@ export default function OrganizationForm() {
       }
       const data = result.data ?? null;
       setCnpjData(data);
+      // Palpite pelo CNAE principal, só se ninguém escolheu ainda.
+      const palpite = segmentoPeloCnae(data?.cnae_fiscal as string | number | undefined);
+      if (palpite) setSegmento((atual) => atual || palpite);
       if (data) {
         if (nameInputRef.current && !nameInputRef.current.value) {
           nameInputRef.current.value = data.nome_fantasia || data.razao_social || "";
@@ -95,6 +99,12 @@ export default function OrganizationForm() {
     setError("");
     const form = new FormData(formEl);
 
+    if (segmento === NOVO_SEGMENTO && !novoSegmento.trim()) {
+      setError("Digite o nome do segmento novo.");
+      setLoading(false);
+      return;
+    }
+
     if (cpfCnpjInput && !classified?.valid) {
       setError("CPF ou CNPJ inválido.");
       setLoading(false);
@@ -108,7 +118,7 @@ export default function OrganizationForm() {
         body: JSON.stringify({
           name: form.get("name"),
           legalName: form.get("legalName"),
-          segment: form.get("segment"),
+          segment: segmento === NOVO_SEGMENTO ? novoSegmento.trim() : segmento,
           hasCurrentSite,
           siteUrl: form.get("siteUrl"),
           currentSiteDomain: form.get("currentSiteDomain"),
@@ -137,6 +147,8 @@ export default function OrganizationForm() {
       formEl.isConnected && formEl.reset();
       setCpfCnpjInput("");
       setCnpjData(null);
+      setSegmento("");
+      setNovoSegmento("");
       setHasCurrentSite("");
       setWantsCustomDomain(true);
       router.refresh();
@@ -255,15 +267,32 @@ export default function OrganizationForm() {
             </label>
             <label>
               Segmento
-              <select name="segment" defaultValue="">
+              <select
+                name="segment"
+                value={segmento}
+                onChange={(event) => setSegmento(event.target.value)}
+              >
                 <option value="">Ainda não classificado</option>
-                {segments.map((segment) => (
+                {segmentos.map((segment) => (
                   <option value={segment} key={segment}>
                     {segment}
                   </option>
                 ))}
+                <option value={NOVO_SEGMENTO}>+ Cadastrar novo segmento…</option>
               </select>
             </label>
+            {segmento === NOVO_SEGMENTO ? (
+              <label>
+                Novo segmento
+                <input
+                  autoFocus
+                  maxLength={80}
+                  placeholder="Ex.: Academias e fitness"
+                  value={novoSegmento}
+                  onChange={(event) => setNovoSegmento(event.target.value)}
+                />
+              </label>
+            ) : null}
             <label>
               Site atual
               <select
@@ -417,17 +446,7 @@ export default function OrganizationForm() {
             <p className="inline-feedback">Consultando CNPJ na Receita Federal…</p>
           ) : null}
           {lookupError ? <p className="inline-feedback feedback-error">{lookupError}</p> : null}
-          {cnpjData ? (
-            <p className="inline-feedback feedback-success">
-              {cnpjData.razao_social ?? "Empresa encontrada"}
-              {cnpjData.descricao_situacao_cadastral
-                ? ` · Situação: ${cnpjData.descricao_situacao_cadastral}`
-                : ""}
-              {cnpjData.municipio && cnpjData.uf
-                ? ` · ${cnpjData.municipio}/${cnpjData.uf}`
-                : ""}
-            </p>
-          ) : null}
+          {cnpjData ? <FichaDaReceita dados={cnpjData} /> : null}
 
           <div className="organization-form-actions">
             <p>

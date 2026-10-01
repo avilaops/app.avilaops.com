@@ -38,6 +38,13 @@ const nextConfig: NextConfig = {
         destination: "/hub-social/:canal/:path*",
         permanent: true,
       },
+      {
+        // A lista das financeiras virou a aba Credenciais de /empresa em
+        // 01/10/2026. As fichas de cada uma continuam no mesmo endereço.
+        source: "/empresa/credenciais/financeiro",
+        destination: "/empresa/credenciais",
+        permanent: true,
+      },
     ];
   },
 };

@@ -106,7 +106,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    var(--font-inter), Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.875rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -5435,10 +5435,17 @@ tbody tr:last-child td {
     font-size: 1.125rem;
   }
 
+  /* A barra de abas virou uma CÁPSULA FLUTUANTE: ela tem padding próprio em
+     volta (`.tab-bar` + `.tab-capsula`), então ocupa bem mais que `--cel-nav`.
+     A folga do conteúdo ficou com a conta antiga e o último item de qualquer
+     lista terminava atrás dela — medido em /empresa/credenciais no iPhone:
+     a linha "Cofre completo" ia 82px além do topo da barra.
+     Os 28px são o padding da cápsula (`--e2` + `--e1` em cima e embaixo) mais
+     a sombra; `--e3` continua sendo o respiro entre o conteúdo e a barra. */
   .main-canvas {
     width: 100%;
     padding: 14px var(--cel-pad-pagina)
-      calc(var(--cel-nav) + env(safe-area-inset-bottom) + var(--e3));
+      calc(var(--cel-nav) + 28px + env(safe-area-inset-bottom) + var(--e3));
   }
 
   /* Título grande, como a navigation bar do iOS antes de rolar. */
@@ -7634,7 +7641,7 @@ tbody tr:last-child td {
   --sombra-1: 0 1px 2px rgba(15, 23, 42, 0.04);
   --sombra-2: 0 8px 24px rgba(15, 23, 42, 0.08);
 
-  --fonte: var(--font-manrope), Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fonte: var(--font-inter), Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 /* ---------- Densidade do celular (18/09/2026) ----------
@@ -7714,6 +7721,18 @@ body {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/*
+   O título e o logotipo opcional andam juntos. `align-items: center` aqui, e
+   não `baseline` como no cabeçalho inteiro: alinhar um quadrado pela linha de
+   base do texto o joga para cima.
+*/
+.grupo-titulo {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--e2);
 }
 
 .grupo-superficie {
@@ -7943,6 +7962,27 @@ body {
 .icone-tile.tom-neutro {
   background: var(--superficie-suave);
   color: var(--texto-secundario);
+}
+
+/* ---------- Logotipo de terceiro ---------- */
+/*
+   O arquivo já traz a cor oficial da marca, então aqui só se resolve o
+   encaixe. `flex: 0 0 auto` porque o logotipo entra em linha ao lado de texto
+   e não pode encolher: uma marca amassada é pior do que marca nenhuma.
+*/
+.logo-social {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+/*
+   Apple, GitHub, X e Threads são pretas por definição e sumiriam no fundo
+   escuro. Inverter só a luminância preserva o desenho; as marcas coloridas
+   ficam de fora porque inverter Instagram ou Google destruiria a cor.
+*/
+:root[data-theme="dark"] .logo-social--mono {
+  filter: invert(1);
 }
 
 /* ---------- Cabeçalho de tela ---------- */
@@ -10024,7 +10064,7 @@ main [data-slot="select-trigger"]:focus-visible {
    Número alinhado e o piso de 12px (19/09/2026)
    -------------------------------------------------------------------------
    Duas coisas que a varredura de tipografia achou.
-   1. Valor em dinheiro empilhado numa coluna dançava, porque a Manrope tem
+   1. Valor em dinheiro empilhado numa coluna dançava, porque a Manrope (a fonte da época) tinha
       largura variável por algarismo: R$ 1.111,00 e R$ 8.888,00 não terminam
       no mesmo lugar. `tabular-nums` resolve sem trocar a fonte.
    2. Sobraram dois textos abaixo de 12px, que é onde o texto deixa de ser
@@ -10774,6 +10814,444 @@ main [data-slot="select-trigger"]:focus-visible {
     text-overflow: clip;
   }
 }
+
+/*
+ * Identidade da casa (/empresa) e as fichas de credencial.
+ *
+ * A prévia do ícone tem o mesmo tamanho do cabeçalho de propósito: quem troca
+ * o logo quer ver como ele fica no topo, e um retângulo grande mentiria sobre
+ * o resultado.
+ */
+.brand-icone {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.identidade-casa {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.identidade-previa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.identidade-previa > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.identidade-previa strong {
+  font-size: 0.9375rem;
+}
+
+.identidade-previa small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.identidade-icone {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+/*
+ * O seletor de arquivo do navegador não aceita estilo e varia em cada sistema.
+ * Ele fica fora da tela e quem abre é o botão ao lado, que é da casa.
+ */
+.campo-arquivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.identidade-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.identidade-dica {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.identidade-nome,
+.credencial-campo {
+  display: grid;
+  gap: 6px;
+}
+
+.identidade-nome > span,
+.credencial-campo > span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.identidade-nome input,
+.credencial-campo input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9375rem;
+  /* 44px de alvo no celular: abaixo disso o dedo erra o campo. */
+  min-height: 44px;
+}
+
+.identidade-nome input:focus-visible,
+.credencial-campo input:focus-visible {
+  border-color: var(--accent, #0054fe);
+  outline: none;
+}
+
+.credencial-campo small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.credencial-obrigatoria {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.credencial-estado code {
+  font-size: 0.6875rem;
+}
+
+.credenciais-form {
+  display: grid;
+  gap: 18px;
+  padding: 16px;
+}
+
+.credenciais-acoes {
+  display: grid;
+  gap: 8px;
+}
+
+.credenciais-acoes small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/*
+ * Os dois recados de formulário. Já eram usados em telas antigas sem nunca
+ * terem sido definidos — apareciam como texto solto, sem cor nem destaque.
+ */
+.aviso-erro,
+.aviso-ok {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.aviso-erro {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.aviso-ok {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+}
+
+/*
+ * Aviso da ficha de credencial: texto inteiro, em quantas linhas precisar.
+ * A `LinhaInfo` corta em uma linha, e o que se avisa aqui é em qual conta o
+ * dinheiro entra — cortar muda o sentido.
+ */
+.aviso-financeira {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.aviso-financeira strong {
+  font-size: 0.8125rem;
+}
+
+.aviso-financeira p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+/*
+ * Abas de /empresa e o formulário de dados fiscais (01/10/2026).
+ */
+.abas-empresa {
+  width: auto;
+  min-width: 0;
+  display: inline-flex;
+}
+
+.dados-casa {
+  display: grid;
+  gap: 18px;
+  padding: 16px;
+}
+
+.dados-casa-faltando {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(217, 119, 6, 0.1);
+  color: var(--text);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.dados-casa-bloco {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.dados-casa-bloco legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dados-casa-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.dados-casa-grade {
+  align-items: start;
+}
+
+.dados-casa-grade .credencial-campo {
+  align-content: start;
+}
+
+.dados-casa-largo {
+  grid-column: 1 / -1;
+}
+
+/* CNPJ com o botão da Receita ao lado: buscar é o primeiro gesto do cadastro. */
+.dados-casa-cnpj {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.dados-casa-cnpj .credencial-campo {
+  flex: 0 1 320px;
+  min-width: 0;
+}
+
+.dados-casa-cnpj .secondary-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.dados-casa .credenciais-acoes .primary-button {
+  justify-self: start;
+}
+
+.credencial-campo select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.certificado-ficha {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.certificado-ficha dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.certificado-ficha dd {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.certificado-status {
+  font-weight: 600;
+}
+
+.certificado-ativo { color: #16a34a; }
+.certificado-expirando { color: #d97706; }
+.certificado-expirado { color: #dc2626; }
+
+.campo-livre-novo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.campo-livre-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campo-livre-linha input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .dados-casa-grade,
+  .certificado-ficha,
+  .campo-livre-novo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .campo-livre-linha {
+    flex-wrap: wrap;
+  }
+}
+
+/*
+ * Dois "Salvar" na ficha do cliente (01/10/2026): a barra de ação foi feita
+ * para o celular, onde o botão do fim da página fica atrás da barra de abas.
+ * No desktop ela não era fixa e aparecia logo abaixo do "Salvar ficha".
+ */
+@media (min-width: 821px) {
+  .barra-acao {
+    display: none;
+  }
+}
+
+/* O que a Receita devolveu sobre o CNPJ, inteiro (FichaDaReceita). */
+.ficha-receita {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--superficie-suave, transparent);
+}
+
+.ficha-receita-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.ficha-receita-dados dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.ficha-receita-dados dd {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.ficha-receita-bloco {
+  display: grid;
+  gap: 6px;
+}
+
+.ficha-receita-bloco strong {
+  font-size: 0.8125rem;
+}
+
+.ficha-receita-bloco ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.ficha-receita-bloco code {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.ficha-receita-bloco em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.ficha-receita-fonte {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.receita-na-ficha {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.receita-na-ficha-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.receita-na-ficha-topo > div {
+  display: grid;
+  gap: 2px;
+}
+
+.receita-na-ficha-topo small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.organization-form .ficha-receita {
+  margin-top: 12px;
+}
+
 /* Identidade aprovada: imagens da coleção v2 e tokens já existentes. */
 .marca-oficial { display: block; flex: 0 0 36px; object-fit: contain; }
 .icone-navegacao { display: block; object-fit: contain; flex-shrink: 0; }
