@@ -199,38 +199,117 @@ Cada fase é entregável sozinha.
 
 Sem isto, qualquer coisa construída depois é construída no lugar errado.
 
-1. Gerar `APP_USR-` de produção **na conta do CNPJ 67.954.417** e uma aplicação
-   própria para o `app.avilaops.com` no painel de desenvolvedor dessa conta.
-2. Decidir o destino da conta `nicolas@avila.inc`: as assinaturas em andamento
-   das lojas continuam nela até fecharem, ou migram? (Assinatura recorrente não
-   se transfere entre contas: o cartão salvo é do titular. Na prática, migrar
-   significa pedir o cartão de novo a cada lojista.)
-3. Confirmar que a nova aplicação tem **segredo de assinatura de webhook**
-   gerado — é o insumo do P0-3.
+**Decidido pelo Nicolas em 19/09/2026: migração progressiva, não corte bruto.**
+
+- **Cobrança nova passa para a conta do CNPJ 67.954.417.** Todo cliente novo
+  entra exclusivamente por ela.
+- **PIX, boleto e link avulso antigos ficam onde estão.** O histórico não se
+  migra; só deixa de receber cobrança nova.
+- **Assinaturas e cartões salvos na conta PF não se quebram.** Os contratos
+  atuais terminam onde estão, ou migram de forma controlada, pedindo nova
+  autorização de cartão pela conta PJ. Cartão salvo não se transfere entre
+  contas — é o titular que autoriza.
+
+O que gerar no painel de desenvolvedor **da conta do CNPJ**:
+
+1. `APP_USR-` de produção → `MP_ACCESS_TOKEN`.
+2. Aplicação própria para o `app.avilaops.com` → `MP_CLIENT_ID` (a aplicação de
+   hoje é da conta PF, e é dela que sai o diagnóstico de webhook da tela).
+3. **Segredo de assinatura de webhook** dessa aplicação → insumo do P0-3.
+4. Public Key, se o cartão da Fase 3 for entrar → `MP_PUBLIC_KEY`.
+
+#### As três consequências da troca de token (verificadas em código)
+
+Nenhuma delas é motivo para não trocar. Todas são motivo para trocar na ordem
+certa.
+
+**1. O extrato passa a contar cada pagamento duas vezes.** A unicidade de
+`bank_transactions` é `(accountId, externalId)` (`sync-mercadopago.ts:184`) e o
+id da conta do token é fixo em `"mercadopago-production"`. Com o token novo, o
+app grava os pagamentos da conta PJ ali, enquanto o workflow do n8n
+(`NV72KXfoSZceQtlP`) continua gravando **os mesmos pagamentos** em
+`mercadopago-cnpj`: dois lançamentos por venda, "Entradas · 30 dias" dobrada e
+duas conciliações pendentes para cada uma. **Desligar esse workflow faz parte da
+troca**, não é limpeza posterior. A rota `/importar` já recusa gravar como
+`mercadopago-production` (`route.ts:49`), então não há como resolver mandando o
+n8n gravar na mesma conta.
+
+**2. Cobrança aberta na conta PF deixa de fechar sozinha.** O webhook confirma
+na fonte com o token do app. Um PIX emitido na PF e notificado depois da troca é
+reconsultado com o token PJ, que não conhece aquele pagamento: 500, reenvio
+eterno do Mercado Pago, fatura aberta com o dinheiro na conta. A janela é
+conhecida — PIX expira em 24h, boleto em 3 dias. Então: **parar de emitir boleto
+uns 3 dias antes da troca**, ou dar baixa à mão nas que atravessarem.
+
+**3. A tela `/financeiro/mercadopago` esvazia.** Ela lista assinaturas pelo
+token, e as assinaturas das lojas ficam na PF por decisão desta fase. Depois da
+troca, o painel marca "o Mercado Pago não conhece esta assinatura" para **todas**
+as lojas ativas: divergência vermelha em cima de um estado saudável. Enquanto as
+duas contas coexistirem, o painel precisa ler as duas ou dizer em tela que só vê
+a nova — item que entrou na Fase 1 por causa desta decisão.
 
 **Pronto quando**: o token novo está no cofre (`PlatformCredential`, categoria
-`mercadopago`) e a decisão sobre as assinaturas antigas está escrita neste
-documento.
+`mercadopago`), o workflow do n8n da conta CNPJ está desligado, e não há cobrança
+da conta PF em aberto (ou a baixa manual dela está combinada).
 
 ### Fase 1 — o dinheiro cai na conta certa e a baixa chega
 
-- `notification_url` em toda cobrança nascida aqui (`createPixCharge`,
-  `createBoletoCharge`, `createCardCharge`, `criarLinkPagamento`), montada de
-  `APP_URL` + `/api/webhooks/mercadopago` + o token, se houver. Resolve P0-2 sem
-  disputar a URL global com as lojas.
-- Verificação de `x-signature` no webhook, com `MP_WEBHOOK_SECRET`: ausente,
-  segue no comportamento de hoje (compatível); presente, **recusa 401** o que
-  não bate. Resolve P0-3.
-- `MP_ACCESS_TOKEN` do CNPJ em produção, e `MP_*` documentadas no
-  `.env.example`. Resolve P0-4.
-- Remover o fallback de leitura de `docs/.env.production`.
-- Teste do webhook, espelhando `webhook-efi.test.ts`: assinatura válida,
-  inválida, ausente, evento repetido, id desconhecido, tópico que não é
-  pagamento. Sem isto, nada acima é verificável. Resolve parte do P2-11.
+**Código escrito em 01/10/2026.** Nada aqui depende de qual conta é a conta: a
+troca de token é configuração de servidor, e por isso este trabalho pôde sair na
+frente dela.
+
+- ✅ **`notification_url` em toda cobrança nascida aqui** — PIX, boleto, cartão
+  (`mercadopago-cobranca.ts`) e link avulso (`criarLinkPagamento`), montada em
+  `urlDeNotificacao()` a partir de `APP_URL` mais o token, quando existe.
+  Resolve P0-2 sem disputar a URL global com as lojas: cada cobrança carrega o
+  próprio endereço de volta.
+- ✅ **`x-signature` verificada**, em `mercadopago-assinatura.ts` — função pura,
+  10 casos de teste, incluindo o manifesto sem `data.id` (que é onde a conta
+  erra calada) e a assinatura legítima de OUTRO pagamento. Resolve P0-3.
+- ✅ **Falha fechada, sem perder o aviso.** Sem `MP_WEBHOOK_SECRET` o webhook
+  não processa nada — e responde **503, não 401**. A culpa é nossa, o Mercado
+  Pago reenvia o que não recebeu 2xx, e no instante em que o segredo entrar no
+  servidor os eventos retidos chegam e as faturas fecham sozinhas. Um 401 diria
+  "não insista" para um aviso legítimo.
+- ✅ **`MP_*` documentadas no `.env.example`**, com o que cada uma decide — a do
+  token diz em qual conta o dinheiro entra. Resolve P0-4.
+- ✅ **Fallback de `docs/.env.production` removido.** Era conveniente e foi
+  problema três vezes; a pior delas é a que importa agora: fazia o app cobrar
+  com um token que ninguém sabia qual era.
+- ✅ **Teste do webhook** (`tests/integration/webhook-mercadopago.test.ts`):
+  assinatura válida, ausente, de outro segredo, de outro pagamento, segredo
+  ausente, token da query, recusa da API, evento repetido, fora de ordem, id
+  desconhecido, id não numérico e tópico que não é pagamento. O gateway ativo
+  deixa de ser o único sem teste. Resolve parte do P2-11.
+- ✅ **O painel diz de qual conta está falando.** "Assinatura sumiu do Mercado
+  Pago" (erro) virou "Assinatura não está nesta conta" (atenção), nomeando a
+  conta do token: com a migração progressiva, não achar o id aqui é o esperado,
+  e um painel que pinta de vermelho o estado saudável de toda loja ativa deixa
+  de ser lido.
+- ✅ **A guarda "cobrança paga não volta atrás" passa a valer para o Mercado
+  Pago** — defeito que não estava na auditoria e que o teste novo encontrou. O
+  webhook do Efí chama a baixa com `"PAID"` já traduzido; o do Mercado Pago
+  chamava com o `"approved"` cru. A cobrança paga por lá ficava gravada como
+  `approved`, e a guarda compara com `"PAID"`: um `pending` atrasado, entregue
+  depois do `approved`, **reabria a cobrança com o dinheiro na conta** — exatamente
+  o que o comentário do código diz que não pode acontecer. Agora "já estava paga"
+  se olha pelo `paidAt`, que os dois gateways gravam igual, e "paga" se grava com
+  um nome só.
+- ✅ **Cobrança de entregável deixa de nascer com o gateway errado** — as duas
+  criações passam `provider: "MERCADO_PAGO"` explícito. O default do schema e as
+  linhas gravadas desde 31/08 são migração: ficam na Fase 2. Resolve a metade de
+  frente do P1-6.
+
+Ordem interna que não se inverte: **a variável entra no servidor antes do código
+que a exige.** Subir o "recusa sem segredo" com o segredo ainda ausente para a
+baixa de todas as faturas de uma vez — por 503, então ela volta sozinha, mas
+para.
 
 **Pronto quando**: uma cobrança de teste emitida em produção fecha a fatura
 sozinha, e o painel do dono mostra o webhook em verde — conferido no navegador,
-não só na API.
+não só na API. **Isto continua pendente**, e depende da Fase 0: sem a credencial
+da conta do CNPJ e sem `MP_WEBHOOK_SECRET` no servidor, não há como provar em
+produção. O código está pronto para o dia em que houver.
 
 ### Fase 2 — a mensalidade se cobra sozinha
 
@@ -242,9 +321,21 @@ não só na API.
 - Régua: lembrete antes de vencer, aviso no vencimento, aviso de atraso. Cada
   passo gera evento de auditoria — conciliação e exportação já geram, e cobrança
   automática é a que mais precisa de rastro.
-- Corrigir o `provider` dos entregáveis (default do schema e as duas criações),
-  com migração aditiva, e decidir se as linhas antigas são corrigidas por script.
-  Resolve P1-6.
+- Corrigir o `provider` dos entregáveis **no banco**: o default `EFI` do schema
+  (migração aditiva) e as linhas gravadas entre 31/08 e 01/10. As duas criações
+  já passam `MERCADO_PAGO` explícito desde a Fase 1. Fecha o P1-6.
+- **P1-6b, achado em 01/10/2026 ao corrigir a baixa.** A varredura de pendentes
+  do webhook do Efí (`webhooks/efi/route.ts:121`) busca
+  `method in (BOLETO, CARD)` e `status notIn (PAID, CANCELLED)` **sem filtrar
+  `provider`**. Enquanto houver boleto ou cartão do Mercado Pago em aberto, cada
+  chamada do webhook do Efí manda o id do Mercado Pago para a API do Efí, falha
+  e loga erro — para sempre. Hoje é ruído; o risco real é o dia em que um id
+  colidir. Uma linha (`provider: "EFI"`) resolve, e ficou fora da Fase 1 por ser
+  no webhook do outro gateway, que aquele PR não tocava.
+- Decidir se as cobranças antigas do Mercado Pago gravadas com status
+  `approved` são normalizadas para `PAID` por script. A regra foi corrigida na
+  Fase 1, mas o que já está no banco continua como estava — e é o que a
+  varredura acima lê.
 
 **Pronto quando**: um cliente contratado pelo autoatendimento recebe a fatura do
 mês seguinte sem ninguém abrir o painel.

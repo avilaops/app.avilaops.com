@@ -70,7 +70,11 @@ function conferirWebhook(w: ConfiguracaoWebhook | null): Divergencia | null {
     return {
       gravidade: "erro",
       titulo: "Webhook apontando para o lugar errado",
-      detalhe: `Está em ${w.url ?? "(vazio)"}. Deveria ser ${WEBHOOK_ESPERADO}. Enquanto isso, as faturas só aparecem na varredura do dia seguinte.`,
+      detalhe:
+        `Está em ${w.url ?? "(vazio)"}. Deveria ser ${WEBHOOK_ESPERADO}, que é o endereço das ` +
+        `ASSINATURAS das lojas. Enquanto isso, a assinatura só aparece na varredura do dia seguinte. ` +
+        `As cobranças deste app não dependem desta URL desde 19/09/2026: cada uma manda a própria ` +
+        `notification_url no corpo.`,
     };
   }
   const assinaturaOuvida = w.topicos.some((t) => t.includes("subscription") || t.includes("preapproval") || t === "plan");
@@ -84,7 +88,26 @@ function conferirWebhook(w: ConfiguracaoWebhook | null): Divergencia | null {
   return null;
 }
 
-function conferirLinha(mp: Assinatura | null, loja: LojaDaPlataforma | null): Divergencia[] {
+/**
+ * A conta do token, em uma frase, para entrar na mensagem de divergência.
+ *
+ * Existe por causa da migração progressiva decidida na Fase 0: a cobrança nova
+ * passa para a conta do CNPJ e as assinaturas antigas FICAM na conta anterior,
+ * porque cartão salvo não se transfere entre contas. Nessa convivência, uma
+ * assinatura que a plataforma conhece e esta conta não é o caso NORMAL, não um
+ * defeito — e um painel que pinta de vermelho o estado saudável de toda loja
+ * ativa deixa de ser lido, que é o contrário do motivo dele existir.
+ */
+function nomeDaConta(conta: ContaMercadoPago | null): string {
+  if (!conta) return "a conta deste token";
+  return `${conta.apelido} (${conta.email})`;
+}
+
+function conferirLinha(
+  mp: Assinatura | null,
+  loja: LojaDaPlataforma | null,
+  conta: ContaMercadoPago | null,
+): Divergencia[] {
   const fora: Divergencia[] = [];
 
   if (mp && !loja) {
@@ -99,9 +122,16 @@ function conferirLinha(mp: Assinatura | null, loja: LojaDaPlataforma | null): Di
   if (loja && !mp) {
     if (loja.assinaturaId) {
       fora.push({
-        gravidade: "erro",
-        titulo: "Assinatura sumiu do Mercado Pago",
-        detalhe: `A loja guarda o id ${loja.assinaturaId}, mas ele não aparece na conta. Ou foi apagada, ou está em outra conta.`,
+        // "atenção" e não "erro": esta tela lê UMA conta — a do token. Com a
+        // cobrança nova no CNPJ e as assinaturas antigas na conta anterior,
+        // não achar o id aqui é o esperado durante a migração. Erro seria
+        // afirmar que sumiu.
+        gravidade: "atencao",
+        titulo: "Assinatura não está nesta conta",
+        detalhe:
+          `A loja guarda o id ${loja.assinaturaId}, que não aparece em ${nomeDaConta(conta)}. ` +
+          `Durante a migração para a conta do CNPJ isso é esperado: as assinaturas antigas ficam ` +
+          `onde o cartão foi salvo. Fora disso, foi apagada.`,
       });
     }
     return fora;
@@ -188,14 +218,14 @@ export async function montarPainel(): Promise<PainelMercadoPago> {
   const linhas: LinhaAssinatura[] = assinaturas.assinaturas.map((mp) => {
     const loja = (mp.loja && porSlug.get(mp.loja)) || null;
     if (loja) usadas.add(loja.slug);
-    return { mp, loja, divergencias: conferirLinha(mp, loja) };
+    return { mp, loja, divergencias: conferirLinha(mp, loja, conta) };
   });
 
   // Lojas que a plataforma conhece e o Mercado Pago não — inclusive as que
   // ainda estão no período de teste, que é informação de cobrança também.
   for (const loja of lojas) {
     if (usadas.has(loja.slug)) continue;
-    linhas.push({ mp: null, loja, divergencias: conferirLinha(null, loja) });
+    linhas.push({ mp: null, loja, divergencias: conferirLinha(null, loja, conta) });
   }
 
   const ordem: Record<Gravidade, number> = { erro: 0, atencao: 1, ok: 2 };

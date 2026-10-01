@@ -552,7 +552,20 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
     cobrança do Efí fechar.
   */
   const pago = ["PAID", "paid", "CONFIRMED", "COMPLETED", "settled", "approved"].includes(status);
-  const jaEstavaPago = cobranca.status === "PAID";
+  /*
+    "Já estava paga" se olha pelo `paidAt`, não pelo nome do status.
+
+    Olhar o nome não funcionava para o Mercado Pago, e o teste do webhook novo
+    (01/10/2026) é que mostrou: o webhook do Efí chama esta função com "PAID" já
+    traduzido, e o do Mercado Pago chamava com o "approved" cru. A cobrança paga
+    por lá ficava gravada como "approved", então esta guarda — que compara com
+    "PAID" — nunca a protegeu: um "pending" atrasado, entregue depois do
+    "approved", REABRIA a cobrança com o dinheiro já na conta. Era exatamente o
+    que o comentário abaixo diz que não pode acontecer.
+
+    `paidAt` não tem esse problema porque é gravado por igual para os dois.
+  */
+  const jaEstavaPago = cobranca.paidAt !== null || cobranca.status === "PAID";
   const agora = new Date();
 
   await prisma.subscriptionCharge.update({
@@ -562,7 +575,13 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
       // e a ordem de chegada não é garantida: um "pendente" atrasado,
       // processado depois do "pago", deixaria a cobrança aberta com o
       // dinheiro na conta.
-      status: jaEstavaPago ? "PAID" : status,
+      //
+      // E "paga" se grava com UM nome só, "PAID", venha de qual gateway vier.
+      // Antes, a mesma coluna guardava "PAID" para o Efí e "approved" para o
+      // Mercado Pago — e quem consulta por status (a varredura de pendentes do
+      // Efí usa `notIn: ["PAID", "CANCELLED"]`) tratava cobrança paga no
+      // Mercado Pago como se ainda estivesse aberta.
+      status: jaEstavaPago || pago ? "PAID" : status,
       // `paidAt` é o instante do pagamento, não o do reprocessamento. Sem esta
       // guarda, reenviar o mesmo evento amanhã moveria a data de hoje para
       // amanhã, e a conciliação bancária deixaria de bater.
