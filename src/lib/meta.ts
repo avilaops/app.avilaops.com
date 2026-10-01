@@ -240,6 +240,35 @@ export async function buildMetaLoginUrl(origin: string, state: string) {
   return url;
 }
 
+/**
+ * Traduz o erro da Meta para algo que sirva na tela.
+ *
+ * A mensagem antes era sempre "Não foi possível trocar o código OAuth da
+ * Meta", que diz o QUE falhou e esconde o PORQUÊ, que é a única parte útil.
+ * As causas mais comuns têm conserto diferente e a Meta as distingue bem:
+ * código já usado (recarregar a página do retorno faz isso), código vencido,
+ * ou permissão que o app ainda não tem aprovada.
+ *
+ * Os códigos 100 e 191 aparecem em erro de configuração, e ali o texto da Meta
+ * é literalmente a instrução do que arrumar no painel. Passar adiante é melhor
+ * do que qualquer coisa que a gente escreva por cima.
+ */
+function motivoDaMeta(
+  erro: { message?: string; code?: number } | undefined,
+  acao: string,
+): string {
+  const detalhe = erro?.message?.trim();
+  if (!detalhe) return `Não foi possível ${acao} da Meta.`;
+
+  // Caso de longe mais comum, e o único com conserto imediato do lado de quem
+  // opera: o código do OAuth vale uma vez só.
+  if (/already been used|expired|verification code/i.test(detalhe)) {
+    return `Não foi possível ${acao}: o código da Meta já foi usado ou venceu. Comece a conexão de novo pelo botão, sem recarregar a página de retorno. (${detalhe})`;
+  }
+
+  return `Não foi possível ${acao}: ${detalhe}`;
+}
+
 export async function exchangeMetaCode(origin: string, code: string) {
   const tokenUrl = new URL(`https://graph.facebook.com/${await metaGraphVersion()}/oauth/access_token`);
   tokenUrl.searchParams.set("client_id", await exigirCredencial("META_APP_ID"));
@@ -248,9 +277,11 @@ export async function exchangeMetaCode(origin: string, code: string) {
   tokenUrl.searchParams.set("code", code);
 
   const shortResponse = await fetch(tokenUrl, { cache: "no-store" });
-  const shortToken = (await shortResponse.json().catch(() => null)) as MetaTokenResponse | null;
+  const shortToken = (await shortResponse.json().catch(() => null)) as
+    | (MetaTokenResponse & { error?: { message?: string; code?: number } })
+    | null;
   if (!shortResponse.ok || !shortToken?.access_token) {
-    throw new Error("Não foi possível trocar o código OAuth da Meta.");
+    throw new Error(motivoDaMeta(shortToken?.error, "trocar o código OAuth"));
   }
 
   const longUrl = new URL(`https://graph.facebook.com/${await metaGraphVersion()}/oauth/access_token`);
@@ -260,9 +291,11 @@ export async function exchangeMetaCode(origin: string, code: string) {
   longUrl.searchParams.set("fb_exchange_token", shortToken.access_token);
 
   const longResponse = await fetch(longUrl, { cache: "no-store" });
-  const longToken = (await longResponse.json().catch(() => null)) as MetaTokenResponse | null;
+  const longToken = (await longResponse.json().catch(() => null)) as
+    | (MetaTokenResponse & { error?: { message?: string; code?: number } })
+    | null;
   if (!longResponse.ok || !longToken?.access_token) {
-    throw new Error("Não foi possível gerar token longo da Meta.");
+    throw new Error(motivoDaMeta(longToken?.error, "gerar o token longo"));
   }
 
   const user = await graphGet<MetaUser>("/me", longToken.access_token, {
