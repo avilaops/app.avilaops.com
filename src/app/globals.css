@@ -10634,3 +10634,13 @@ main [data-slot="select-trigger"]:focus-visible {
     text-overflow: clip;
   }
 }
+
+/* Selo "Dados mínimos" e o botão de importar a ficha, empilhados à direita do
+   título do cadastro rápido. */
+.form-title-acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}

@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     domainAvailabilityStatus?: unknown;
     cpfCnpj?: unknown;
     cnpjData?: unknown;
+    perfil?: Record<string, unknown> | null;
   } | null;
 
   const name = cleanText(body?.name, 120);
@@ -53,6 +54,34 @@ export async function POST(request: NextRequest) {
   const domainAvailabilityStatus =
     cleanText(body?.domainAvailabilityStatus, 40) || "NOT_CHECKED";
   const cpfCnpjValue = cleanText(body?.cpfCnpj, 18);
+
+  // Contato, inscrições e endereço que vieram de uma ficha cadastral em PDF e
+  // passaram pela conferência no formulário. Ausente no cadastro digitado.
+  const perfilBruto =
+    body?.perfil && typeof body.perfil === "object" ? body.perfil : null;
+  const campoDoPerfil = (nome: string, tamanho: number) =>
+    perfilBruto ? cleanText(perfilBruto[nome], tamanho) || null : null;
+  const perfil = perfilBruto
+    ? {
+        stateRegistration: campoDoPerfil("stateRegistration", 80),
+        municipalRegistration: campoDoPerfil("municipalRegistration", 80),
+        ownerName: campoDoPerfil("ownerName", 160),
+        phone: campoDoPerfil("phone", 60),
+        whatsapp: campoDoPerfil("whatsapp", 60),
+        email: campoDoPerfil("email", 160),
+        postalCode: campoDoPerfil("postalCode", 20),
+        street: campoDoPerfil("street", 180),
+        number: campoDoPerfil("number", 40),
+        complement: campoDoPerfil("complement", 120),
+        district: campoDoPerfil("district", 120),
+        city: campoDoPerfil("city", 120),
+        state: campoDoPerfil("state", 60),
+      }
+    : null;
+
+  if (perfil?.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(perfil.email)) {
+    return NextResponse.json({ error: "E-mail da ficha inválido." }, { status: 400 });
+  }
 
   if (name.length < 2) {
     return NextResponse.json(
@@ -201,6 +230,45 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    if (perfil && Object.values(perfil).some(Boolean)) {
+      await transaction.organizationProfile.create({
+        data: { organizationId: created.id, ...perfil, country: "Brasil" },
+      });
+
+      if ([perfil.postalCode, perfil.street, perfil.city, perfil.state].some(Boolean)) {
+        await transaction.organizationAddress.create({
+          data: {
+            organizationId: created.id,
+            type: "MAIN",
+            postalCode: perfil.postalCode,
+            street: perfil.street,
+            number: perfil.number,
+            complement: perfil.complement,
+            district: perfil.district,
+            city: perfil.city,
+            state: perfil.state,
+            country: "Brasil",
+            source: "FICHA_PDF",
+            isPrimary: true,
+          },
+        });
+      }
+
+      if (perfil.ownerName) {
+        await transaction.organizationContact.create({
+          data: {
+            organizationId: created.id,
+            type: "OWNER",
+            name: perfil.ownerName,
+            phone: perfil.phone,
+            whatsapp: perfil.whatsapp,
+            email: perfil.email,
+            isPrimary: true,
+          },
+        });
+      }
+    }
+
     if (!hasCurrentSite && (wantsCustomDomain || selectedDomainPlanSlug === "domain-none")) {
       const plan = await transaction.servicePlan.findUnique({
         where: { slug: selectedDomainPlanSlug },
@@ -238,6 +306,7 @@ export async function POST(request: NextRequest) {
         entityId: created.id,
         metadata: {
           source: "app.avilaops.com",
+          origemDados: perfil ? "FICHA_PDF" : "DIGITADO",
           hasCurrentSite,
           selectedDomainPlanSlug: selectedDomainPlanSlug || null,
           internalUrl,
