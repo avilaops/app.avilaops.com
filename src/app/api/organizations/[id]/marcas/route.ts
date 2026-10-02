@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { getAdminOuChave, rastroDaChave } from "@/lib/chaves-api";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
@@ -13,8 +13,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const admin = await getAdmin();
-  if (!admin) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const { admin, erro } = await getAdminOuChave(request, "marcas:escrever");
+  if (!admin) return NextResponse.json({ error: erro ?? "Não autorizado." }, { status: 401 });
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
 
   const { id } = await params;
@@ -50,7 +50,7 @@ export async function POST(
       entityId: marca.id,
       organizationId: id,
       actorId: admin.id,
-      metadata: { name, slug, siteUrl },
+      metadata: { ...rastroDaChave(admin), name, slug, siteUrl },
     },
   });
 

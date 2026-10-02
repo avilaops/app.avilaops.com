@@ -1,15 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { getAdminOuChave, rastroDaChave } from "@/lib/chaves-api";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { ERRO_URL_DE_PROJETO, urlDeProjetoValida } from "@/lib/projects";
+import {
+  ERRO_URL_DE_PROJETO,
+  getOrganizationsForSelect,
+  getProjects,
+  urlDeProjetoValida,
+} from "@/lib/projects";
 
 const ALLOWED_PRIORITIES = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
-export async function POST(request: NextRequest) {
-  const admin = await getAdmin();
+/**
+ * Lista de projetos, com os mesmos filtros da tela (`status`, `organizationId`).
+ *
+ * `?organizacoes=1` devolve junto os clientes e marcas que podem receber
+ * projeto: é o que uma automação precisa para descobrir o `organizationId`
+ * sem abrir o painel.
+ */
+export async function GET(request: NextRequest) {
+  const { admin, erro } = await getAdminOuChave(request, "projetos:ler");
   if (!admin) {
-    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: erro ?? "Acesso não autorizado." }, { status: 401 });
+  }
+
+  const parametros = request.nextUrl.searchParams;
+  const status = cleanText(parametros.get("status"), 20) || undefined;
+  const organizationId = cleanText(parametros.get("organizationId"), 40) || undefined;
+
+  const [projects, organizations] = await Promise.all([
+    getProjects({ status, organizationId }),
+    parametros.get("organizacoes") === "1" ? getOrganizationsForSelect() : Promise.resolve(undefined),
+  ]);
+
+  return NextResponse.json({ projects, ...(organizations ? { organizations } : {}) });
+}
+
+export async function POST(request: NextRequest) {
+  const { admin, erro } = await getAdminOuChave(request, "projetos:escrever");
+  if (!admin) {
+    return NextResponse.json({ error: erro ?? "Acesso não autorizado." }, { status: 401 });
   }
   if (!sameOrigin(request)) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
@@ -98,7 +128,7 @@ export async function POST(request: NextRequest) {
         action: "PROJECT_CREATED",
         entityType: "Project",
         entityId: created.id,
-        metadata: { title, priority },
+        metadata: { ...rastroDaChave(admin), title, priority },
       },
     });
 

@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { getAdminOuChave, rastroDaChave } from "@/lib/chaves-api";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { ERRO_URL_DE_PROJETO, urlDeProjetoValida } from "@/lib/projects";
+import { ERRO_URL_DE_PROJETO, getProjectDetail, urlDeProjetoValida } from "@/lib/projects";
 
 const PRIORIDADES = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+
+/** Projeto com tarefas e mídia — o mesmo que a tela do projeto mostra. */
+export async function GET(request: NextRequest, contexto: { params: Promise<{ id: string }> }) {
+  const { admin, erro } = await getAdminOuChave(request, "projetos:ler");
+  if (!admin) {
+    return NextResponse.json({ error: erro ?? "Acesso não autorizado." }, { status: 401 });
+  }
+
+  const { id } = await contexto.params;
+  const project = await getProjectDetail(id);
+  if (!project) {
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 });
+  }
+  return NextResponse.json({ project });
+}
 
 /**
  * Edição de projeto.
@@ -19,9 +34,9 @@ const PRIORIDADES = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
  * apagar a descrição precisa ser possível.
  */
 export async function PATCH(request: NextRequest, contexto: { params: Promise<{ id: string }> }) {
-  const admin = await getAdmin();
+  const { admin, erro } = await getAdminOuChave(request, "projetos:escrever");
   if (!admin) {
-    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: erro ?? "Acesso não autorizado." }, { status: 401 });
   }
   if (!sameOrigin(request)) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
@@ -179,7 +194,7 @@ export async function PATCH(request: NextRequest, contexto: { params: Promise<{ 
         action: "PROJECT_UPDATED",
         entityType: "Project",
         entityId: id,
-        metadata: { campos: alterados },
+        metadata: { ...rastroDaChave(admin), campos: alterados },
       },
     });
 

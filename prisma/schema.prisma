@@ -1588,6 +1588,34 @@ model SubscriptionCharge {
   @@schema("operations")
 }
 
+/// Chave de API: o que deixa automação e agente (Claude, Codex, n8n) falar com
+/// o painel sem cookie de navegador.
+///
+/// O segredo aparece uma vez, na criação; o banco guarda só o SHA-256 dele e um
+/// prefixo para reconhecer a chave na lista. A chave age em nome de quem a criou
+/// e **só nos escopos dela**: rota que não declara escopo continua exigindo
+/// sessão de gente. Revogar é marcar `revogada_em`, nunca apagar — a auditoria
+/// aponta para a linha.
+model ChaveDeApi {
+  id          String    @id @default(cuid())
+  nome        String
+  /// Começo do segredo (ex.: `avk_3f9a1c2b`), para reconhecer sem revelar.
+  prefixo     String    @unique
+  /// SHA-256 em hexadecimal do segredo inteiro.
+  hash        String    @unique
+  escopos     String[]
+  /// `portal_clients.id` de quem criou. Se essa conta sair da casa, a chave morre junto.
+  criadaPor   String    @map("criada_por")
+  ultimoUsoEm DateTime? @map("ultimo_uso_em")
+  expiraEm    DateTime? @map("expira_em")
+  revogadaEm  DateTime? @map("revogada_em")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([criadaPor])
+  @@map("api_keys")
+  @@schema("operations")
+}
+
 model OperationsAuditEvent {
   id             BigInt   @id @default(autoincrement())
   actorId        String?  @map("actor_id")

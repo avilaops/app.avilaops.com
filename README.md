@@ -174,6 +174,28 @@ OAuth Redirect URI: https://app.avilaops.com/api/integrations/meta/oauth/callbac
 Webhook Callback URL: https://app.avilaops.com/api/webhooks/meta
 ```
 
+## Chaves de API (agentes e automações)
+
+Para Claude, Codex e n8n cadastrarem no painel sem cookie de navegador. O dono
+cria a chave em **Mais → Empresa → Chaves de API** (`/empresa/chaves-api`),
+escolhe os escopos e a validade, e copia o segredo — ele aparece uma vez só; o
+banco guarda apenas o SHA-256 (`operations.api_keys`).
+
+```bash
+curl -H "Authorization: Bearer avk_..." "https://app.avilaops.com/api/projects?organizacoes=1"
+```
+
+| Escopo | Rotas |
+|---|---|
+| `projetos:ler` | `GET /api/projects` (`?status=`, `?organizationId=`, `?organizacoes=1`), `GET /api/projects/:id`, `GET /api/projects/:id/arquivos` |
+| `projetos:escrever` | `POST /api/projects`, `PATCH /api/projects/:id`, `POST /api/projects/:id/tasks`, `PATCH /api/tasks/:id`, `POST /api/projects/:id/arquivos` |
+| `marcas:escrever` | `POST /api/organizations/:id/marcas` |
+
+Regras: a chave age em nome de quem a criou e morre se essa conta for desligada
+ou deixar de ser da casa; só as rotas acima aceitam chave (todo o resto, e tudo
+que mexe em dinheiro, cofre e acesso, continua exigindo login); a auditoria
+grava `metadata.chave` com o prefixo; revogar marca `revogada_em`, sem apagar.
+
 ## Produção
 
 ```powershell

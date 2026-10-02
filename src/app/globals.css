@@ -10980,6 +10980,91 @@ main [data-slot="select-trigger"]:focus-visible {
   color: #16a34a;
 }
 
+/* Chaves de API (Empresa → Chaves de API). */
+.chaves-escopos {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chaves-escopos legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.chaves-escopo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.chaves-escopo input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+}
+
+.chaves-escopo span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chaves-escopo code {
+  font-size: 0.8125rem;
+}
+
+.chaves-escopo small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.chaves-validade {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.chaves-segredo {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.chaves-segredo p {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* O segredo é uma palavra só, comprida: quebra em qualquer ponto para não
+   estourar a largura no celular. */
+.chaves-segredo code {
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.chaves-vazio {
+  padding: 16px;
+}
+
 /*
  * Aviso da ficha de credencial: texto inteiro, em quantas linhas precisar.
  * A `LinhaInfo` corta em uma linha, e o que se avisa aqui é em qual conta o

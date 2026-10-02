@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdmin } from "@/lib/auth";
+import { getAdminOuChave, rastroDaChave } from "@/lib/chaves-api";
 import { sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
@@ -9,9 +9,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const admin = await getAdmin();
+  const { admin, erro } = await getAdminOuChave(request, "projetos:escrever");
   if (!admin) {
-    return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
+    return NextResponse.json({ error: erro ?? "Acesso não autorizado." }, { status: 401 });
   }
   if (!sameOrigin(request)) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
@@ -42,7 +42,7 @@ export async function PATCH(
           action: "TASK_STATUS_CHANGED",
           entityType: "OperationalTask",
           entityId: updated.id,
-          metadata: { status },
+          metadata: { ...rastroDaChave(admin), status },
         },
       });
 
