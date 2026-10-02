@@ -18,7 +18,21 @@ export async function GET(request: NextRequest, contexto: { params: Promise<{ id
   if (!project) {
     return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 });
   }
-  return NextResponse.json({ project });
+  return NextResponse.json({
+    project: {
+      ...project,
+      // A API publica a mesma mídia da rota /arquivos, sem dados internos.
+      files: project.files.map((arquivo) => ({
+        id: arquivo.id,
+        name: arquivo.name,
+        kind: arquivo.kind,
+        mimeType: arquivo.mimeType,
+        sizeBytes: arquivo.sizeBytes,
+        notes: arquivo.notes,
+        createdAt: arquivo.createdAt,
+      })),
+    },
+  });
 }
 
 /**

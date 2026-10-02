@@ -28,9 +28,15 @@ export async function DELETE(request: NextRequest, contexto: { params: Promise<{
     return NextResponse.json({ ok: true, jaRevogada: true });
   }
 
-  await prisma.$transaction([
-    prisma.chaveDeApi.update({ where: { id }, data: { revogadaEm: new Date() } }),
-    prisma.operationsAuditEvent.create({
+  const revogada = await prisma.$transaction(async (transacao) => {
+    // Só quem muda a linha ativa registra a revogação, inclusive em retries.
+    const resultado = await transacao.chaveDeApi.updateMany({
+      where: { id, revogadaEm: null },
+      data: { revogadaEm: new Date() },
+    });
+    if (resultado.count === 0) return false;
+
+    await transacao.operationsAuditEvent.create({
       data: {
         actorId: admin.id,
         action: "API_KEY_REVOKED",
@@ -38,8 +44,13 @@ export async function DELETE(request: NextRequest, contexto: { params: Promise<{
         entityId: id,
         metadata: { prefixo: chave.prefixo },
       },
-    }),
-  ]);
+    });
+    return true;
+  });
+
+  if (!revogada) {
+    return NextResponse.json({ ok: true, jaRevogada: true });
+  }
 
   return NextResponse.json({ ok: true });
 }
