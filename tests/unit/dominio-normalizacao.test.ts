@@ -19,8 +19,14 @@ describe("domínio colado como URL", () => {
     expect(ehDominioValido(normalizeDomainInput("exa_mple.com.br"))).toBe(false);
     expect(ehDominioValido(normalizeDomainInput("empresa.xn--a"))).toBe(false);
     expect(ehDominioValido(normalizeDomainInput("xn--a.com.br"))).toBe(false);
+    expect(ehDominioValido(normalizeDomainInput("xn--gfc.com"))).toBe(false);
+    expect(ehDominioValido(normalizeDomainInput("xn--.com"))).toBe(false);
     expect(ehDominioValido("empresa.xn--p1ai")).toBe(true);
     expect(ehDominioValido(normalizeDomainInput("правительство.рф"))).toBe(true);
+  });
+
+  it("ASCII com hífen duplo continua aceito", () => {
+    expect(ehDominioValido(normalizeDomainInput("ab--c.com.br"))).toBe(true);
   });
 
   it("ponto final do FQDN sai", () => {
