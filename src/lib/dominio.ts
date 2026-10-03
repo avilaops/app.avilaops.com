@@ -4,7 +4,7 @@
  * (`registro-br`). Mora aqui para os dois não se importarem em círculo.
  */
 
-const DOMINIO_RE = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$/;
+const DOMINIO_RE = /^(?!-)(?:[a-z0-9-]{1,63}\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
 
 /**
  * Aceita o que a pessoa cola de verdade (`https://www.empresa.com.br:8443/contato?x=1`)
@@ -20,8 +20,17 @@ export function normalizeDomainInput(value: string): string {
     .split("?")[0]
     .split("#")[0]
     .split(":")[0];
-  const withoutWww = withoutProtocol.replace(/^www\./, "");
-  return withoutWww.replace(/[^a-z0-9.-]/g, "").slice(0, 253);
+  const host = withoutProtocol.replace(/^www\./, "").replace(/\.$/, "");
+  if (!host) return "";
+  // Acento não é lixo: "café.com.br" é outro domínio que "caf.com.br". O
+  // parser de URL converte para Punycode ("xn--caf-dma.com.br"), que é como o
+  // DNS e o Registro.br o conhecem. O que ele recusa volta como veio, para a
+  // validação reprovar — apagar caractere trocava o cliente de domínio.
+  try {
+    return new URL(`http://${host}`).hostname.slice(0, 253);
+  } catch {
+    return host.slice(0, 253);
+  }
 }
 
 export function ehDominioValido(fqdn: string): boolean {

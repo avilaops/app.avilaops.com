@@ -4,7 +4,7 @@ import { ehDono, getAdmin } from "@/lib/auth";
 import { ClienteNaoEncontradoError, excluirCliente, mudarStatus, STATUS_ARQUIVAVEIS } from "@/lib/clientes-exclusao";
 import { lookupCnpj } from "@/lib/cnpj-lookup";
 import { classifyCpfCnpj, isValidCpf, normalizarDocumento, onlyDigits } from "@/lib/cpf-cnpj";
-import { normalizeDomainInput } from "@/lib/dominio";
+import { ehDominioValido, normalizeDomainInput } from "@/lib/dominio";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { internalSiteUrl, resolveInternalSubdomain } from "@/lib/internal-site";
 import { prisma } from "@/lib/prisma";
@@ -194,6 +194,16 @@ export async function PUT(
     }
   }
 
+  // Mesma regra da criação: domínio que não é domínio volta com erro, em vez
+  // de ser gravado e não casar com nada em Lojas, e-mail ou Cloudflare.
+  const primaryDomain = dominioOuNulo(web.primaryDomain);
+  if (primaryDomain && !ehDominioValido(primaryDomain)) {
+    return NextResponse.json(
+      { error: "Domínio principal inválido. Use algo como empresa.com.br." },
+      { status: 400 },
+    );
+  }
+
   const responsibleCpfTexto = cleanText(profile.responsibleCpf, 20);
   const responsibleCpf = responsibleCpfTexto ? onlyDigits(responsibleCpfTexto) : null;
   if (responsibleCpf && !isValidCpf(responsibleCpf)) {
@@ -371,7 +381,7 @@ export async function PUT(
         hasCurrentSite: booleanFromSelect(web.hasCurrentSite),
         currentSiteUrl: optional(web.currentSiteUrl, 300),
         hasDomain: booleanFromSelect(web.hasDomain),
-        primaryDomain: dominioOuNulo(web.primaryDomain),
+        primaryDomain,
         siteProvider: optional(web.siteProvider, 120),
         accessStatus: optional(web.accessStatus, 40),
         siteNotes: optional(web.siteNotes, 600),
@@ -402,7 +412,7 @@ export async function PUT(
         hasCurrentSite: booleanFromSelect(web.hasCurrentSite),
         currentSiteUrl: optional(web.currentSiteUrl, 300),
         hasDomain: booleanFromSelect(web.hasDomain),
-        primaryDomain: dominioOuNulo(web.primaryDomain),
+        primaryDomain,
         siteProvider: optional(web.siteProvider, 120),
         accessStatus: optional(web.accessStatus, 40),
         siteNotes: optional(web.siteNotes, 600),
