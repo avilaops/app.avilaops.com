@@ -20,6 +20,7 @@ describe("domínio colado como URL", () => {
     expect(ehDominioValido(normalizeDomainInput("empresa.xn--a"))).toBe(false);
     expect(ehDominioValido(normalizeDomainInput("xn--a.com.br"))).toBe(false);
     expect(ehDominioValido("empresa.xn--p1ai")).toBe(true);
+    expect(ehDominioValido(normalizeDomainInput("правительство.рф"))).toBe(true);
   });
 
   it("ponto final do FQDN sai", () => {

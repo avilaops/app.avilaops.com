@@ -34,20 +34,68 @@ export function normalizeDomainInput(value: string): string {
 }
 
 export function ehDominioValido(fqdn: string): boolean {
-  return DOMINIO_RE.test(fqdn) && !fqdn.includes("..") && sobreviveAoIdna(fqdn);
+  return (
+    DOMINIO_RE.test(fqdn) &&
+    !fqdn.includes("..") &&
+    fqdn.split(".").every((rotulo) => !rotulo.startsWith("xn--") || punycodeLegivel(rotulo.slice(4)))
+  );
 }
 
 /**
  * A regex vê só o formato: "empresa.xn--a" e "xn--a.com.br" passam nela, mas
- * não são Punycode decodificável. O parser de URL aplica o IDNA e recusa;
- * domínio válido sai dele exatamente como entrou.
+ * não são nome nenhum ("a" decodifica para U+0080, um caractere de controle).
+ * Não dá para delegar ao parser de URL: o Node 22 de produção recusa esses
+ * rótulos e o Node 24 do CI aceita. Decodifica aqui e exige o que um rótulo
+ * internacionalizado de verdade tem: ao menos um caractere fora do ASCII, e
+ * só letras, marcas, dígitos e hífen.
  */
-function sobreviveAoIdna(fqdn: string): boolean {
-  try {
-    return new URL(`http://${fqdn}`).hostname === fqdn;
-  } catch {
-    return false;
+function punycodeLegivel(codificado: string): boolean {
+  const texto = decodificarPunycode(codificado);
+  return (
+    texto !== null &&
+    /[^\x00-\x7f]/.test(texto) &&
+    /^[\p{L}\p{M}\p{N}-]+$/u.test(texto)
+  );
+}
+
+/** Decodificador Bootstring da RFC 3492, seção 6.2. Null se a entrada for inválida. */
+function decodificarPunycode(entrada: string): string | null {
+  const BASE = 36, TMIN = 1, TMAX = 26, SKEW = 38, DAMP = 700;
+  const adaptar = (delta: number, pontos: number, primeiro: boolean) => {
+    delta = primeiro ? Math.floor(delta / DAMP) : delta >> 1;
+    delta += Math.floor(delta / pontos);
+    let k = 0;
+    while (delta > ((BASE - TMIN) * TMAX) >> 1) {
+      delta = Math.floor(delta / (BASE - TMIN));
+      k += BASE;
+    }
+    return k + Math.floor(((BASE - TMIN + 1) * delta) / (delta + SKEW));
+  };
+  const digito = (c: number) =>
+    c >= 0x30 && c <= 0x39 ? c - 22 : c >= 0x61 && c <= 0x7a ? c - 0x61 : BASE;
+
+  const delimitador = entrada.lastIndexOf("-");
+  const saida = delimitador > 0 ? [...entrada.slice(0, delimitador)].map((c) => c.codePointAt(0)!) : [];
+  let n = 128, i = 0, bias = 72;
+  for (let pos = delimitador > 0 ? delimitador + 1 : 0; pos < entrada.length; ) {
+    const anterior = i;
+    for (let w = 1, k = BASE; ; k += BASE) {
+      if (pos >= entrada.length) return null;
+      const d = digito(entrada.charCodeAt(pos++));
+      if (d >= BASE) return null;
+      i += d * w;
+      const t = k <= bias ? TMIN : k >= bias + TMAX ? TMAX : k - bias;
+      if (d < t) break;
+      w *= BASE - t;
+      if (i > 0x10ffff * 8) return null;
+    }
+    bias = adaptar(i - anterior, saida.length + 1, anterior === 0);
+    n += Math.floor(i / (saida.length + 1));
+    i %= saida.length + 1;
+    if (n > 0x10ffff) return null;
+    saida.splice(i++, 0, n);
   }
+  return String.fromCodePoint(...saida);
 }
 
 /** Normaliza e recusa o que não é um nome de domínio. */
