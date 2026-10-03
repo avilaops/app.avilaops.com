@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { classifyCpfCnpj } from "@/lib/cpf-cnpj";
+import { ehDominioValido, normalizeDomainInput } from "@/lib/dominio";
 import { internalSiteSlug, internalSiteUrl } from "@/lib/internal-site";
 import { prisma } from "@/lib/prisma";
 
@@ -151,6 +152,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // O campo pede domínio, mas o que se cola é URL: "https://www.empresa.com.br/"
+  // era gravado assim e não casava com o mesmo domínio em nenhum outro lugar
+  // (Lojas, e-mail, Cloudflare). Guarda só o host. Vazio, vem do site atual.
+  const primaryDomain = hasCurrentSite
+    ? normalizeDomainInput(currentSiteDomain) ||
+      (siteUrl ? normalizeDomainInput(new URL(siteUrl).hostname) : "")
+    : "";
+  if (primaryDomain && !ehDominioValido(primaryDomain)) {
+    return NextResponse.json(
+      { error: "Domínio principal inválido. Use algo como empresa.com.br." },
+      { status: 400 },
+    );
+  }
+
   if (!hasCurrentSite && wantsCustomDomain && selectedDomainPlanSlug === "domain-none") {
     return NextResponse.json(
       { error: "Selecione um plano de domínio ou a opção sem domínio." },
@@ -197,8 +212,8 @@ export async function POST(request: NextRequest) {
           create: {
             hasCurrentSite,
             currentSiteUrl: siteUrl,
-            hasDomain: hasCurrentSite ? Boolean(currentSiteDomain || siteUrl) : false,
-            primaryDomain: currentSiteDomain || null,
+            hasDomain: hasCurrentSite ? Boolean(primaryDomain) : false,
+            primaryDomain: primaryDomain || null,
             siteProvider: siteProvider || null,
             accessStatus: siteAccessStatus || null,
             siteNotes: siteNotes || null,

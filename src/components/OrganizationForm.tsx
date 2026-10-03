@@ -232,28 +232,22 @@ export default function OrganizationForm({
         }),
       });
       const result = (await response.json()) as {
-        organization?: { name: string };
+        organization?: { id: string; name: string };
         error?: string;
       };
-      if (!response.ok) {
+      if (!response.ok || !result.organization) {
         throw new Error(result.error ?? "Não foi possível cadastrar o cliente.");
       }
 
-      setMessage(`${result.organization?.name ?? "Cliente"} adicionado à operação.`);
-      formEl.isConnected && formEl.reset();
-      setCpfCnpjInput("");
-      setCnpjData(null);
-      setFicha(null);
-      setFichaAviso("");
-      setSegmento("");
-      setNovoSegmento("");
-      setHasCurrentSite("");
-      setWantsCustomDomain(true);
+      // O cadastro continua dentro do cliente, não na lista: antes o
+      // formulário ficava aberto por cima da lista e, para completar contato
+      // e acessos, era preciso fechar, achar o cliente e abrir "Editar".
+      setMessage(`${result.organization.name} adicionado. Abrindo o cliente…`);
+      // Sem o refresh, voltar para a lista reaproveitava a versão em cache,
+      // sem o cliente novo e com os totais antigos.
       router.refresh();
-      window.setTimeout(() => {
-        setOpen(false);
-        setMessage("");
-      }, 1600);
+      router.push(`/clientes/${result.organization.id}`);
+      setOpen(false);
     } catch (caught) {
       setError(
         caught instanceof Error

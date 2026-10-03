@@ -112,8 +112,8 @@ describe("leitura da ficha em PDF", () => {
 
     expect(status).toBe(200);
     expect(json.ficha).toMatchObject({
-      razaoSocial: "Teste Ficha Pdf Equipamentos Ltda",
-      nomeFantasia: "Teste Ficha Pdf",
+      razaoSocial: "Teste Ficha PDF Equipamentos Ltda",
+      nomeFantasia: "Teste Ficha PDF",
       cpfCnpj: CNPJ_VALIDO,
       inscricaoEstadual: "123.456.789.110",
       logradouro: "Rua das Flores",

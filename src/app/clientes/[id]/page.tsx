@@ -14,6 +14,7 @@ import ProvisionamentoPanel from "@/components/ProvisionamentoPanel";
 import { buscarContaPorEmail } from "@/lib/acesso-cliente";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { contar, nomeProprio } from "@/lib/format";
+import { pendenciasDoCadastro } from "@/lib/pendencias-cadastro";
 import { montarPainel } from "@/lib/cadastro-ia/assistente";
 import { cofreDisponivel, resumirCredencial } from "@/lib/cofre";
 import { listarCaixasDosDominios } from "@/lib/mail";
@@ -218,8 +219,16 @@ function ClientSummary({ organization }: { organization: any }) {
   const pendingStep = organization.onboardingSteps.find((item: { status: string }) => item.status !== "DONE");
   const completed = organization.onboardingSteps.filter((item: { status: string }) => item.status === "DONE").length;
   const total = organization.onboardingSteps.length;
+  // Sem etapa pendente o cartão dizia "Operação em dia" até para cliente
+  // recém-criado, sem contato nem domínio. Cadastro incompleto é a próxima ação.
+  const faltando = pendenciasDoCadastro(organization);
+  const proxima = pendingStep
+    ? { titulo: pendingStep.label, texto: pendingStep.notes ?? "Esta é a próxima etapa registrada da implantação.", href: `/clientes/${organization.id}?section=services`, link: "Ver implantação" }
+    : faltando.length
+      ? { titulo: "Completar cadastro", texto: `Falta: ${faltando.join(", ")}.`, href: `/clientes/${organization.id}?section=registration`, link: "Completar cadastro" }
+      : { titulo: "Operação em dia", texto: total ? "Todas as etapas registradas foram concluídas." : "Cadastro completo. Ainda não há etapas de implantação registradas.", href: null, link: null };
   return <div className="client-summary-grid">
-    <section className="client-summary-lead"><span className="eyebrow">PRÓXIMA AÇÃO</span><h2>{pendingStep?.label ?? "Operação em dia"}</h2><p>{pendingStep?.notes ?? (pendingStep ? "Esta é a próxima etapa registrada da implantação." : total ? "Todas as etapas registradas foram concluídas." : "Ainda não há etapas de implantação registradas.")}</p>{pendingStep ? <Link href={`/clientes/${organization.id}?section=services`}>Ver implantação</Link> : null}</section>
+    <section className="client-summary-lead"><span className="eyebrow">PRÓXIMA AÇÃO</span><h2>{proxima.titulo}</h2><p>{proxima.texto}</p>{proxima.href ? <Link href={proxima.href}>{proxima.link}</Link> : null}</section>
 
     {/* Três cartões de 190px para três números quase sempre em zero viraram
         três linhas de uma lista agrupada — o mesmo padrão da Visão central. A
