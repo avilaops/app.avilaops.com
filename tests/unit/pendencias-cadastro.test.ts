@@ -35,3 +35,17 @@ describe("pendências do cadastro do cliente", () => {
     ).toEqual([]);
   });
 });
+
+describe("pendências: dados que a ficha em PDF grava no perfil", () => {
+  it("e-mail e telefone do perfil contam como canal de contato", () => {
+    expect(
+      pendenciasDoCadastro({
+        cpfCnpj: "34245861000151",
+        segment: "Outro",
+        contacts: [],
+        profile: { ownerName: "Fulano", email: "a@b.com", phone: null, whatsapp: null },
+        webPresence: { hasCurrentSite: false, primaryDomain: null },
+      }),
+    ).toEqual([]);
+  });
+});

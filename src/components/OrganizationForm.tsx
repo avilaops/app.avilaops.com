@@ -243,6 +243,9 @@ export default function OrganizationForm({
       // formulário ficava aberto por cima da lista e, para completar contato
       // e acessos, era preciso fechar, achar o cliente e abrir "Editar".
       setMessage(`${result.organization.name} adicionado. Abrindo o cliente…`);
+      // Sem o refresh, voltar para a lista reaproveitava a versão em cache,
+      // sem o cliente novo e com os totais antigos.
+      router.refresh();
       router.push(`/clientes/${result.organization.id}`);
       setOpen(false);
     } catch (caught) {
