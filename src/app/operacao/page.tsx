@@ -6,7 +6,7 @@ import { Grupo, IconeTile, LinhaInfo, LinhaLink } from "@/components/sistema/Lis
 import Status from "@/components/sistema/Status";
 import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
-import { formatCurrency, formatShortDate, nomeProprio } from "@/lib/format";
+import { formatCurrency, formatShortDate, nomeProprio, saudacao } from "@/lib/format";
 import { getOperationsDashboard } from "@/lib/operations";
 
 export const dynamic = "force-dynamic";
