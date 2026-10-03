@@ -11,12 +11,6 @@ import { getOperationsDashboard } from "@/lib/operations";
 
 export const dynamic = "force-dynamic";
 
-function saudacao(hora: number) {
-  if (hora < 12) return "Bom dia";
-  if (hora < 18) return "Boa tarde";
-  return "Boa noite";
-}
-
 function prazo(value: Date | null) {
   return value ? formatShortDate(value) : "Sem prazo";
 }
@@ -81,7 +75,7 @@ export default async function OperationsPage() {
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="operations">
       <CabecalhoTela
-        titulo={`${saudacao(new Date().getHours())}, ${admin.nome.split(" ")[0]}`}
+        titulo={`${saudacao()}, ${admin.nome.split(" ")[0]}`}
         descricao={
           atencao.length
             ? `${atencao.length} ${atencao.length === 1 ? "item pede" : "itens pedem"} atenção hoje.`

@@ -87,6 +87,29 @@ export function diaEmSaoPaulo(value: Date | string) {
   }).format(new Date(value));
 }
 
+/**
+ * Hora cheia em São Paulo, de 0 a 23.
+ *
+ * `getHours()` dá a hora do relógio de quem executa, e a tela é montada no
+ * servidor, que roda em UTC: às 09:36 daqui ele já lê 12.
+ */
+export function horaEmSaoPaulo(value: Date | string = new Date()) {
+  const hora = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hourCycle: "h23",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+  return Number(hora);
+}
+
+/** "Bom dia" até 11:59, "Boa tarde" até 17:59, "Boa noite" depois — no relógio de São Paulo. */
+export function saudacao(value: Date | string = new Date()) {
+  const hora = horaEmSaoPaulo(value);
+  if (hora < 12) return "Bom dia";
+  if (hora < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
 export function formatShortDate(value: Date | string) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
