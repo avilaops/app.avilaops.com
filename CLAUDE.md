@@ -1,5 +1,7 @@
 # Instruções para o Claude neste repositório
 
+@AGENTS.md
+
 Ávila OS: aplicação interna da Ávila Ops. Operação, financeiro, clientes, Hub
 Social e a tela de Saúde. Next.js com Prisma e PostgreSQL.
 
