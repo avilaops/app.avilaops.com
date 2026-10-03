@@ -4,9 +4,15 @@ import { ehDono, getAdmin } from "@/lib/auth";
 import { ClienteNaoEncontradoError, excluirCliente, mudarStatus, STATUS_ARQUIVAVEIS } from "@/lib/clientes-exclusao";
 import { lookupCnpj } from "@/lib/cnpj-lookup";
 import { classifyCpfCnpj, isValidCpf, normalizarDocumento, onlyDigits } from "@/lib/cpf-cnpj";
+import { normalizeDomainInput } from "@/lib/dominio";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { internalSiteUrl, resolveInternalSubdomain } from "@/lib/internal-site";
 import { prisma } from "@/lib/prisma";
+
+/** Mesmo domínio, mesma grafia: "https://www.x.com.br/" e "x.com.br" viram "x.com.br". */
+function dominioOuNulo(value: unknown) {
+  return normalizeDomainInput(cleanText(value, 300)) || null;
+}
 
 function optional(value: unknown, max = 500) {
   const text = cleanText(value, max);
@@ -365,7 +371,7 @@ export async function PUT(
         hasCurrentSite: booleanFromSelect(web.hasCurrentSite),
         currentSiteUrl: optional(web.currentSiteUrl, 300),
         hasDomain: booleanFromSelect(web.hasDomain),
-        primaryDomain: optional(web.primaryDomain, 160),
+        primaryDomain: dominioOuNulo(web.primaryDomain),
         siteProvider: optional(web.siteProvider, 120),
         accessStatus: optional(web.accessStatus, 40),
         siteNotes: optional(web.siteNotes, 600),
@@ -396,7 +402,7 @@ export async function PUT(
         hasCurrentSite: booleanFromSelect(web.hasCurrentSite),
         currentSiteUrl: optional(web.currentSiteUrl, 300),
         hasDomain: booleanFromSelect(web.hasDomain),
-        primaryDomain: optional(web.primaryDomain, 160),
+        primaryDomain: dominioOuNulo(web.primaryDomain),
         siteProvider: optional(web.siteProvider, 120),
         accessStatus: optional(web.accessStatus, 40),
         siteNotes: optional(web.siteNotes, 600),

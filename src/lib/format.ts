@@ -151,12 +151,22 @@ const PARTICULAS = new Set([
  * Isto é exibição, não gravação: o que está no banco continua como veio, e a
  * razão social (documento) segue impressa como está registrada.
  *
- * Duas exceções à regra "primeira maiúscula, resto minúsculo":
+ * Três exceções à regra "primeira maiúscula, resto minúsculo":
  * - partícula no meio do nome fica minúscula ("Engreaco Indústria e Comércio",
  *   não "E Comércio");
  * - palavra com maiúscula no meio foi escolha de quem digitou e não se mexe
- *   ("iFood" não vira "Ifood").
+ *   ("iFood" não vira "Ifood");
+ * - sigla em caixa alta sem vogal fica como está: "PK VEDACOES" virava
+ *   "Pk Vedacoes" e "MRG" virava "Mrg". Palavra sem vogal não é palavra que
+ *   se lê, é sigla que se soletra.
  */
+function ehSiglaSemVogal(pedaco: string): boolean {
+  const letras = pedaco.replace(/[^\p{L}]/gu, "");
+  if (letras.length < 2 || letras !== letras.toLocaleUpperCase("pt-BR")) return false;
+  const semAcento = letras.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return !/[AEIOUY]/.test(semAcento);
+}
+
 export function nomeProprio(valor: string | null | undefined): string {
   const texto = (valor ?? "").trim();
   if (!texto) return "";
@@ -167,6 +177,7 @@ export function nomeProprio(valor: string | null | undefined): string {
       if (/^\s+$/.test(pedaco) || pedaco === "") return pedaco;
       // "iFood", "McDonald's": minúscula seguida de maiúscula é intenção.
       if (/\p{Ll}\p{Lu}/u.test(pedaco)) return pedaco;
+      if (ehSiglaSemVogal(pedaco)) return pedaco;
 
       const minusculo = pedaco.toLocaleLowerCase("pt-BR");
       const soLetras = minusculo.replace(/[^\p{L}]/gu, "");

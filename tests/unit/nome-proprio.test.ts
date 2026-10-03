@@ -7,6 +7,15 @@ describe("nome do cliente na tela", () => {
     expect(nomeProprio("AVILA TRANSPORTES")).toBe("Avila Transportes");
   });
 
+  it("sigla sem vogal fica em caixa alta", () => {
+    expect(nomeProprio("PK VEDACOES")).toBe("PK Vedacoes");
+    expect(nomeProprio("MRG")).toBe("MRG");
+    expect(nomeProprio("GRB AVILA ENGENHARIA")).toBe("GRB Avila Engenharia");
+    // Com vogal continua sendo lida como palavra.
+    expect(nomeProprio("MA PROJETOS")).toBe("Ma Projetos");
+    expect(nomeProprio("TUI TECNOLOGIA")).toBe("Tui Tecnologia");
+  });
+
   it("partícula no meio do nome fica minúscula", () => {
     expect(nomeProprio("ENGREACO INDUSTRIA E COMERCIO")).toBe(
       "Engreaco Industria e Comercio",

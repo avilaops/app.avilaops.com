@@ -2962,12 +2962,35 @@ tbody tr:last-child td {
     text-align: left;
   }
 
+  /* A folha ia até 20px do fim da tela, mas a barra de abas fica por cima
+     (z-index 35 contra 20) e ocupa `--cel-nav` + 28px de cápsula + área
+     segura. O "Criar organização" ficava atrás dela e só aparecia arrastando
+     a tela. A folha agora termina acima da barra, e o botão gruda no rodapé
+     da folha, sempre visível enquanto se preenche. */
   .organization-form {
     position: fixed;
     inset: 92px 16px auto;
     width: auto;
-    max-height: calc(100vh - 112px);
+    max-height: calc(
+      100dvh - 92px - var(--cel-nav, 64px) - 28px - env(safe-area-inset-bottom) - 12px
+    );
     overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .organization-form:not(.form-no-fluxo) .organization-form-actions {
+    position: sticky;
+    bottom: -24px;
+    z-index: 1;
+    margin: 0 -24px -24px;
+    padding: 12px 24px 16px;
+    background: var(--surface);
+  }
+
+  /* O texto explicativo é para quem está lendo, não para quem quer salvar:
+     no rodapé fixo ele só come altura. */
+  .organization-form:not(.form-no-fluxo) .organization-form-actions p {
+    display: none;
   }
 
   /* Quatro números viravam quatro linhas empilhadas: 350px de altura antes do
