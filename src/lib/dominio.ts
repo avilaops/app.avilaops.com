@@ -34,7 +34,20 @@ export function normalizeDomainInput(value: string): string {
 }
 
 export function ehDominioValido(fqdn: string): boolean {
-  return DOMINIO_RE.test(fqdn) && !fqdn.includes("..");
+  return DOMINIO_RE.test(fqdn) && !fqdn.includes("..") && sobreviveAoIdna(fqdn);
+}
+
+/**
+ * A regex vê só o formato: "empresa.xn--a" e "xn--a.com.br" passam nela, mas
+ * não são Punycode decodificável. O parser de URL aplica o IDNA e recusa;
+ * domínio válido sai dele exatamente como entrou.
+ */
+function sobreviveAoIdna(fqdn: string): boolean {
+  try {
+    return new URL(`http://${fqdn}`).hostname === fqdn;
+  } catch {
+    return false;
+  }
 }
 
 /** Normaliza e recusa o que não é um nome de domínio. */

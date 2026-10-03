@@ -17,6 +17,9 @@ describe("domínio colado como URL", () => {
   it("caractere que não cabe em domínio é reprovado, não apagado", () => {
     expect(ehDominioValido(normalizeDomainInput("emp resa.com.br"))).toBe(false);
     expect(ehDominioValido(normalizeDomainInput("exa_mple.com.br"))).toBe(false);
+    expect(ehDominioValido(normalizeDomainInput("empresa.xn--a"))).toBe(false);
+    expect(ehDominioValido(normalizeDomainInput("xn--a.com.br"))).toBe(false);
+    expect(ehDominioValido("empresa.xn--p1ai")).toBe(true);
   });
 
   it("ponto final do FQDN sai", () => {
