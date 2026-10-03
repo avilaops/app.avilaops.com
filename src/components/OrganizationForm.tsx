@@ -311,7 +311,7 @@ export default function OrganizationForm({
       </button>
 
       {open ? (
-        <form className="organization-form" onSubmit={submit}>
+        <form className="organization-form organization-form-cliente" onSubmit={submit}>
           <div className="form-title">
             <div>
               <h2>Entrada operacional do cliente</h2>

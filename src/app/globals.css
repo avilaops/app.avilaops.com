@@ -2971,11 +2971,21 @@ tbody tr:last-child td {
     position: fixed;
     inset: 92px 16px auto;
     width: auto;
+    /* iOS antes do 15.4 não conhece dvh e descartaria a declaração inteira:
+       sem limite, o botão voltava para trás da barra. vh primeiro, dvh por cima. */
     max-height: calc(
-      100dvh - 92px - var(--cel-nav, 64px) - 28px - env(safe-area-inset-bottom) - 12px
+      100vh - 92px - var(--cel-nav, 64px) - 28px - env(safe-area-inset-bottom) - 12px
     );
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  @supports (height: 100dvh) {
+    .organization-form {
+      max-height: calc(
+        100dvh - 92px - var(--cel-nav, 64px) - 28px - env(safe-area-inset-bottom) - 12px
+      );
+    }
   }
 
   .organization-form:not(.form-no-fluxo) .organization-form-actions {
@@ -2988,8 +2998,10 @@ tbody tr:last-child td {
   }
 
   /* O texto explicativo é para quem está lendo, não para quem quer salvar:
-     no rodapé fixo ele só come altura. */
-  .organization-form:not(.form-no-fluxo) .organization-form-actions p {
+     no rodapé fixo ele só come altura. Só no cadastro de cliente: em
+     entregável, vaga e projeto o texto avisa coisa que muda a decisão (prévia
+     pública, arquivo travado até o pagamento). */
+  .organization-form-cliente .organization-form-actions p {
     display: none;
   }
 
