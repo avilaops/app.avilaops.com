@@ -111,6 +111,7 @@ export default async function ClientDossierPage({
       paidAt: f.paidAt?.toISOString() ?? null,
       cobranca: f.charges[0]
         ? {
+            id: f.charges[0].id,
             method: f.charges[0].method,
             status: f.charges[0].status,
             pixCopyPaste: f.charges[0].pixCopyPaste,

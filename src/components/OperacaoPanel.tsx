@@ -8,6 +8,7 @@ import { Icone } from "@/components/ui/Icones";
 import Sheet from "@/components/ui/Sheet";
 
 export type CobrancaDaFicha = {
+  id: string;
   method: string;
   status: string;
   pixCopyPaste: string | null;
@@ -229,6 +230,31 @@ export default function OperacaoPanel({
     );
   }
 
+  async function enviarCobranca(cobrancaId: string, canal: "email" | "whatsapp") {
+    const rotulo = canal === "email" ? "e-mail" : "número de WhatsApp (com DDI/DDD)";
+    const destinoTeste = window.prompt(
+      `Modo teste — enviar por ${canal} para qual ${rotulo}?\n\n(Deixe vazio e confirme para enviar ao CLIENTE REAL.)`,
+    );
+    if (destinoTeste === null) return; // cancelou
+    const teste = destinoTeste.trim() !== "";
+    if (!teste && !window.confirm("Enviar esta cobrança ao CLIENTE REAL agora?")) return;
+    await executar(
+      "cobranca",
+      async () => {
+        const r = await chamar<{ destino: string }>(
+          `/api/cobrancas/${cobrancaId}/enviar`,
+          { canal, teste, destinoTeste: teste ? destinoTeste.trim() : undefined },
+          "POST",
+        );
+        return {
+          tipo: "ok",
+          conteudo: <strong>Enviado por {canal} para {r.destino}{teste ? " (teste)" : ""}.</strong>,
+        };
+      },
+      `Cobrança enviada por ${canal}.`,
+    );
+  }
+
   async function cobrar(assinaturaId: string, invoiceId: string, metodo: "PIX" | "BOLETO") {
     await executar(
       "cobranca",
@@ -376,6 +402,16 @@ export default function OperacaoPanel({
                           </button>
                           <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrar(a.id, f.id, "BOLETO")}>
                             Boleto
+                          </button>
+                        </span>
+                      ) : null}
+                      {f.cobranca ? (
+                        <span className="prov-fatura-acoes">
+                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.cobranca!.id, "email")}>
+                            Enviar e-mail
+                          </button>
+                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.cobranca!.id, "whatsapp")}>
+                            Enviar WhatsApp
                           </button>
                         </span>
                       ) : null}

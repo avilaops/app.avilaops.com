@@ -27,6 +27,61 @@ export function paypalConfigurado(): boolean {
   return Boolean(process.env.PAYPAL_CLIENT_ID?.trim() && process.env.PAYPAL_SECRET?.trim());
 }
 
+export type DiagnosticoPaypal = {
+  ambiente: "sandbox" | "live";
+  configurado: boolean;
+  oauthOk: boolean;
+  webhookId: string | null;
+  webhookUrl: string | null;
+  eventos: string[];
+  erro: string | null;
+};
+
+/**
+ * Confere, sem depender de tráfego, se o PayPal está de pé: a credencial
+ * autentica (OAuth) e o webhook existe na conta, apontando para a URL certa.
+ *
+ * É o mesmo check que antes só dava para fazer por SSH no servidor. Agora o
+ * painel pergunta direto, e o operador vê verde/vermelho na tela.
+ */
+export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
+  const amb = ambiente();
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim() || null;
+
+  if (!paypalConfigurado()) {
+    return { ambiente: amb, configurado: false, oauthOk: false, webhookId, webhookUrl: null, eventos: [], erro: "PAYPAL_CLIENT_ID/SECRET ausentes." };
+  }
+
+  try {
+    if (!webhookId) {
+      await token(); // valida a credencial mesmo sem webhook
+      return { ambiente: amb, configurado: true, oauthOk: true, webhookId: null, webhookUrl: null, eventos: [], erro: "PAYPAL_WEBHOOK_ID ausente." };
+    }
+    const info = await chamar<{ url?: string; event_types?: { name: string }[] }>(
+      `/v1/notifications/webhooks/${encodeURIComponent(webhookId)}`,
+    );
+    return {
+      ambiente: amb,
+      configurado: true,
+      oauthOk: true,
+      webhookId,
+      webhookUrl: info.url ?? null,
+      eventos: (info.event_types ?? []).map((e) => e.name),
+      erro: null,
+    };
+  } catch (erro) {
+    return {
+      ambiente: amb,
+      configurado: true,
+      oauthOk: false,
+      webhookId,
+      webhookUrl: null,
+      eventos: [],
+      erro: erro instanceof Error ? erro.message : "Falha ao consultar o PayPal.",
+    };
+  }
+}
+
 /**
  * Token de acesso, pedido a cada chamada.
  *
