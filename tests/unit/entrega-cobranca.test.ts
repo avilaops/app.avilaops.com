@@ -91,3 +91,38 @@ describe("montarWhatsappDaCobranca", () => {
     ).toThrow(CobrancaSemLink);
   });
 });
+
+describe("conteúdo do envio (fatura / boleto / ambos)", () => {
+  const venc = new Date("2026-10-15T00:00:00Z");
+
+  it("modo fatura: só o resumo, sem exigir link de pagamento", () => {
+    const email = montarEmailDaCobranca(
+      { ...base, boletoUrl: null, boletoBarcode: null },
+      destinatario,
+      "Lojas · 2026-09",
+      "fatura",
+      venc,
+    );
+    expect(email.subject.startsWith("Fatura")).toBe(true);
+    expect(email.html).toContain("R$");
+    expect(email.html).not.toContain("pag.efi"); // sem link
+    expect(email.html).toContain("vencimento");
+  });
+
+  it("modo ambos: resumo da fatura E o boleto", () => {
+    const email = montarEmailDaCobranca(base, destinatario, "Lojas · 2026-09", "ambos", venc);
+    expect(email.html).toContain("Fatura");
+    expect(email.html).toContain("https://pag.efi/boleto/abc");
+  });
+
+  it("WhatsApp modo fatura: resumo sem link, mesmo sem boleto", () => {
+    const texto = montarWhatsappDaCobranca(
+      { ...base, boletoUrl: null, boletoBarcode: null },
+      "Lojas · 2026-09",
+      "fatura",
+      venc,
+    );
+    expect(texto).toContain("Fatura");
+    expect(texto).not.toContain("pag.efi");
+  });
+});

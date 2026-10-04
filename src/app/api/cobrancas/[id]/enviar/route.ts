@@ -29,13 +29,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { id } = await params;
   const corpo = (await request.json().catch(() => null)) as
-    | { canal?: unknown; teste?: unknown; destinoTeste?: unknown }
+    | { canal?: unknown; teste?: unknown; destinoTeste?: unknown; conteudo?: unknown }
     | null;
 
   const canal = corpo?.canal === "whatsapp" ? "whatsapp" : corpo?.canal === "email" ? "email" : null;
   if (!canal) {
     return NextResponse.json({ erro: "Informe o canal: email ou whatsapp." }, { status: 400 });
   }
+
+  // O que enviar: link de pagamento (padrão), só a fatura, ou os dois.
+  const conteudo = corpo?.conteudo === "fatura" || corpo?.conteudo === "ambos" ? corpo.conteudo : "cobranca";
 
   // Só manda ao cliente real quando teste é EXPLICITAMENTE false.
   const teste = corpo?.teste !== false;
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const opcoes = teste ? { destinoTeste } : undefined;
+    const opcoes = teste ? { destinoTeste, conteudo } : { conteudo };
     const resultado =
       canal === "email"
         ? await enviarCobrancaPorEmail(id, opcoes)
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           action: "COBRANCA_ENVIADA",
           entityType: "SubscriptionCharge",
           entityId: id,
-          metadata: { canal, teste, destino: resultado.destino, enviado: resultado.enviado },
+          metadata: { canal, conteudo, teste, destino: resultado.destino, enviado: resultado.enviado },
         },
       })
       .catch((e) => console.error("[cobranca] não auditei o envio", e));

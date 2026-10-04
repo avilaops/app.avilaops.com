@@ -231,6 +231,10 @@ export default function OperacaoPanel({
   }
 
   async function enviarCobranca(cobrancaId: string, canal: "email" | "whatsapp") {
+    const escolha = window.prompt("O que enviar?\n\n1 = boleto/link de pagamento\n2 = fatura (resumo)\n3 = fatura + boleto", "1");
+    if (escolha === null) return; // cancelou
+    const conteudo = escolha.trim() === "2" ? "fatura" : escolha.trim() === "3" ? "ambos" : "cobranca";
+
     const rotulo = canal === "email" ? "e-mail" : "número de WhatsApp (com DDI/DDD)";
     const destinoTeste = window.prompt(
       `Modo teste — enviar por ${canal} para qual ${rotulo}?\n\n(Deixe vazio e confirme para enviar ao CLIENTE REAL.)`,
@@ -243,7 +247,7 @@ export default function OperacaoPanel({
       async () => {
         const r = await chamar<{ destino: string }>(
           `/api/cobrancas/${cobrancaId}/enviar`,
-          { canal, teste, destinoTeste: teste ? destinoTeste.trim() : undefined },
+          { canal, conteudo, teste, destinoTeste: teste ? destinoTeste.trim() : undefined },
           "POST",
         );
         return {

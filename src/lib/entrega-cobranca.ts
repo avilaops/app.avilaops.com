@@ -29,6 +29,9 @@ type DadosCobranca = {
 
 type Destinatario = { nome: string; email: string };
 
+/** O que o operador manda: só o link de pagamento, só o resumo da fatura, ou os dois. */
+export type ConteudoEnvio = "cobranca" | "fatura" | "ambos";
+
 const formatoBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const formatoData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
 
@@ -45,36 +48,47 @@ export function montarEmailDaCobranca(
   cobranca: DadosCobranca,
   destinatario: Destinatario,
   descricao: string,
+  conteudo: ConteudoEnvio = "cobranca",
+  vencimento: Date | null = null,
 ): EmailSaida {
   const valor = formatoBRL.format(Number(cobranca.amount));
   const nome = escapar(destinatario.nome);
   const desc = escapar(descricao);
 
-  const partes: string[] = [
-    `<p>Olá, ${nome}.</p>`,
-    `<p>Segue a cobrança de <strong>${desc}</strong>, no valor de <strong>${valor}</strong>.</p>`,
-  ];
+  const partes: string[] = [`<p>Olá, ${nome}.</p>`];
 
-  const metodo = cobranca.method.toUpperCase();
-  if (metodo === "BOLETO") {
-    if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
-    partes.push(`<p><a href="${escapar(cobranca.boletoUrl)}">Abrir o boleto</a></p>`);
-    if (cobranca.boletoBarcode) {
-      partes.push(`<p>Linha digitável:<br><code>${escapar(cobranca.boletoBarcode)}</code></p>`);
-    }
-    if (cobranca.expiresAt) {
-      partes.push(`<p>Vence em ${formatoData.format(cobranca.expiresAt)}.</p>`);
-    }
-  } else if (metodo === "PIX") {
-    if (!cobranca.pixCopyPaste) throw new CobrancaSemLink("PIX sem copia-e-cola para enviar.");
-    partes.push(`<p>Pague por PIX copia-e-cola:<br><code>${escapar(cobranca.pixCopyPaste)}</code></p>`);
-    if (cobranca.expiresAt) {
-      partes.push(`<p>Válido até ${formatoData.format(cobranca.expiresAt)}.</p>`);
-    }
+  if (conteudo === "fatura" || conteudo === "ambos") {
+    partes.push(
+      `<p>Fatura de <strong>${desc}</strong>: <strong>${valor}</strong>` +
+        `${vencimento ? `, com vencimento em ${formatoData.format(vencimento)}` : ""}.</p>`,
+    );
   } else {
-    // CARD, PAYPAL e qualquer outro resolvem por página de checkout.
-    if (!cobranca.checkoutUrl) throw new CobrancaSemLink("Cobrança sem link de pagamento para enviar.");
-    partes.push(`<p><a href="${escapar(cobranca.checkoutUrl)}">Pagar agora</a></p>`);
+    partes.push(`<p>Segue a cobrança de <strong>${desc}</strong>, no valor de <strong>${valor}</strong>.</p>`);
+  }
+
+  // "fatura" é só o resumo, sem link de pagamento.
+  if (conteudo !== "fatura") {
+    const metodo = cobranca.method.toUpperCase();
+    if (metodo === "BOLETO") {
+      if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
+      partes.push(`<p><a href="${escapar(cobranca.boletoUrl)}">Abrir o boleto</a></p>`);
+      if (cobranca.boletoBarcode) {
+        partes.push(`<p>Linha digitável:<br><code>${escapar(cobranca.boletoBarcode)}</code></p>`);
+      }
+      if (cobranca.expiresAt) {
+        partes.push(`<p>Vence em ${formatoData.format(cobranca.expiresAt)}.</p>`);
+      }
+    } else if (metodo === "PIX") {
+      if (!cobranca.pixCopyPaste) throw new CobrancaSemLink("PIX sem copia-e-cola para enviar.");
+      partes.push(`<p>Pague por PIX copia-e-cola:<br><code>${escapar(cobranca.pixCopyPaste)}</code></p>`);
+      if (cobranca.expiresAt) {
+        partes.push(`<p>Válido até ${formatoData.format(cobranca.expiresAt)}.</p>`);
+      }
+    } else {
+      // CARD, PAYPAL e qualquer outro resolvem por página de checkout.
+      if (!cobranca.checkoutUrl) throw new CobrancaSemLink("Cobrança sem link de pagamento para enviar.");
+      partes.push(`<p><a href="${escapar(cobranca.checkoutUrl)}">Pagar agora</a></p>`);
+    }
   }
 
   partes.push(`<p>Qualquer dúvida, é só responder este e-mail.<br>— Avila Ops</p>`);
@@ -82,7 +96,7 @@ export function montarEmailDaCobranca(
   const html = partes.join("\n");
   return {
     to: destinatario.email,
-    subject: `Cobrança ${descricao}`,
+    subject: `${conteudo === "fatura" ? "Fatura" : "Cobrança"} ${descricao}`,
     html,
     text: semTags(html),
   };
@@ -111,7 +125,7 @@ function semTags(html: string): string {
  */
 export async function enviarCobrancaPorEmail(
   chargeId: string,
-  opcoes?: { destinoTeste?: string },
+  opcoes?: { destinoTeste?: string; conteudo?: ConteudoEnvio },
 ): Promise<{ enviado: boolean; destino: string }> {
   const cobranca = await prisma.subscriptionCharge.findUnique({
     where: { id: chargeId },
@@ -138,7 +152,13 @@ export async function enviarCobrancaPorEmail(
   if (!destino) throw new CobrancaSemLink("Sem e-mail cadastrado para enviar a cobrança.");
 
   const descricao = `${cobranca.invoice.subscription.description} · ${cobranca.invoice.competence}`;
-  const email = montarEmailDaCobranca(cobranca, { nome, email: destino }, descricao);
+  const email = montarEmailDaCobranca(
+    cobranca,
+    { nome, email: destino },
+    descricao,
+    opcoes?.conteudo ?? "cobranca",
+    cobranca.invoice.dueDate ?? null,
+  );
   const enviado = await avisarPorEmail(email);
   return { enviado, destino };
 }
@@ -146,23 +166,36 @@ export async function enviarCobrancaPorEmail(
 /**
  * Texto da cobrança para WhatsApp — puro, sem HTML, como o cliente lê no chat.
  */
-export function montarWhatsappDaCobranca(cobranca: DadosCobranca, descricao: string): string {
+export function montarWhatsappDaCobranca(
+  cobranca: DadosCobranca,
+  descricao: string,
+  conteudo: ConteudoEnvio = "cobranca",
+  vencimento: Date | null = null,
+): string {
   const valor = formatoBRL.format(Number(cobranca.amount));
-  const linhas: string[] = [`Cobrança *${descricao}* — ${valor}.`];
+  const linhas: string[] = [];
 
-  const metodo = cobranca.method.toUpperCase();
-  if (metodo === "BOLETO") {
-    if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
-    linhas.push(`Boleto: ${cobranca.boletoUrl}`);
-    if (cobranca.boletoBarcode) linhas.push(`Linha digitável: ${cobranca.boletoBarcode}`);
-    if (cobranca.expiresAt) linhas.push(`Vence em ${formatoData.format(cobranca.expiresAt)}.`);
-  } else if (metodo === "PIX") {
-    if (!cobranca.pixCopyPaste) throw new CobrancaSemLink("PIX sem copia-e-cola para enviar.");
-    linhas.push(`PIX copia-e-cola:`, cobranca.pixCopyPaste);
-    if (cobranca.expiresAt) linhas.push(`Válido até ${formatoData.format(cobranca.expiresAt)}.`);
+  if (conteudo === "fatura" || conteudo === "ambos") {
+    linhas.push(`Fatura *${descricao}* — ${valor}${vencimento ? `, vence ${formatoData.format(vencimento)}` : ""}.`);
   } else {
-    if (!cobranca.checkoutUrl) throw new CobrancaSemLink("Cobrança sem link de pagamento para enviar.");
-    linhas.push(`Pague aqui: ${cobranca.checkoutUrl}`);
+    linhas.push(`Cobrança *${descricao}* — ${valor}.`);
+  }
+
+  if (conteudo !== "fatura") {
+    const metodo = cobranca.method.toUpperCase();
+    if (metodo === "BOLETO") {
+      if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
+      linhas.push(`Boleto: ${cobranca.boletoUrl}`);
+      if (cobranca.boletoBarcode) linhas.push(`Linha digitável: ${cobranca.boletoBarcode}`);
+      if (cobranca.expiresAt) linhas.push(`Vence em ${formatoData.format(cobranca.expiresAt)}.`);
+    } else if (metodo === "PIX") {
+      if (!cobranca.pixCopyPaste) throw new CobrancaSemLink("PIX sem copia-e-cola para enviar.");
+      linhas.push(`PIX copia-e-cola:`, cobranca.pixCopyPaste);
+      if (cobranca.expiresAt) linhas.push(`Válido até ${formatoData.format(cobranca.expiresAt)}.`);
+    } else {
+      if (!cobranca.checkoutUrl) throw new CobrancaSemLink("Cobrança sem link de pagamento para enviar.");
+      linhas.push(`Pague aqui: ${cobranca.checkoutUrl}`);
+    }
   }
 
   linhas.push(`— Avila Ops`);
@@ -175,7 +208,7 @@ export function montarWhatsappDaCobranca(cobranca: DadosCobranca, descricao: str
  */
 export async function enviarCobrancaPorWhatsapp(
   chargeId: string,
-  opcoes?: { destinoTeste?: string },
+  opcoes?: { destinoTeste?: string; conteudo?: ConteudoEnvio },
 ): Promise<{ enviado: boolean; destino: string }> {
   const cobranca = await prisma.subscriptionCharge.findUnique({
     where: { id: chargeId },
@@ -199,7 +232,12 @@ export async function enviarCobrancaPorWhatsapp(
   if (!destino) throw new CobrancaSemLink("Sem WhatsApp cadastrado para enviar a cobrança.");
 
   const descricao = `${cobranca.invoice.subscription.description} · ${cobranca.invoice.competence}`;
-  const texto = montarWhatsappDaCobranca(cobranca, descricao);
+  const texto = montarWhatsappDaCobranca(
+    cobranca,
+    descricao,
+    opcoes?.conteudo ?? "cobranca",
+    cobranca.invoice.dueDate ?? null,
+  );
   const enviado = await avisarPorWhatsapp({ to: destino, text: texto });
   return { enviado, destino };
 }
