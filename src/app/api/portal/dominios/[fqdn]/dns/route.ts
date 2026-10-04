@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ehDonoDoNegocio, getSessaoPortal } from "@/lib/auth";
 import { ErroDeDns, executarOperacaoDns, lerOperacaoDns } from "@/lib/dominios/dns/escrita";
-import { sameOrigin } from "@/lib/http";
-import { participaDaEmpresa } from "@/lib/nucleo/acesso";
+import { exigirPortal } from "@/lib/portal-acesso";
 
 export const runtime = "nodejs";
 
@@ -23,18 +21,12 @@ export const runtime = "nodejs";
  * na trilha.
  */
 async function tratar(request: NextRequest, params: Promise<{ fqdn: string }>) {
-  const sessao = await getSessaoPortal();
-  if (!sessao) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-  if (!sameOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
-  if (!ehDonoDoNegocio(sessao.role)) {
-    return NextResponse.json({ error: "Só o responsável pela empresa altera o DNS." }, { status: 403 });
-  }
-  if (!sessao.organizationId) {
-    return NextResponse.json({ error: "Sua conta ainda não está ligada a uma empresa." }, { status: 409 });
-  }
-  if (!(await participaDaEmpresa(sessao.id, sessao.organizationId, true))) {
-    return NextResponse.json({ error: "Sua participação não permite administrar esta empresa." }, { status: 403 });
-  }
+  const acesso = await exigirPortal(request, {
+    administrar: true,
+    motivoSemPermissao: "Só o responsável pela empresa altera o DNS.",
+  });
+  if (acesso.erro) return acesso.erro;
+  const { sessao, organizationId } = acesso;
 
   try {
     const { fqdn } = await params;
@@ -44,7 +36,7 @@ async function tratar(request: NextRequest, params: Promise<{ fqdn: string }>) {
       decodeURIComponent(fqdn),
       operacao,
       { id: sessao.id, origem: "CLIENTE" },
-      { organizationId: sessao.organizationId },
+      { organizationId },
     );
     return NextResponse.json({ ok: true, ...(registro ? { registro } : {}) });
   } catch (e) {
