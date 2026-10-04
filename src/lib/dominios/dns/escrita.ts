@@ -4,6 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { lerServicoDeDns, provedorDeDnsDoDominio, tipoDnsValido } from "@/lib/dominios/dns";
 import type { EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
 import { nomeCompleto, validarRegistroDns, type ProblemaDns } from "@/lib/dominios/dns/validacao";
+import {
+  diferencaParaVersao,
+  lerLinhas,
+  ordenarLinhas,
+  paraEntrada,
+  paraLinha,
+  zonaIgual,
+} from "@/lib/dominios/dns/versoes";
 
 /**
  * A escrita de DNS, igual para a equipe e para o cliente.
@@ -213,8 +221,10 @@ export async function executarOperacaoDns(
       },
     });
 
+  await garantirRetratoInicial(zona.id, existentes);
+
+  let depois: RegistroDns | null = null;
   try {
-    let depois: RegistroDns | null = null;
     if (operacao.acao === "criar") {
       depois = await zona.provedor.criar(zona.zonaId, operacao.entrada);
     } else if (operacao.acao === "alterar") {
@@ -225,8 +235,6 @@ export async function executarOperacaoDns(
       // um registro que já não existe até a próxima sincronização.
       await prisma.dnsRecord.deleteMany({ where: { cloudflareRecordId: operacao.registroId } });
     }
-    await auditar("OK", depois);
-    return depois;
   } catch (e) {
     const mensagem = e instanceof Error ? e.message : "erro desconhecido";
     console.error("[dns] falha ao escrever na zona", zona.fqdn, operacao.acao, e);
@@ -239,4 +247,224 @@ export async function executarOperacaoDns(
       502,
     );
   }
+
+  // Daqui para baixo a zona já mudou. Falha ao registrar não pode virar
+  // "nada foi gravado" na tela: vai para o log e a resposta segue.
+  await auditar("OK", depois).catch((e) => console.error("[dns] auditoria falhou após escrita", zona.fqdn, e));
+  const alvo = depois ?? antes!;
+  const verbo = { criar: "criado", alterar: "alterado", apagar: "apagado" }[operacao.acao];
+  await registrarVersaoAtual(zona, ator, `Registro ${alvo.tipo} ${alvo.nome} ${verbo}`, () =>
+    zonaDepoisDe(existentes, operacao, antes, depois),
+  );
+  return depois;
+}
+
+/** A zona esperada depois da operação, para quando o servidor não deixar reler. */
+function zonaDepoisDe(
+  existentes: RegistroDns[],
+  operacao: OperacaoDns,
+  antes: RegistroDns | null,
+  depois: RegistroDns | null,
+): RegistroDns[] {
+  const sem = antes ? existentes.filter((r) => r.id !== antes.id) : existentes;
+  return operacao.acao === "apagar" || !depois ? sem : [...sem, depois];
+}
+
+async function gravarVersao(
+  domainAssetId: string,
+  registros: RegistroDns[],
+  origem: OrigemEscritaDns | "SISTEMA",
+  actorId: string | null,
+  motivo: string,
+) {
+  const linhas = ordenarLinhas(registros.map(paraLinha));
+  return prisma.dnsZoneVersion.create({
+    data: {
+      domainAssetId,
+      origin: origem,
+      actorId,
+      reason: motivo.slice(0, 300),
+      records: JSON.parse(JSON.stringify(linhas)),
+      recordCount: linhas.length,
+    },
+  });
+}
+
+/**
+ * Antes da primeira escrita pelo painel, a zona como ela estava. Sem isso a
+ * primeira versão já seria a zona com o erro, e não haveria para onde voltar.
+ */
+async function garantirRetratoInicial(domainAssetId: string, existentes: RegistroDns[]) {
+  const ja = await prisma.dnsZoneVersion.count({ where: { domainAssetId } });
+  if (ja === 0) {
+    await gravarVersao(domainAssetId, existentes, "SISTEMA", null, "Zona antes da primeira alteração pelo painel");
+  }
+}
+
+/**
+ * Relê a zona e guarda como versão. Relida, não calculada: é a zona que o
+ * servidor está servindo que se quer poder restaurar. Se a releitura falhar,
+ * guarda o cálculo e diz isso no motivo.
+ */
+async function registrarVersaoAtual(
+  zona: { id: string; fqdn: string; zonaId: string; provedor: { listar(zonaId: string): Promise<RegistroDns[]> } },
+  ator: Ator,
+  motivo: string,
+  calculada?: () => RegistroDns[],
+) {
+  try {
+    let registros: RegistroDns[];
+    let texto = motivo;
+    try {
+      registros = await zona.provedor.listar(zona.zonaId);
+    } catch (e) {
+      // Sem cálculo confiável (restauração interrompida), melhor nenhuma
+      // versão do que uma versão que finge ser a zona.
+      if (!calculada) throw e;
+      console.error("[dns] releitura após escrita falhou; versão calculada", zona.fqdn, e);
+      registros = calculada();
+      texto = `${motivo} (calculada; o servidor não respondeu à releitura)`;
+    }
+    await gravarVersao(zona.id, registros, ator.origem, ator.id, texto);
+  } catch (e) {
+    console.error("[dns] não foi possível gravar a versão da zona", zona.fqdn, e);
+  }
+}
+
+export type VersaoDaZona = {
+  id: string;
+  criadaEm: string;
+  origem: string;
+  quem: string | null;
+  motivo: string;
+  linhas: ReturnType<typeof lerLinhas>;
+};
+
+export async function listarVersoes(domainAssetId: string, limite = 30): Promise<VersaoDaZona[]> {
+  const versoes = await prisma.dnsZoneVersion.findMany({
+    where: { domainAssetId },
+    orderBy: { createdAt: "desc" },
+    take: limite,
+  });
+  return versoes.map((v) => ({
+    id: v.id,
+    criadaEm: v.createdAt.toISOString(),
+    origem: v.origin,
+    quem: v.actorId,
+    motivo: v.reason,
+    linhas: lerLinhas(v.records),
+  }));
+}
+
+const formatoQuando = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+/**
+ * Volta a zona ao estado de uma versão.
+ *
+ * Aplica a diferença em três passos: tira o que não existia, ajusta TTL e
+ * proxy, cria o que faltava. Tirar primeiro é o que deixa voltar um CNAME
+ * para um nome que hoje tem A.
+ *
+ * A validação de registro não roda aqui: a versão é um estado em que a zona
+ * já esteve e serviu, inclusive o retrato anterior ao painel, que pode ter
+ * registro que a validação de hoje recusaria. Barrar a volta a ele seria
+ * barrar justamente o desfazer.
+ *
+ * Se o servidor recusar no meio, para, grava a zona como ficou numa versão
+ * própria e diz quanto foi aplicado. Zona pela metade sem registro é o pior
+ * caso: ninguém saberia de onde partir.
+ */
+export async function restaurarVersaoDns(
+  fqdn: string,
+  versaoId: string,
+  ator: Ator,
+  escopo?: { organizationId: string },
+): Promise<{ aplicadas: number }> {
+  const zona = await resolverZonaDns(fqdn, escopo?.organizationId);
+  const versao = await prisma.dnsZoneVersion.findFirst({ where: { id: versaoId, domainAssetId: zona.id } });
+  if (!versao) throw new ErroDeDns("Versão não encontrada.", 404);
+
+  let atual: RegistroDns[];
+  try {
+    atual = await zona.provedor.listar(zona.zonaId);
+  } catch (e) {
+    console.error("[dns] falha ao ler a zona antes de restaurar", zona.fqdn, e);
+    throw new ErroDeDns("Não foi possível ler a zona agora. Nada foi alterado.", 502);
+  }
+
+  const diferenca = diferencaParaVersao(atual, lerLinhas(versao.records));
+  if (zonaIgual(diferenca)) throw new ErroDeDns("A zona já está igual a esta versão.", 409);
+
+  await garantirRetratoInicial(zona.id, atual);
+
+  const quando = formatoQuando.format(versao.createdAt);
+  const total = diferenca.sair.length + diferenca.ajustar.length + diferenca.entrar.length;
+  let aplicadas = 0;
+  let falha: string | null = null;
+
+  try {
+    for (const registro of diferenca.sair) {
+      await zona.provedor.remover(zona.zonaId, registro.id);
+      await prisma.dnsRecord.deleteMany({ where: { cloudflareRecordId: registro.id } });
+      aplicadas++;
+    }
+    for (const { atual: registro, alvo } of diferenca.ajustar) {
+      await zona.provedor.atualizar(zona.zonaId, registro.id, paraEntrada(alvo));
+      aplicadas++;
+    }
+    for (const linha of diferenca.entrar) {
+      await zona.provedor.criar(zona.zonaId, paraEntrada(linha));
+      aplicadas++;
+    }
+  } catch (e) {
+    console.error("[dns] restauração interrompida", zona.fqdn, versaoId, e);
+    falha = e instanceof Error ? e.message.slice(0, 500) : "erro desconhecido";
+  }
+
+  await prisma.operationsAuditEvent
+    .create({
+      data: {
+        actorId: ator.id,
+        organizationId: zona.organizationId,
+        action: falha ? "DNS_ZONA_RESTAURADA_INCOMPLETA" : "DNS_ZONA_RESTAURADA",
+        entityType: "DomainAsset",
+        entityId: zona.id,
+        metadata: JSON.parse(
+          JSON.stringify({
+            fqdn: zona.fqdn,
+            origem: ator.origem,
+            servico: zona.servico,
+            versaoId,
+            aplicadas,
+            total,
+            saiu: diferenca.sair.map(paraAuditoria),
+            entrou: diferenca.entrar,
+            ajustou: diferenca.ajustar.map((a) => ({ antes: paraAuditoria(a.atual), depois: a.alvo })),
+            ...(falha ? { erro: falha } : {}),
+          }),
+        ),
+      },
+    })
+    .catch((e) => console.error("[dns] auditoria da restauração falhou", zona.fqdn, e));
+
+  await registrarVersaoAtual(
+    zona,
+    ator,
+    falha
+      ? `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças)`
+      : `Restaurada a versão de ${quando}`,
+  );
+
+  if (falha) {
+    throw new ErroDeDns(
+      `A restauração parou em ${aplicadas} de ${total} mudanças. A zona como ficou foi guardada como versão; ` +
+        (ator.origem === "EQUIPE" ? `o servidor respondeu: ${falha}` : "fale com o seu atendimento."),
+      502,
+    );
+  }
+  return { aplicadas };
 }

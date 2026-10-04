@@ -7,7 +7,9 @@ import DetalheCapacidade from "@/components/dominios/DetalheCapacidade";
 import DetalheDominio from "@/components/dominios/DetalheDominio";
 import VisaoGeralDominios from "@/components/dominios/VisaoGeralDominios";
 import { BASE, hrefRegistrar, lerFiltro, type Params } from "@/components/dominios/dados";
+import { nomesDosAtores } from "@/lib/atores";
 import { getAdmin } from "@/lib/auth";
+import { listarVersoes } from "@/lib/dominios/dns/escrita";
 import { carregarCentral } from "@/lib/dominios/central";
 import { provedorDeDnsDoDominio, type RegistroDns } from "@/lib/dominios/dns";
 import { prisma } from "@/lib/prisma";
@@ -109,6 +111,11 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
         select: { createdAt: true, action: true, actorId: true, metadata: true },
       });
 
+      const versoes = dominio.dnsAqui ? await listarVersoes(dominio.id) : [];
+      const nome = await nomesDosAtores([...eventos.map((e) => e.actorId), ...versoes.map((v) => v.quem)], {
+        mascararCasa: false,
+      });
+
       return (
         <DetalheDominio
           dominio={dominio}
@@ -118,9 +125,17 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
           historico={eventos.map((evento) => ({
             quando: evento.createdAt.toISOString(),
             acao: rotuloDaAcao(evento.action),
-            quem: evento.actorId,
-            resultado: null,
+            quem: evento.actorId ? nome(evento.actorId, evento.actorId) : null,
+            resultado: (evento.metadata as { origem?: unknown } | null)?.origem === "CLIENTE" ? "pelo cliente" : null,
           }))}
+          versoes={versoes.map((v) => ({
+            id: v.id,
+            criadaEm: v.criadaEm,
+            quem: v.origem === "SISTEMA" ? "registro automático" : nome(v.quem, "conta removida"),
+            motivo: v.motivo,
+            linhas: v.linhas,
+          }))}
+          zonaLida={dominio.dnsAqui && !erroDns}
         />
       );
     }
@@ -151,6 +166,12 @@ function rotuloDaAcao(acao: string): string {
     DNS_REGISTRO_CRIADO: "Registro de DNS criado",
     DNS_REGISTRO_ALTERADO: "Registro de DNS alterado",
     DNS_REGISTRO_APAGADO: "Registro de DNS apagado",
+    DNS_REGISTRO_CRIADO_FALHOU: "Criação de registro recusada pelo DNS",
+    DNS_REGISTRO_ALTERADO_FALHOU: "Alteração de registro recusada pelo DNS",
+    DNS_REGISTRO_APAGADO_FALHOU: "Remoção de registro recusada pelo DNS",
+    DNS_ZONA_RESTAURADA: "Zona restaurada a uma versão",
+    DNS_ZONA_RESTAURADA_INCOMPLETA: "Restauração de versão interrompida",
+    DNS_ZONA_EXPORTADA: "Zona exportada em BIND",
     CLOUDFLARE_DOMAINS_SYNCED: "DNS sincronizado",
     REGISTRO_BR_VENCIMENTOS_SINCRONIZADOS: "Vencimentos consultados",
   };

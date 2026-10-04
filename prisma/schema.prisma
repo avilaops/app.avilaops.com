@@ -1408,6 +1408,7 @@ model DomainAsset {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
   dnsRecords   DnsRecord[]
+  dnsVersions  DnsZoneVersion[]
 
   @@index([organizationId, status])
   @@index([expiresAt, status])
@@ -1766,6 +1767,28 @@ model DnsRecord {
   @@index([domainAssetId])
   @@index([type, name])
   @@map("dns_records")
+  @@schema("operations")
+}
+
+/// A zona inteira depois de cada alteração de DNS (contrato externo 02 §7:
+/// histórico de versões com restauração). Só se acrescenta: versão não é
+/// editada nem apagada pela aplicação.
+model DnsZoneVersion {
+  id            String   @id @default(cuid())
+  domainAssetId String   @map("domain_asset_id")
+  /// EQUIPE, CLIENTE ou SISTEMA (o retrato inicial tirado antes da primeira escrita).
+  origin        String
+  actorId       String?  @map("actor_id")
+  /// O que produziu esta versão, em frase curta: "Registro A loja criado".
+  reason        String
+  records       Json
+  recordCount   Int      @map("record_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  domainAsset DomainAsset @relation(fields: [domainAssetId], references: [id], onDelete: Cascade)
+
+  @@index([domainAssetId, createdAt])
+  @@map("dns_zone_versions")
   @@schema("operations")
 }
 

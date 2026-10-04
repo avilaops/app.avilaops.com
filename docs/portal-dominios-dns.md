@@ -45,8 +45,41 @@ A auditoria (`operations.audit_events`) guarda `origem` (`EQUIPE` ou
 Nome relativo (`www`, `@`) vira nome completo antes de sair: o DNS da casa não
 completa sozinho.
 
+## Versões, restauração e exportação
+
+Contrato externo 02 §7 e regimento interno 13 do `cliente.avilaops.com`.
+
+- **Uma versão a cada alteração** (`operations.dns_zone_versions`): a zona
+  inteira, relida do servidor depois da escrita. Antes da primeira escrita
+  pelo painel, guarda-se a zona como estava (origem `SISTEMA`), senão não
+  haveria para onde voltar do primeiro erro.
+- **Restaurar** aplica só a diferença (`lib/dominios/dns/versoes.ts`): tira o
+  que não existia, ajusta TTL e proxy da mesma linha, cria o que faltava. A
+  tela mostra essa diferença antes, calculada pela mesma função. A validação
+  de registro não roda na restauração: a versão é um estado em que a zona já
+  esteve, e barrar a volta a ele seria barrar o desfazer. Restauração
+  interrompida para, guarda a zona como ficou e diz quanto foi aplicado.
+  Restaurar também vira versão.
+- **Exportar em BIND** (`lib/dominios/dns/bind.ts`): a zona atual ou qualquer
+  versão, sem SOA nem NS. A equipe do cliente também baixa (é a garantia de
+  saída). Toda exportação gera `DNS_ZONA_EXPORTADA`.
+
+Rotas: `…/dns/restaurar` (POST, só quem edita) e `…/dns/exportar[?versao=]`
+(GET), tanto em `/api/portal/dominios/[fqdn]` quanto em `/api/dominios/[fqdn]`.
+
+A retenção de versões ([90 dias] no regimento interno 13) ainda não tem
+rotina de limpeza: é parâmetro de política e entra com a camada de
+parâmetros, não escrita no código.
+
+## Comportamento conhecido do DNS da casa
+
+Um conjunto (nome + tipo) tem um TTL só. Criar um TXT novo no apex pelo
+adaptador da casa regrava o conjunto inteiro com o TTL do registro novo, e o
+SPF que já estava lá muda de TTL junto. Não derruba nada, e a versão mostra a
+mudança, mas a tela não avisa. Nenhum domínio usa o DNS da casa hoje
+(`docs/avila-dns.md`); vale corrigir antes da primeira migração.
+
 ## O que ainda não existe
 
 Registro, renovação e transferência pelo cliente dependem das decisões A1 e A3
-do `cliente.avilaops.com`. Versões de zona restauráveis (contrato externo 02
-§7) e importação/exportação BIND também ficam para depois.
+do `cliente.avilaops.com`. Importação de zona em BIND fica para depois.

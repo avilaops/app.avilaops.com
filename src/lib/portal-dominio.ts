@@ -2,6 +2,9 @@ import { PROVEDOR_REGISTRO_BR } from "@/lib/dominio-vencimento";
 import { situacaoDe } from "@/lib/dominios/central";
 import { lerServicoDeDns, provedorDeDnsDoDominio, type RegistroDns, type ServicoDeDns } from "@/lib/dominios/dns";
 import type { SituacaoDominio } from "@/lib/dominios/tipos";
+import { nomesDosAtores } from "@/lib/atores";
+import { listarVersoes } from "@/lib/dominios/dns/escrita";
+import type { LinhaVersao } from "@/lib/dominios/dns/versoes";
 import { participaDaEmpresa } from "@/lib/nucleo/acesso";
 import { prisma } from "@/lib/prisma";
 import { diasAte } from "@/lib/registro-br";
@@ -28,6 +31,7 @@ export type DominioDoCliente = {
   servicoDns: ServicoDeDns;
   dns: { registros: RegistroDns[]; lidoEm: string | null; erro: string | null };
   historico: Array<{ quando: string; acao: string; quem: string; resumo: string | null }>;
+  versoes: Array<{ id: string; criadaEm: string; quem: string; motivo: string; linhas: LinhaVersao[] }>;
 };
 
 const ROTULO_ACAO: Record<string, string> = {
@@ -37,6 +41,9 @@ const ROTULO_ACAO: Record<string, string> = {
   DNS_REGISTRO_CRIADO_FALHOU: "Tentativa de criar registro recusada pelo DNS",
   DNS_REGISTRO_ALTERADO_FALHOU: "Tentativa de alterar registro recusada pelo DNS",
   DNS_REGISTRO_APAGADO_FALHOU: "Tentativa de apagar registro recusada pelo DNS",
+  DNS_ZONA_RESTAURADA: "Zona restaurada a uma versão anterior",
+  DNS_ZONA_RESTAURADA_INCOMPLETA: "Restauração de versão interrompida",
+  DNS_ZONA_EXPORTADA: "Zona exportada em BIND",
 };
 
 type Resumivel = { tipo?: unknown; nome?: unknown; conteudo?: unknown } | null | undefined;
@@ -89,20 +96,16 @@ export async function carregarDominioDoCliente(
   }
 
   const eventos = await prisma.operationsAuditEvent.findMany({
-    where: { entityType: "DomainAsset", entityId: dominio.id, action: { startsWith: "DNS_REGISTRO_" } },
+    where: { entityType: "DomainAsset", entityId: dominio.id, action: { in: Object.keys(ROTULO_ACAO) } },
     orderBy: { createdAt: "desc" },
     take: 20,
     select: { createdAt: true, action: true, actorId: true, metadata: true },
   });
-  // Nome só de quem é da própria empresa. Gente da casa aparece como equipe:
-  // o cliente precisa saber que foi a Ávila, não quem dela.
-  const atores = await prisma.adminIdentity.findMany({
-    where: { id: { in: [...new Set(eventos.map((e) => e.actorId).filter((id): id is string => Boolean(id)))] } },
-    select: { id: true, nome: true, role: true },
+  const versoes = await listarVersoes(dominio.id);
+  // Nome só de quem é da própria empresa. Gente da casa aparece como equipe.
+  const nome = await nomesDosAtores([...eventos.map((e) => e.actorId), ...versoes.map((v) => v.quem)], {
+    mascararCasa: true,
   });
-  const nomePorId = new Map(
-    atores.map((a) => [a.id, a.role === "OWNER" || a.role === "SOCIO" ? "Equipe Ávila Ops" : a.nome]),
-  );
 
   return {
     id: dominio.id,
@@ -122,9 +125,16 @@ export async function carregarDominioDoCliente(
       return {
         quando: evento.createdAt.toISOString(),
         acao: ROTULO_ACAO[evento.action] ?? "Alteração de DNS",
-        quem: (evento.actorId && nomePorId.get(evento.actorId)) || "Equipe Ávila Ops",
+        quem: nome(evento.actorId),
         resumo: resumir(meta?.depois) ?? resumir(meta?.antes) ?? resumir(meta?.pedido),
       };
     }),
+    versoes: versoes.map((v) => ({
+      id: v.id,
+      criadaEm: v.criadaEm,
+      quem: v.origem === "SISTEMA" ? "registro automático" : nome(v.quem),
+      motivo: v.motivo,
+      linhas: v.linhas,
+    })),
   };
 }
