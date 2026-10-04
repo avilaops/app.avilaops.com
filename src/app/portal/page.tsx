@@ -188,7 +188,7 @@ export default async function PortalDoCliente() {
           <ul className="portal-list">
             {dominios.map((d) => (
               <li key={d.fqdn}>
-                <span>{d.fqdn}</span>
+                <span><Link href={`/portal/dominios/${encodeURIComponent(d.fqdn)}`}>{d.fqdn}</Link></span>
                 <em>
                   {d.expiraEm ? `renova em ${formatShortDate(d.expiraEm)}` : "sem data de renovação"}
                   {d.renovacaoAutomatica ? " · automático" : ""}
