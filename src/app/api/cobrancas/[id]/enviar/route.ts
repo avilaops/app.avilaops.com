@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
-import { CobrancaSemLink, enviarCobrancaPorEmail, enviarCobrancaPorWhatsapp } from "@/lib/entrega-cobranca";
+import { CobrancaSemLink, enviarCobrancaPorEmail, enviarCobrancaPorWhatsapp, type ConteudoEnvio } from "@/lib/entrega-cobranca";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -38,7 +38,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // O que enviar: link de pagamento (padrão), só a fatura, ou os dois.
-  const conteudo = corpo?.conteudo === "fatura" || corpo?.conteudo === "ambos" ? corpo.conteudo : "cobranca";
+  const conteudo: ConteudoEnvio =
+    corpo?.conteudo === "fatura" ? "fatura" : corpo?.conteudo === "ambos" ? "ambos" : "cobranca";
 
   // Só manda ao cliente real quando teste é EXPLICITAMENTE false.
   const teste = corpo?.teste !== false;
