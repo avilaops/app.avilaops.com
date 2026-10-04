@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
 import { CobrancaSemLink, enviarCobrancaPorEmail, enviarCobrancaPorWhatsapp } from "@/lib/entrega-cobranca";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       canal === "email"
         ? await enviarCobrancaPorEmail(id, opcoes)
         : await enviarCobrancaPorWhatsapp(id, opcoes);
+
+    // Envio a cliente é ação externa: deixa rastro. Auditoria é para nós, não
+    // pode derrubar o envio que acabou de dar certo.
+    await prisma.operationsAuditEvent
+      .create({
+        data: {
+          actorId: admin.id,
+          action: "COBRANCA_ENVIADA",
+          entityType: "SubscriptionCharge",
+          entityId: id,
+          metadata: { canal, teste, destino: resultado.destino, enviado: resultado.enviado },
+        },
+      })
+      .catch((e) => console.error("[cobranca] não auditei o envio", e));
 
     if (!resultado.enviado) {
       return NextResponse.json(
