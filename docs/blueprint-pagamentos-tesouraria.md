@@ -38,12 +38,17 @@ Assim eu adapto ao momento: um lembrete amigável, a cobrança em si, ou os dois
 
 ## Enviar ao cliente **[e-mail: já funciona · WhatsApp: infra pendente]**
 
-Na ficha do cliente, cada cobrança ganha dois botões: **Enviar e-mail** e **Enviar WhatsApp**.
+Na ficha do cliente, cada fatura que não está cancelada ganha quatro botões — teste e cliente, um par por canal:
+
+- **Enviar teste por e-mail** e **Enviar teste por WhatsApp** — mandam pra um destino que eu digito na hora, nunca pro cliente.
+- **Enviar ao cliente por e-mail** e **Enviar ao cliente por WhatsApp** — mandam pro cliente de verdade, depois de eu confirmar.
+
+Sobre os canais:
 
 - **E-mail** vai pro endereço cadastrado do cliente. Já funciona (sai pelo nosso servidor, via n8n).
 - **WhatsApp** vai pro número cadastrado. O caminho no app está pronto; falta ligar o envio na infra (um fluxo no n8n + um modelo de mensagem aprovado pela Meta) pra sair de verdade.
 
-**Modo de teste por padrão:** ao clicar, ele pergunta pra onde mandar o teste (meu próprio e-mail/número). Só vai pro **cliente real** se eu disser de propósito — não dá pra disparar sem querer. E todo envio fica registrado (quem mandou, por onde, pra quem).
+**Teste e cliente real não se misturam:** o botão de teste pergunta pra onde mandar (meu próprio e-mail/número); se eu deixar em branco, nada é enviado. Pro **cliente real** só sai pelo botão dele, e ainda pede confirmação antes — não dá pra disparar sem querer. E todo envio fica registrado (quem mandou, por onde, pra quem).
 
 ## Acompanhar e me proteger **[parcial]**
 
