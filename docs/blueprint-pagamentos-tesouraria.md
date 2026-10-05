@@ -48,7 +48,9 @@ Sobre os canais:
 - **E-mail** vai pro endereço cadastrado do cliente. Já funciona (sai pelo nosso servidor, via n8n).
 - **WhatsApp** vai pro número cadastrado. O caminho no app está pronto; falta ligar o envio na infra (um fluxo no n8n + um modelo de mensagem aprovado pela Meta) pra sair de verdade.
 
-**Teste e cliente real não se misturam:** o botão de teste pergunta pra onde mandar (meu próprio e-mail/número); se eu deixar em branco, nada é enviado. Pro **cliente real** só sai pelo botão dele, e ainda pede confirmação antes — não dá pra disparar sem querer. E todo envio fica registrado (quem mandou, por onde, pra quem).
+**Teste e cliente real não se misturam:** o botão de teste pergunta pra onde mandar (meu próprio e-mail/número); se eu deixar em branco, nada é enviado. Pro **cliente real** só sai pelo botão dele, e ainda pede confirmação antes — não dá pra disparar sem querer.
+
+**O envio fica registrado na auditoria:** quem mandou, por qual canal, pra qual destino, o que foi enviado e se era teste. O teste também entra, marcado como teste, na trilha do cliente dono da fatura. O envio que foi tentado e não saiu fica gravado como falha, não como contato feito; pedido recusado antes de tentar (fatura cancelada, cobrança expirada, sem destino cadastrado) não gera registro. Dois limites de hoje: esse registro ainda não aparece em nenhuma tela (fica no banco), e ele é gravado depois do envio — se a gravação falhar, a mensagem já saiu e o erro vai só pro log do servidor.
 
 ## Acompanhar e me proteger **[parcial]**
 
@@ -79,7 +81,10 @@ Cada parte entra como uma **fatia própria, testada e publicada**, pra não queb
 
 ## Onde isso vive no código (referência técnica)
 
-- Envio: `src/lib/entrega-cobranca.ts`, `src/lib/whatsapp-saida.ts`, rota `src/app/api/cobrancas/[id]/enviar/route.ts`, botões em `src/components/OperacaoPanel.tsx`.
+- Envio: `src/lib/entrega-cobranca.ts`, `src/lib/whatsapp-saida.ts`, botões em `src/components/OperacaoPanel.tsx`.
+  - Rota que o painel chama: `src/app/api/billing/faturas/[id]/enviar/route.ts` — envia a partir da **fatura**; por isso dá pra mandar o resumo antes de existir cobrança e, havendo cobrança, vai a mais recente.
+  - Rota irmã: `src/app/api/cobrancas/[id]/enviar/route.ts` — envia a partir de uma **cobrança** específica já emitida. Existe, mas nenhuma tela chama hoje.
+  - As duas passam por `responderEnvio` (`src/lib/entrega-cobranca-http.ts`): só o dono, modo de teste por padrão e o registro em `operations.audit_events` (`COBRANCA_ENVIADA` / `COBRANCA_ENVIO_FALHOU`).
 - Painel de integrações: `src/app/financeiro/integracoes/page.tsx`, `src/lib/integracoes.ts`, diagnóstico em `src/lib/paypal.ts` (`diagnosticarWebhook`).
 - Emissão/contratação (já existente): `src/lib/assinaturas.ts`, `src/lib/nucleo/contratacao.ts`.
 - Entregue no PR #78 (`avilaops/app.avilaops.com`).
