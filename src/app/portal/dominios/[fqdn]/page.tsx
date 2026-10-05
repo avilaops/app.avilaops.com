@@ -132,6 +132,7 @@ export default async function DominioDoClientePage({ params }: { params: Promise
           zonaLida={Boolean(dominio.dns.lidoEm)}
           podeRestaurar={podeEditar}
           base={`/api/portal/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
+          zona={dominio.fqdn}
         />
       ) : null}
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { zonaParaBind } from "@/lib/dominios/dns/bind";
+import { conteudoDeApresentacao, conteudoLogico, ehDoServidor, pedacosDe255Bytes } from "@/lib/dominios/dns/conteudo";
+import { montarConteudo } from "@/lib/dominios/dns/rrset";
 import type { RegistroDns } from "@/lib/dominios/dns/tipos";
 import { diferencaParaVersao, lerLinhas, ordenarLinhas, paraLinha, zonaIgual, type LinhaVersao } from "@/lib/dominios/dns/versoes";
 
@@ -12,6 +14,8 @@ import { diferencaParaVersao, lerLinhas, ordenarLinhas, paraLinha, zonaIgual, ty
 function r(tipo: string, nome: string, conteudo: string, extra: Partial<RegistroDns> = {}): RegistroDns {
   return { id: `${tipo}|${nome}|${conteudo}`, tipo, nome, conteudo, ttl: 1, proxy: false, prioridade: null, ...extra };
 }
+
+const Z = "x.com.br";
 
 const ATUAL: RegistroDns[] = [
   r("A", "x.com.br", "203.0.113.10"),
@@ -27,7 +31,7 @@ describe("diferencaParaVersao", () => {
       paraLinha(r("MX", "x.com.br", "mx1.provedor.com", { prioridade: 10 })),
       paraLinha(r("TXT", "x.com.br", "v=spf1 include:antigo.com ~all")),
     ];
-    const dif = diferencaParaVersao(ATUAL, versao);
+    const dif = diferencaParaVersao(ATUAL, versao, Z);
     expect(dif.sair.map((x) => x.conteudo).sort()).toEqual(["198.51.100.7", "v=spf1 include:novo.com ~all"]);
     expect(dif.entrar.map((x) => x.conteudo)).toEqual(["v=spf1 include:antigo.com ~all"]);
     expect(dif.ajustar).toEqual([]);
@@ -35,7 +39,7 @@ describe("diferencaParaVersao", () => {
 
   it("TTL ou proxy diferente é ajuste da mesma linha, não apagar e criar", () => {
     const versao = ATUAL.map(paraLinha).map((l) => (l.nome === "loja.x.com.br" ? { ...l, ttl: 3600, proxy: true } : l));
-    const dif = diferencaParaVersao(ATUAL, versao);
+    const dif = diferencaParaVersao(ATUAL, versao, Z);
     expect(dif.sair).toEqual([]);
     expect(dif.entrar).toEqual([]);
     expect(dif.ajustar).toHaveLength(1);
@@ -44,25 +48,25 @@ describe("diferencaParaVersao", () => {
 
   it("prioridade faz parte da linha: MX 10 e MX 20 para o mesmo host são linhas diferentes", () => {
     const versao = ATUAL.map(paraLinha).map((l) => (l.tipo === "MX" ? { ...l, prioridade: 20 } : l));
-    const dif = diferencaParaVersao(ATUAL, versao);
+    const dif = diferencaParaVersao(ATUAL, versao, Z);
     expect(dif.sair.map((x) => x.tipo)).toEqual(["MX"]);
     expect(dif.entrar.map((x) => x.prioridade)).toEqual([20]);
   });
 
   it("nome com ou sem ponto final e em maiúscula é o mesmo nome", () => {
     const versao = ATUAL.map(paraLinha).map((l) => ({ ...l, nome: `${l.nome.toUpperCase()}.` }));
-    expect(zonaIgual(diferencaParaVersao(ATUAL, versao))).toBe(true);
+    expect(zonaIgual(diferencaParaVersao(ATUAL, versao, Z))).toBe(true);
   });
 
   it("linhas repetidas são contadas uma a uma", () => {
     const duplicada = [...ATUAL, r("A", "x.com.br", "203.0.113.10", { id: "outra" })];
-    const dif = diferencaParaVersao(duplicada, ATUAL.map(paraLinha));
+    const dif = diferencaParaVersao(duplicada, ATUAL.map(paraLinha), Z);
     expect(dif.sair).toHaveLength(1);
   });
 
   it("versão vazia apaga tudo; zona vazia recria tudo", () => {
-    expect(diferencaParaVersao(ATUAL, []).sair).toHaveLength(4);
-    expect(diferencaParaVersao([], ATUAL.map(paraLinha)).entrar).toHaveLength(4);
+    expect(diferencaParaVersao(ATUAL, [], Z).sair).toHaveLength(4);
+    expect(diferencaParaVersao([], ATUAL.map(paraLinha), Z).entrar).toHaveLength(4);
   });
 });
 
@@ -108,3 +112,58 @@ describe("zonaParaBind", () => {
     expect(arquivo).not.toMatch(/\tSOA\t|\tNS\t/);
   });
 });
+
+describe("registros do servidor", () => {
+  it("SOA e NS do próprio domínio são do servidor; NS de subdomínio é do titular", () => {
+    expect(ehDoServidor({ tipo: "SOA", nome: "x.com.br." }, Z)).toBe(true);
+    expect(ehDoServidor({ tipo: "NS", nome: "x.com.br" }, Z)).toBe(true);
+    expect(ehDoServidor({ tipo: "NS", nome: "loja.x.com.br" }, Z)).toBe(false);
+  });
+
+  it("ficam fora da diferença: SOA com serial novo não vira apagar e recriar", () => {
+    const soaHoje = r("SOA", "x.com.br", "ns1.avilaops.com. hostmaster. 2026100502 10800 3600 604800 3600");
+    const soaOntem = paraLinha(r("SOA", "x.com.br", "ns1.avilaops.com. hostmaster. 2026100401 10800 3600 604800 3600"));
+    const dif = diferencaParaVersao([...ATUAL, soaHoje], [...ATUAL.map(paraLinha), soaOntem], Z);
+    expect(zonaIgual(dif)).toBe(true);
+  });
+
+  it("ficam fora do BIND", () => {
+    const arquivo = zonaParaBind(Z, [paraLinha(r("SOA", "x.com.br", "ns1. h. 1 2 3 4 5")), paraLinha(r("NS", "x.com.br", "ns1.avilaops.com."))], {
+      geradoEm: new Date(),
+      origem: "t",
+    });
+    expect(arquivo).not.toMatch(/\tSOA\t|\tNS\t/);
+  });
+});
+
+describe("conteúdo igual entre servidores", () => {
+  it("TXT entre aspas e em pedaços vira o mesmo texto lógico", () => {
+    expect(conteudoLogico("TXT", '"v=spf1 include:a.com" " ~all"')).toBe("v=spf1 include:a.com ~all");
+    expect(conteudoLogico("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
+    expect(conteudoLogico("TXT", "v=spf1 -all")).toBe("v=spf1 -all");
+  });
+
+  it("host com ou sem ponto final é o mesmo host", () => {
+    expect(conteudoLogico("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
+  });
+
+  it("versão do servidor da casa e zona do serviço externo não aparecem como diferentes", () => {
+    const daCasa = [r("TXT", "x.com.br", '"v=spf1 -all"'), r("MX", "x.com.br", "mx1.provedor.com.", { prioridade: 10 })];
+    const externa = [r("TXT", "x.com.br", "v=spf1 -all"), r("MX", "x.com.br", "mx1.provedor.com", { prioridade: 10 })];
+    expect(zonaIgual(diferencaParaVersao(externa, daCasa.map(paraLinha), Z))).toBe(true);
+  });
+
+  it("o servidor da casa recebe TXT entre aspas e host com ponto final", () => {
+    expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: "v=spf1 -all" })).toBe('"v=spf1 -all"');
+    expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: '"já" "em aspas"' })).toBe('"já" "em aspas"');
+    expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: "mx1.provedor.com", prioridade: 10 })).toBe("10 mx1.provedor.com.");
+    expect(conteudoDeApresentacao("CNAME", "x.com.br")).toBe("x.com.br.");
+  });
+
+  it("TXT é cortado por bytes, sem partir acento no meio", () => {
+    const pedacos = pedacosDe255Bytes("é".repeat(200));
+    expect(pedacos.map((p) => new TextEncoder().encode(p).length)).toEqual([254, 146]);
+    expect(pedacos.join("")).toBe("é".repeat(200));
+  });
+});
+

@@ -36,6 +36,7 @@ export default function VersoesDaZona({
   zonaLida,
   podeRestaurar,
   base,
+  zona,
 }: {
   versoes: VersaoNaTela[];
   /** A zona agora, lida do servidor. */
@@ -45,6 +46,8 @@ export default function VersoesDaZona({
   podeRestaurar: boolean;
   /** Rota de DNS do domínio, sem barra no fim: `/api/portal/dominios/x.com.br/dns`. */
   base: string;
+  /** O domínio dono da zona: SOA e NS dele são do servidor e ficam fora da diferença. */
+  zona: string;
 }) {
   const router = useRouter();
   const [aberta, setAberta] = useState<string | null>(null);
@@ -54,8 +57,8 @@ export default function VersoesDaZona({
   const [aviso, setAviso] = useState("");
 
   const diferencas = useMemo(
-    () => new Map(versoes.map((v) => [v.id, diferencaParaVersao(atual, v.linhas)])),
-    [versoes, atual],
+    () => new Map(versoes.map((v) => [v.id, diferencaParaVersao(atual, v.linhas, zona)])),
+    [versoes, atual, zona],
   );
 
   async function restaurar() {

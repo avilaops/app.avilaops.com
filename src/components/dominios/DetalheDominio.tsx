@@ -125,6 +125,7 @@ export default function DetalheDominio({
           zonaLida={zonaLida}
           podeRestaurar={escrita.editarDns}
           base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
+          zona={dominio.fqdn}
         />
       ) : null}
 

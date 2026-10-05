@@ -1,3 +1,4 @@
+import { conteudoDeApresentacao } from "@/lib/dominios/dns/conteudo";
 import type { EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
 
 /**
@@ -75,7 +76,10 @@ const COM_PRIORIDADE = new Set(["MX", "SRV"]);
 
 export function montarConteudo(entrada: EntradaRegistroDns): string {
   const tipo = entrada.tipo.toUpperCase();
-  const conteudo = entrada.conteudo.trim();
+  // O servidor autoritativo só aceita a forma de apresentação: TXT entre
+  // aspas, host com ponto final. Quem chega aqui pode trazer a forma lógica
+  // (o portal, uma versão guardada do serviço externo).
+  const conteudo = conteudoDeApresentacao(tipo, entrada.conteudo);
   if (!COM_PRIORIDADE.has(tipo) || entrada.prioridade === undefined) return conteudo;
   // Conteúdo que já vem com a prioridade na frente não ganha outra.
   if (/^\d+\s/.test(conteudo)) return conteudo;

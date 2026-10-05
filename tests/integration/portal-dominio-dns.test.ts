@@ -13,29 +13,48 @@ import type { DnsProvider, EntradaRegistroDns, RegistroDns } from "@/lib/dominio
  * nele (ou não chega), não o protocolo.
  */
 
-const state = vi.hoisted(() => ({ tx: null as unknown, zona: [] as RegistroDns[], chamadas: [] as string[] }));
+const state = vi.hoisted(() => ({
+  tx: null as unknown,
+  zona: [] as RegistroDns[],
+  chamadas: [] as string[],
+  /** Simula o servidor caindo: depois de N escritas, toda chamada falha. */
+  caiDepoisDe: null as number | null,
+  /** Simula outra pessoa mexendo na zona no meio de uma restauração. */
+  aoEscrever: null as null | (() => void),
+}));
 vi.mock("@/lib/prisma", () => ({ get prisma() { return state.tx; } }));
 vi.mock("@/lib/dominios/dns", async (original) => {
   const real = await original<typeof import("@/lib/dominios/dns")>();
+  const escrever = () => {
+    if (state.caiDepoisDe !== null && state.chamadas.length >= state.caiDepoisDe) throw new Error("timeout");
+    state.aoEscrever?.();
+    state.aoEscrever = null;
+  };
   const falso: DnsProvider = {
     adaptador: "falso",
     configurado: () => true,
     podeEditar: () => true,
     verificar: async () => ({ adaptador: "falso", configurado: true, operacional: true, ambiente: null, verificadoEm: null, erro: null }),
-    listar: async () => state.zona.map((r) => ({ ...r })),
+    listar: async () => {
+      if (state.caiDepoisDe !== null && state.chamadas.length >= state.caiDepoisDe) throw new Error("timeout");
+      return state.zona.map((r) => ({ ...r }));
+    },
     criar: async (_zona: string, e: EntradaRegistroDns) => {
+      escrever();
       state.chamadas.push(`criar ${e.tipo} ${e.nome}`);
       const novo: RegistroDns = { id: randomUUID(), tipo: e.tipo, nome: e.nome, conteudo: e.conteudo, ttl: e.ttl ?? 1, proxy: false, prioridade: e.prioridade ?? null };
       state.zona.push(novo);
       return novo;
     },
     atualizar: async (_zona: string, id: string, e: EntradaRegistroDns) => {
+      escrever();
       state.chamadas.push(`alterar ${id}`);
       const i = state.zona.findIndex((r) => r.id === id);
       state.zona[i] = { ...state.zona[i], tipo: e.tipo, nome: e.nome, conteudo: e.conteudo };
       return state.zona[i];
     },
     remover: async (_zona: string, id: string) => {
+      escrever();
       state.chamadas.push(`apagar ${id}`);
       state.zona = state.zona.filter((r) => r.id !== id);
     },
@@ -87,6 +106,8 @@ beforeEach(() => {
     { id: "mx", tipo: "MX", nome: "@", conteudo: "mx1.provedor.com", ttl: 1, proxy: false, prioridade: 10 },
   ];
   state.chamadas = [];
+  state.caiDepoisDe = null;
+  state.aoEscrever = null;
 });
 afterAll(() => db.$disconnect());
 
@@ -202,4 +223,52 @@ describe("DNS pelo portal do cliente", () => {
     expect(arquivo.conteudo).toContain("IN\tMX\t10 mx1.provedor.com.");
     expect(await tx.operationsAuditEvent.count({ where: { organizationId: org, action: "DNS_ZONA_EXPORTADA" } })).toBe(1);
   }));
+
+  it("servidor cai no meio da restauração: guarda a zona como ficou, calculada", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "loja", conteudo: "203.0.113.10" } }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+
+    state.chamadas = [];
+    state.caiDepoisDe = 1; // apaga o A loja, cai antes de recriar o MX, e não deixa reler
+    await expect(restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org })).rejects.toMatchObject({
+      status: 502,
+      message: expect.stringContaining("guardada como versão"),
+    });
+
+    const ultima = await tx.dnsZoneVersion.findFirstOrThrow({ where: { domainAsset: { fqdn } }, orderBy: { createdAt: "desc" } });
+    expect(ultima.reason).toMatch(/interrompida \(1 de 2 mudanças\).*calculada/);
+    expect((ultima.records as { tipo: string }[]).map((l) => l.tipo)).toEqual(["TXT"]);
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_INCOMPLETA" } });
+    expect(evento.metadata).toMatchObject({ resultado: "INCOMPLETA", aplicadas: 1, versaoGuardada: true });
+  }));
+
+  it("zona alterada por outro no meio da restauração não é anunciada como restaurada", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+
+    state.aoEscrever = () => {
+      state.zona.push({ id: "intruso", tipo: "TXT", nome: "@", conteudo: "verificacao=xyz", ttl: 1, proxy: false, prioridade: null });
+    };
+    await expect(restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org })).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining("não ficou igual"),
+    });
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_INCOMPLETA" } });
+    expect(evento.metadata).toMatchObject({ resultado: "DIVERGENTE" });
+  }));
+
+  it("versão guardada continua exportável depois que o DNS saiu daqui", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    const versao = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+    await tx.domainAsset.update({ where: { fqdn }, data: { dnsProvider: "NENHUM" } });
+
+    const arquivo = await exportarZonaBind(fqdn, cliente, { organizationId: org }, versao.id);
+    expect(arquivo.conteudo).toContain("IN\tMX\t10 mx1.provedor.com.");
+    await expect(exportarZonaBind(fqdn, cliente, { organizationId: org })).rejects.toMatchObject({ status: 409 });
+  }));
 });
+

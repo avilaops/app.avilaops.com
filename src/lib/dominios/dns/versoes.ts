@@ -1,3 +1,4 @@
+import { conteudoLogico, ehDoServidor } from "@/lib/dominios/dns/conteudo";
 import type { EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
 
 /**
@@ -24,11 +25,16 @@ export type LinhaVersao = {
   proxy: boolean;
 };
 
+/** Linhas do titular, prontas para guardar: forma lógica, sem SOA e NS do servidor, em ordem. */
+export function linhasDoTitular(registros: RegistroDns[], zona: string): LinhaVersao[] {
+  return ordenarLinhas(registros.filter((r) => !ehDoServidor(r, zona)).map(paraLinha));
+}
+
 export function paraLinha(registro: RegistroDns): LinhaVersao {
   return {
     tipo: registro.tipo.toUpperCase(),
     nome: registro.nome.trim().toLowerCase().replace(/\.$/, ""),
-    conteudo: registro.conteudo,
+    conteudo: conteudoLogico(registro.tipo, registro.conteudo),
     ttl: registro.ttl,
     prioridade: registro.prioridade,
     proxy: registro.proxy,
@@ -53,7 +59,7 @@ export function ordenarLinhas(linhas: LinhaVersao[]): LinhaVersao[] {
  */
 function chave(linha: { tipo: string; nome: string; conteudo: string; prioridade: number | null }): string {
   const nome = linha.nome.trim().toLowerCase().replace(/\.$/, "");
-  return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${linha.conteudo}`;
+  return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${conteudoLogico(linha.tipo, linha.conteudo)}`;
 }
 
 export type DiferencaZona = {
@@ -65,7 +71,13 @@ export type DiferencaZona = {
   ajustar: { atual: RegistroDns; alvo: LinhaVersao }[];
 };
 
-export function diferencaParaVersao(atual: RegistroDns[], versao: LinhaVersao[]): DiferencaZona {
+/**
+ * O que aplicar para a zona voltar à versão. SOA e NS do próprio domínio
+ * ficam de fora dos dois lados: são do servidor, não do titular.
+ */
+export function diferencaParaVersao(atual: RegistroDns[], versao: LinhaVersao[], zona: string): DiferencaZona {
+  atual = atual.filter((r) => !ehDoServidor(r, zona));
+  versao = versao.filter((l) => !ehDoServidor(l, zona));
   const restantes = new Map<string, LinhaVersao[]>();
   for (const linha of versao) {
     const k = chave(linha);

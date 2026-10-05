@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { zonaParaBind } from "@/lib/dominios/dns/bind";
-import { ErroDeDns, resolverZonaDns, type Ator } from "@/lib/dominios/dns/escrita";
-import { lerLinhas, ordenarLinhas, paraLinha } from "@/lib/dominios/dns/versoes";
+import { ErroDeDns, resolverDominioDns, resolverZonaDns, type Ator } from "@/lib/dominios/dns/escrita";
+import { lerLinhas, linhasDoTitular } from "@/lib/dominios/dns/versoes";
 
 /**
  * A zona — a de agora, lida do servidor, ou uma versão guardada — como
@@ -14,7 +14,8 @@ export async function exportarZonaBind(
   escopo?: { organizationId: string },
   versaoId?: string | null,
 ): Promise<{ nomeArquivo: string; conteudo: string }> {
-  const zona = await resolverZonaDns(fqdn, escopo?.organizationId);
+  // Versão guardada vem do banco: não depende de o DNS ainda estar aqui.
+  const zona = await resolverDominioDns(fqdn, escopo?.organizationId);
   const agora = new Date();
 
   let linhas;
@@ -25,8 +26,9 @@ export async function exportarZonaBind(
     linhas = lerLinhas(versao.records);
     origem = `Versão de ${versao.createdAt.toISOString()}: ${versao.reason}`;
   } else {
+    const viva = await resolverZonaDns(fqdn, escopo?.organizationId);
     try {
-      linhas = ordenarLinhas((await zona.provedor.listar(zona.zonaId)).map(paraLinha));
+      linhas = linhasDoTitular(await viva.provedor.listar(viva.zonaId), zona.fqdn);
     } catch (e) {
       console.error("[dns] falha ao ler a zona para exportar", zona.fqdn, e);
       throw new ErroDeDns("Não foi possível ler a zona agora.", 502);
