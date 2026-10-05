@@ -9,6 +9,7 @@ import {
   lerLinhas,
   paraEntrada,
   linhasDoTitular,
+  paraJsonDaVersao,
   zonaIgual,
 } from "@/lib/dominios/dns/versoes";
 
@@ -141,6 +142,26 @@ export async function resolverDominioDns(fqdnBruto: string, organizationId?: str
   return dominio;
 }
 
+/**
+ * Tira do espelho no banco o registro que o servidor já apagou. Falha aqui é
+ * de cache local: vai para o log e não interrompe nada — o servidor de DNS é
+ * a fonte, e a próxima sincronização refaz o espelho.
+ */
+async function limparEspelho(registroId: string) {
+  try {
+    await prisma.dnsRecord.deleteMany({ where: { cloudflareRecordId: registroId } });
+  } catch (e) {
+    console.error("[dns] não foi possível limpar o espelho do registro", registroId, e);
+  }
+}
+
+const ACAO_RESTAURACAO = {
+  OK: "DNS_ZONA_RESTAURADA",
+  INCOMPLETA: "DNS_ZONA_RESTAURADA_INCOMPLETA",
+  NAO_CONFERIDA: "DNS_ZONA_RESTAURADA_NAO_CONFERIDA",
+  DIVERGENTE: "DNS_ZONA_RESTAURADA_DIVERGENTE",
+} as const;
+
 const ACAO_AUDITORIA = {
   criar: "DNS_REGISTRO_CRIADO",
   alterar: "DNS_REGISTRO_ALTERADO",
@@ -240,9 +261,6 @@ export async function executarOperacaoDns(
       depois = await zona.provedor.atualizar(zona.zonaId, operacao.registroId, operacao.entrada);
     } else {
       await zona.provedor.remover(zona.zonaId, operacao.registroId);
-      // O espelho no banco sai junto: deixar a linha órfã faria a tela mostrar
-      // um registro que já não existe até a próxima sincronização.
-      await prisma.dnsRecord.deleteMany({ where: { cloudflareRecordId: operacao.registroId } });
     }
   } catch (e) {
     const mensagem = e instanceof Error ? e.message : "erro desconhecido";
@@ -256,6 +274,10 @@ export async function executarOperacaoDns(
       502,
     );
   }
+
+  // O espelho no banco sai junto: linha órfã faria a tela mostrar um
+  // registro que já não existe até a próxima sincronização.
+  if (operacao.acao === "apagar") await limparEspelho(operacao.registroId);
 
   // Daqui para baixo a zona já mudou. Falha ao registrar não pode virar
   // "nada foi gravado" na tela: vai para o log e a resposta segue.
@@ -294,7 +316,7 @@ async function gravarVersao(
       origin: origem,
       actorId,
       reason: motivo.slice(0, 300),
-      records: JSON.parse(JSON.stringify(linhas)),
+      records: JSON.parse(JSON.stringify(paraJsonDaVersao(linhas))),
       recordCount: linhas.length,
     },
   });
@@ -431,9 +453,9 @@ export async function restaurarVersaoDns(
   try {
     for (const registro of diferenca.sair) {
       await zona.provedor.remover(zona.zonaId, registro.id);
-      await prisma.dnsRecord.deleteMany({ where: { cloudflareRecordId: registro.id } });
       estado = estado.filter((r) => r.id !== registro.id);
       aplicadas++;
+      await limparEspelho(registro.id);
     }
     for (const { atual: registro, alvo: linha } of diferenca.ajustar) {
       const novo = await zona.provedor.atualizar(zona.zonaId, registro.id, paraEntrada(linha));
@@ -462,6 +484,12 @@ export async function restaurarVersaoDns(
     zona,
     ator,
     (registros, relida) => {
+      // Mudança recusada por timeout pode ter sido aplicada do outro lado
+      // antes de a resposta chegar. Sem releitura, o estado calculado conta
+      // só o que o servidor confirmou, e a versão diz que é incerto.
+      if (falha && !relida) {
+        return `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças confirmadas; estado incerto: a mudança seguinte pode ter sido aplicada)`;
+      }
       if (falha) return `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças)`;
       if (!relida) return `Restauração da versão de ${quando} aplicada sem conferência`;
       return zonaIgual(diferencaParaVersao(registros, alvo, zona.fqdn))
@@ -488,7 +516,9 @@ export async function restaurarVersaoDns(
       data: {
         actorId: ator.id,
         organizationId: zona.organizationId,
-        action: resultado === "OK" ? "DNS_ZONA_RESTAURADA" : "DNS_ZONA_RESTAURADA_INCOMPLETA",
+        // Uma ação por desfecho: "interrompida" é quando o laço parou no meio;
+        // não conferida e divergente são restaurações que rodaram inteiras.
+        action: ACAO_RESTAURACAO[resultado],
         entityType: "DomainAsset",
         entityId: zona.id,
         metadata: JSON.parse(
@@ -515,8 +545,9 @@ export async function restaurarVersaoDns(
     ? "A zona como ficou foi guardada como versão"
     : "Não foi possível guardar a zona como ficou";
   if (falha) {
+    const incerto = guardada.relida ? "" : " Uma mudança pode ter sido aplicada sem confirmação.";
     throw new ErroDeDns(
-      `A restauração parou em ${aplicadas} de ${total} mudanças. ${ondeFicou}; ` +
+      `A restauração parou em ${aplicadas} de ${total} mudanças confirmadas.${incerto} ${ondeFicou}; ` +
         (ator.origem === "EQUIPE" ? `o servidor respondeu: ${falha}` : "fale com o seu atendimento."),
       502,
     );

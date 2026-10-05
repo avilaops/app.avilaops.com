@@ -7,6 +7,7 @@ import {
   type EntradaDnsRecord,
 } from "@/lib/cloudflare";
 import type { EntradaProvedor } from "@/lib/dominios/capacidades";
+import { deTextoPuro, paraTextoPuro } from "@/lib/dominios/dns/conteudo";
 import type { DnsProvider, EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
 
 /**
@@ -24,7 +25,8 @@ function paraEntradaExterna(entrada: EntradaRegistroDns): EntradaDnsRecord {
   return {
     type: entrada.tipo.toUpperCase(),
     name: entrada.nome,
-    content: entrada.conteudo,
+    // A API fala texto puro; por dentro o conteúdo é canônico (conteudo.ts).
+    content: paraTextoPuro(entrada.tipo, entrada.conteudo),
     ttl: entrada.ttl ?? 1,
     proxied: entrada.proxy ?? false,
     ...(entrada.prioridade !== undefined ? { priority: entrada.prioridade } : {}),
@@ -44,7 +46,7 @@ function paraRegistro(bruto: {
     id: bruto.id,
     tipo: bruto.type,
     nome: bruto.name,
-    conteudo: bruto.content,
+    conteudo: deTextoPuro(bruto.type, bruto.content),
     ttl: bruto.ttl,
     proxy: bruto.proxied,
     prioridade: bruto.priority ?? null,

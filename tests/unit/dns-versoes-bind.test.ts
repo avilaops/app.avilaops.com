@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { zonaParaBind } from "@/lib/dominios/dns/bind";
-import { daApresentacao, ehDoServidor, normalizarLogico, paraApresentacao, pedacosDe255Bytes } from "@/lib/dominios/dns/conteudo";
-import { achatar, montarConteudo } from "@/lib/dominios/dns/rrset";
+import { ehDoServidor } from "@/lib/dominios/dns/conteudo";
 import type { RegistroDns } from "@/lib/dominios/dns/tipos";
-import { diferencaParaVersao, lerLinhas, ordenarLinhas, paraLinha, zonaIgual, type LinhaVersao } from "@/lib/dominios/dns/versoes";
+import { diferencaParaVersao, lerLinhas, ordenarLinhas, paraJsonDaVersao, paraLinha, zonaIgual, type LinhaVersao } from "@/lib/dominios/dns/versoes";
 
 /**
  * Restaurar é aplicar uma diferença. Se ela sair errada, "voltar à versão de
@@ -136,96 +135,17 @@ describe("registros do servidor", () => {
   });
 });
 
-describe("conteúdo igual entre servidores", () => {
-  it("TXT entre aspas e em pedaços vira o mesmo texto lógico", () => {
-    expect(daApresentacao("TXT", '"v=spf1 include:a.com" " ~all"')).toBe("v=spf1 include:a.com ~all");
-    expect(daApresentacao("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
-    expect(daApresentacao("TXT", "v=spf1 -all")).toBe("v=spf1 -all");
-  });
+describe("formato da versão guardada", () => {
+  it("formato 2 é lido como está; o legado do #77 é convertido conforme a origem", () => {
+    const atual = lerLinhas(paraJsonDaVersao([{ tipo: "TXT", nome: "x.com.br", conteudo: '"sale"', ttl: 1, prioridade: null, proxy: false }]));
+    expect(atual[0].conteudo).toBe('"sale"');
 
-  it("host com ou sem ponto final é o mesmo host", () => {
-    expect(daApresentacao("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
-    expect(normalizarLogico("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
-  });
-
-  it("versão do servidor da casa e zona do serviço externo não aparecem como diferentes", () => {
-    // O adaptador da casa já entrega forma lógica: a conversão mora nele.
-    const daCasa = achatar([
-      { name: "x.com.br.", type: "TXT", ttl: 1, records: [{ content: '"v=spf1 -all"' }] },
-      { name: "x.com.br.", type: "MX", ttl: 1, records: [{ content: "10 mx1.provedor.com." }] },
+    const legado = lerLinhas([
+      { tipo: "TXT", nome: "x.com.br", conteudo: '"v=spf1" " -all"', ttl: 1, prioridade: null, proxy: false },
+      { tipo: "TXT", nome: "y.x.com.br", conteudo: "barra \\ literal", ttl: 1, prioridade: null, proxy: false },
+      { tipo: "mx", nome: "X.com.br.", conteudo: "mx1.provedor.com.", ttl: 300, prioridade: 10, proxy: false },
     ]);
-    expect(daCasa.map((l) => l.conteudo)).toEqual(["v=spf1 -all", "mx1.provedor.com"]);
-    const externa = [r("TXT", "x.com.br", "v=spf1 -all"), r("MX", "x.com.br", "mx1.provedor.com", { prioridade: 10 })];
-    expect(zonaIgual(diferencaParaVersao(externa, daCasa.map(paraLinha), Z))).toBe(true);
-  });
-
-  it("o servidor da casa recebe TXT entre aspas e host com ponto final", () => {
-    expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: "v=spf1 -all" })).toBe('"v=spf1 -all"');
-    // Entrada é sempre lógica: aspas digitadas são conteúdo e levam escape.
-    expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: '"sale"' })).toBe('"\\"sale\\""');
-    expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: "mx1.provedor.com", prioridade: 10 })).toBe("10 mx1.provedor.com.");
-    expect(paraApresentacao("CNAME", "x.com.br")).toBe("x.com.br.");
-  });
-
-  it("TXT é cortado por bytes, sem partir acento no meio", () => {
-    const pedacos = pedacosDe255Bytes("é".repeat(200));
-    expect(pedacos.map((p) => new TextEncoder().encode(p).length)).toEqual([254, 146]);
-    expect(pedacos.join("")).toBe("é".repeat(200));
+    expect(legado.map((l) => l.conteudo)).toEqual(["v=spf1 -all", "barra \\\\ literal", "mx1.provedor.com"]);
+    expect(legado[2]).toMatchObject({ tipo: "MX", nome: "x.com.br" });
   });
 });
-
-describe("revisão do #80", () => {
-  it("escape decimal do TXT é um byte, e bytes UTF-8 voltam a ser o caractere", () => {
-    expect(daApresentacao("TXT", '"a\\032b"')).toBe("a b");
-    expect(daApresentacao("TXT", '"caf\\195\\169"')).toBe("café");
-    expect(daApresentacao("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
-  });
-
-  it("alvo raiz '.' do MX nulo e do SRV indisponível não vira texto vazio", () => {
-    expect(daApresentacao("MX", ".")).toBe(".");
-    expect(daApresentacao("SRV", "0 0 .")).toBe("0 0 .");
-    expect(paraApresentacao("MX", ".")).toBe(".");
-    expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: ".", prioridade: 0 })).toBe("0 .");
-  });
-
-  it("versão guardada é lida normalizada: tipo, nome e host", () => {
-    const [linha] = lerLinhas([{ tipo: "mx", nome: "X.com.br.", conteudo: "mx1.provedor.com.", ttl: 300, prioridade: 10, proxy: false }]);
-    expect(linha).toMatchObject({ tipo: "MX", nome: "x.com.br", conteudo: "mx1.provedor.com" });
-  });
-});
-
-describe("revisão do #80, terceira rodada", () => {
-  it("byte de controle do TXT vai e volta como escape decimal", () => {
-    expect(daApresentacao("TXT", '"a\\010b"')).toBe("a\nb");
-    expect(paraApresentacao("TXT", "a\nb\tc")).toBe('"a\\010b\\009c"');
-    expect(daApresentacao("TXT", paraApresentacao("TXT", "a\nb"))).toBe("a\nb");
-  });
-
-  it("BIND não sai com quebra de linha no meio de um TXT", () => {
-    const arquivo = zonaParaBind(Z, [paraLinha(r("TXT", "x.com.br", "linha1\nlinha2"))], { geradoEm: new Date(), origem: "t" });
-    expect(arquivo).toContain('"linha1\\010linha2"');
-  });
-});
-
-describe("revisão do #80, quarta rodada", () => {
-  it("TXT lógico que começa com aspas mantém as aspas: são conteúdo", () => {
-    expect(paraLinha(r("TXT", "x.com.br", '"sale"')).conteudo).toBe('"sale"');
-    const [linha] = lerLinhas([{ tipo: "TXT", nome: "x.com.br", conteudo: '"sale"', ttl: 1, prioridade: null, proxy: false }]);
-    expect(linha.conteudo).toBe('"sale"');
-    expect(zonaIgual(diferencaParaVersao([r("TXT", "x.com.br", '"sale"')], [linha], Z))).toBe(true);
-  });
-
-  it("byte fora de UTF-8 no TXT vai e volta sem virar caractere de substituição", () => {
-    const logico = daApresentacao("TXT", '"a\\255b"');
-    expect(logico).not.toContain("\uFFFD");
-    expect(paraApresentacao("TXT", logico)).toBe('"a\\255b"');
-    // "a" + byte solto + "b" são 3 bytes, não 5: 3 + 252 = 255 cabe num pedaço.
-    expect(pedacosDe255Bytes(logico + "x".repeat(252))).toHaveLength(1);
-    expect(pedacosDe255Bytes(logico + "x".repeat(253))).toHaveLength(2);
-  });
-
-  it("acento continua acento mesmo ao lado de byte solto", () => {
-    expect(paraApresentacao("TXT", daApresentacao("TXT", '"caf\\195\\169\\255"'))).toBe('"café\\255"');
-  });
-});
-

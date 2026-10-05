@@ -71,6 +71,29 @@ A retenção de versões ([90 dias] no regimento interno 13) ainda não tem
 rotina de limpeza: é parâmetro de política e entra com a camada de
 parâmetros, não escrita no código.
 
+## Conteúdo do registro: forma canônica
+
+Cada fornecedor fala uma língua: o DNS da casa (PowerDNS) usa a forma de
+apresentação do arquivo de zona — TXT entre aspas, em pedaços, com escapes;
+host com ponto final —, e o serviço externo usa texto puro. Por dentro (tela,
+validação, versões, comparação) circula uma forma só, a canônica de
+`lib/dominios/dns/conteudo.ts`:
+
+- host sem ponto final, menos a raiz `.` (MX nulo, SRV indisponível);
+- TXT como os bytes do registro escritos com os escapes da RFC 1035, sem
+  aspas: `\\` é a barra, `\DDD` é um byte. Texto UTF-8 imprimível fica
+  literal; controle, NUL e byte que não forma UTF-8 viram `\DDD`.
+
+Cada adaptador converte na própria fronteira (`achatar`/`montarConteudo` no
+da casa, `paraRegistro`/`paraEntradaExterna` no externo), e o BIND converte
+ao gerar o arquivo. Na tela, barra invertida num TXT inicia escape. Byte que
+não é UTF-8 não tem como ir ao serviço externo: a escrita é recusada em vez
+de trocar o conteúdo.
+
+As versões gravam `{ formato: 2, linhas }`. A lista solta do #77 (formato 1)
+só existe em banco de desenvolvimento e é lida pela origem provável: TXT
+inteiro entre aspas é apresentação; o resto, texto puro.
+
 ## Comportamento conhecido do DNS da casa
 
 Um conjunto (nome + tipo) tem um TTL só. Criar um TXT novo no apex pelo

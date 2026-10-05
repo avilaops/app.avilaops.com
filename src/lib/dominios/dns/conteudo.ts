@@ -1,73 +1,127 @@
 /**
- * O conteúdo de um registro: forma lógica e forma de apresentação.
+ * O conteúdo de um registro dentro do sistema, igual para qualquer servidor.
  *
- * Dentro do sistema todo conteúdo circula em **forma lógica**: o texto do TXT
- * como ele é, o nome de host sem ponto final. É o que o serviço externo usa
- * na API dele.
+ * Cada fornecedor fala uma língua. O servidor autoritativo da casa (PowerDNS)
+ * usa a **forma de apresentação** do arquivo de zona (RFC 1035 §5.1): TXT
+ * entre aspas, em pedaços, com escapes; host com ponto final. O serviço
+ * externo usa **texto puro**: o TXT como string, host sem ponto.
  *
- * A **forma de apresentação** é a do arquivo de zona (RFC 1035 §5.1): TXT
- * entre aspas, em pedaços, com escapes; host com ponto final. É o que o
- * servidor autoritativo da casa (PowerDNS) fala, e o que sai no BIND.
+ * Por dentro — tela, validação, versões, comparação — circula a **forma
+ * canônica**, e cada adaptador converte na própria fronteira:
  *
- * A conversão mora na fronteira com quem fala apresentação — o adaptador da
- * casa e a exportação — e só lá. Converter no meio do caminho, sem saber de
- * onde o dado veio, tomaria por aspas de apresentação um TXT do serviço
- * externo que começa com aspas de verdade, e as apagaria.
+ * - host sem ponto final (menos a raiz `.`, que é alvo válido);
+ * - TXT como a sequência de bytes do registro, escrita com os escapes da
+ *   RFC 1035 e sem aspas: `\\` é a barra, `\DDD` é um byte em decimal. Texto
+ *   UTF-8 imprimível fica literal; byte de controle, NUL e byte que não forma
+ *   UTF-8 viram `\DDD`.
+ *
+ * Por que escape e não "o texto como string": TXT carrega octetos
+ * quaisquer. Uma string de JavaScript não representa byte solto sem inventar
+ * marcador (que colide com texto de verdade), e o JSONB do Postgres recusa
+ * U+0000. Com escape, todo byte vira texto seguro, e ida e volta não perde nada.
  */
 
 const TIPOS_COM_HOST_NO_FIM = new Set(["CNAME", "MX", "NS", "SRV"]);
 
-/**
- * Byte que não forma UTF-8 válido (TXT carrega octetos quaisquer). Vira um
- * caractere da área de uso privado, U+F700 + byte, que atravessa JSON e o
- * banco sem perda, e volta a ser o byte na forma de apresentação. Texto real
- * nessa faixa não aparece em registro de DNS.
- */
-const BASE_BYTE_SOLTO = 0xf700;
+// ── bytes ⇄ forma canônica ────────────────────────────────────────────────
 
-function ehByteSolto(codigo: number): boolean {
-  return codigo >= BASE_BYTE_SOLTO && codigo <= BASE_BYTE_SOLTO + 0xff;
+/** Valida uma sequência UTF-8 sem descartar BOM (que é conteúdo, não marcador de fluxo). */
+const decodificadorEstrito = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
+function tamanhoDaSequencia(primeiro: number): number {
+  if (primeiro < 0x80) return 1;
+  if (primeiro >= 0xc2 && primeiro <= 0xdf) return 2;
+  if (primeiro >= 0xe0 && primeiro <= 0xef) return 3;
+  if (primeiro >= 0xf0 && primeiro <= 0xf4) return 4;
+  return 0;
 }
 
-/** Bytes em texto: UTF-8 válido vira o caractere; o que não for vira byte solto. */
-function bytesParaTexto(bytes: number[]): string {
-  const decodificador = new TextDecoder("utf-8", { fatal: true });
+function escapeDecimal(byte: number): string {
+  return `\\${String(byte).padStart(3, "0")}`;
+}
+
+/** Bytes do registro → forma canônica. */
+export function bytesParaCanonico(bytes: Uint8Array | number[]): string {
+  const b = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
   let saida = "";
   let i = 0;
-  while (i < bytes.length) {
-    const b = bytes[i];
-    const tamanho = b < 0x80 ? 1 : b >= 0xc2 && b <= 0xdf ? 2 : b >= 0xe0 && b <= 0xef ? 3 : b >= 0xf0 && b <= 0xf4 ? 4 : 0;
-    if (tamanho > 0 && i + tamanho <= bytes.length) {
+  while (i < b.length) {
+    const byte = b[i];
+    if (byte < 0x20 || byte === 0x7f) {
+      saida += escapeDecimal(byte);
+      i += 1;
+      continue;
+    }
+    if (byte === 0x5c) {
+      saida += "\\\\";
+      i += 1;
+      continue;
+    }
+    const tamanho = tamanhoDaSequencia(byte);
+    if (tamanho > 0 && i + tamanho <= b.length) {
       try {
-        saida += decodificador.decode(new Uint8Array(bytes.slice(i, i + tamanho)));
+        saida += decodificadorEstrito.decode(b.subarray(i, i + tamanho));
         i += tamanho;
         continue;
       } catch {
-        /* sequência inválida: cai para byte solto */
+        /* não forma UTF-8: vai como byte */
       }
     }
-    saida += String.fromCodePoint(BASE_BYTE_SOLTO + b);
+    saida += escapeDecimal(byte);
     i += 1;
   }
   return saida;
 }
 
-/** Bytes de um caractere lógico: byte solto é um byte só. */
-function bytesDe(caractere: string): number[] {
-  const codigo = caractere.codePointAt(0)!;
-  if (ehByteSolto(codigo)) return [codigo - BASE_BYTE_SOLTO];
-  return [...new TextEncoder().encode(caractere)];
+/** Forma canônica → bytes do registro. `\DDD` é um byte; `\X` é o caractere X. */
+export function canonicoParaBytes(canonico: string): number[] {
+  const codificador = new TextEncoder();
+  const bytes: number[] = [];
+  for (let i = 0; i < canonico.length; i++) {
+    const c = canonico[i];
+    if (c === "\\" && i + 1 < canonico.length) {
+      const decimal = canonico.slice(i + 1, i + 4);
+      if (/^\d{3}$/.test(decimal) && Number(decimal) <= 255) {
+        bytes.push(Number(decimal));
+        i += 3;
+        continue;
+      }
+      const proximo = String.fromCodePoint(canonico.codePointAt(i + 1)!);
+      bytes.push(...codificador.encode(proximo));
+      i += proximo.length;
+      continue;
+    }
+    const caractere = String.fromCodePoint(canonico.codePointAt(i)!);
+    bytes.push(...codificador.encode(caractere));
+    i += caractere.length - 1;
+  }
+  return bytes;
+}
+
+// ── fronteira com o serviço externo (texto puro) ───────────────────────────
+
+/** Texto puro do serviço externo → canônica. */
+export function txtDeTextoPuro(texto: string): string {
+  return bytesParaCanonico(new TextEncoder().encode(texto));
 }
 
 /**
- * `"abc" "def"` → `abcdef`, desfazendo os escapes: `\X` é o caractere X e
- * `\DDD` é um byte em decimal. Os bytes são remontados em UTF-8 no fim, para
- * `\195\169` voltar a ser "é".
+ * Canônica → texto puro, para o serviço externo. Byte que não forma UTF-8
+ * não tem como ir numa string de API: recusa em vez de trocar o conteúdo.
  */
-function txtDaApresentacao(conteudo: string): string {
-  const cru = conteudo.trim();
-  if (!cru.startsWith('"')) return conteudo;
+export function txtParaTextoPuro(canonico: string): string {
+  try {
+    return decodificadorEstrito.decode(Uint8Array.from(canonicoParaBytes(canonico)));
+  } catch {
+    throw new Error("Este TXT tem bytes que não são texto UTF-8, e o serviço de DNS deste domínio não os aceita.");
+  }
+}
 
+// ── fronteira com a forma de apresentação (servidor da casa, BIND) ─────────
+
+/** `"abc" "def"` → bytes, desfazendo os escapes de dentro das aspas. */
+function bytesDaApresentacao(conteudo: string): number[] {
+  const cru = conteudo.trim();
   const codificador = new TextEncoder();
   const bytes: number[] = [];
   let dentro = false;
@@ -78,27 +132,54 @@ function txtDaApresentacao(conteudo: string): string {
       continue;
     }
     if (!dentro) continue;
-    if (c === "\\") {
+    if (c === "\\" && i + 1 < cru.length) {
       const decimal = cru.slice(i + 1, i + 4);
       if (/^\d{3}$/.test(decimal) && Number(decimal) <= 255) {
         bytes.push(Number(decimal));
         i += 3;
-      } else if (i + 1 < cru.length) {
-        bytes.push(...codificador.encode(cru[i + 1]));
-        i += 1;
+        continue;
       }
+      const proximo = String.fromCodePoint(cru.codePointAt(i + 1)!);
+      bytes.push(...codificador.encode(proximo));
+      i += proximo.length;
       continue;
     }
-    bytes.push(...codificador.encode(c));
+    const caractere = String.fromCodePoint(cru.codePointAt(i)!);
+    bytes.push(...codificador.encode(caractere));
+    i += caractere.length - 1;
   }
-  return bytesParaTexto(bytes);
+  return bytes;
+}
+
+/** É TXT em forma de apresentação: só pedaços entre aspas separados por espaço. */
+export function ehTxtDeApresentacao(conteudo: string): boolean {
+  return /^\s*("(?:[^"\\]|\\[\s\S])*"\s*)+$/.test(conteudo);
 }
 
 /**
- * Tira o ponto final do último nome do conteúdo, menos quando ele é a raiz
- * sozinha: `.` é alvo válido (MX nulo da RFC 7505, SRV "serviço indisponível")
- * e sem o ponto viraria texto vazio.
+ * Bytes em pedaços de até 255 (RFC 1035 §3.3: cada string de caractere tem um
+ * byte de tamanho), sem partir uma sequência UTF-8 no meio.
  */
+export function pedacosDe255Bytes(bytes: number[]): number[][] {
+  const pedacos: number[][] = [[]];
+  let i = 0;
+  while (i < bytes.length) {
+    const tamanho = tamanhoDaSequencia(bytes[i]) || 1;
+    const sequencia = bytes.slice(i, i + tamanho);
+    if (pedacos[pedacos.length - 1].length + sequencia.length > 255) pedacos.push([]);
+    pedacos[pedacos.length - 1].push(...sequencia);
+    i += sequencia.length;
+  }
+  return pedacos;
+}
+
+/** Bytes → forma de apresentação: cada pedaço entre aspas, com aspas internas escapadas. */
+function bytesParaApresentacao(bytes: number[]): string {
+  return pedacosDe255Bytes(bytes)
+    .map((pedaco) => `"${bytesParaCanonico(pedaco).replace(/"/g, '\\"')}"`)
+    .join(" ");
+}
+
 function semPontoNoAlvo(conteudo: string): string {
   const partes = conteudo.trim().split(/\s+/);
   const ultimo = partes[partes.length - 1];
@@ -106,81 +187,46 @@ function semPontoNoAlvo(conteudo: string): string {
   return partes.join(" ");
 }
 
-/**
- * Normalização que vale para conteúdo de qualquer origem: só o ponto final de
- * host, que é ambíguo nos dois lados. TXT passa intacto — aspas num TXT
- * lógico são conteúdo.
- */
-export function normalizarLogico(tipo: string, conteudo: string): string {
+/** Forma de apresentação → canônica. Para o que veio do servidor da casa. */
+export function daApresentacao(tipo: string, conteudo: string): string {
   const t = tipo.toUpperCase();
-  if (t === "TXT") return conteudo;
+  if (t === "TXT") return bytesParaCanonico(bytesDaApresentacao(conteudo));
   if (TIPOS_COM_HOST_NO_FIM.has(t)) return semPontoNoAlvo(conteudo);
   return conteudo.trim();
 }
 
-/** Forma de apresentação → lógica. Só para o que veio de quem fala apresentação. */
-export function daApresentacao(tipo: string, conteudo: string): string {
-  if (tipo.toUpperCase() === "TXT") return txtDaApresentacao(conteudo);
-  return normalizarLogico(tipo, conteudo);
-}
-
-/**
- * Divide em pedaços de até 255 **bytes** (RFC 1035 §3.3: cada string de
- * caractere tem um byte de tamanho), sem cortar um caractere de vários bytes
- * no meio. Contar caracteres deixaria "é" × 200 num pedaço de 400 bytes.
- */
-export function pedacosDe255Bytes(texto: string): string[] {
-  const pedacos: string[] = [];
-  let atual = "";
-  let bytes = 0;
-  for (const caractere of texto) {
-    const tamanho = bytesDe(caractere).length;
-    if (bytes + tamanho > 255) {
-      pedacos.push(atual);
-      atual = "";
-      bytes = 0;
-    }
-    atual += caractere;
-    bytes += tamanho;
-  }
-  pedacos.push(atual);
-  return pedacos;
-}
-
-/**
- * Um pedaço de TXT em forma de apresentação. Aspas e barra levam escape; byte
- * de controle (quebra de linha, tab, DEL) e byte solto viram `\DDD`, senão o
- * registro sai com uma quebra de linha no meio ou com bytes trocados.
- */
-function escaparPedaco(pedaco: string): string {
-  let saida = "";
-  for (const caractere of pedaco) {
-    const codigo = caractere.codePointAt(0)!;
-    if (caractere === "\\" || caractere === '"') saida += `\\${caractere}`;
-    else if (codigo < 0x20 || codigo === 0x7f) saida += `\\${String(codigo).padStart(3, "0")}`;
-    else if (ehByteSolto(codigo)) saida += `\\${String(codigo - BASE_BYTE_SOLTO).padStart(3, "0")}`;
-    else saida += caractere;
-  }
-  return saida;
-}
-
-/** TXT lógico em forma de apresentação: entre aspas, em pedaços de 255 bytes. */
-export function txtEmAspas(logico: string): string {
-  return pedacosDe255Bytes(logico)
-    .map((p) => `"${escaparPedaco(p)}"`)
-    .join(" ");
-}
-
-/** Forma lógica → apresentação, para o servidor autoritativo e o arquivo de zona. */
+/** Canônica → forma de apresentação, para o servidor da casa e o arquivo de zona. */
 export function paraApresentacao(tipo: string, conteudo: string): string {
   const t = tipo.toUpperCase();
-  if (t === "TXT") return txtEmAspas(conteudo);
+  if (t === "TXT") return bytesParaApresentacao(canonicoParaBytes(conteudo));
   if (TIPOS_COM_HOST_NO_FIM.has(t)) {
     const partes = conteudo.trim().split(/\s+/);
     const ultimo = partes[partes.length - 1];
     partes[partes.length - 1] = ultimo.endsWith(".") ? ultimo : `${ultimo}.`;
     return partes.join(" ");
   }
+  return conteudo.trim();
+}
+
+/** Texto puro do serviço externo → canônica. */
+export function deTextoPuro(tipo: string, conteudo: string): string {
+  const t = tipo.toUpperCase();
+  if (t === "TXT") return txtDeTextoPuro(conteudo);
+  if (TIPOS_COM_HOST_NO_FIM.has(t)) return semPontoNoAlvo(conteudo);
+  return conteudo.trim();
+}
+
+/** Canônica → texto puro, para o serviço externo. */
+export function paraTextoPuro(tipo: string, conteudo: string): string {
+  if (tipo.toUpperCase() === "TXT") return txtParaTextoPuro(conteudo);
+  return conteudo.trim();
+}
+
+/** Normalização que não depende de origem: host sem ponto final. TXT já é canônico. */
+export function normalizarCanonico(tipo: string, conteudo: string): string {
+  const t = tipo.toUpperCase();
+  if (t === "TXT") return conteudo;
+  if (TIPOS_COM_HOST_NO_FIM.has(t)) return semPontoNoAlvo(conteudo);
   return conteudo.trim();
 }
 

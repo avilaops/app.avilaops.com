@@ -70,6 +70,7 @@ vi.mock("@/lib/dominios/dns", async (original) => {
 
 import { ErroDeDns, executarOperacaoDns, restaurarVersaoDns } from "@/lib/dominios/dns/escrita";
 import { exportarZonaBind } from "@/lib/dominios/dns/exportacao";
+import { lerLinhas } from "@/lib/dominios/dns/versoes";
 import { carregarDominioDoCliente } from "@/lib/portal-dominio";
 
 if (!new URL(process.env.DATABASE_URL!).pathname.endsWith("_test")) throw new Error("Use banco descartável _test.");
@@ -240,8 +241,8 @@ describe("DNS pelo portal do cliente", () => {
     });
 
     const ultima = await tx.dnsZoneVersion.findFirstOrThrow({ where: { domainAsset: { fqdn } }, orderBy: { createdAt: "desc" } });
-    expect(ultima.reason).toMatch(/interrompida \(1 de 2 mudanças\).*calculada/);
-    expect((ultima.records as { tipo: string }[]).map((l) => l.tipo)).toEqual(["TXT"]);
+    expect(ultima.reason).toMatch(/interrompida \(1 de 2 mudanças confirmadas; estado incerto.*calculada/);
+    expect(lerLinhas(ultima.records).map((l) => l.tipo)).toEqual(["TXT"]);
     const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_INCOMPLETA" } });
     expect(evento.metadata).toMatchObject({ resultado: "INCOMPLETA", aplicadas: 1, versaoGuardada: true });
   }));
@@ -258,7 +259,7 @@ describe("DNS pelo portal do cliente", () => {
       status: 409,
       message: expect.stringContaining("não ficou igual"),
     });
-    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_INCOMPLETA" } });
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_DIVERGENTE" } });
     expect(evento.metadata).toMatchObject({ resultado: "DIVERGENTE" });
   }));
 
@@ -285,7 +286,7 @@ describe("DNS pelo portal do cliente", () => {
       message: expect.stringContaining("não deixou reler"),
     });
     expect(state.chamadas).toEqual(["criar MX @"]);
-    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_INCOMPLETA" } });
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_NAO_CONFERIDA" } });
     expect(evento.metadata).toMatchObject({ resultado: "NAO_CONFERIDA", aplicadas: 1 });
     expect(await tx.operationsAuditEvent.count({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA" } })).toBe(0);
   }));
@@ -325,7 +326,7 @@ describe("DNS pelo portal do cliente", () => {
 
     const ultima = await tx.dnsZoneVersion.findFirstOrThrow({ where: { domainAssetId: dominio.id }, orderBy: { createdAt: "desc" } });
     expect(ultima.reason).toMatch(/calculada/);
-    expect((ultima.records as { ttl: number }[]).map((l) => l.ttl)).toEqual([3600, 3600]);
+    expect(lerLinhas(ultima.records).map((l) => l.ttl)).toEqual([3600, 3600]);
   }));
 
   it("versão guardada de uma restauração divergente não se chama 'Restaurada'", () => isolado(async ({ tx, id, org, fqdn }) => {
@@ -339,6 +340,27 @@ describe("DNS pelo portal do cliente", () => {
     const ultima = await tx.dnsZoneVersion.findFirstOrThrow({ where: { domainAsset: { fqdn } }, orderBy: { createdAt: "desc" } });
     expect(ultima.reason).toMatch(/não conferiu/);
     expect(ultima.reason).not.toMatch(/^Restaurada/);
+  }));
+
+  it("falha ao limpar o espelho no banco não interrompe a restauração", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "loja", conteudo: "203.0.113.10" } }, cliente, { organizationId: org });
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "blog", conteudo: "203.0.113.11" } }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+
+    const espiao = vi.spyOn(tx.dnsRecord, "deleteMany").mockRejectedValue(new Error("banco fora"));
+    const resultado = await restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org });
+    espiao.mockRestore();
+    expect(resultado.aplicadas).toBe(2);
+    expect(state.zona.map((r) => r.tipo).sort()).toEqual(["MX", "TXT"]);
+  }));
+
+  it("apagar registro não vira 'recusado' só porque o espelho falhou", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const espiao = vi.spyOn(tx.dnsRecord, "deleteMany").mockRejectedValue(new Error("banco fora"));
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, { id, origem: "CLIENTE" }, { organizationId: org });
+    espiao.mockRestore();
+    expect(state.zona.map((r) => r.id)).toEqual(["spf"]);
+    expect(await tx.operationsAuditEvent.count({ where: { organizationId: org, action: "DNS_REGISTRO_APAGADO" } })).toBe(1);
   }));
 });
 

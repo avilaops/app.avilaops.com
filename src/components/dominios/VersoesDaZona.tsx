@@ -80,6 +80,11 @@ export default function VersoesDaZona({
       const dados = await resposta.json().catch(() => ({}));
       if (!resposta.ok || !dados.ok) {
         setFalha(dados.error ?? "Não foi possível restaurar a zona.");
+        setARestaurar(null);
+        // Mesmo com erro, parte da restauração pode ter sido aplicada e uma
+        // versão nova guardada: a tela relê a zona para não decidir em cima
+        // do estado de antes.
+        router.refresh();
         return;
       }
       setAviso(`Zona restaurada à versão de ${formatarDataHora(aRestaurar.criadaEm)}.`);

@@ -1,4 +1,4 @@
-import { ehDoServidor, normalizarLogico } from "@/lib/dominios/dns/conteudo";
+import { daApresentacao, ehDoServidor, ehTxtDeApresentacao, normalizarCanonico, txtDeTextoPuro } from "@/lib/dominios/dns/conteudo";
 import type { EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
 
 /**
@@ -34,7 +34,7 @@ export function paraLinha(registro: RegistroDns): LinhaVersao {
   return {
     tipo: registro.tipo.toUpperCase(),
     nome: registro.nome.trim().toLowerCase().replace(/\.$/, ""),
-    conteudo: normalizarLogico(registro.tipo, registro.conteudo),
+    conteudo: normalizarCanonico(registro.tipo, registro.conteudo),
     ttl: registro.ttl,
     prioridade: registro.prioridade,
     proxy: registro.proxy,
@@ -59,7 +59,7 @@ export function ordenarLinhas(linhas: LinhaVersao[]): LinhaVersao[] {
  */
 function chave(linha: { tipo: string; nome: string; conteudo: string; prioridade: number | null }): string {
   const nome = linha.nome.trim().toLowerCase().replace(/\.$/, "");
-  return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${normalizarLogico(linha.tipo, linha.conteudo)}`;
+  return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${normalizarCanonico(linha.tipo, linha.conteudo)}`;
 }
 
 export type DiferencaZona = {
@@ -116,20 +116,43 @@ export function paraEntrada(linha: LinhaVersao): EntradaRegistroDns {
   };
 }
 
-/** Lê o JSON guardado no banco em forma lógica, descartando o que não tiver forma de linha. */
+/**
+ * Formato do JSON guardado em `dns_zone_versions.records`.
+ *
+ * 2 — `{ formato: 2, linhas }`, conteúdo na forma canônica de `conteudo.ts`.
+ * 1 — lista solta, do #77: cada linha como o fornecedor devolvia. Só existe
+ *     em banco de desenvolvimento (produção ainda não tinha a tabela), mas é
+ *     lida assim mesmo: TXT inteiro entre aspas é apresentação do servidor da
+ *     casa; o resto, texto puro do serviço externo.
+ */
+export const FORMATO_VERSAO = 2;
+
+export function paraJsonDaVersao(linhas: LinhaVersao[]) {
+  return { formato: FORMATO_VERSAO, linhas };
+}
+
+/** Lê o JSON guardado no banco em forma canônica, descartando o que não tiver forma de linha. */
 export function lerLinhas(bruto: unknown): LinhaVersao[] {
-  if (!Array.isArray(bruto)) return [];
-  return bruto.flatMap((item) => {
+  const legado = Array.isArray(bruto);
+  const lista: unknown =
+    legado ? bruto : bruto && typeof bruto === "object" ? (bruto as { linhas?: unknown }).linhas : null;
+  if (!Array.isArray(lista)) return [];
+  return lista.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const l = item as Record<string, unknown>;
     if (typeof l.tipo !== "string" || typeof l.nome !== "string" || typeof l.conteudo !== "string") return [];
+    const tipo = l.tipo.toUpperCase();
+    let conteudo = l.conteudo;
+    if (legado && tipo === "TXT") {
+      conteudo = ehTxtDeApresentacao(conteudo) ? daApresentacao(tipo, conteudo) : txtDeTextoPuro(conteudo);
+    }
     return [
       {
-        tipo: l.tipo.toUpperCase(),
+        tipo,
         nome: l.nome.trim().toLowerCase().replace(/\.$/, ""),
-        // É este conteúdo que vai para o servidor ao restaurar, então a
-        // normalização vale aqui também, não só na chave de comparação.
-        conteudo: normalizarLogico(l.tipo, l.conteudo),
+        // É este conteúdo que vai para o servidor ao restaurar: normaliza aqui,
+        // não só na chave de comparação.
+        conteudo: normalizarCanonico(tipo, conteudo),
         ttl: typeof l.ttl === "number" ? l.ttl : 1,
         prioridade: typeof l.prioridade === "number" ? l.prioridade : null,
         proxy: l.proxy === true,
