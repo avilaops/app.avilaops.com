@@ -321,7 +321,9 @@ async function registrarVersaoAtual(
   ator: Ator,
   motivo: string,
   calculada: () => RegistroDns[],
-): Promise<{ registros: RegistroDns[]; relida: boolean } | null> {
+): Promise<{ registros: RegistroDns[]; relida: boolean; guardada: boolean }> {
+  // Reler e guardar são resultados separados: falha do banco ao guardar não
+  // pode virar "o servidor não deixou reler", e vice-versa.
   let registros: RegistroDns[];
   let relida = true;
   let texto = motivo;
@@ -335,10 +337,10 @@ async function registrarVersaoAtual(
   }
   try {
     await gravarVersao(zona.id, zona.fqdn, registros, ator.origem, ator.id, texto);
-    return { registros, relida };
+    return { registros, relida, guardada: true };
   } catch (e) {
     console.error("[dns] não foi possível gravar a versão da zona", zona.fqdn, e);
-    return null;
+    return { registros, relida, guardada: false };
   }
 }
 
@@ -431,6 +433,14 @@ export async function restaurarVersaoDns(
     for (const { atual: registro, alvo: linha } of diferenca.ajustar) {
       const novo = await zona.provedor.atualizar(zona.zonaId, registro.id, paraEntrada(linha));
       estado = [...estado.filter((r) => r.id !== registro.id), novo];
+      // No DNS da casa o TTL é do conjunto (nome + tipo): mudar o de uma
+      // linha muda o de todas as irmãs, e o estado acompanhado tem de dizer isso.
+      if (zona.servico === "AVILA") {
+        const mesmoConjunto = (r: RegistroDns) =>
+          r.tipo.toUpperCase() === novo.tipo.toUpperCase() &&
+          r.nome.toLowerCase().replace(/\.$/, "") === novo.nome.toLowerCase().replace(/\.$/, "");
+        estado = estado.map((r) => (mesmoConjunto(r) ? { ...r, ttl: novo.ttl } : r));
+      }
       aplicadas++;
     }
     for (const linha of diferenca.entrar) {
@@ -456,13 +466,13 @@ export async function restaurarVersaoDns(
   // versão: alguém pode ter mexido nela no meio. Só se diz "restaurada"
   // depois de conferir a zona relida contra a versão.
   let divergente = false;
-  if (!falha && guardada?.relida) {
+  if (!falha && guardada.relida) {
     divergente = !zonaIgual(diferencaParaVersao(guardada.registros, alvo, zona.fqdn));
   }
 
   // Sem a releitura não dá para descartar que alguém mexeu na zona no meio:
   // aplicado e não conferido não é "restaurado".
-  const naoConferida = !falha && !guardada?.relida;
+  const naoConferida = !falha && !guardada.relida;
   const resultado = falha ? "INCOMPLETA" : divergente ? "DIVERGENTE" : naoConferida ? "NAO_CONFERIDA" : "OK";
   await prisma.operationsAuditEvent
     .create({
@@ -481,7 +491,7 @@ export async function restaurarVersaoDns(
             aplicadas,
             total,
             resultado,
-            versaoGuardada: Boolean(guardada),
+            versaoGuardada: guardada.guardada,
             saiu: diferenca.sair.map(paraAuditoria),
             entrou: diferenca.entrar,
             ajustou: diferenca.ajustar.map((a) => ({ antes: paraAuditoria(a.atual), depois: a.alvo })),
@@ -492,7 +502,7 @@ export async function restaurarVersaoDns(
     })
     .catch((e) => console.error("[dns] auditoria da restauração falhou", zona.fqdn, e));
 
-  const ondeFicou = guardada
+  const ondeFicou = guardada.guardada
     ? "A zona como ficou foi guardada como versão"
     : "Não foi possível guardar a zona como ficou";
   if (falha) {

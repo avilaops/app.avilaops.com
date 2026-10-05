@@ -187,3 +187,16 @@ describe("revisão do #80", () => {
   });
 });
 
+describe("revisão do #80, terceira rodada", () => {
+  it("byte de controle do TXT vai e volta como escape decimal", () => {
+    expect(conteudoLogico("TXT", '"a\\010b"')).toBe("a\nb");
+    expect(conteudoDeApresentacao("TXT", "a\nb\tc")).toBe('"a\\010b\\009c"');
+    expect(conteudoLogico("TXT", conteudoDeApresentacao("TXT", "a\nb"))).toBe("a\nb");
+  });
+
+  it("BIND não sai com quebra de linha no meio de um TXT", () => {
+    const arquivo = zonaParaBind(Z, [paraLinha(r("TXT", "x.com.br", "linha1\nlinha2"))], { geradoEm: new Date(), origem: "t" });
+    expect(arquivo).toContain('"linha1\\010linha2"');
+  });
+});
+

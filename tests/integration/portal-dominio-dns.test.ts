@@ -50,7 +50,9 @@ vi.mock("@/lib/dominios/dns", async (original) => {
       escrever();
       state.chamadas.push(`alterar ${id}`);
       const i = state.zona.findIndex((r) => r.id === id);
-      state.zona[i] = { ...state.zona[i], tipo: e.tipo, nome: e.nome, conteudo: e.conteudo };
+      state.zona[i] = { ...state.zona[i], tipo: e.tipo, nome: e.nome, conteudo: e.conteudo, ttl: e.ttl ?? state.zona[i].ttl };
+      // Como no servidor autoritativo: o TTL é do conjunto (nome + tipo).
+      state.zona = state.zona.map((r) => (r.nome === e.nome && r.tipo === e.tipo ? { ...r, ttl: state.zona[i].ttl } : r));
       return state.zona[i];
     },
     remover: async (_zona: string, id: string) => {
@@ -294,6 +296,36 @@ describe("DNS pelo portal do cliente", () => {
     const dominio = await carregarDominioDoCliente(id, org, fqdn);
     expect(dominio?.servicoDns).toBe("NENHUM");
     expect(dominio?.versoes.length).toBe(2);
+  }));
+
+  it("falha ao guardar a versão não vira 'não deu para reler': a restauração conferida é sucesso", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+
+    const espiao = vi.spyOn(tx.dnsZoneVersion, "create").mockRejectedValueOnce(new Error("banco fora"));
+    const resultado = await restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org });
+    espiao.mockRestore();
+    expect(resultado.aplicadas).toBe(1);
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA" } });
+    expect(evento.metadata).toMatchObject({ resultado: "OK", versaoGuardada: false });
+  }));
+
+  it("no DNS da casa, o estado calculado leva o TTL novo para o conjunto inteiro", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const dominio = await tx.domainAsset.update({ where: { fqdn }, data: { dnsProvider: "AVILA" } });
+    state.zona = [
+      { id: "mx1", tipo: "MX", nome: fqdn, conteudo: "mx1.provedor.com", ttl: 300, proxy: false, prioridade: 10 },
+      { id: "mx2", tipo: "MX", nome: fqdn, conteudo: "mx2.provedor.com", ttl: 300, proxy: false, prioridade: 20 },
+    ];
+    const linhas = state.zona.map((r) => ({ tipo: r.tipo, nome: r.nome, conteudo: r.conteudo, ttl: 3600, prioridade: r.prioridade, proxy: false }));
+    const versao = await tx.dnsZoneVersion.create({ data: { domainAssetId: dominio.id, origin: "EQUIPE", reason: "TTL longo", records: linhas, recordCount: 2 } });
+
+    state.caiDepoisDe = 1; // o primeiro ajuste passa (e leva o conjunto); o segundo e a releitura caem
+    await expect(restaurarVersaoDns(fqdn, versao.id, { id, origem: "CLIENTE" }, { organizationId: org })).rejects.toMatchObject({ status: 502 });
+
+    const ultima = await tx.dnsZoneVersion.findFirstOrThrow({ where: { domainAssetId: dominio.id }, orderBy: { createdAt: "desc" } });
+    expect(ultima.reason).toMatch(/calculada/);
+    expect((ultima.records as { ttl: number }[]).map((l) => l.ttl)).toEqual([3600, 3600]);
   }));
 });
 

@@ -92,10 +92,26 @@ export function pedacosDe255Bytes(texto: string): string[] {
   return pedacos;
 }
 
+/**
+ * Um pedaço de TXT em forma de apresentação. Aspas e barra levam escape; byte
+ * de controle (quebra de linha, tab, DEL) vira `\DDD`, senão o registro sai
+ * com uma quebra de linha no meio e o arquivo de zona fica inválido.
+ */
+function escaparPedaco(pedaco: string): string {
+  let saida = "";
+  for (const caractere of pedaco) {
+    const codigo = caractere.codePointAt(0)!;
+    if (caractere === "\\" || caractere === '"') saida += `\\${caractere}`;
+    else if (codigo < 0x20 || codigo === 0x7f) saida += `\\${String(codigo).padStart(3, "0")}`;
+    else saida += caractere;
+  }
+  return saida;
+}
+
 /** TXT lógico em forma de apresentação: entre aspas, em pedaços de 255 bytes. */
 export function txtEmAspas(logico: string): string {
   return pedacosDe255Bytes(logico)
-    .map((p) => `"${p.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+    .map((p) => `"${escaparPedaco(p)}"`)
     .join(" ");
 }
 
