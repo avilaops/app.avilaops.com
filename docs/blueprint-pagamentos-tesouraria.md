@@ -1,6 +1,6 @@
 # Blueprint — Módulo de Pagamentos e Tesouraria
 
-_Atualizado em 2026-10-04 · Nicolas_
+_Atualizado em 2026-10-05 · Nicolas_
 
 Como dono, quero um lugar só pra cuidar do meu dinheiro: ver se os gateways estão de pé, cobrar o cliente, receber e acompanhar — sem SSH e sem planilha paralela. Este é o mapa do que o módulo faz hoje e do que ainda vou desenvolver.
 
@@ -50,7 +50,16 @@ Sobre os canais:
 
 **Teste e cliente real não se misturam:** o botão de teste pergunta pra onde mandar (meu próprio e-mail/número); se eu deixar em branco, nada é enviado. Pro **cliente real** só sai pelo botão dele, e ainda pede confirmação antes — não dá pra disparar sem querer.
 
-**O envio fica registrado na auditoria:** quem mandou, por qual canal, pra qual destino, o que foi enviado e se era teste. O teste também entra, marcado como teste, na trilha do cliente dono da fatura. O envio que foi tentado e não saiu fica gravado como falha, não como contato feito; pedido recusado antes de tentar (fatura cancelada, cobrança expirada, sem destino cadastrado) não gera registro. Dois limites de hoje: esse registro ainda não aparece em nenhuma tela (fica no banco), e ele é gravado depois do envio — se a gravação falhar, a mensagem já saiu e o erro vai só pro log do servidor.
+**O envio fica registrado na auditoria, em dois tempos**, pra não existir mensagem que saiu sem rastro:
+
+1. **Antes de enviar**, o sistema grava que o envio começou: quem pediu, por qual canal, o que ia ser enviado e se era teste. Se nem isso ele consegue gravar, responde erro (503, "Nada foi enviado") e nenhuma mensagem sai.
+2. **Depois**, grava o desfecho, apontando pro primeiro registro: **enviado**; **falhou** (o provedor não entregou); **recusado** (nem tentou: fatura cancelada ou já paga, cobrança expirada, sem destino cadastrado); ou **erro** inesperado. Tentativa que não saiu fica como falha, não como contato feito.
+
+Enviado e falhou guardam o destino e entram na trilha do cliente dono da fatura — o teste também, marcado como teste. Pedido barrado antes disso (sem login, quem não é dono, canal inválido, teste sem destino) não gera registro nenhum.
+
+Se a mensagem saiu e o desfecho não foi gravado, a resposta não vem como um "ok" limpo: vem com `registrado: false` e um aviso, e o painel mostra "Enviado…" seguido do aviso, em destaque de erro. Na trilha fica só o "começou", que nesse caso quer dizer "pode ter saído e eu não sei".
+
+Limites de hoje: esses registros ainda não aparecem em nenhuma tela (ficam no banco); o registro de "começou", o de recusado e o de erro saem sem o cliente (`organizationId`), então a trilha por cliente não os acha — só a busca pela fatura ou cobrança; e nada avisa sozinho quando um "começou" fica sem desfecho.
 
 ## Acompanhar e me proteger **[parcial]**
 
@@ -59,6 +68,7 @@ Depois de cobrar, eu acompanho e confio no que vejo:
 - **Status da cobrança** (emitida, paga, vencida) — vem do aviso do gateway, mas confirmado na fonte: o aviso é aviso; quem diz se entrou dinheiro é a API.
 - **Conciliação** — as entradas batem com as faturas, e todo número na tela abre a evidência (origem, horário, dado bruto).
 - **Auditoria** — toda ação que fala com cliente ou mexe em dinheiro deixa rastro.
+- **Pagamento que não abate fatura deixa rastro** — quando o dinheiro entra e a fatura já estava coberta (no todo ou em parte), o pagamento fica guardado no ledger (`core.payments`) e a auditoria ganha um registro: `PAGAMENTO_SEM_ALOCACAO` (nada abateu) ou `PAGAMENTO_ALOCADO_EM_PARTE` (abateu só o que faltava), com o valor que sobrou. Se a gravação no ledger falha, fica `PAGAMENTO_LEDGER_FALHOU`. Um registro por pagamento e motivo, mesmo que o gateway repita o aviso. O saldo é lido e a alocação é gravada na mesma transação, com a fatura travada: dois pagamentos simultâneos da mesma fatura não enxergam o mesmo saldo. Limites de hoje: nenhuma tela lista esses registros (ficam no banco), e se a própria gravação da auditoria falhar sobra só o log do servidor — a baixa da cobrança não é desfeita.
 
 Regras que me protegem:
 
@@ -84,7 +94,8 @@ Cada parte entra como uma **fatia própria, testada e publicada**, pra não queb
 - Envio: `src/lib/entrega-cobranca.ts`, `src/lib/whatsapp-saida.ts`, botões em `src/components/OperacaoPanel.tsx`.
   - Rota que o painel chama: `src/app/api/billing/faturas/[id]/enviar/route.ts` — envia a partir da **fatura**; por isso dá pra mandar o resumo antes de existir cobrança e, havendo cobrança, vai a mais recente.
   - Rota irmã: `src/app/api/cobrancas/[id]/enviar/route.ts` — envia a partir de uma **cobrança** específica já emitida. Existe, mas nenhuma tela chama hoje.
-  - As duas passam por `responderEnvio` (`src/lib/entrega-cobranca-http.ts`): só o dono, modo de teste por padrão e o registro em `operations.audit_events` (`COBRANCA_ENVIADA` / `COBRANCA_ENVIO_FALHOU`).
+  - As duas passam por `responderEnvio` (`src/lib/entrega-cobranca-http.ts`): só o dono, modo de teste por padrão e o registro em `operations.audit_events` em dois tempos — `COBRANCA_ENVIO_INICIADO` antes de enviar (sem `organizationId`; se falha, 503 e nada sai) e depois o desfecho com `tentativaId` no `metadata`: `COBRANCA_ENVIADA`, `COBRANCA_ENVIO_FALHOU`, `COBRANCA_ENVIO_RECUSADO` ou `COBRANCA_ENVIO_ERRO`. Desfecho não gravado: `registrado: false` na resposta, lido em `enviarCobranca` no `OperacaoPanel.tsx`.
 - Painel de integrações: `src/app/financeiro/integracoes/page.tsx`, `src/lib/integracoes.ts`, diagnóstico em `src/lib/paypal.ts` (`diagnosticarWebhook`).
+- Baixa e ledger: `baixarCobrancaPorIdExterno` em `src/lib/assinaturas.ts` — grava `core.payments`, aloca na fatura dentro de `prisma.$transaction` com `SELECT … FOR UPDATE` em `operations.subscription_invoices`, e chama `auditarPagamentoForaDaFatura` (`PAGAMENTO_SEM_ALOCACAO`, `PAGAMENTO_ALOCADO_EM_PARTE`, `PAGAMENTO_LEDGER_FALHOU`).
 - Emissão/contratação (já existente): `src/lib/assinaturas.ts`, `src/lib/nucleo/contratacao.ts`.
 - Entregue no PR #78 (`avilaops/app.avilaops.com`).
