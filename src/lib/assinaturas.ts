@@ -553,6 +553,38 @@ export async function garantirFatura(params: {
 const REEMBOLSADO = ["REFUNDED", "refunded", "charged_back"];
 
 /**
+ * Rastro consultável (`operations.audit_events`) de pagamento que não abateu
+ * fatura como deveria. Uma vez por pagamento e motivo: os gateways reenviam a
+ * mesma notificação, e a trilha não pode encher de cópias.
+ *
+ * Não lança: quem chama é a baixa, que já deu certo para o cliente. Mas a falha
+ * de gravação sai em `console.error` com marca própria — é a perda do rastro, e
+ * não se confunde com o aviso comum do ledger.
+ */
+async function auditarPagamentoForaDaFatura(evento: {
+  action: string;
+  organizationId: string | null;
+  entityType: string;
+  entityId: string;
+  metadata: Prisma.InputJsonObject;
+}) {
+  try {
+    const chave = { action: evento.action, entityType: evento.entityType, entityId: evento.entityId };
+    const jaRegistrado = await prisma.operationsAuditEvent.findFirst({ where: chave, select: { id: true } });
+    if (jaRegistrado) return;
+    await prisma.operationsAuditEvent.create({
+      data: { ...chave, organizationId: evento.organizationId, metadata: evento.metadata },
+    });
+  } catch (erro) {
+    console.error(
+      `[ledger] SEM RASTRO: não gravei a auditoria ${evento.action} de ${evento.entityType} ${evento.entityId}`,
+      evento.metadata,
+      erro,
+    );
+  }
+}
+
+/**
  * Baixa a fatura quando o gateway confirma o pagamento.
  *
  * Marca a COBRANÇA e a FATURA. As outras tentativas da mesma fatura continuam
@@ -695,32 +727,82 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
         // core.guard_allocation rejeita ("invoice overpaid") e o pagamento
         // ficaria em core.payments sem alocação nenhuma.
         if (pagamento.status === "CONFIRMED") {
-          // Só os OUTROS pagamentos: reprocessar o mesmo evento não pode contar
-          // a alocação deste aqui como saldo já consumido.
-          const outros = await prisma.corePaymentAllocation.aggregate({
-            _sum: { amount: true },
-            where: {
-              invoiceId: cobranca.invoiceId,
-              paymentId: { not: pagamento.id },
-              payment: { status: "CONFIRMED" },
-            },
-          });
-          const aAlocar = centavosAAlocar(cobranca, cobranca.invoice.amount, outros._sum.amount);
-          if (aAlocar > 0) {
-            await prisma.corePaymentAllocation.upsert({
-              where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
-              update: {},
-              create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: aAlocar / 100 },
+          const principal = centavosAAlocar(cobranca, cobranca.amount, 0);
+          /*
+            Saldo e alocação na MESMA transação, com a fatura travada.
+
+            Lido fora de transação, dois pagamentos simultâneos da mesma fatura
+            viam o mesmo saldo: o gatilho serializava, rejeitava o segundo
+            ("invoice overpaid") e ele ficava sem alocação nenhuma, em vez de
+            receber o que sobrou. Com o FOR UPDATE o segundo espera o primeiro
+            gravar e só então soma — em READ COMMITTED cada comando enxerga o
+            que já foi confirmado, então a soma dele inclui a alocação do outro.
+
+            A fatura é o primeiro lock dos dois lados, e o gatilho só trava
+            depois dela o próprio pagamento: não há ordem cruzada para impasse.
+          */
+          const aAlocar = await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM operations.subscription_invoices WHERE id = ${cobranca.invoiceId} FOR UPDATE`;
+            // Só os OUTROS pagamentos: reprocessar o mesmo evento não pode contar
+            // a alocação deste aqui como saldo já consumido.
+            const outros = await tx.corePaymentAllocation.aggregate({
+              _sum: { amount: true },
+              where: {
+                invoiceId: cobranca.invoiceId,
+                paymentId: { not: pagamento.id },
+                payment: { status: "CONFIRMED" },
+              },
             });
-          } else {
-            // Fatura já coberta por outros pagamentos: o dinheiro entrou e fica
-            // em core.payments sem alocação, para a conciliação decidir.
-            console.warn(`[ledger] pagamento de ${cobranca.id} sem alocação: a fatura ${cobranca.invoiceId} já está coberta`);
+            const centavos = centavosAAlocar(cobranca, cobranca.invoice.amount, outros._sum.amount);
+            if (centavos > 0) {
+              await tx.corePaymentAllocation.upsert({
+                where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
+                update: {},
+                create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: centavos / 100 },
+              });
+            }
+            return centavos;
+          });
+          if (aAlocar < principal) {
+            // Dinheiro que entrou e não abateu fatura (ela já estava coberta, no
+            // todo ou em parte): fica em core.payments para a conciliação
+            // decidir, e a auditoria é onde ela acha sem ler log do servidor.
+            await auditarPagamentoForaDaFatura({
+              action: aAlocar === 0 ? "PAGAMENTO_SEM_ALOCACAO" : "PAGAMENTO_ALOCADO_EM_PARTE",
+              organizationId: assinatura.organizationId,
+              entityType: "CorePayment",
+              entityId: pagamento.id,
+              metadata: {
+                chargeId: cobranca.id,
+                invoiceId: cobranca.invoiceId,
+                provider: cobranca.provider,
+                externalId: refExterna,
+                principalCentavos: principal,
+                alocadoCentavos: aAlocar,
+                excedenteCentavos: principal - aAlocar,
+              },
+            });
           }
         }
       }
     } catch (erro) {
       console.error(`[ledger] não registrei o pagamento de ${cobranca.id} em core.payments`, erro);
+      // O dinheiro entrou (a baixa acima já valeu) e o ledger não o tem por
+      // inteiro. Só o log não basta para a conciliação achar.
+      await auditarPagamentoForaDaFatura({
+        action: "PAGAMENTO_LEDGER_FALHOU",
+        organizationId: cobranca.invoice.subscription?.organizationId ?? null,
+        entityType: "SubscriptionCharge",
+        entityId: cobranca.id,
+        metadata: {
+          chargeId: cobranca.id,
+          invoiceId: cobranca.invoiceId,
+          provider: cobranca.provider,
+          externalId: cobranca.externalId,
+          status,
+          erro: (erro instanceof Error ? erro.message : String(erro)).slice(0, 500),
+        },
+      });
     }
   }
 

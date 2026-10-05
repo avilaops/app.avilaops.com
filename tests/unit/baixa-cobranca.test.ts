@@ -19,6 +19,8 @@ const { estado } = vi.hoisted(() => ({
     fatura: null as null | Record<string, unknown>,
     dadosDaCobranca: null as null | Record<string, unknown>,
     dadosDaFatura: null as null | Record<string, unknown>,
+    pagamentos: [] as Record<string, unknown>[],
+    alocacoes: [] as Record<string, unknown>[],
   },
 }));
 
@@ -37,10 +39,39 @@ vi.mock("@/lib/prisma", () => ({
         return data;
       },
     },
+    // O ledger (core.payments + alocação) que a baixa alimenta. Sem ele o
+    // bloco estourava dentro do try e cada teste de "pago" imprimia
+    // "[ledger] não registrei..." — passando, mas sem exercitar o ledger.
+    corePayment: {
+      upsert: async ({ create }: { create: Record<string, unknown> }) => {
+        const pagamento = { id: "pagamento-1", ...create };
+        estado.pagamentos.push(pagamento);
+        return pagamento;
+      },
+      updateMany: async () => ({ count: 0 }),
+    },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn({
+        $queryRaw: async () => [],
+        corePaymentAllocation: {
+          aggregate: async () => ({ _sum: { amount: null } }),
+          upsert: async ({ create }: { create: Record<string, unknown> }) => {
+            estado.alocacoes.push(create);
+            return create;
+          },
+        },
+      }),
   },
 }));
 
 const { baixarCobrancaPorIdExterno } = await import("@/lib/assinaturas");
+
+// Nenhum caminho daqui deve cair no "best-effort" do ledger: se cair, o mock
+// ficou para trás de novo e o teste tem de dizer.
+const erroNoLog = vi.spyOn(console, "error");
+
+/** O que o ledger lê da fatura: valor, e a assinatura com cliente e moeda. */
+const FATURA_NO_LEDGER = { amount: 100, subscription: { organizationId: "org-1", currency: "BRL" } };
 
 /** Uma cobrança aberta, do jeito que o banco a devolve. */
 function aberta(extra: Record<string, unknown> = {}) {
@@ -48,8 +79,12 @@ function aberta(extra: Record<string, unknown> = {}) {
     id: "cobranca-1",
     invoiceId: "fatura-1",
     status: "PENDING",
+    provider: "MERCADO_PAGO",
+    externalId: "123456789",
     paidAt: null,
-    invoice: { id: "fatura-1", status: "OPEN", paidAt: null },
+    amount: 100,
+    interestAmount: 0,
+    invoice: { id: "fatura-1", status: "OPEN", paidAt: null, ...FATURA_NO_LEDGER },
     ...extra,
   };
 }
@@ -57,7 +92,10 @@ function aberta(extra: Record<string, unknown> = {}) {
 beforeEach(() => {
   estado.dadosDaCobranca = null;
   estado.dadosDaFatura = null;
+  estado.pagamentos = [];
+  estado.alocacoes = [];
   estado.cobranca = aberta();
+  erroNoLog.mockClear();
 });
 
 describe("baixarCobrancaPorIdExterno", () => {
@@ -70,6 +108,11 @@ describe("baixarCobrancaPorIdExterno", () => {
     expect(estado.dadosDaCobranca?.status).toBe("PAID");
     expect(estado.dadosDaCobranca?.paidAt).toBeInstanceOf(Date);
     expect(estado.dadosDaFatura?.status).toBe("PAID");
+    // E o dinheiro chega ao ledger, alocado na fatura.
+    expect(estado.pagamentos).toHaveLength(1);
+    expect(estado.pagamentos[0]).toMatchObject({ organizationId: "org-1", externalId: "123456789", amount: 100, status: "CONFIRMED" });
+    expect(estado.alocacoes).toEqual([{ paymentId: "pagamento-1", invoiceId: "fatura-1", amount: 100 }]);
+    expect(erroNoLog).not.toHaveBeenCalled();
   });
 
   it('grava "PAID" para o "PAID" do Efí, como sempre', async () => {
@@ -77,6 +120,8 @@ describe("baixarCobrancaPorIdExterno", () => {
 
     expect(estado.dadosDaCobranca?.status).toBe("PAID");
     expect(estado.dadosDaFatura?.status).toBe("PAID");
+    expect(estado.alocacoes).toHaveLength(1);
+    expect(erroNoLog).not.toHaveBeenCalled();
   });
 
   it("evento fora de ordem NÃO reabre cobrança já paga no Mercado Pago", async () => {
@@ -86,7 +131,7 @@ describe("baixarCobrancaPorIdExterno", () => {
     estado.cobranca = aberta({
       status: "approved",
       paidAt: pagoEm,
-      invoice: { id: "fatura-1", status: "PAID", paidAt: pagoEm },
+      invoice: { id: "fatura-1", status: "PAID", paidAt: pagoEm, ...FATURA_NO_LEDGER },
     });
 
     await baixarCobrancaPorIdExterno("123456789", "pending");
@@ -101,8 +146,9 @@ describe("baixarCobrancaPorIdExterno", () => {
 
     expect(estado.dadosDaCobranca?.status).toBe("rejected");
     expect(estado.dadosDaCobranca?.paidAt).toBeNull();
-    // Recusa não mexe na fatura.
+    // Recusa não mexe na fatura, nem entra no ledger.
     expect(estado.dadosDaFatura).toBeNull();
+    expect(estado.pagamentos).toEqual([]);
   });
 
   it("não reabre cobrança paga nem quando o status vem em branco", async () => {
