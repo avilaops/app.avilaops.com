@@ -52,17 +52,21 @@ export async function pagamentosRecentes(limite = 20): Promise<PagamentoRecebido
   }));
 }
 
-export type LinhaRecebivel = { status: string; quantidade: number; total: number };
+export type LinhaRecebivel = { status: string; currency: string; quantidade: number; total: number };
 
-/** Resumo dos recebíveis pela view core.receivables, agrupado por situação. */
+/**
+ * Resumo dos recebíveis pela view core.receivables, por situação E moeda —
+ * somar moedas diferentes daria um total sem sentido depois da multimoeda.
+ */
 export async function resumoRecebiveis(): Promise<LinhaRecebivel[]> {
-  const linhas = await prisma.$queryRaw<{ effective_status: string; quantidade: bigint; total: unknown }[]>`
-    SELECT effective_status, count(*) AS quantidade, COALESCE(sum(amount), 0) AS total
+  const linhas = await prisma.$queryRaw<{ effective_status: string; currency: string; quantidade: bigint; total: unknown }[]>`
+    SELECT effective_status, currency, count(*) AS quantidade, COALESCE(sum(amount), 0) AS total
     FROM core.receivables
-    GROUP BY effective_status
-    ORDER BY effective_status`;
+    GROUP BY effective_status, currency
+    ORDER BY currency, effective_status`;
   return linhas.map((l) => ({
     status: l.effective_status,
+    currency: l.currency,
     quantidade: Number(l.quantidade),
     total: Number(l.total),
   }));

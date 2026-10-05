@@ -11,8 +11,6 @@ import { eventosDoProvedor, pagamentosRecentes, resumoRecebiveis } from "@/lib/i
  * tudo que antes só dava para ver por SSH, agora num lugar só. Só do dono, como
  * o resto do financeiro.
  */
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-
 export default async function IntegracoesPage() {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
@@ -50,9 +48,11 @@ export default async function IntegracoesPage() {
           ) : (
             <ul className="mt-3 divide-y divide-border">
               {recebiveis.map((r) => (
-                <li key={r.status} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="text-muted-foreground">{r.status}</span>
-                  <strong className="text-foreground">{r.quantidade} · {brl.format(r.total)}</strong>
+                <li key={`${r.currency}-${r.status}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-muted-foreground">{r.status} · {r.currency}</span>
+                  <strong className="text-foreground">
+                    {r.quantidade} · {new Intl.NumberFormat("pt-BR", { style: "currency", currency: r.currency }).format(r.total)}
+                  </strong>
                 </li>
               ))}
             </ul>
