@@ -27,6 +27,31 @@ export async function eventosDoProvedor(provider: string, limite = 20): Promise<
   }));
 }
 
+export type PagamentoRecebido = {
+  id: string;
+  provider: string;
+  amount: number;
+  currency: string;
+  status: string;
+  paidAt: string | null;
+};
+
+/** Últimos pagamentos no ledger único (core.payments) — o dinheiro que entrou. */
+export async function pagamentosRecentes(limite = 20): Promise<PagamentoRecebido[]> {
+  const linhas = await prisma.corePayment.findMany({
+    orderBy: { paidAt: "desc" },
+    take: limite,
+  });
+  return linhas.map((p) => ({
+    id: p.id,
+    provider: p.provider,
+    amount: Number(p.amount),
+    currency: p.currency,
+    status: p.status,
+    paidAt: p.paidAt?.toISOString() ?? null,
+  }));
+}
+
 export type LinhaRecebivel = { status: string; quantidade: number; total: number };
 
 /** Resumo dos recebíveis pela view core.receivables, agrupado por situação. */

@@ -4,7 +4,7 @@ import AppShell from "@/components/AppShell";
 import DiagnosticoPaypal from "@/components/integracoes/DiagnosticoPaypal";
 import EventosRecentes from "@/components/whatsapp/EventosRecentes";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { eventosDoProvedor, resumoRecebiveis } from "@/lib/integracoes";
+import { eventosDoProvedor, pagamentosRecentes, resumoRecebiveis } from "@/lib/integracoes";
 
 /**
  * Painel de integrações: saúde dos webhooks, eventos recebidos e recebíveis —
@@ -19,11 +19,12 @@ export default async function IntegracoesPage() {
   if (!ehDono(admin.role)) redirect("/operacao");
 
   const lidoEm = new Date().toISOString();
-  const [paypal, mercadopago, whatsapp, recebiveis] = await Promise.all([
+  const [paypal, mercadopago, whatsapp, recebiveis, pagamentos] = await Promise.all([
     eventosDoProvedor("paypal"),
     eventosDoProvedor("mercadopago"),
     eventosDoProvedor("whatsapp_business"),
     resumoRecebiveis(),
+    pagamentosRecentes(),
   ]);
 
   return (
@@ -51,6 +52,29 @@ export default async function IntegracoesPage() {
                 <li key={r.status} className="flex items-center justify-between gap-3 py-2 text-sm">
                   <span className="text-muted-foreground">{r.status}</span>
                   <strong className="text-foreground">{r.quantidade} · {brl.format(r.total)}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="w-full rounded-xl border border-border bg-card p-4">
+          <h2 className="text-[15px] font-semibold text-foreground">Pagamentos recebidos</h2>
+          {pagamentos.length === 0 ? (
+            <p className="mt-1 text-[13px] text-muted-foreground">Nenhum pagamento registrado no ledger ainda.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border">
+              {pagamentos.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-muted-foreground">{p.provider} · {p.status}</span>
+                  <span className="flex items-center gap-3">
+                    <strong className="text-foreground">
+                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.currency }).format(p.amount)}
+                    </strong>
+                    <span className="text-[13px] text-muted-foreground">
+                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString("pt-BR") : "—"}
+                    </span>
+                  </span>
                 </li>
               ))}
             </ul>
