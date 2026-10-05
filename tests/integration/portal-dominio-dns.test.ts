@@ -47,7 +47,8 @@ vi.mock("@/lib/dominios/dns", async (original) => {
   };
 });
 
-import { ErroDeDns, executarOperacaoDns } from "@/lib/dominios/dns/escrita";
+import { ErroDeDns, executarOperacaoDns, restaurarVersaoDns } from "@/lib/dominios/dns/escrita";
+import { exportarZonaBind } from "@/lib/dominios/dns/exportacao";
 import { carregarDominioDoCliente } from "@/lib/portal-dominio";
 
 if (!new URL(process.env.DATABASE_URL!).pathname.endsWith("_test")) throw new Error("Use banco descartável _test.");
@@ -151,5 +152,54 @@ describe("DNS pelo portal do cliente", () => {
     await expect(
       executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, { id, origem: "CLIENTE" }, { organizationId: org }),
     ).rejects.toMatchObject({ status: 409 });
+  }));
+
+  it("cada escrita guarda versão, com o retrato de antes na primeira", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "@", conteudo: "203.0.113.10" } }, cliente, { organizationId: org });
+
+    const versoes = await tx.dnsZoneVersion.findMany({ orderBy: { createdAt: "asc" }, where: { domainAsset: { fqdn } } });
+    expect(versoes.map((v) => [v.origin, v.recordCount])).toEqual([["SISTEMA", 2], ["CLIENTE", 1], ["CLIENTE", 2]]);
+    expect(versoes[1].reason).toBe("Registro MX @ apagado");
+  }));
+
+  it("restaurar o retrato inicial devolve o MX apagado e tira o que entrou depois", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "loja", conteudo: "203.0.113.10" } }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+
+    state.chamadas = [];
+    const resultado = await restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org });
+    expect(resultado.aplicadas).toBe(2);
+    expect(state.chamadas[0]).toMatch(/^apagar /);
+    expect(state.chamadas[1]).toBe("criar MX @");
+    expect(state.zona.map((r) => r.tipo).sort()).toEqual(["MX", "TXT"]);
+
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA" } });
+    expect(evento.metadata).toMatchObject({ origem: "CLIENTE", versaoId: inicial.id, aplicadas: 2, total: 2 });
+
+    await expect(restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org })).rejects.toMatchObject({ status: 409 });
+  }));
+
+  it("versão de outra empresa não é restaurada nem exportada", () => isolado(async ({ tx, id, org, fqdn, outroFqdn }) => {
+    const outro = await tx.domainAsset.findUniqueOrThrow({ where: { fqdn: outroFqdn } });
+    const alheia = await tx.dnsZoneVersion.create({
+      data: { domainAssetId: outro.id, origin: "EQUIPE", reason: "x", records: [], recordCount: 0 },
+    });
+    const cliente = { id, origem: "CLIENTE" as const };
+    await expect(restaurarVersaoDns(fqdn, alheia.id, cliente, { organizationId: org })).rejects.toMatchObject({ status: 404 });
+    await expect(restaurarVersaoDns(outroFqdn, alheia.id, cliente, { organizationId: org })).rejects.toMatchObject({ status: 404 });
+    await expect(exportarZonaBind(fqdn, cliente, { organizationId: org }, alheia.id)).rejects.toMatchObject({ status: 404 });
+    expect(state.chamadas).toEqual([]);
+  }));
+
+  it("exportar gera BIND e evento de auditoria", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const arquivo = await exportarZonaBind(fqdn, { id, origem: "CLIENTE" }, { organizationId: org });
+    expect(arquivo.nomeArquivo).toBe(`${fqdn}.zone`);
+    expect(arquivo.conteudo).toContain(`$ORIGIN ${fqdn}.`);
+    expect(arquivo.conteudo).toContain("IN\tMX\t10 mx1.provedor.com.");
+    expect(await tx.operationsAuditEvent.count({ where: { organizationId: org, action: "DNS_ZONA_EXPORTADA" } })).toBe(1);
   }));
 });

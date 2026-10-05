@@ -5,6 +5,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BadgeStatus from "@/components/sistema/Status";
 import { CartaoLista, LINHA_ITEM, LINHA_LINK, formatarDataHora } from "@/components/hub-social/comum";
 import PainelDns from "@/components/dominios/PainelDns";
+import VersoesDaZona, { type VersaoNaTela } from "@/components/dominios/VersoesDaZona";
 import {
   BASE,
   formatarData,
@@ -30,12 +31,16 @@ export default function DetalheDominio({
   erroDns,
   escrita,
   historico,
+  versoes,
+  zonaLida,
 }: {
   dominio: DominioDaCarteira;
   registros: RegistroDns[];
   erroDns: string | null;
   escrita: CapacidadesDeEscrita;
   historico: { quando: string; acao: string; quem: string | null; resultado: string | null }[];
+  versoes: VersaoNaTela[];
+  zonaLida: boolean;
 }) {
   const prazo =
     dominio.diasRestantes === null
@@ -112,6 +117,16 @@ export default function DetalheDominio({
         erro={erroDns}
         podeEditar={escrita.editarDns}
       />
+
+      {dominio.dnsAqui ? (
+        <VersoesDaZona
+          versoes={versoes}
+          atual={registros}
+          zonaLida={zonaLida}
+          podeRestaurar={escrita.editarDns}
+          base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
+        />
+      ) : null}
 
       <CartaoLista titulo="Ações" descricao="O que a central consegue fazer com este domínio agora.">
         <ul className="m-0 list-none p-0">

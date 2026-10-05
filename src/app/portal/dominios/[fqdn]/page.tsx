@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import PainelDns from "@/components/dominios/PainelDns";
+import VersoesDaZona from "@/components/dominios/VersoesDaZona";
 import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";
 import { CartaoLista, LINHA_ITEM, formatarDataHora } from "@/components/hub-social/comum";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
@@ -123,6 +124,16 @@ export default async function DominioDoClientePage({ params }: { params: Promise
             : undefined
         }
       />
+
+      {dominio.servicoDns !== "NENHUM" ? (
+        <VersoesDaZona
+          versoes={dominio.versoes}
+          atual={dominio.dns.registros}
+          zonaLida={Boolean(dominio.dns.lidoEm)}
+          podeRestaurar={podeEditar}
+          base={`/api/portal/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
+        />
+      ) : null}
 
       <CartaoLista titulo="Alterações no DNS" descricao="Tudo que foi feito nesta zona, por você ou pela equipe.">
         {dominio.historico.length === 0 ? (
