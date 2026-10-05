@@ -34,6 +34,11 @@ function notificacao(corpo: unknown, url = "https://app.avilaops.com/api/webhook
 }
 
 async function limpar() {
+  const orgs = await prisma.organization.findMany({ where: { slug: { startsWith: "teste-webhook-" } }, select: { id: true } });
+  const orgIds = orgs.map((o) => o.id);
+  // O ledger (core.payments) tem FK Restrict à fatura: apagar antes da assinatura.
+  await prisma.corePaymentAllocation.deleteMany({ where: { payment: { organizationId: { in: orgIds } } } });
+  await prisma.corePayment.deleteMany({ where: { organizationId: { in: orgIds } } });
   await prisma.subscription.deleteMany({ where: { productKey: PRODUTO } });
   await prisma.organization.deleteMany({ where: { slug: { startsWith: "teste-webhook-" } } });
 }

@@ -18,6 +18,8 @@ afterAll(async () => {
   await prisma.coreReconciliationIssue.deleteMany({ where: { entityType: "subscriptions", entityId: { in: subs.map(s => s.id) } } });
   await prisma.coreContract.deleteMany({ where: { organizationId: { in: orgs } } });
   await prisma.coreProduct.deleteMany({ where: { organizationId: { in: orgs } } });
+  await prisma.corePaymentAllocation.deleteMany({ where: { payment: { organizationId: { in: orgs } } } });
+  await prisma.corePayment.deleteMany({ where: { organizationId: { in: orgs } } });
   await prisma.subscription.deleteMany({ where: { organizationId: { in: orgs } } });
   await prisma.operationsAuditEvent.deleteMany({ where: { organizationId: { in: orgs } } });
   await prisma.organization.deleteMany({ where: { id: { in: orgs } } });

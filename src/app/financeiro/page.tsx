@@ -132,7 +132,7 @@ export default async function FinancePage({
     <AppShell adminName={admin.nome} papel={admin.role} section={activeSection}>
       <CabecalhoFinanceiro
         titulo="Financeiro"
-        acoes={[{ tipo: "sincronizar" }, { tipo: "novo-lancamento" }, { tipo: "link", rotulo: "Revisar pendências", icone: "revisar", href: link({ status: "PENDING" }, "#movimentacoes") }]}
+        acoes={[{ tipo: "sincronizar" }, { tipo: "novo-lancamento" }, { tipo: "link", rotulo: "Integrações", icone: "cobranca", href: "/financeiro/integracoes" }, { tipo: "link", rotulo: "Revisar pendências", icone: "revisar", href: link({ status: "PENDING" }, "#movimentacoes") }]}
         descricao="Saldo, entradas e saídas da conta escolhida, e o que ainda depende de decisão."
       />
 

@@ -145,7 +145,7 @@ export default function FaturasDoCliente({ iniciais, pais }: { iniciais: FaturaD
                         Gerar boleto
                       </button>
                     </>
-                  ) : !brasileira && fatura.moeda === "BRL" ? (
+                  ) : !brasileira ? (
                     <button type="button" onClick={() => cobrar(fatura, "PAYPAL")} disabled={ocupada !== null}>
                       {ocupada === fatura.id ? "Preparando…" : "Pagar com PayPal"}
                     </button>

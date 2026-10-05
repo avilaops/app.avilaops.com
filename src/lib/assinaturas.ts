@@ -6,7 +6,7 @@ import {
   createPixCharge,
   type Pagador,
 } from "@/lib/mercadopago-cobranca";
-import { criarOrdem } from "@/lib/paypal";
+import { criarOrdem, MoedaNaoSuportadaPeloPaypal, valorPaypal } from "@/lib/paypal";
 import { opcaoParcelamento, simularParcelamento } from "@/lib/parcelamento";
 
 /**
@@ -29,7 +29,7 @@ import { opcaoParcelamento, simularParcelamento } from "@/lib/parcelamento";
 
 export type MetodoCobranca = "PIX" | "BOLETO" | "CARD" | "PAYPAL";
 
-function paisEhBrasil(pais: string | null | undefined): boolean {
+export function paisEhBrasil(pais: string | null | undefined): boolean {
   const normalizado = (pais ?? "Brasil").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
   return ["BR", "BRA", "BRASIL", "BRAZIL"].includes(normalizado);
 }
@@ -297,9 +297,10 @@ export async function criarCobrancaDaFatura(params: {
   if (fatura.status === "PAID") throw new CobrancaIndisponivelError("Esta fatura já está paga.");
   if (fatura.status === "CANCELLED") throw new CobrancaIndisponivelError("Esta fatura foi cancelada.");
 
-  // Os gateways atuais emitem BRL. Não reinterpretar outra moeda como reais.
-  if (fatura.subscription.currency !== "BRL") {
-    throw new CobrancaIndisponivelError("Cobrança automática nesta moeda ainda não está disponível. Solicite o pagamento ao atendimento.");
+  // Mercado Pago (Brasil) só emite BRL; o PayPal cobra na moeda da assinatura
+  // (o trilho internacional). Outra moeda por outro método vira pagamento manual.
+  if (fatura.subscription.currency !== "BRL" && params.metodo !== "PAYPAL") {
+    throw new CobrancaIndisponivelError("Cobrança automática nesta moeda só está disponível pelo PayPal (fora do Brasil). Solicite o pagamento ao atendimento.");
   }
   const [saldo] = await prisma.$queryRaw<{ outstanding: unknown; amount: unknown }[]>`
     SELECT outstanding,amount FROM core.receivables WHERE source='INVOICE' AND source_id=${fatura.id}`;
@@ -332,9 +333,18 @@ export async function criarCobrancaDaFatura(params: {
   const chaveIdempotencia = `${fatura.id}:${params.metodo}:${Math.floor(Date.now() / 60_000)}`;
 
   if (params.metodo === "PAYPAL") {
+    // Moeda que o PayPal não aceita (ou valor com centavos em moeda sem
+    // centavos) vira mensagem de "indisponível", não erro genérico da API.
+    try {
+      valorPaypal(valorCents / 100, fatura.subscription.currency);
+    } catch (erro) {
+      if (erro instanceof MoedaNaoSuportadaPeloPaypal) throw new CobrancaIndisponivelError(erro.message);
+      throw erro;
+    }
     const origem = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/$/, "");
     const ordem = await criarOrdem({
       valor: valorCents / 100,
+      moeda: fatura.subscription.currency,
       descricao,
       referencia: fatura.id,
       retorno: `${origem}/api/paypal/retorno`,
@@ -538,17 +548,24 @@ export async function garantirFatura(params: {
   }
 }
 
+/** Nomes de "devolveu o dinheiro": PayPal (REFUNDED) e Mercado Pago (refunded, charged_back). */
+const REEMBOLSADO = ["REFUNDED", "refunded", "charged_back"];
+
 /**
  * Baixa a fatura quando o gateway confirma o pagamento.
  *
  * Marca a COBRANÇA e a FATURA. As outras tentativas da mesma fatura continuam
  * como estão — um boleto não pago de uma fatura quitada por PIX não vira
  * problema, porque quem manda no acesso é o status da fatura.
+ *
+ * `pagoEm` é o instante em que o PROVEDOR aprovou/capturou. Sem ele, um
+ * webhook atrasado ou reenviado depois de uma queda gravaria a hora do
+ * processamento, e o dinheiro cairia no dia errado do ledger.
  */
-export async function baixarCobrancaPorIdExterno(externalId: string, status: string) {
+export async function baixarCobrancaPorIdExterno(externalId: string, status: string, pagoEm?: Date | null) {
   const cobranca = await prisma.subscriptionCharge.findFirst({
     where: { externalId },
-    include: { invoice: true },
+    include: { invoice: { include: { subscription: true } } },
   });
 
   if (!cobranca) return null;
@@ -562,6 +579,10 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
     cobrança do Efí fechar.
   */
   const pago = ["PAID", "paid", "CONFIRMED", "COMPLETED", "settled", "approved"].includes(status);
+  // O status vem sempre da API do provedor (o webhook reconsulta), então um
+  // reembolso não é desfeito por evento fora de ordem: a API não volta a dizer
+  // "aprovado" depois de devolver o dinheiro.
+  const reembolsado = REEMBOLSADO.includes(status);
   /*
     "Já estava paga" se olha pelo `paidAt`, não pelo nome do status.
 
@@ -576,7 +597,7 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
     `paidAt` não tem esse problema porque é gravado por igual para os dois.
   */
   const jaEstavaPago = cobranca.paidAt !== null || cobranca.status === "PAID";
-  const agora = new Date();
+  const momentoDoPagamento = pagoEm ?? new Date();
 
   await prisma.subscriptionCharge.update({
     where: { id: cobranca.id },
@@ -591,19 +612,95 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
       // Mercado Pago — e quem consulta por status (a varredura de pendentes do
       // Efí usa `notIn: ["PAID", "CANCELLED"]`) tratava cobrança paga no
       // Mercado Pago como se ainda estivesse aberta.
-      status: jaEstavaPago || pago ? "PAID" : status,
+      //
+      // A exceção é o reembolso: o dinheiro voltou ao cliente, e "PAID" aqui
+      // seria mentira. `paidAt` fica — é o histórico de quando entrou.
+      status: reembolsado ? "REFUNDED" : jaEstavaPago || pago ? "PAID" : status,
       // `paidAt` é o instante do pagamento, não o do reprocessamento. Sem esta
       // guarda, reenviar o mesmo evento amanhã moveria a data de hoje para
       // amanhã, e a conciliação bancária deixaria de bater.
-      paidAt: cobranca.paidAt ?? (pago ? agora : null),
+      paidAt: cobranca.paidAt ?? (pago ? momentoDoPagamento : null),
     },
   });
 
   if (pago && cobranca.invoice.status !== "PAID") {
     await prisma.subscriptionInvoice.update({
       where: { id: cobranca.invoiceId },
-      data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? agora },
+      data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? momentoDoPagamento },
     });
+  }
+
+  if (reembolsado && cobranca.invoice.status === "PAID") {
+    // Política de reembolso: a fatura volta a dever. Sem isto a view
+    // core.receivables força `outstanding` zero para fatura PAID e o portal
+    // segue tratando como quitada, com o dinheiro já devolvido. Só reabre se
+    // nenhuma OUTRA cobrança da mesma fatura continua paga — quitada por PIX e
+    // com um cartão estornado, a fatura segue paga.
+    const outraPaga = await prisma.subscriptionCharge.count({
+      where: { invoiceId: cobranca.invoiceId, id: { not: cobranca.id }, status: "PAID" },
+    });
+    if (outraPaga === 0) {
+      await prisma.subscriptionInvoice.update({
+        where: { id: cobranca.invoiceId },
+        data: { status: "OPEN", paidAt: null },
+      });
+    }
+  }
+
+  // Ledger único: todo pagamento confirmado deixa um registro em core.payments
+  // (+ alocação na fatura), pra o painel de tesouraria ver o dinheiro de verdade
+  // — hoje a baixa da cobrança não alimentava esse ledger, então gateway e
+  // conciliação viviam separados. Idempotente (upsert pela chave do gateway) e
+  // best-effort: a baixa é pro cliente; o ledger é pra nós e não pode derrubar
+  // um pagamento que já deu certo.
+  if (pago || reembolsado) {
+    try {
+      const assinatura = cobranca.invoice.subscription;
+      const refExterna = cobranca.externalId ?? cobranca.id;
+
+      if (reembolsado) {
+        // A view core.receivables só conta alocações de pagamentos CONFIRMED,
+        // então marcar como REFUNDED já tira este dinheiro dos recebíveis.
+        await prisma.corePayment.updateMany({
+          where: { provider: cobranca.provider, providerAccount: "principal", externalId: refExterna },
+          data: { status: "REFUNDED" },
+        });
+      } else {
+        const pagamento = await prisma.corePayment.upsert({
+          where: {
+            provider_providerAccount_externalId: {
+              provider: cobranca.provider,
+              providerAccount: "principal",
+              externalId: refExterna,
+            },
+          },
+          update: {},
+          create: {
+            organizationId: assinatura.organizationId,
+            provider: cobranca.provider,
+            providerAccount: "principal",
+            externalId: refExterna,
+            amount: cobranca.amount,
+            currency: assinatura.currency,
+            status: "CONFIRMED",
+            paidAt: cobranca.paidAt ?? momentoDoPagamento,
+            source: "GATEWAY_WEBHOOK",
+          },
+        });
+        // Aloca só o principal da fatura: numa cobrança de cartão parcelado o
+        // valor capturado inclui juros do pagador e passa do valor da fatura, e
+        // o trigger core.guard_allocation rejeita alocação acima desse valor.
+        if (pagamento.status === "CONFIRMED") {
+          await prisma.corePaymentAllocation.upsert({
+            where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
+            update: {},
+            create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: cobranca.invoice.amount },
+          });
+        }
+      }
+    } catch (erro) {
+      console.error(`[ledger] não registrei o pagamento de ${cobranca.id} em core.payments`, erro);
+    }
   }
 
   return cobranca;

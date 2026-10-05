@@ -8,6 +8,7 @@ import { Icone } from "@/components/ui/Icones";
 import Sheet from "@/components/ui/Sheet";
 
 export type CobrancaDaFicha = {
+  id: string;
   method: string;
   status: string;
   pixCopyPaste: string | null;
@@ -31,6 +32,8 @@ export type AssinaturaDaFicha = {
   id: string;
   description: string;
   amountCents: number;
+  /** Moeda da assinatura: fatura em USD não pode aparecer com R$. */
+  currency: string;
   billingDay: number;
   /** MONTHLY | YEARLY. */
   billingCycle: string;
@@ -82,6 +85,8 @@ type Props = {
   credenciais: CredencialDaFicha[];
   etapas: EtapaDaFicha[];
   cofreDisponivel: boolean;
+  /** Fora do Brasil a cobrança é por PayPal, na moeda da assinatura. */
+  clienteNoBrasil: boolean;
 };
 
 const rotuloCiclo: Record<string, string> = {
@@ -112,6 +117,7 @@ export default function OperacaoPanel({
   credenciais,
   etapas,
   cofreDisponivel,
+  clienteNoBrasil,
 }: Props) {
   const router = useRouter();
   const base = `/api/organizations/${organizationId}`;
@@ -229,11 +235,45 @@ export default function OperacaoPanel({
     );
   }
 
-  async function cobrar(assinaturaId: string, invoiceId: string, metodo: "PIX" | "BOLETO") {
+  // Pela fatura, não pela cobrança: sem cobrança emitida ainda dá para mandar o
+  // resumo; com cobrança, o servidor usa a mais recente e recusa a que não vale.
+  async function enviarCobranca(invoiceId: string, temCobranca: boolean, canal: "email" | "whatsapp") {
+    let conteudo: "cobranca" | "fatura" | "ambos" = "fatura";
+    if (temCobranca) {
+      const escolha = window.prompt("O que enviar?\n\n1 = boleto/link de pagamento\n2 = fatura (resumo)\n3 = fatura + boleto", "1");
+      if (escolha === null) return; // cancelou
+      conteudo = escolha.trim() === "2" ? "fatura" : escolha.trim() === "3" ? "ambos" : "cobranca";
+    }
+
+    const rotulo = canal === "email" ? "e-mail" : "número de WhatsApp (com DDI/DDD)";
+    const destinoTeste = window.prompt(
+      `Modo teste — enviar por ${canal} para qual ${rotulo}?\n\n(Deixe vazio e confirme para enviar ao CLIENTE REAL.)`,
+    );
+    if (destinoTeste === null) return; // cancelou
+    const teste = destinoTeste.trim() !== "";
+    if (!teste && !window.confirm("Enviar esta cobrança ao CLIENTE REAL agora?")) return;
     await executar(
       "cobranca",
       async () => {
-        const r = await chamar<{ cobranca: { pixCopiaECola: string | null; boletoUrl: string | null; boletoLinhaDigitavel: string | null; expiraEm: string | null; valorCents: number } }>(
+        const r = await chamar<{ destino: string }>(
+          `/api/billing/faturas/${invoiceId}/enviar`,
+          { canal, conteudo, teste, destinoTeste: teste ? destinoTeste.trim() : undefined },
+          "POST",
+        );
+        return {
+          tipo: "ok",
+          conteudo: <strong>Enviado por {canal} para {r.destino}{teste ? " (teste)" : ""}.</strong>,
+        };
+      },
+      `Cobrança enviada por ${canal}.`,
+    );
+  }
+
+  async function cobrar(assinaturaId: string, invoiceId: string, metodo: "PIX" | "BOLETO" | "PAYPAL", moeda: string) {
+    await executar(
+      "cobranca",
+      async () => {
+        const r = await chamar<{ cobranca: { pixCopiaECola: string | null; boletoUrl: string | null; boletoLinhaDigitavel: string | null; checkoutUrl: string | null; expiraEm: string | null; valorCents: number } }>(
           `${base}/assinatura/${assinaturaId}`,
           { acao: "cobrar", invoiceId, metodo },
           "PATCH",
@@ -243,7 +283,7 @@ export default function OperacaoPanel({
           tipo: "ok",
           conteudo: (
             <>
-              <strong>{metodo === "PIX" ? "PIX" : "Boleto"} de {dinheiro(c.valorCents)} emitido{c.expiraEm ? ` (vale até ${dataCurta(c.expiraEm)})` : ""}.</strong>
+              <strong>{metodo === "PIX" ? "PIX" : metodo === "PAYPAL" ? "PayPal" : "Boleto"} de {dinheiro(c.valorCents, moeda)} emitido{c.expiraEm ? ` (vale até ${dataCurta(c.expiraEm)})` : ""}.</strong>
               {c.pixCopiaECola ? (
                 <span>
                   Copia e cola: <code className="prov-copia">{c.pixCopiaECola}</code>
@@ -252,6 +292,11 @@ export default function OperacaoPanel({
               {c.boletoUrl ? (
                 <span>
                   Boleto: <a href={c.boletoUrl} target="_blank" rel="noreferrer">{c.boletoUrl}</a>
+                </span>
+              ) : null}
+              {c.checkoutUrl ? (
+                <span>
+                  Link de pagamento: <a href={c.checkoutUrl} target="_blank" rel="noreferrer">{c.checkoutUrl}</a>
                 </span>
               ) : null}
               {c.boletoLinhaDigitavel ? (
@@ -348,7 +393,7 @@ export default function OperacaoPanel({
                   <div className="prov-row-main">
                     <strong>{a.description}</strong>
                     <small>
-                      {dinheiro(a.amountCents)}/{a.billingCycle === "YEARLY" ? "ano" : "mês"} · vence dia {a.billingDay} · desde {dataCurta(a.startedAt)}
+                      {dinheiro(a.amountCents, a.currency)}/{a.billingCycle === "YEARLY" ? "ano" : "mês"} · vence dia {a.billingDay} · desde {dataCurta(a.startedAt)}
                       {a.productKey ? ` · ${a.productKey}` : ""}
                     </small>
                   </div>
@@ -360,7 +405,7 @@ export default function OperacaoPanel({
                     <div className="ios-row ios-row-static prov-fatura" key={f.id}>
                       <div className="prov-row-main">
                         <strong>
-                          {f.kind === "SETUP" ? "Implantação" : `Mensalidade ${f.competence}`} · {dinheiro(f.amountCents)}
+                          {f.kind === "SETUP" ? "Implantação" : `Mensalidade ${f.competence}`} · {dinheiro(f.amountCents, a.currency)}
                         </strong>
                         <small>
                           Vence {dataCurta(f.dueDate)}
@@ -371,11 +416,29 @@ export default function OperacaoPanel({
                       <Pill status={f.status} />
                       {aberta ? (
                         <span className="prov-fatura-acoes">
-                          <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrar(a.id, f.id, "PIX")}>
-                            PIX
+                          {clienteNoBrasil ? (
+                            <>
+                              <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrar(a.id, f.id, "PIX", a.currency)}>
+                                PIX
+                              </button>
+                              <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrar(a.id, f.id, "BOLETO", a.currency)}>
+                                Boleto
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrar(a.id, f.id, "PAYPAL", a.currency)}>
+                              PayPal
+                            </button>
+                          )}
+                        </span>
+                      ) : null}
+                      {f.status !== "CANCELLED" ? (
+                        <span className="prov-fatura-acoes">
+                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.id, Boolean(f.cobranca), "email")}>
+                            Enviar e-mail
                           </button>
-                          <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrar(a.id, f.id, "BOLETO")}>
-                            Boleto
+                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.id, Boolean(f.cobranca), "whatsapp")}>
+                            Enviar WhatsApp
                           </button>
                         </span>
                       ) : null}

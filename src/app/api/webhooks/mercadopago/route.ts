@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { baixarCobrancaPorIdExterno } from "@/lib/assinaturas";
 import { markDeliverablePaidAndNotify } from "@/lib/deliverables";
-import { getPagamentoStatus } from "@/lib/mercadopago-cobranca";
+import { concluirEvento, registrarEvento } from "@/lib/eventos-webhook";
+import { consultarPagamento } from "@/lib/mercadopago-cobranca";
 import { segredoDoWebhook, verificarAssinatura } from "@/lib/mercadopago-assinatura";
 import { prisma } from "@/lib/prisma";
 
@@ -143,10 +144,23 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const pagamentoId = idDoPagamento(request, body);
 
+  // Registro só depois da assinatura: o que não provou ser do Mercado Pago não
+  // enche a tabela que o painel de integrações mostra como evidência.
+  const busca = request.nextUrl.searchParams;
+  const registro = await registrarEvento({
+    provider: "mercadopago",
+    externalId: pagamentoId ?? (body?.id !== undefined ? String(body.id) : null),
+    eventType: String(body?.action ?? body?.type ?? body?.topic ?? busca.get("type") ?? busca.get("topic") ?? "desconhecido"),
+    payload: { pagamentoId, requestId: request.headers.get("x-request-id") },
+  });
+
   // Notificação de outro tópico (assinatura, estorno, contestação) não é erro:
   // devolver 4xx faria a fila do Mercado Pago repetir para sempre um evento
   // que nunca vai ser nosso.
-  if (!pagamentoId) return NextResponse.json({ ok: true, ignorado: true });
+  if (!pagamentoId) {
+    await concluirEvento(registro, "IGNORED");
+    return NextResponse.json({ ok: true, ignorado: true });
+  }
 
   /*
     Id que não bate com cobrança nossa não vira consulta à API - senão o
@@ -170,14 +184,17 @@ export async function POST(request: NextRequest) {
   ]);
 
   if (!mensalidade && !entregavel) {
+    await concluirEvento(registro, "IGNORED", "Pagamento sem cobrança nossa.");
     return NextResponse.json({ ok: true, desconhecido: true });
   }
 
   let situacao: string;
+  let aprovadoEm: Date | null;
   try {
-    situacao = await getPagamentoStatus(pagamentoId);
+    ({ status: situacao, aprovadoEm } = await consultarPagamento(pagamentoId));
   } catch (erro) {
     console.error(`Falha ao confirmar o pagamento ${pagamentoId} no Mercado Pago`, erro);
+    await concluirEvento(registro, "FAILED", erro instanceof Error ? erro.message : "Falha ao consultar o Mercado Pago.");
     // 500 de propósito: aqui a dúvida é NOSSA (a API não respondeu), e o
     // reenvio do Mercado Pago é justamente o que vai resolver.
     return NextResponse.json({ error: "Falha ao confirmar o pagamento." }, { status: 500 });
@@ -187,18 +204,21 @@ export async function POST(request: NextRequest) {
     // `rejected`, `cancelled` e `in_process` também são registrados: o cliente
     // precisa ver na tela que o cartão foi recusado, senão ele fica esperando
     // um "pendente" que nunca vai virar pago.
-    await baixarCobrancaPorIdExterno(pagamentoId, situacao === PAGO ? "approved" : situacao);
+    // `aprovadoEm` é o instante do Mercado Pago: notificação reenviada depois
+    // de uma queda não move o pagamento para o dia do processamento.
+    await baixarCobrancaPorIdExterno(pagamentoId, situacao === PAGO ? "approved" : situacao, aprovadoEm);
   }
 
   if (entregavel && situacao === PAGO && entregavel.status !== "PAID") {
     await prisma.deliverableCharge.update({
       where: { id: entregavel.id },
-      data: { status: "PAID", paidAt: new Date() },
+      data: { status: "PAID", paidAt: aprovadoEm ?? new Date() },
     });
     // Libera o arquivo e avisa quem comprou. Idempotente: sai fora sozinho se
     // o entregável já estiver pago.
     await markDeliverablePaidAndNotify(entregavel.deliverableId);
   }
 
+  await concluirEvento(registro, "PROCESSED");
   return NextResponse.json({ ok: true, status: situacao });
 }

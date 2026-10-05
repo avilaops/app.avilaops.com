@@ -1,4 +1,5 @@
 import { obterCredencial } from "@/lib/credenciais";
+import { segredoDoWebhook } from "@/lib/mercadopago-assinatura";
 
 /**
  * Cliente da API do Mercado Pago da Avila Ops — a conta que **cobra**, não a
@@ -207,13 +208,80 @@ function participantes(p: Record<string, unknown>): { collectorId: number | null
 let usuarioCache: { id: number; apelido: string; email: string | null } | null = null;
 
 /** A conta dona do token, para saber de que lado de cada pagamento estamos. */
-export async function usuarioDoToken(): Promise<{ id: number; apelido: string; email: string | null }> {
-  if (usuarioCache) return usuarioCache;
+export async function usuarioDoToken(forcar = false): Promise<{ id: number; apelido: string; email: string | null }> {
+  if (usuarioCache && !forcar) return usuarioCache;
   const d = await chamar<{ id?: unknown; nickname?: unknown; email?: unknown }>("/users/me");
   const id = idOuNulo(d.id);
   if (!id) throw new MercadoPagoIndisponivel("Mercado Pago não devolveu a conta do token.");
   usuarioCache = { id, apelido: String(d.nickname ?? ""), email: d.email ? String(d.email) : null };
   return usuarioCache;
+}
+
+export type DiagnosticoMercadoPago = {
+  configurado: boolean;
+  tokenOk: boolean;
+  conta: string | null;
+  webhookUrl: string | null;
+  /** MP_WEBHOOK_SECRET presente: sem ele o webhook recusa tudo com 503. */
+  segredoOk: boolean;
+  erro: string | null;
+};
+
+/**
+ * Confere se o Mercado Pago está de pé: o token autentica (/users/me) e qual é
+ * a URL de notificação. Espelha o diagnóstico do PayPal para o painel.
+ */
+export async function diagnosticarMercadoPago(): Promise<DiagnosticoMercadoPago> {
+  if (!(await mercadoPagoConfigurado())) {
+    return { configurado: false, tokenOk: false, conta: null, webhookUrl: null, segredoOk: false, erro: "MP_ACCESS_TOKEN ausente." };
+  }
+  try {
+    // Sem cache: um token revogado/trocado tem que aparecer no diagnóstico.
+    const usuario = await usuarioDoToken(true);
+    // O webhook (src/app/api/webhooks/mercadopago/route.ts) recusa toda
+    // notificação com 503 sem o segredo: token bom e URL certa não bastam.
+    const segredoOk = Boolean(await segredoDoWebhook());
+    let bruto = "";
+    try {
+      bruto = await urlDeNotificacao();
+    } catch {
+      bruto = "";
+    }
+    // A URL de notificação carrega o MP_WEBHOOK_TOKEN no query: redigir antes de mostrar.
+    let webhookUrl: string | null = null;
+    if (bruto) {
+      try {
+        const u = new URL(bruto);
+        u.search = "";
+        webhookUrl = u.toString();
+      } catch {
+        webhookUrl = null;
+      }
+    }
+    return {
+      configurado: true,
+      tokenOk: true,
+      conta: usuario.apelido || String(usuario.id),
+      webhookUrl,
+      segredoOk,
+      // Sem URL pública de notificação, ou sem o segredo que o webhook exige,
+      // aviso de pagamento nunca vira baixa: isso é "com problema", não saudável.
+      erro: !webhookUrl
+        ? "URL de notificação ausente ou não pública (confira APP_URL)."
+        : !segredoOk
+          ? "MP_WEBHOOK_SECRET ausente: o webhook recusa toda notificação (503) e nenhuma baixa automática acontece."
+          : null,
+    };
+  } catch (erro) {
+    return {
+      configurado: true,
+      tokenOk: false,
+      conta: null,
+      webhookUrl: null,
+      segredoOk: false,
+      erro: erro instanceof Error ? erro.message : "Falha ao consultar o Mercado Pago.",
+    };
+  }
 }
 
 export interface ConfiguracaoWebhook {
