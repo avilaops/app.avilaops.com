@@ -2,8 +2,9 @@ import { exigirDominio } from "@/lib/dominio";
 import { cleanText } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { lerServicoDeDns, provedorDeDnsDoDominio, tipoDnsValido } from "@/lib/dominios/dns";
-import type { EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
+import type { EntradaRegistroDns, RegistroDns, ServicoDeDns } from "@/lib/dominios/dns/tipos";
 import { nomeCompleto, validarRegistroDns, type ProblemaDns } from "@/lib/dominios/dns/validacao";
+import { paraTextoPuro, txtDeEntrada } from "@/lib/dominios/dns/conteudo";
 import {
   diferencaParaVersao,
   lerLinhas,
@@ -77,7 +78,28 @@ export function lerEntradaDns(corpo: CorpoDns): EntradaRegistroDns {
         ? Math.floor(prioridadeBruta)
         : undefined;
 
-  return { tipo, nome, conteudo, ttl, prioridade };
+  // TXT entra na forma canônica antes de qualquer validação: o mesmo SPF pode
+  // ser escrito de vários jeitos (`v` e `\118`), e a regra de SPF duplicado
+  // só funciona olhando uma forma só.
+  return { tipo, nome, conteudo: tipo === "TXT" ? txtDeEntrada(conteudo) : conteudo, ttl, prioridade };
+}
+
+/**
+ * Confere que o servidor do domínio consegue receber este conteúdo, sem
+ * escrever nada. O serviço externo não aceita TXT com byte que não é UTF-8;
+ * descobrir isso no meio de uma restauração, depois de apagar registros, é
+ * deixar a zona pela metade.
+ */
+function conferirParaServidor(servico: ServicoDeDns, entrada: EntradaRegistroDns) {
+  if (servico !== "EXTERNO") return;
+  try {
+    paraTextoPuro(entrada.tipo, entrada.conteudo);
+  } catch (e) {
+    throw new ErroDeDns(
+      `${e instanceof Error ? e.message : "Conteúdo não aceito pelo serviço de DNS."} Nada foi alterado.`,
+      422,
+    );
+  }
 }
 
 export function lerOperacaoDns(metodo: string, corpo: CorpoDns): OperacaoDns {
@@ -217,6 +239,7 @@ export async function executarOperacaoDns(
     // completaria sozinho, o DNS da casa não: lá "www" viraria "www." e cairia
     // fora da zona.
     operacao.entrada = { ...operacao.entrada, nome: nomeCompleto(operacao.entrada.nome, zona.fqdn) };
+    conferirParaServidor(zona.servico, operacao.entrada);
     const problemas = validarRegistroDns(operacao.entrada, {
       zona: zona.fqdn,
       existentes,
@@ -439,6 +462,10 @@ export async function restaurarVersaoDns(
   const alvo = lerLinhas(versao.records);
   const diferenca = diferencaParaVersao(atual, alvo, zona.fqdn);
   if (zonaIgual(diferenca)) throw new ErroDeDns("A zona já está igual a esta versão.", 409);
+
+  for (const linha of [...diferenca.entrar, ...diferenca.ajustar.map((a) => a.alvo)]) {
+    conferirParaServidor(zona.servico, paraEntrada(linha));
+  }
 
   await garantirRetratoInicial(zona.id, zona.fqdn, atual);
 

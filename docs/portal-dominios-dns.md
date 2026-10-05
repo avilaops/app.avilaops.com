@@ -80,15 +80,21 @@ validação, versões, comparação) circula uma forma só, a canônica de
 `lib/dominios/dns/conteudo.ts`:
 
 - host sem ponto final, menos a raiz `.` (MX nulo, SRV indisponível);
-- TXT como os bytes do registro escritos com os escapes da RFC 1035, sem
-  aspas: `\\` é a barra, `\DDD` é um byte. Texto UTF-8 imprimível fica
-  literal; controle, NUL e byte que não forma UTF-8 viram `\DDD`.
+- TXT na forma de apresentação **normalizada**: cada string de caractere
+  entre aspas, separadas por um espaço, com um só jeito de escrever cada
+  byte (UTF-8 imprimível literal; `\"` e `\\`; `\DDD` para controle, NUL e
+  byte que não forma UTF-8). Assim `"foo" "bar"` não vira `"foobar"`,
+  espaço na ponta e TXT vazio sobrevivem a uma edição, e `\118=spf1` é
+  reconhecido como SPF pela regra de SPF duplicado.
+
+Na tela, TXT digitado sem aspas é o texto; entre aspas, é forma de
+apresentação, como em todo painel de DNS.
 
 Cada adaptador converte na própria fronteira (`achatar`/`montarConteudo` no
 da casa, `paraRegistro`/`paraEntradaExterna` no externo), e o BIND converte
-ao gerar o arquivo. Na tela, barra invertida num TXT inicia escape. Byte que
-não é UTF-8 não tem como ir ao serviço externo: a escrita é recusada em vez
-de trocar o conteúdo.
+ao gerar o arquivo. Byte que não é UTF-8 não tem como ir ao serviço externo:
+a escrita é recusada em vez de trocar o conteúdo, e a restauração confere
+todos os alvos antes da primeira mudança.
 
 As versões gravam `{ formato: 2, linhas }`. A lista solta do #77 (formato 1)
 só existe em banco de desenvolvimento e é lida pela origem provável: TXT

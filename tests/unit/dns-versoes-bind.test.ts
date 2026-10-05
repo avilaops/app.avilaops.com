@@ -32,7 +32,7 @@ describe("diferencaParaVersao", () => {
     ];
     const dif = diferencaParaVersao(ATUAL, versao, Z);
     expect(dif.sair.map((x) => x.conteudo).sort()).toEqual(["198.51.100.7", "v=spf1 include:novo.com ~all"]);
-    expect(dif.entrar.map((x) => x.conteudo)).toEqual(["v=spf1 include:antigo.com ~all"]);
+    expect(dif.entrar.map((x) => x.conteudo)).toEqual(['"v=spf1 include:antigo.com ~all"']);
     expect(dif.ajustar).toEqual([]);
   });
 
@@ -145,7 +145,8 @@ describe("formato da versão guardada", () => {
       { tipo: "TXT", nome: "y.x.com.br", conteudo: "barra \\ literal", ttl: 1, prioridade: null, proxy: false },
       { tipo: "mx", nome: "X.com.br.", conteudo: "mx1.provedor.com.", ttl: 300, prioridade: 10, proxy: false },
     ]);
-    expect(legado.map((l) => l.conteudo)).toEqual(["v=spf1 -all", "barra \\\\ literal", "mx1.provedor.com"]);
+    // Apresentação mantém as duas strings; texto puro vira uma string, com a barra escapada.
+    expect(legado.map((l) => l.conteudo)).toEqual(['"v=spf1" " -all"', '"barra \\\\ literal"', "mx1.provedor.com"]);
     expect(legado[2]).toMatchObject({ tipo: "MX", nome: "x.com.br" });
   });
 });

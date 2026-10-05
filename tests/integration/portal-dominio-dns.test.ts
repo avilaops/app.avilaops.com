@@ -362,5 +362,24 @@ describe("DNS pelo portal do cliente", () => {
     expect(state.zona.map((r) => r.id)).toEqual(["spf"]);
     expect(await tx.operationsAuditEvent.count({ where: { organizationId: org, action: "DNS_REGISTRO_APAGADO" } })).toBe(1);
   }));
+
+  it("versão com TXT que o serviço atual não aceita é recusada antes de apagar qualquer coisa", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const dominio = await tx.domainAsset.findUniqueOrThrow({ where: { fqdn } });
+    const versao = await tx.dnsZoneVersion.create({
+      data: {
+        domainAssetId: dominio.id,
+        origin: "EQUIPE",
+        reason: "veio do DNS da casa",
+        records: { formato: 2, linhas: [{ tipo: "TXT", nome: fqdn, conteudo: '"a\\255b"', ttl: 1, prioridade: null, proxy: false }] },
+        recordCount: 1,
+      },
+    });
+    await expect(restaurarVersaoDns(fqdn, versao.id, { id, origem: "CLIENTE" }, { organizationId: org })).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("Nada foi alterado"),
+    });
+    expect(state.chamadas).toEqual([]);
+    expect(state.zona.map((r) => r.id)).toEqual(["spf", "mx"]);
+  }));
 });
 
