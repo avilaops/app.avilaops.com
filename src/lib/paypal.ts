@@ -136,7 +136,7 @@ async function chamar<T>(caminho: string, init?: RequestInit): Promise<T> {
   return (corpo ? JSON.parse(corpo) : {}) as T;
 }
 
-export async function criarOrdem(params: { valor: number; descricao: string; referencia: string; retorno: string; cancelamento: string }) {
+export async function criarOrdem(params: { valor: number; moeda?: string; descricao: string; referencia: string; retorno: string; cancelamento: string }) {
   const ordem = await chamar<{ id: string; status: string; links?: Array<{ rel: string; href: string }> }>("/v2/checkout/orders", {
     method: "POST",
     headers: { "PayPal-Request-Id": `avila-${params.referencia}` },
@@ -147,7 +147,7 @@ export async function criarOrdem(params: { valor: number; descricao: string; ref
         custom_id: params.referencia,
         invoice_id: params.referencia,
         description: params.descricao.slice(0, 127),
-        amount: { currency_code: "BRL", value: params.valor.toFixed(2) },
+        amount: { currency_code: params.moeda ?? "BRL", value: params.valor.toFixed(2) },
       }],
       payment_source: {
         paypal: {

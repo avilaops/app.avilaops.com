@@ -297,9 +297,10 @@ export async function criarCobrancaDaFatura(params: {
   if (fatura.status === "PAID") throw new CobrancaIndisponivelError("Esta fatura já está paga.");
   if (fatura.status === "CANCELLED") throw new CobrancaIndisponivelError("Esta fatura foi cancelada.");
 
-  // Os gateways atuais emitem BRL. Não reinterpretar outra moeda como reais.
-  if (fatura.subscription.currency !== "BRL") {
-    throw new CobrancaIndisponivelError("Cobrança automática nesta moeda ainda não está disponível. Solicite o pagamento ao atendimento.");
+  // Mercado Pago (Brasil) só emite BRL; o PayPal cobra na moeda da assinatura
+  // (o trilho internacional). Outra moeda por outro método vira pagamento manual.
+  if (fatura.subscription.currency !== "BRL" && params.metodo !== "PAYPAL") {
+    throw new CobrancaIndisponivelError("Cobrança automática nesta moeda só está disponível pelo PayPal (fora do Brasil). Solicite o pagamento ao atendimento.");
   }
   const [saldo] = await prisma.$queryRaw<{ outstanding: unknown; amount: unknown }[]>`
     SELECT outstanding,amount FROM core.receivables WHERE source='INVOICE' AND source_id=${fatura.id}`;
@@ -335,6 +336,7 @@ export async function criarCobrancaDaFatura(params: {
     const origem = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/$/, "");
     const ordem = await criarOrdem({
       valor: valorCents / 100,
+      moeda: fatura.subscription.currency,
       descricao,
       referencia: fatura.id,
       retorno: `${origem}/api/paypal/retorno`,
