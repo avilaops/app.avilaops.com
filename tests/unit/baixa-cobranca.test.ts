@@ -21,6 +21,8 @@ const { estado } = vi.hoisted(() => ({
     dadosDaFatura: null as null | Record<string, unknown>,
     pagamentos: [] as Record<string, unknown>[],
     alocacoes: [] as Record<string, unknown>[],
+    reembolsosNoLedger: 0,
+    auditoria: [] as Record<string, unknown>[],
   },
 }));
 
@@ -28,6 +30,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     subscriptionCharge: {
       findFirst: async () => estado.cobranca,
+      // Outras cobranças pagas da mesma fatura: nenhuma.
+      count: async () => 0,
       update: async ({ data }: { data: Record<string, unknown> }) => {
         estado.dadosDaCobranca = data;
         return data;
@@ -48,13 +52,26 @@ vi.mock("@/lib/prisma", () => ({
         estado.pagamentos.push(pagamento);
         return pagamento;
       },
-      updateMany: async () => ({ count: 0 }),
+      updateMany: async () => {
+        estado.reembolsosNoLedger += 1;
+        return { count: 1 };
+      },
     },
     // A baixa que dá certo confere se havia uma falha de ledger a fechar.
     operationsAuditEvent: { findFirst: async () => null },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         $queryRaw: async () => [],
+        // A auditoria: trava consultiva, procura e gravação.
+        $executeRaw: async () => 1,
+        operationsAuditEvent: {
+          findFirst: async ({ where }: { where: Record<string, unknown> }) =>
+            estado.auditoria.find((e) => e.action === where.action && e.entityId === where.entityId) ?? null,
+          create: async ({ data }: { data: Record<string, unknown> }) => {
+            estado.auditoria.push(data);
+            return data;
+          },
+        },
         corePaymentAllocation: {
           aggregate: async () => ({ _sum: { amount: null } }),
           upsert: async ({ create }: { create: Record<string, unknown> }) => {
@@ -96,6 +113,8 @@ beforeEach(() => {
   estado.dadosDaFatura = null;
   estado.pagamentos = [];
   estado.alocacoes = [];
+  estado.reembolsosNoLedger = 0;
+  estado.auditoria = [];
   estado.cobranca = aberta();
   erroNoLog.mockClear();
 });
@@ -159,6 +178,104 @@ describe("baixarCobrancaPorIdExterno", () => {
     await baixarCobrancaPorIdExterno("123456789", "");
 
     expect(estado.dadosDaCobranca?.status).toBe("PAID");
+  });
+
+  describe("reembolso é final", () => {
+    const pagoEm = new Date("2026-09-30T12:00:00Z");
+
+    /** Reembolsada: o reembolso mantém o `paidAt` e reabre a fatura. */
+    function reembolsada(extra: Record<string, unknown> = {}) {
+      return aberta({
+        status: "REFUNDED",
+        paidAt: pagoEm,
+        invoice: { id: "fatura-1", status: "OPEN", paidAt: null, ...FATURA_NO_LEDGER },
+        ...extra,
+      });
+    }
+
+    it("o reembolso grava REFUNDED, mantém o paidAt, reabre a fatura e marca o ledger", async () => {
+      estado.cobranca = aberta({
+        status: "PAID",
+        paidAt: pagoEm,
+        invoice: { id: "fatura-1", status: "PAID", paidAt: pagoEm, ...FATURA_NO_LEDGER },
+      });
+
+      await baixarCobrancaPorIdExterno("123456789", "refunded");
+
+      expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: pagoEm });
+      expect(estado.dadosDaFatura).toEqual({ status: "OPEN", paidAt: null });
+      expect(estado.reembolsosNoLedger).toBe(1);
+      expect(estado.auditoria).toEqual([]);
+    });
+
+    it.each([
+      ["approved", "MERCADO_PAGO"],
+      ["COMPLETED", "PAYPAL"],
+    ])('aviso de pago ("%s", %s) depois do reembolso não reabre nada e deixa rastro', async (status, provider) => {
+      // A corrida: o aviso foi consultado no gateway antes do reembolso e só é
+      // gravado depois. Antes, a cobrança voltava a "PAID" (o `paidAt` ficou) e
+      // a fatura reaberta fechava de novo, com o ledger ainda em REFUNDED.
+      estado.cobranca = reembolsada({ provider });
+
+      const resultado = await baixarCobrancaPorIdExterno("123456789", status, new Date("2026-10-05T10:00:00Z"));
+
+      expect(resultado).toBe(estado.cobranca);
+      expect(estado.dadosDaCobranca).toBeNull();
+      expect(estado.dadosDaFatura).toBeNull();
+      expect(estado.pagamentos).toEqual([]);
+      expect(estado.alocacoes).toEqual([]);
+      expect(estado.auditoria).toEqual([
+        {
+          action: "PAGO_APOS_REEMBOLSO",
+          entityType: "SubscriptionCharge",
+          entityId: "cobranca-1",
+          organizationId: "org-1",
+          metadata: { chargeId: "cobranca-1", invoiceId: "fatura-1", provider, externalId: "123456789", status },
+        },
+      ]);
+      expect(erroNoLog).not.toHaveBeenCalled();
+    });
+
+    it("o aviso de pago repetido não repete o rastro", async () => {
+      estado.cobranca = reembolsada();
+
+      await baixarCobrancaPorIdExterno("123456789", "approved");
+      await baixarCobrancaPorIdExterno("123456789", "approved");
+
+      expect(estado.auditoria).toHaveLength(1);
+    });
+
+    it.each(["pending", "in_process", "rejected", ""])(
+      'aviso "%s" depois do reembolso não leva a cobrança de volta a PAID',
+      async (status) => {
+        // Não é só o "pago": qualquer status que não fosse de reembolso caía em
+        // `jaEstavaPago` e gravava "PAID".
+        estado.cobranca = reembolsada();
+
+        await baixarCobrancaPorIdExterno("123456789", status);
+
+        expect(estado.dadosDaCobranca).toBeNull();
+        expect(estado.dadosDaFatura).toBeNull();
+        expect(estado.pagamentos).toEqual([]);
+        expect(estado.auditoria).toEqual([]);
+      },
+    );
+
+    it.each(["refunded", "charged_back", "REFUNDED"])(
+      'o reenvio do reembolso ("%s") passa pela guarda e refaz o ledger',
+      async (status) => {
+        // É o reenvio que conserta uma falha de ledger no primeiro reembolso.
+        estado.cobranca = reembolsada();
+
+        await baixarCobrancaPorIdExterno("123456789", status);
+
+        expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: pagoEm });
+        expect(estado.reembolsosNoLedger).toBe(1);
+        // A fatura já estava aberta: não é tocada de novo.
+        expect(estado.dadosDaFatura).toBeNull();
+        expect(estado.auditoria).toEqual([]);
+      },
+    );
   });
 
   it("id que não é de nenhuma cobrança nossa não muda nada", async () => {

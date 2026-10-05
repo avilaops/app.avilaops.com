@@ -710,10 +710,47 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
     cobrança do Efí fechar.
   */
   const pago = ["PAID", "paid", "CONFIRMED", "COMPLETED", "settled", "approved"].includes(status);
-  // O status vem sempre da API do provedor (o webhook reconsulta), então um
-  // reembolso não é desfeito por evento fora de ordem: a API não volta a dizer
-  // "aprovado" depois de devolver o dinheiro.
   const reembolsado = REEMBOLSADO.includes(status);
+  /*
+    Reembolso é final: cobrança REFUNDED só aceita outro aviso de reembolso.
+
+    O webhook reconsulta a API, mas isso não ordena as entregas: um aviso
+    consultado antes do reembolso ("approved", "pending") pode ser gravado
+    depois dele. Sem esta guarda ele levava a cobrança de volta a "PAID" — o
+    `paidAt`, que o reembolso mantém, fazia `jaEstavaPago` valer — e, sendo de
+    pago, fechava de novo a fatura reaberta, com o ledger ainda em REFUNDED.
+
+    E não há volta legítima a tratar. Na documentação dos dois gateways nenhum
+    status de devolução retorna a aprovado: no PayPal a captura REFUNDED é
+    reembolso feito por nós, e contestação é outro evento
+    (PAYMENT.CAPTURE.REVERSED), que este sistema não trata; no Mercado Pago a
+    contestação decidida muda só o `status_detail` (`settled`, `reimbursed`),
+    com o `status` ainda `charged_back`. O ledger também não desfaz: o gatilho
+    `core.guard_payment_update` recusa tirar um pagamento de REFUNDED.
+
+    Por isso o aviso é ignorado sem comparar datas. O de pago deixa rastro: se
+    algum dia for dinheiro que voltou de verdade, é a conciliação que acha — a
+    fatura segue aberta e nada entra no ledger sozinho. O reenvio do próprio
+    reembolso passa, porque é ele que refaz o ledger que falhou.
+  */
+  if (cobranca.status === "REFUNDED" && !reembolsado) {
+    if (pago) {
+      await auditarPagamentoForaDaFatura({
+        action: "PAGO_APOS_REEMBOLSO",
+        organizationId: cobranca.invoice.subscription?.organizationId ?? null,
+        entityType: "SubscriptionCharge",
+        entityId: cobranca.id,
+        metadata: {
+          chargeId: cobranca.id,
+          invoiceId: cobranca.invoiceId,
+          provider: cobranca.provider,
+          externalId: cobranca.externalId,
+          status,
+        },
+      });
+    }
+    return cobranca;
+  }
   /*
     "Já estava paga" se olha pelo `paidAt`, não pelo nome do status.
 
@@ -745,7 +782,8 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
       // Mercado Pago como se ainda estivesse aberta.
       //
       // A exceção é o reembolso: o dinheiro voltou ao cliente, e "PAID" aqui
-      // seria mentira. `paidAt` fica — é o histórico de quando entrou.
+      // seria mentira. `paidAt` fica — é o histórico de quando entrou. Daí em
+      // diante a guarda lá de cima só deixa passar outro aviso de reembolso.
       status: reembolsado ? "REFUNDED" : jaEstavaPago || pago ? "PAID" : status,
       // `paidAt` é o instante do pagamento, não o do reprocessamento. Sem esta
       // guarda, reenviar o mesmo evento amanhã moveria a data de hoje para
