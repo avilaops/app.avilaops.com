@@ -8,6 +8,7 @@ import { BOTAO, CAMPO, CartaoLista, LINHA_ITEM, MensagemErro, MensagemStatus } f
 import { Input } from "@/components/shadcn/input";
 import { Label } from "@/components/shadcn/label";
 import { TIPOS_DNS, type RegistroDns } from "@/lib/dominios/dns";
+import { ehDoServidor } from "@/lib/dominios/dns/conteudo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,18 +33,30 @@ const VAZIO: Rascunho = { id: null, tipo: "A", nome: "", conteudo: "", ttl: "1",
 
 const PRECISA_PRIORIDADE = new Set(["MX", "SRV"]);
 
+/**
+ * O mesmo painel serve a equipe (Hub Social) e o cliente (portal). Muda só a
+ * rota que recebe a escrita — cada uma decide quem pode — e o texto de quando
+ * o domínio não tem DNS por aqui.
+ */
 export default function PainelDns({
   fqdn,
   temZona,
   registros,
   erro,
   podeEditar,
+  endpoint = `/api/dominios/${encodeURIComponent(fqdn)}/dns`,
+  semZona = "A central acompanha o registro e o vencimento normalmente. Para editar zona por aqui, aponte o domínio para a plataforma.",
+  descricao,
 }: {
   fqdn: string;
   temZona: boolean;
   registros: RegistroDns[];
   erro: string | null;
   podeEditar: boolean;
+  endpoint?: string;
+  semZona?: string;
+  /** Linha abaixo do título; por padrão, a contagem de registros. */
+  descricao?: string;
 }) {
   const router = useRouter();
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
@@ -60,7 +73,7 @@ export default function PainelDns({
     setFalha("");
 
     try {
-      const resposta = await fetch(`/api/dominios/${encodeURIComponent(fqdn)}/dns`, {
+      const resposta = await fetch(endpoint, {
         method: rascunho.id ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,7 +108,7 @@ export default function PainelDns({
     setFalha("");
 
     try {
-      const resposta = await fetch(`/api/dominios/${encodeURIComponent(fqdn)}/dns`, {
+      const resposta = await fetch(endpoint, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ registroId: aRemover.id }),
@@ -124,7 +137,7 @@ export default function PainelDns({
           <EstadoVazio
             compacto
             titulo="O DNS deste domínio não é servido por aqui"
-            descricao="A central acompanha o registro e o vencimento normalmente. Para editar zona por aqui, aponte o domínio para a plataforma."
+            descricao={semZona}
           />
         </div>
       </CartaoLista>
@@ -138,7 +151,7 @@ export default function PainelDns({
         descricao={
           erro
             ? "Não foi possível ler os registros agora."
-            : `${registros.length} ${registros.length === 1 ? "registro" : "registros"} nesta zona.`
+            : (descricao ?? `${registros.length} ${registros.length === 1 ? "registro" : "registros"} nesta zona.`)
         }
         acao={
           podeEditar ? (
@@ -274,18 +287,20 @@ export default function PainelDns({
         ) : (
           <ul className="m-0 list-none p-0">
             {registros.map((registro) => (
-              <li key={registro.id} className={cn(LINHA_ITEM, "flex items-center gap-3 px-4 py-3")}>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-mono text-[14px] font-semibold text-foreground">
+              <li key={registro.id} className={cn(LINHA_ITEM, "flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3")}>
+                {/* No celular o valor quebra em vez de cortar: SPF e DKIM cortados
+                    no meio não dão para conferir, e é olhando aqui que se confere. */}
+                <span className="min-w-0 flex-1 basis-full min-[821px]:basis-0">
+                  <span className="block [overflow-wrap:anywhere] font-mono text-[14px] font-semibold text-foreground min-[821px]:truncate">
                     {registro.tipo} {registro.nome}
                   </span>
-                  <span className="mt-0.5 block truncate font-mono text-[13px] text-muted-foreground">
+                  <span className="mt-0.5 block [overflow-wrap:anywhere] font-mono text-[13px] text-muted-foreground min-[821px]:truncate">
                     {registro.conteudo}
                     {registro.prioridade !== null ? ` · prioridade ${registro.prioridade}` : ""}
                     {registro.proxy ? " · pela rede da plataforma" : ""}
                   </span>
                 </span>
-                {podeEditar ? (
+                {podeEditar && !ehDoServidor(registro, fqdn) ? (
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"

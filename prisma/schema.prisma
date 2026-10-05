@@ -25,12 +25,14 @@ model AdminIdentity {
   /// documento entra sem nada) e o modelo dizia o contrário: qualquer consulta
   /// que trouxesse `cpf` estourava para essas contas — na prática, cliente sem
   /// documento nunca conseguia logar. Corrigido em 30/08/2026.
-  cpf                 String?            @unique
+  cpf                 String?
   email               String
-  senhaHash           String             @map("senha_hash")
-  senhaProvisoria     Boolean            @map("senha_provisoria")
+  /// Coluna da tabela original do portal; este app não usa.
+  telefone            String?
+  senhaHash           String             @default("") @map("senha_hash")
+  senhaProvisoria     Boolean            @default(false) @map("senha_provisoria")
   /// OWNER | ADMIN | CLIENT
-  role                String
+  role                String             @default("CLIENT")
   /// Empresa que esta conta representa. Só CLIENT usa: é o que faz a área do
   /// cliente saber o que é dele. Sem relação declarada de propósito:
   /// `organizations` vive no schema `operations` e o vínculo é por id.
@@ -49,6 +51,9 @@ model AdminIdentity {
   /// nova; as antigas ficam nulas até o dono preencher.
   emailRecuperacao    String?            @map("email_recuperacao")
 
+  @@index([ativo])
+  @@index([organizationId])
+  @@index([role])
   @@map("portal_clients")
   @@schema("public")
 }
@@ -61,15 +66,15 @@ model BankAccount {
   environment String
   currency    String    @default("BRL")
   active      Boolean   @default(true)
-  lastSyncAt  DateTime? @map("last_sync_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastSyncAt  DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   balances     BalanceSnapshot[]
   transactions BankTransaction[]
   syncRuns     BankSyncRun[]
 
-  @@unique([provider, externalId, environment])
+  @@unique([provider, externalId, environment], map: "bank_accounts_provider_external_environment_key")
   @@map("bank_accounts")
   @@schema("finance")
 }
@@ -81,11 +86,11 @@ model BalanceSnapshot {
   blockedTotal     Decimal? @map("blocked_total") @db.Decimal(14, 2)
   blockedJudicial  Decimal? @map("blocked_judicial") @db.Decimal(14, 2)
   blockedMed       Decimal? @map("blocked_med") @db.Decimal(14, 2)
-  capturedAt       DateTime @default(now()) @map("captured_at")
+  capturedAt       DateTime @default(now()) @map("captured_at") @db.Timestamptz(6)
 
-  account BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([accountId, capturedAt])
+  @@index([accountId, capturedAt(sort: Desc)], map: "balance_snapshots_account_captured_idx")
   @@map("balance_snapshots")
   @@schema("finance")
 }
@@ -106,7 +111,7 @@ model BankTransaction {
   counterpartyDocument String?  @map("counterparty_document")
   /// Quem decidiu a contraparte: nulo/EFI/IMPORTACAO (extrato) ou COMPROVANTE (identificação humana conferida).
   counterpartySource   String?  @map("counterparty_source")
-  occurredAt           DateTime @map("occurred_at")
+  occurredAt           DateTime @map("occurred_at") @db.Timestamptz(6)
   rawHash              String   @map("raw_hash")
   /// EMPRESA, PESSOAL, INTERNO (troca entre saldos próprios) ou INDEFINIDO.
   scope                String   @default("INDEFINIDO")
@@ -116,17 +121,18 @@ model BankTransaction {
   category             String?
   /// Conta do plano de contas. Movimentação sem lançamento entra no DRE por ela.
   accountCode          String?  @map("account_code")
-  importedAt           DateTime @default(now()) @map("imported_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  importedAt           DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account        BankAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account        BankAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   reconciliation Reconciliation?
 
-  @@unique([accountId, externalId])
-  @@index([accountId, occurredAt])
-  @@index([direction, occurredAt])
+  @@unique([accountId, externalId], map: "bank_transactions_account_external_key")
+  @@index([accountId, occurredAt(sort: Desc)], map: "bank_transactions_account_occurred_idx")
+  @@index([direction, occurredAt(sort: Desc)], map: "bank_transactions_direction_occurred_idx")
   @@index([scope, occurredAt])
   @@index([txid])
+  @@index([accountCode])
   @@map("bank_transactions")
   @@schema("finance")
 }
@@ -141,13 +147,13 @@ model Reconciliation {
   confidence    Decimal?  @db.Decimal(5, 4)
   matchSource   String?   @map("match_source")
   reviewedBy    String?   @map("reviewed_by")
-  matchedAt     DateTime? @map("matched_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  matchedAt     DateTime? @map("matched_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  transaction BankTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transaction BankTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([status, updatedAt])
+  @@index([status, updatedAt(sort: Desc)], map: "reconciliations_status_updated_idx")
   @@map("reconciliations")
   @@schema("finance")
 }
@@ -162,12 +168,12 @@ model BankSyncRun {
   balanceCaptured Boolean   @default(false) @map("balance_captured")
   errorCode       String?   @map("error_code")
   errorMessage    String?   @map("error_message")
-  startedAt       DateTime  @default(now()) @map("started_at")
-  finishedAt      DateTime? @map("finished_at")
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(6)
 
-  account BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([accountId, startedAt])
+  @@index([accountId, startedAt(sort: Desc)], map: "bank_sync_runs_account_started_idx")
   @@map("bank_sync_runs")
   @@schema("finance")
 }
@@ -179,44 +185,45 @@ model FinanceAuditEvent {
   entityType String   @map("entity_type")
   entityId   String?  @map("entity_id")
   metadata   Json?
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([createdAt])
-  @@index([actorId, createdAt])
+  @@index([createdAt(sort: Desc)], map: "audit_events_created_idx")
+  @@index([actorId, createdAt(sort: Desc)], map: "audit_events_actor_created_idx")
   @@map("audit_events")
   @@schema("finance")
 }
 
 model LedgerEntry {
   coreInvoiceLink  CoreInvoiceLedgerLink?
-  id               BigInt    @id @default(autoincrement())
+  id               BigInt                 @id @default(autoincrement())
   direction        String
-  status           String    @default("OPEN")
+  status           String                 @default("OPEN")
   description      String
   counterparty     String?
-  amount           Decimal   @db.Decimal(14, 2)
-  currency         String    @default("BRL")
+  amount           Decimal                @db.Decimal(14, 2)
+  currency         String                 @default("BRL")
   /// EMPRESA ou PESSOAL: o que separa o caixa da Ávila do caixa do Nicolas.
-  scope            String    @default("EMPRESA")
-  dueDate          DateTime  @map("due_date")
-  paidAt           DateTime? @map("paid_at")
+  scope            String                 @default("EMPRESA")
+  dueDate          DateTime               @map("due_date") @db.Timestamptz(6)
+  paidAt           DateTime?              @map("paid_at") @db.Timestamptz(6)
   category         String?
   /// Conta do plano de contas (src/lib/plano-de-contas.ts). É o que agrupa o DRE.
-  accountCode      String?   @map("account_code")
+  accountCode      String?                @map("account_code")
   /// Primeiro mês de competência. Nulo = o próprio vencimento.
-  competenceStart  DateTime? @map("competence_start")
+  competenceStart  DateTime?              @map("competence_start") @db.Timestamptz(6)
   /// Em quantos meses o valor se distribui. Nulo ou 1 = mês único.
-  competenceMonths Int?      @map("competence_months")
-  referenceType    String?   @map("reference_type")
-  referenceId      String?   @map("reference_id")
+  competenceMonths Int?                   @map("competence_months")
+  referenceType    String?                @map("reference_type")
+  referenceId      String?                @map("reference_id")
   note             String?
-  createdBy        String?   @map("created_by")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdBy        String?                @map("created_by")
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@index([direction, status, dueDate])
+  @@index([direction, status, dueDate], map: "ledger_entries_direction_status_due_idx")
   @@index([scope, status, dueDate])
-  @@index([dueDate])
+  @@index([dueDate], map: "ledger_entries_due_idx")
+  @@index([accountCode])
   @@map("ledger_entries")
   @@schema("finance")
 }
@@ -233,14 +240,14 @@ model CreditScoreReading {
   bureau      String
   score       Int
   maxScore    Int      @default(1000) @map("max_score")
-  readAt      DateTime @map("read_at")
+  readAt      DateTime @map("read_at") @db.Timestamptz(6)
   /// MANUAL (tela) ou N8N (fluxo).
   source      String   @default("MANUAL")
   note        String?
   createdBy   String?  @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([subjectKind, bureau, readAt])
+  @@index([subjectKind, bureau, readAt], map: "credit_score_readings_subject_bureau_read_at_idx")
   @@map("credit_score_readings")
   @@schema("finance")
 }
@@ -251,7 +258,7 @@ model PartnerPillar {
   weight      Int
   score       Int      @default(0)
   description String?
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("partner_pillars")
   @@schema("partnerships")
@@ -264,11 +271,11 @@ model PartnerRoadmapItem {
   owner       String?
   done        Boolean   @default(false)
   sortOrder   Int       @map("sort_order")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@index([phase, sortOrder])
+  @@index([phase, sortOrder], map: "partner_roadmap_items_phase_sort_idx")
   @@map("partner_roadmap_items")
   @@schema("partnerships")
 }
@@ -281,8 +288,8 @@ model PartnerCase {
   summary    String?
   metrics    Json     @default("[]")
   sortOrder  Int      @map("sort_order")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("partner_cases")
   @@schema("partnerships")
@@ -298,10 +305,10 @@ model PartnerDocument {
   note      String?
   sortOrder Int      @map("sort_order")
   updatedBy String?  @map("updated_by")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@index([category, sortOrder])
+  @@index([category, sortOrder], map: "partner_documents_category_sort_idx")
   @@map("partner_documents")
   @@schema("partnerships")
 }
@@ -329,12 +336,12 @@ model AiCoreTelemetry {
   /// consultas de métricas comerciais e orçamento real devem sempre filtrar
   /// source='PRODUCTION'. Registros TEST existem só para trilha auditável.
   source           String   @default("PRODUCTION")
-  createdAt        DateTime @default(now()) @map("created_at")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([organizationId, projectId, createdAt])
-  @@index([organizationId, environment, createdAt])
-  @@index([outcome, createdAt])
-  @@index([source, createdAt])
+  @@index([organizationId, projectId, createdAt(sort: Desc)], map: "ai_core_telemetry_org_project_created_idx")
+  @@index([organizationId, environment, createdAt(sort: Desc)], map: "ai_core_telemetry_org_env_created_idx")
+  @@index([outcome, createdAt(sort: Desc)], map: "ai_core_telemetry_outcome_created_idx")
+  @@index([source, createdAt(sort: Desc)], map: "ai_core_telemetry_source_created_idx")
   @@map("ai_core_telemetry")
   @@schema("ai_core")
 }
@@ -356,16 +363,16 @@ model AiCoreApproval {
   payload         Json
   status          String    @default("PENDING")
   decidedBy       String?   @map("decided_by")
-  decidedAt       DateTime? @map("decided_at")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
   rejectionReason String?   @map("rejection_reason")
-  executedAt      DateTime? @map("executed_at")
-  expiresAt       DateTime  @map("expires_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  executedAt      DateTime? @map("executed_at") @db.Timestamptz(6)
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@unique([projectId, toolName, idempotencyKey])
-  @@index([organizationId, status, createdAt])
-  @@index([expiresAt, status])
+  @@unique([projectId, toolName, idempotencyKey], map: "ai_core_approvals_project_tool_idempotency_key")
+  @@index([organizationId, status, createdAt(sort: Desc)], map: "ai_core_approvals_org_status_created_idx")
+  @@index([expiresAt, status], map: "ai_core_approvals_expires_status_idx")
   @@map("ai_core_approvals")
   @@schema("ai_core")
 }
@@ -379,15 +386,15 @@ model AiCoreSpendPolicy {
   organizationId String   @map("organization_id")
   projectId      String   @map("project_id")
   environment    String   @default("production")
-  periodStart    DateTime @map("period_start")
-  periodEnd      DateTime @map("period_end")
+  periodStart    DateTime @map("period_start") @db.Timestamptz(6)
+  periodEnd      DateTime @map("period_end") @db.Timestamptz(6)
   limitUsd       Decimal  @map("limit_usd") @db.Decimal(12, 2)
   spentUsd       Decimal  @default(0) @map("spent_usd") @db.Decimal(12, 6)
   blocked        Boolean  @default(false)
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  @@unique([organizationId, projectId, environment, periodStart])
-  @@index([organizationId, environment])
+  @@unique([organizationId, projectId, environment, periodStart], map: "ai_core_spend_policies_org_project_env_period_key")
+  @@index([organizationId, environment], map: "ai_core_spend_policies_org_env_idx")
   @@map("ai_core_spend_policies")
   @@schema("ai_core")
 }
@@ -408,12 +415,12 @@ model AiCoreSpendReservation {
   status           String    @default("RESERVED")
   /// PRODUCTION (padrão) ou TEST — mesma semântica de AiCoreTelemetry.source.
   source           String    @default("PRODUCTION")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  resolvedAt       DateTime? @map("resolved_at")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
 
-  @@index([status, createdAt])
-  @@index([policyId])
-  @@index([source, createdAt])
+  @@index([status, createdAt(sort: Desc)], map: "ai_core_spend_reservations_status_created_idx")
+  @@index([policyId], map: "ai_core_spend_reservations_policy_idx")
+  @@index([source, createdAt(sort: Desc)], map: "ai_core_spend_reservations_source_created_idx")
   @@map("ai_core_spend_reservations")
   @@schema("ai_core")
 }
@@ -429,10 +436,10 @@ model AiCoreCleanupRun {
   releasedCount Int?      @map("released_count")
   status        String    @default("RUNNING")
   errorMessage  String?   @map("error_message")
-  startedAt     DateTime  @default(now()) @map("started_at")
-  finishedAt    DateTime? @map("finished_at")
+  startedAt     DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt    DateTime? @map("finished_at") @db.Timestamptz(6)
 
-  @@index([status, startedAt])
+  @@index([status, startedAt(sort: Desc)], map: "ai_core_cleanup_runs_status_started_idx")
   @@map("ai_core_cleanup_runs")
   @@schema("ai_core")
 }
@@ -453,44 +460,44 @@ model AiCoreEvalRun {
   shouldBlockDeploy Boolean  @map("should_block_deploy")
   resultsJson       Json     @map("results_json")
   runBy             String?  @map("run_by")
-  createdAt         DateTime @default(now()) @map("created_at")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([projectId, createdAt])
-  @@index([suiteName, createdAt])
+  @@index([projectId, createdAt(sort: Desc)], map: "ai_core_eval_runs_project_created_idx")
+  @@index([suiteName, createdAt(sort: Desc)], map: "ai_core_eval_runs_suite_created_idx")
   @@map("ai_core_eval_runs")
   @@schema("ai_core")
 }
 
 model Organization {
   socialPublishingProfiles SocialPublishingProfile[]
-  coreMemberships CoreMembership[]
-  coreProducts    CoreProduct[]
-  coreContracts   CoreContract[]
-  coreConnections CoreConnection[]
-  coreAssetGrants CoreAssetGrant[]
-  coreOwnedAssets CoreExternalAsset[]
-  corePayments    CorePayment[]
-  id              String              @id @default(cuid())
+  coreMemberships          CoreMembership[]
+  coreProducts             CoreProduct[]
+  coreContracts            CoreContract[]
+  coreConnections          CoreConnection[]
+  coreAssetGrants          CoreAssetGrant[]
+  coreOwnedAssets          CoreExternalAsset[]
+  corePayments             CorePayment[]
+  id                       String                    @id @default(cuid())
   /// Número único do cliente (6 dígitos, a partir de 100001), usado fora do
   /// sistema: atendimento, cobrança, contratos e infraestrutura. Nunca muda.
-  clientNumber    Int                 @unique @default(autoincrement()) @map("client_number")
-  name            String
-  slug            String              @unique
-  legalName       String?             @map("legal_name")
-  cpfCnpj         String?             @unique @map("cpf_cnpj")
-  cnpjData        Json?               @map("cnpj_data")
+  clientNumber             Int                       @unique @default(autoincrement()) @map("client_number")
+  name                     String
+  slug                     String                    @unique
+  legalName                String?                   @map("legal_name")
+  cpfCnpj                  String?                   @unique @map("cpf_cnpj")
+  cnpjData                 Json?                     @map("cnpj_data")
   /// Retrato do próprio cliente conforme registrado por um fornecedor na NF-e
   /// mais recente recebida por ele (bloco <dest>), gravado pela sincronização
   /// da SEFAZ. Mesma natureza do `cnpj_data`: dado do cliente sobre o cliente.
   /// Item de nota, fornecedor e XML NÃO entram aqui — são dado fiscal de
   /// terceiro e não têm por que morar no cadastro comercial.
-  sefazData       Json?               @map("sefaz_data")
-  segment         String?
-  siteUrl         String?             @map("site_url")
-  status          String              @default("ACTIVE")
-  timezone        String              @default("America/Sao_Paulo")
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
+  sefazData                Json?                     @map("sefaz_data")
+  segment                  String?
+  siteUrl                  String?                   @map("site_url")
+  status                   String                    @default("ACTIVE")
+  timezone                 String                    @default("America/Sao_Paulo")
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   brands                   Brand[]
   projects                 Project[]
@@ -526,7 +533,9 @@ model Organization {
   clientDatabases          ClientDatabase[]
   studioPieces             StudioPiece[]
 
-  @@index([status, createdAt])
+  @@index([status, createdAt(sort: Desc)], map: "organizations_status_created_idx")
+  @@index([cpfCnpj(ops: raw("gin_trgm_ops"))], map: "organizations_cpf_cnpj_trgm_idx", type: Gin)
+  @@index([status, name])
   @@map("organizations")
   @@schema("operations")
 }
@@ -563,7 +572,7 @@ model OrganizationProfile {
   nextAction              String?  @map("next_action")
   onboardingStage         String   @default("BASIC") @map("onboarding_stage")
   createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -697,21 +706,21 @@ model DadosFiscaisDoCliente {
 
   /// Item da lista da LC 116/2003 usado nas notas deste cliente, quando
   /// difere do padrão da casa.
-  codigoServico       String?  @map("codigo_servico")
+  codigoServico      String?  @map("codigo_servico")
   /// ISS retido na fonte. Com ele ligado, a alíquota passa a ser obrigatória:
   /// a prefeitura precisa do percentual para calcular a retenção.
-  issRetido           Boolean  @default(false) @map("iss_retido")
-  retemIrrf           Boolean  @default(false) @map("retem_irrf")
-  retemInss           Boolean  @default(false) @map("retem_inss")
-  retemPisCofinsCsll  Boolean  @default(false) @map("retem_pis_cofins_csll")
-  aliquotaIssRetido   Decimal? @map("aliquota_iss_retido") @db.Decimal(5, 2)
+  issRetido          Boolean  @default(false) @map("iss_retido")
+  retemIrrf          Boolean  @default(false) @map("retem_irrf")
+  retemInss          Boolean  @default(false) @map("retem_inss")
+  retemPisCofinsCsll Boolean  @default(false) @map("retem_pis_cofins_csll")
+  aliquotaIssRetido  Decimal? @map("aliquota_iss_retido") @db.Decimal(5, 2)
 
   emailFiscal      String? @map("email_fiscal")
   observacaoFiscal String? @map("observacao_fiscal")
   atualizadoPor    String? @map("atualizado_por")
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -760,7 +769,7 @@ model OrganizationWebPresence {
   onlineStoreInterest      Boolean   @default(false) @map("online_store_interest")
   onlineStoreNotes         String?   @map("online_store_notes")
   createdAt                DateTime  @default(now()) @map("created_at")
-  updatedAt                DateTime  @updatedAt @map("updated_at")
+  updatedAt                DateTime  @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -798,11 +807,11 @@ model OrganizationSeoKeyword {
   recommendedPage String?  @map("recommended_page")
   status          String   @default("RECOMMENDED")
   createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId, priority])
+  @@index([organizationId, priority], map: "organization_seo_keywords_organization_priority_idx")
   @@map("organization_seo_keywords")
   @@schema("operations")
 }
@@ -823,11 +832,12 @@ model OrganizationBrandAsset {
   notes          String?
   uploadedBy     String?  @map("uploaded_by")
   createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organizationId, assetType])
+  @@index([organizationId, assetType], map: "organization_brand_assets_organization_asset_type_idx")
+  @@index([organizationId, assetType, isCurrent], map: "organization_brand_assets_current_idx")
   @@map("organization_brand_assets")
   @@schema("operations")
 }
@@ -865,11 +875,11 @@ model OrganizationIntegration {
   status         String   @default("PENDING")
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, provider])
+  @@unique([organizationId, provider], map: "organization_integrations_organization_provider_key")
   @@index([provider, status])
   @@map("organization_integrations")
   @@schema("operations")
@@ -891,7 +901,7 @@ model OrganizationOnboardingStep {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, stepKey])
-  @@index([organizationId, status, sortOrder])
+  @@index([organizationId, status, sortOrder], map: "organization_onboarding_steps_organization_id_status_sort_order")
   @@map("organization_onboarding_steps")
   @@schema("operations")
 }
@@ -947,7 +957,7 @@ model ServicePlan {
   status        String         @default("ACTIVE")
   sortOrder     Int            @default(0) @map("sort_order")
   createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at")
 
   opportunities OrganizationServiceOpportunity[]
 
@@ -967,12 +977,12 @@ model OrganizationServiceOpportunity {
   notes            String?
   nextAction       String?  @map("next_action")
   createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plan         ServicePlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
 
-  @@unique([organizationId, serviceType])
+  @@unique([organizationId, serviceType], map: "organization_service_opportunities_organization_service_type_ke")
   @@index([commercialStatus])
   @@map("organization_service_opportunities")
   @@schema("operations")
@@ -985,16 +995,16 @@ model Brand {
   slug           String
   status         String   @default("ACTIVE")
   siteUrl        String?  @map("site_url")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   projects     Project[]
   tasks        OperationalTask[]
   domains      DomainAsset[]
 
-  @@unique([organizationId, slug])
-  @@index([organizationId, status])
+  @@unique([organizationId, slug], map: "brands_organization_slug_key")
+  @@index([organizationId, status], map: "brands_organization_status_idx")
   @@map("brands")
   @@schema("operations")
 }
@@ -1011,54 +1021,54 @@ model Brand {
 /// publicação: arquivo gravado no disco do app some no deploy seguinte, e o
 /// painel voltaria a mostrar a letra sem ninguém ter mexido em nada.
 model IdentidadeDaCasa {
-  id            String   @id @default("casa")
-  nome          String   @default("Ávila Ops")
+  id          String  @id @default("casa")
+  nome        String  @default("Ávila Ops")
   /// image/png, image/jpeg, image/webp ou image/svg+xml. Nulo = sem ícone, e
   /// a tela desenha a inicial do nome, como sempre fez.
-  iconeMime     String?  @map("icone_mime")
-  iconeDados    Bytes?   @map("icone_dados")
+  iconeMime   String? @map("icone_mime")
+  iconeDados  Bytes?  @map("icone_dados")
   /// Muda a cada troca de ícone. É o que deixa a URL do ícone ser cacheada
   /// para sempre sem o navegador segurar a imagem antiga depois da troca.
-  iconeVersao   String?  @map("icone_versao")
+  iconeVersao String? @map("icone_versao")
 
   /// Dados cadastrais e fiscais da casa: o que vai no cabeçalho da nota de
   /// serviço (NFS-e), em contrato e em fatura. Tudo opcional porque a linha
   /// nasce antes de alguém preencher — quem emite nota confere o que falta.
-  razaoSocial                String? @map("razao_social")
+  razaoSocial               String?  @map("razao_social")
   /// Só dígitos.
-  cnpj                       String?
-  inscricaoMunicipal         String? @map("inscricao_municipal")
-  inscricaoEstadual          String? @map("inscricao_estadual")
+  cnpj                      String?
+  inscricaoMunicipal        String?  @map("inscricao_municipal")
+  inscricaoEstadual         String?  @map("inscricao_estadual")
   /// SIMPLES_NACIONAL | MEI | LUCRO_PRESUMIDO | LUCRO_REAL
-  regimeTributario           String? @map("regime_tributario")
+  regimeTributario          String?  @map("regime_tributario")
   /// CNAE principal, só dígitos.
-  cnae                       String?
+  cnae                      String?
   /// Item da lista da LC 116/2003, como "1.07". É o que a prefeitura chama de
   /// "código do serviço".
-  codigoServico              String? @map("codigo_servico")
+  codigoServico             String?  @map("codigo_servico")
   /// Código de tributação do município, quando a prefeitura usa um próprio.
-  codigoTributacaoMunicipal  String? @map("codigo_tributacao_municipal")
+  codigoTributacaoMunicipal String?  @map("codigo_tributacao_municipal")
   /// Alíquota do ISS em porcentagem: 2.00 = 2%.
-  aliquotaIss                Decimal? @map("aliquota_iss") @db.Decimal(5, 2)
-  emailFiscal                String? @map("email_fiscal")
-  telefone                   String?
-  site                       String?
-  cep                        String?
-  logradouro                 String?
-  numero                     String?
-  complemento                String?
-  bairro                     String?
-  municipio                  String?
-  uf                         String?
+  aliquotaIss               Decimal? @map("aliquota_iss") @db.Decimal(5, 2)
+  emailFiscal               String?  @map("email_fiscal")
+  telefone                  String?
+  site                      String?
+  cep                       String?
+  logradouro                String?
+  numero                    String?
+  complemento               String?
+  bairro                    String?
+  municipio                 String?
+  uf                        String?
   /// Código IBGE do município (7 dígitos): a NFS-e identifica a cidade por ele.
-  codigoMunicipioIbge        String? @map("codigo_municipio_ibge")
+  codigoMunicipioIbge       String?  @map("codigo_municipio_ibge")
 
   /// Certificado digital A1 da casa (.pfx + senha), cifrado com a mesma chave
   /// do cofre de credenciais. Nunca em claro: nem o arquivo, nem a senha.
-  certificadoCipher          String? @map("certificado_cipher")
+  certificadoCipher String? @map("certificado_cipher")
   /// Titular, CNPJ, emissor e validade lidos do próprio certificado — o que a
   /// tela mostra sem precisar decifrar nada.
-  certificadoInfo            Json?   @map("certificado_info")
+  certificadoInfo   Json?   @map("certificado_info")
 
   atualizadoPor String?  @map("atualizado_por")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -1079,21 +1089,21 @@ model Project {
   status         String    @default("PLANNING")
   priority       String    @default("MEDIUM")
   ownerName      String?   @map("owner_name")
-  startsAt       DateTime? @map("starts_at")
-  dueAt          DateTime? @map("due_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  startsAt       DateTime? @map("starts_at") @db.Timestamptz(6)
+  dueAt          DateTime? @map("due_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  brand        Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  brand        Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   tasks        OperationalTask[]
   approvals    Approval[]
   deliverables Deliverable[]
   files        ProjectFile[]
 
-  @@index([organizationId, status])
-  @@index([brandId, status])
-  @@index([dueAt, status])
+  @@index([organizationId, status], map: "projects_organization_status_idx")
+  @@index([brandId, status], map: "projects_brand_status_idx")
+  @@index([dueAt, status], map: "projects_due_status_idx")
   @@map("projects")
   @@schema("operations")
 }
@@ -1107,18 +1117,18 @@ model OperationalTask {
   status         String    @default("TODO")
   priority       String    @default("MEDIUM")
   ownerName      String?   @map("owner_name")
-  dueAt          DateTime? @map("due_at")
-  completedAt    DateTime? @map("completed_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  dueAt          DateTime? @map("due_at") @db.Timestamptz(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([organizationId, status])
-  @@index([projectId, status])
-  @@index([dueAt, status])
+  @@index([organizationId, status], map: "tasks_organization_status_idx")
+  @@index([projectId, status], map: "tasks_project_status_idx")
+  @@index([dueAt, status], map: "tasks_due_status_idx")
   @@map("tasks")
   @@schema("operations")
 }
@@ -1130,16 +1140,16 @@ model Approval {
   title          String
   status         String    @default("PENDING")
   requestedBy    String?   @map("requested_by")
-  dueAt          DateTime? @map("due_at")
-  resolvedAt     DateTime? @map("resolved_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  dueAt          DateTime? @map("due_at") @db.Timestamptz(6)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([organizationId, status])
-  @@index([dueAt, status])
+  @@index([organizationId, status], map: "approvals_organization_status_idx")
+  @@index([dueAt, status], map: "approvals_due_status_idx")
   @@map("approvals")
   @@schema("operations")
 }
@@ -1154,15 +1164,15 @@ model Lead {
   stage          String    @default("NEW")
   estimatedValue Decimal?  @map("estimated_value") @db.Decimal(14, 2)
   notes          String?
-  nextActionAt   DateTime? @map("next_action_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  nextActionAt   DateTime? @map("next_action_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   metaLead     MetaLead?
 
-  @@index([stage, nextActionAt])
-  @@index([organizationId, stage])
+  @@index([stage, nextActionAt], map: "leads_stage_next_action_idx")
+  @@index([organizationId, stage], map: "leads_organization_stage_idx")
   @@map("leads")
   @@schema("operations")
 }
@@ -1177,9 +1187,9 @@ model MetaBusinessAccount {
   timezone           String?
   currency           String?
   rawMetadata        Json?     @map("raw_metadata")
-  lastSyncedAt       DateTime? @map("last_synced_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  lastSyncedAt       DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   pages             MetaPage[]
@@ -1203,9 +1213,9 @@ model MetaPage {
   status               String    @default("ACTIVE")
   tasks                Json?
   rawMetadata          Json?     @map("raw_metadata")
-  lastSyncedAt         DateTime? @map("last_synced_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  lastSyncedAt         DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization      Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   businessAccount   MetaBusinessAccount? @relation(fields: [businessAccountRefId], references: [id], onDelete: SetNull)
@@ -1239,9 +1249,9 @@ model InstagramAccount {
   mediaCount           Int?      @map("media_count")
   status               String    @default("ACTIVE")
   rawMetadata          Json?     @map("raw_metadata")
-  lastSyncedAt         DateTime? @map("last_synced_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  lastSyncedAt         DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization    Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   businessAccount MetaBusinessAccount? @relation(fields: [businessAccountRefId], references: [id], onDelete: SetNull)
@@ -1266,9 +1276,9 @@ model MetaAdAccount {
   accountStatus        String?   @map("account_status")
   status               String    @default("ACTIVE")
   rawMetadata          Json?     @map("raw_metadata")
-  lastSyncedAt         DateTime? @map("last_synced_at")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  lastSyncedAt         DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization      Organization?          @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   businessAccount   MetaBusinessAccount?   @relation(fields: [businessAccountRefId], references: [id], onDelete: SetNull)
@@ -1292,9 +1302,9 @@ model MetaLeadForm {
   status         String    @default("ACTIVE")
   questions      Json?
   rawMetadata    Json?     @map("raw_metadata")
-  lastSyncedAt   DateTime? @map("last_synced_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   page         MetaPage?      @relation(fields: [pageRefId], references: [id], onDelete: SetNull)
@@ -1316,13 +1326,13 @@ model MetaLead {
   adAccountRefId   String?   @map("ad_account_ref_id")
   leadId           String?   @unique @map("lead_id")
   leadgenId        String    @unique @map("leadgen_id")
-  createdTime      DateTime? @map("created_time")
+  createdTime      DateTime? @map("created_time") @db.Timestamptz(6)
   fieldData        Json?     @map("field_data")
   rawPayload       Json?     @map("raw_payload")
   processingStatus String    @default("NEW") @map("processing_status")
-  processedAt      DateTime? @map("processed_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   form         MetaLeadForm?  @relation(fields: [formRefId], references: [id], onDelete: SetNull)
@@ -1347,14 +1357,14 @@ model MetaCampaignSnapshot {
   campaignName   String?   @map("campaign_name")
   status         String?
   objective      String?
-  dateStart      DateTime? @map("date_start")
-  dateStop       DateTime? @map("date_stop")
+  dateStart      DateTime? @map("date_start") @db.Timestamptz(6)
+  dateStop       DateTime? @map("date_stop") @db.Timestamptz(6)
   spend          Decimal?  @db.Decimal(14, 2)
   impressions    Int?
   clicks         Int?
   leads          Int?
   rawMetrics     Json?     @map("raw_metrics")
-  capturedAt     DateTime  @default(now()) @map("captured_at")
+  capturedAt     DateTime  @default(now()) @map("captured_at") @db.Timestamptz(6)
 
   organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   adAccount    MetaAdAccount? @relation(fields: [adAccountRefId], references: [id], onDelete: SetNull)
@@ -1375,8 +1385,8 @@ model IntegrationWebhookEvent {
   status         String    @default("RECEIVED")
   payload        Json
   error          String?
-  receivedAt     DateTime  @default(now()) @map("received_at")
-  processedAt    DateTime? @map("processed_at")
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(6)
 
   @@index([provider, status, receivedAt])
   @@index([externalId])
@@ -1391,26 +1401,27 @@ model DomainAsset {
   fqdn             String    @unique
   status           String    @default("ACTIVE")
   registrar        String?
-  expiresAt        DateTime? @map("expires_at")
+  expiresAt        DateTime? @map("expires_at") @db.Timestamptz(6)
   autoRenew        Boolean   @default(false) @map("auto_renew")
-  nextActionAt     DateTime? @map("next_action_at")
+  nextActionAt     DateTime? @map("next_action_at") @db.Timestamptz(6)
   /// Quem serve o DNS deste domínio: NENHUM, EXTERNO ou AVILA. Existe para a
   /// migração acontecer domínio a domínio, em vez de um interruptor global.
   dnsProvider      String    @default("NENHUM") @map("dns_provider")
   cloudflareZoneId String?   @unique @map("cloudflare_zone_id")
   cloudflarePlan   String?   @map("cloudflare_plan")
   cloudflareStatus String?   @map("cloudflare_status")
-  dnsLastSyncedAt  DateTime? @map("dns_last_synced_at")
+  dnsLastSyncedAt  DateTime? @map("dns_last_synced_at") @db.Timestamptz(6)
   indexNowKey      String?   @map("index_now_key")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   dnsRecords   DnsRecord[]
+  dnsVersions  DnsZoneVersion[]
 
-  @@index([organizationId, status])
-  @@index([expiresAt, status])
+  @@index([organizationId, status], map: "domains_organization_status_idx")
+  @@index([expiresAt, status], map: "domains_expires_status_idx")
   @@index([dnsProvider])
   @@map("domains")
   @@schema("operations")
@@ -1432,16 +1443,16 @@ model Deliverable {
   fullMimeType    String?   @map("full_mime_type")
   recipientName   String?   @map("recipient_name")
   recipientEmail  String?   @map("recipient_email")
-  paidAt          DateTime? @map("paid_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  paidAt          DateTime? @map("paid_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project      Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project      Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   charges      DeliverableCharge[]
 
-  @@index([organizationId, status])
-  @@index([projectId])
+  @@index([organizationId, status], map: "deliverables_organization_status_idx")
+  @@index([projectId], map: "deliverables_project_idx")
   @@map("deliverables")
   @@schema("operations")
 }
@@ -1458,15 +1469,15 @@ model DeliverableCharge {
   pixQrBase64   String?   @map("pix_qr_base64")
   boletoUrl     String?   @map("boleto_url")
   boletoBarcode String?   @map("boleto_barcode")
-  expiresAt     DateTime? @map("expires_at")
-  paidAt        DateTime? @map("paid_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  expiresAt     DateTime? @map("expires_at") @db.Timestamptz(6)
+  paidAt        DateTime? @map("paid_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  deliverable Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade)
+  deliverable Deliverable @relation(fields: [deliverableId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([deliverableId, status])
-  @@index([externalId])
+  @@index([deliverableId, status], map: "deliverable_charges_deliverable_status_idx")
+  @@index([externalId], map: "deliverable_charges_external_idx")
   @@map("deliverable_charges")
   @@schema("operations")
 }
@@ -1624,11 +1635,11 @@ model OperationsAuditEvent {
   entityType     String   @map("entity_type")
   entityId       String?  @map("entity_id")
   metadata       Json?
-  createdAt      DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([createdAt])
-  @@index([actorId, createdAt])
-  @@index([organizationId, createdAt])
+  @@index([createdAt(sort: Desc)], map: "operations_audit_created_idx")
+  @@index([actorId, createdAt(sort: Desc)], map: "operations_audit_actor_created_idx")
+  @@index([organizationId, createdAt(sort: Desc)], map: "operations_audit_organization_created_idx")
   @@map("audit_events")
   @@schema("operations")
 }
@@ -1638,12 +1649,12 @@ model IntegrationConnection {
   provider       String
   siteUrl        String    @map("site_url")
   status         String    @default("ACTIVE")
-  lastSyncedAt   DateTime? @map("last_synced_at")
+  lastSyncedAt   DateTime? @map("last_synced_at") @db.Timestamptz(6)
   lastSyncStatus String?   @map("last_sync_status")
   lastSyncError  String?   @map("last_sync_error")
   metadata       Json?
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([provider, siteUrl])
   @@index([provider, status])
@@ -1730,18 +1741,18 @@ model OrganizationIntegrationConnection {
   status          String          @default("ACTIVE")
   scopes          Json?
   tokenType       String?         @map("token_type")
-  tokenExpiresAt  DateTime?       @map("token_expires_at")
+  tokenExpiresAt  DateTime?       @map("token_expires_at") @db.Timestamptz(6)
   tokenCiphertext String?         @map("token_ciphertext")
   metadata        Json?
-  lastSyncedAt    DateTime?       @map("last_synced_at")
+  lastSyncedAt    DateTime?       @map("last_synced_at") @db.Timestamptz(6)
   lastSyncStatus  String?         @map("last_sync_status")
   lastSyncError   String?         @map("last_sync_error")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, provider])
+  @@unique([organizationId, provider], map: "organization_integration_connections_organization_id_provider_k")
   @@index([provider, status])
   @@index([organizationId, status])
   @@map("organization_integration_connections")
@@ -1758,14 +1769,36 @@ model DnsRecord {
   proxied            Boolean  @default(false)
   ttl                Int      @default(1)
   priority           Int?
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  domainAsset DomainAsset @relation(fields: [domainAssetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([domainAssetId], map: "dns_records_domain_asset_idx")
+  @@index([type, name])
+  @@map("dns_records")
+  @@schema("operations")
+}
+
+/// A zona inteira depois de cada alteração de DNS (contrato externo 02 §7:
+/// histórico de versões com restauração). Só se acrescenta: versão não é
+/// editada nem apagada pela aplicação.
+model DnsZoneVersion {
+  id            String   @id @default(cuid())
+  domainAssetId String   @map("domain_asset_id")
+  /// EQUIPE, CLIENTE ou SISTEMA (o retrato inicial tirado antes da primeira escrita).
+  origin        String
+  actorId       String?  @map("actor_id")
+  /// O que produziu esta versão, em frase curta: "Registro A loja criado".
+  reason        String
+  records       Json
+  recordCount   Int      @map("record_count")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   domainAsset DomainAsset @relation(fields: [domainAssetId], references: [id], onDelete: Cascade)
 
-  @@index([domainAssetId])
-  @@index([type, name])
-  @@map("dns_records")
+  @@index([domainAssetId, createdAt])
+  @@map("dns_zone_versions")
   @@schema("operations")
 }
 
@@ -1931,20 +1964,26 @@ model AssistantDocument {
 /// a consulta de recuperação filtra por ele sem precisar de join, e uma tela
 /// nova não consegue vazar entre clientes por esquecer o join.
 model AssistantChunk {
-  id             String   @id @default(cuid())
-  documentId     String   @map("document_id")
-  organizationId String?  @map("organization_id")
-  scope          String   @default("GLOBAL")
+  id             String                   @id @default(cuid())
+  documentId     String                   @map("document_id")
+  organizationId String?                  @map("organization_id")
+  scope          String                   @default("GLOBAL")
   ordinal        Int
   heading        String?
   content        String
   tokens         Int
-  criadoEm       DateTime @default(now()) @map("criado_em")
+  criadoEm       DateTime                 @default(now()) @map("criado_em")
+  /// Coluna GERADA pelo banco (tsvector de `heading` + `content`). Declarada
+  /// só para o Prisma não propor apagá-la junto com o índice GIN: o client não
+  /// lê nem escreve, quem usa é o SQL cru da busca do assistente.
+  busca          Unsupported("tsvector")? @default(dbgenerated("(setweight(to_tsvector('portuguese'::regconfig, COALESCE(heading, ''::text)), 'A'::\"char\") || setweight(to_tsvector('portuguese'::regconfig, content), 'B'::\"char\"))"))
 
   document AssistantDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, ordinal])
   @@index([scope, organizationId])
+  @@index([busca], type: Gin)
+  @@index([content(ops: raw("gin_trgm_ops"))], map: "assistant_chunks_content_trgm_idx", type: Gin)
   @@map("assistant_chunks")
   @@schema("ai_core")
 }
@@ -2278,7 +2317,6 @@ model PlatformCredential {
   @@schema("operations")
 }
 
-
 /// Mídia do projeto: imagem, PDF ou vídeo que sustenta o combinado.
 ///
 /// Vive separado de `OrganizationBrandAsset` de propósito. Ativo de marca é
@@ -2305,81 +2343,86 @@ model ProjectFile {
 
 /// Perfis editoriais por organização. Contas da mesma rede não compartilham destinos implicitamente.
 model SocialPublishingProfile {
-  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String @map("organization_id")
+  id             String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String                        @map("organization_id")
   nome           String
-  criadoEm       DateTime @default(now()) @map("criado_em") @db.Timestamptz
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  criadoEm       DateTime                      @default(now()) @map("criado_em") @db.Timestamptz
+  organization   Organization                  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   destinos       SocialPublishingDestination[]
   posts          SocialPublishingPost[]
+
   @@unique([organizationId, nome])
   @@map("social_profiles")
   @@schema("operations")
 }
 
 model SocialPublishingDestination {
-  perfilId      String @map("perfil_id") @db.Uuid
+  perfilId      String                  @map("perfil_id") @db.Uuid
   canal         String
   identificador String
   credencial    String
-  ativo         Boolean @default(false)
+  ativo         Boolean                 @default(false)
   perfil        SocialPublishingProfile @relation(fields: [perfilId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@id([perfilId, canal])
   @@map("social_destinations")
   @@schema("operations")
 }
 
 model SocialPublishingPost {
-  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  chave        String @unique @db.Uuid
-  perfilId     String @map("perfil_id") @db.Uuid
-  conteudo     Json
-  agendadoEm   DateTime @map("agendado_em") @db.Timestamptz
-  estado       String @default("RASCUNHO")
-  versao       Int @default(1)
-  criadoPor    String @map("criado_por")
-  criadoEm     DateTime @default(now()) @map("criado_em") @db.Timestamptz
-  publicadoEm  DateTime? @map("publicado_em") @db.Timestamptz
-  perfil       SocialPublishingProfile @relation(fields: [perfilId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  entregas     SocialPublishingDelivery[]
-  eventos      SocialPublishingEvent[]
+  id          String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chave       String                     @unique @db.Uuid
+  perfilId    String                     @map("perfil_id") @db.Uuid
+  conteudo    Json
+  agendadoEm  DateTime                   @map("agendado_em") @db.Timestamptz
+  estado      String                     @default("RASCUNHO")
+  versao      Int                        @default(1)
+  criadoPor   String                     @map("criado_por")
+  criadoEm    DateTime                   @default(now()) @map("criado_em") @db.Timestamptz
+  publicadoEm DateTime?                  @map("publicado_em") @db.Timestamptz
+  perfil      SocialPublishingProfile    @relation(fields: [perfilId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entregas    SocialPublishingDelivery[]
+  eventos     SocialPublishingEvent[]
+
   @@map("social_posts")
   @@schema("operations")
 }
 
 model SocialPublishingDelivery {
-  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  postId       String @map("post_id") @db.Uuid
+  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId       String                  @map("post_id") @db.Uuid
   canal        String
-  obrigatorio  Boolean @default(true)
+  obrigatorio  Boolean                 @default(true)
   destino      Json
-  estado       String @default("PENDENTE")
-  tentativa    Int @default(0)
-  proximaEm    DateTime @default(now()) @map("proxima_em") @db.Timestamptz
-  reserva      String? @db.Uuid
-  reservaAte   DateTime? @map("reserva_ate") @db.Timestamptz
-  checkpoint   Json @default("{}")
-  idExterno    String? @map("id_externo")
-  urlPublicada String? @map("url_publicada")
-  ultimoErro   String? @map("ultimo_erro")
-  publicadoEm  DateTime? @map("publicado_em") @db.Timestamptz
-  post         SocialPublishingPost @relation(fields: [postId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  estado       String                  @default("PENDENTE")
+  tentativa    Int                     @default(0)
+  proximaEm    DateTime                @default(now()) @map("proxima_em") @db.Timestamptz
+  reserva      String?                 @db.Uuid
+  reservaAte   DateTime?               @map("reserva_ate") @db.Timestamptz
+  checkpoint   Json                    @default("{}")
+  idExterno    String?                 @map("id_externo")
+  urlPublicada String?                 @map("url_publicada")
+  ultimoErro   String?                 @map("ultimo_erro")
+  publicadoEm  DateTime?               @map("publicado_em") @db.Timestamptz
+  post         SocialPublishingPost    @relation(fields: [postId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   eventos      SocialPublishingEvent[]
+
   @@unique([postId, canal])
   @@map("social_deliveries")
   @@schema("operations")
 }
 
 model SocialPublishingEvent {
-  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  postId    String? @map("post_id") @db.Uuid
-  entregaId String? @map("entrega_id") @db.Uuid
+  id        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String?                   @map("post_id") @db.Uuid
+  entregaId String?                   @map("entrega_id") @db.Uuid
   evento    String
   autor     String
-  detalhe   Json @default("{}")
-  criadoEm  DateTime @default(now()) @map("criado_em") @db.Timestamptz
-  post      SocialPublishingPost? @relation(fields: [postId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  detalhe   Json                      @default("{}")
+  criadoEm  DateTime                  @default(now()) @map("criado_em") @db.Timestamptz
+  post      SocialPublishingPost?     @relation(fields: [postId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   entrega   SocialPublishingDelivery? @relation(fields: [entregaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("social_events")
   @@schema("operations")
 }
