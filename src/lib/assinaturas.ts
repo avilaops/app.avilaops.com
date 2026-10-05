@@ -553,9 +553,29 @@ export async function garantirFatura(params: {
 const REEMBOLSADO = ["REFUNDED", "refunded", "charged_back"];
 
 /**
+ * Limites das transações interativas daqui (a alocação e a auditoria com trava).
+ *
+ * O padrão do Prisma é esperar 2 s por conexão e durar 5 s; sob disputa longa a
+ * segunda baixa da mesma fatura estourava e virava `PAGAMENTO_LEDGER_FALHOU`.
+ * São três comandos de milissegundos, então 10 s é folga de sobra para a fila
+ * da trava. O teto de 5 s + 10 s fica abaixo do tempo que o gateway espera a
+ * resposta do webhook (o Mercado Pago desiste em 22 s): se estourar, a falha
+ * ainda deixa o rastro antes de o gateway reenviar.
+ */
+const LIMITES_DA_TRANSACAO = { maxWait: 5_000, timeout: 10_000 } as const;
+
+/**
  * Rastro consultável (`operations.audit_events`) de pagamento que não abateu
  * fatura como deveria. Uma vez por pagamento e motivo: os gateways reenviam a
  * mesma notificação, e a trilha não pode encher de cópias.
+ *
+ * "Uma vez" vale também para duas entregas simultâneas. A tabela não tem
+ * unicidade para essa chave (e criar o índice falharia se já houver cópia), então
+ * a procura e a gravação rodam numa transação com trava consultiva do Postgres
+ * derivada da chave: a segunda entrega espera a primeira confirmar e aí a
+ * procura dela — comando novo, em READ COMMITTED — já acha o registro. A trava
+ * some sozinha no fim da transação. `$executeRaw`, e não `$queryRaw`: a função
+ * devolve `void`, que o Prisma não sabe ler como coluna.
  *
  * Não lança: quem chama é a baixa, que já deu certo para o cliente. Mas a falha
  * de gravação sai em `console.error` com marca própria — é a perda do rastro, e
@@ -570,11 +590,15 @@ async function auditarPagamentoForaDaFatura(evento: {
 }) {
   try {
     const chave = { action: evento.action, entityType: evento.entityType, entityId: evento.entityId };
-    const jaRegistrado = await prisma.operationsAuditEvent.findFirst({ where: chave, select: { id: true } });
-    if (jaRegistrado) return;
-    await prisma.operationsAuditEvent.create({
-      data: { ...chave, organizationId: evento.organizationId, metadata: evento.metadata },
-    });
+    const trava = `audit_events:${evento.action}:${evento.entityType}:${evento.entityId}`;
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${trava}, 0))`;
+      const jaRegistrado = await tx.operationsAuditEvent.findFirst({ where: chave, select: { id: true } });
+      if (jaRegistrado) return;
+      await tx.operationsAuditEvent.create({
+        data: { ...chave, organizationId: evento.organizationId, metadata: evento.metadata },
+      });
+    }, LIMITES_DA_TRANSACAO);
   } catch (erro) {
     console.error(
       `[ledger] SEM RASTRO: não gravei a auditoria ${evento.action} de ${evento.entityType} ${evento.entityId}`,
@@ -582,6 +606,43 @@ async function auditarPagamentoForaDaFatura(evento: {
       erro,
     );
   }
+}
+
+/**
+ * Fecha na trilha uma `PAGAMENTO_LEDGER_FALHOU` que o reenvio do gateway
+ * resolveu: o pagamento agora está em `core.payments`, alocado.
+ *
+ * A trilha é só acréscimo: o evento da falha fica como está e ganha um
+ * `PAGAMENTO_LEDGER_RESOLVIDO` na mesma cobrança, apontando para ele. Quem
+ * concilia lê os dois e não precisa conferir o ledger à mão.
+ *
+ * Não lança, pelo mesmo motivo de `auditarPagamentoForaDaFatura` — e porque é
+ * chamada de dentro do `try` do ledger: lançar aqui gravaria uma falha nova
+ * justamente no pagamento que acabou de dar certo.
+ */
+async function auditarLedgerResolvido(evento: {
+  organizationId: string | null;
+  chargeId: string;
+  metadata: Prisma.InputJsonObject;
+}) {
+  let falha: { id: bigint } | null;
+  try {
+    falha = await prisma.operationsAuditEvent.findFirst({
+      where: { action: "PAGAMENTO_LEDGER_FALHOU", entityType: "SubscriptionCharge", entityId: evento.chargeId },
+      select: { id: true },
+    });
+  } catch (erro) {
+    console.error(`[ledger] não consegui conferir se havia PAGAMENTO_LEDGER_FALHOU de ${evento.chargeId}`, erro);
+    return;
+  }
+  if (!falha) return;
+  await auditarPagamentoForaDaFatura({
+    action: "PAGAMENTO_LEDGER_RESOLVIDO",
+    organizationId: evento.organizationId,
+    entityType: "SubscriptionCharge",
+    entityId: evento.chargeId,
+    metadata: { ...evento.metadata, falhaEventoId: String(falha.id) },
+  });
 }
 
 /**
@@ -762,7 +823,7 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
               });
             }
             return centavos;
-          });
+          }, LIMITES_DA_TRANSACAO);
           if (aAlocar < principal) {
             // Dinheiro que entrou e não abateu fatura (ela já estava coberta, no
             // todo ou em parte): fica em core.payments para a conciliação
@@ -783,6 +844,21 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
               },
             });
           }
+          // Chegou até aqui: o ledger tem o pagamento. Se uma entrega anterior
+          // tinha falhado, a trilha passa a dizer que o reenvio resolveu.
+          await auditarLedgerResolvido({
+            organizationId: assinatura.organizationId,
+            chargeId: cobranca.id,
+            metadata: {
+              chargeId: cobranca.id,
+              invoiceId: cobranca.invoiceId,
+              paymentId: pagamento.id,
+              provider: cobranca.provider,
+              externalId: refExterna,
+              principalCentavos: principal,
+              alocadoCentavos: aAlocar,
+            },
+          });
         }
       }
     } catch (erro) {

@@ -54,8 +54,12 @@ const { estado } = vi.hoisted(() => ({
     filtroDoSaldo: null as null | Record<string, unknown>,
     alocacoes: [] as Record<string, unknown>[],
     travas: [] as string[],
+    travasDaAuditoria: [] as string[],
+    limites: [] as unknown[],
     auditoria: [] as Record<string, unknown>[],
     auditoriaFalha: false,
+    /** A leitura fora de transação (a conferência da falha anterior) falha. */
+    conferenciaFalha: false,
     alocacaoFalha: null as null | Error,
   },
 }));
@@ -72,9 +76,27 @@ vi.mock("@/lib/prisma", () => {
       return create;
     },
   };
-  // A transação da alocação: registra a trava pedida na fatura.
+  const operationsAuditEvent = {
+    // O id é a posição na trilha: o banco numera em sequência.
+    findFirst: async ({ where }: { where: Record<string, unknown> }) => {
+      const posicao = estado.auditoria.findIndex((e) => e.action === where.action && e.entityId === where.entityId);
+      return posicao < 0 ? null : { id: BigInt(posicao + 70) };
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      if (estado.auditoriaFalha) throw new Error("banco de auditoria fora do ar");
+      estado.auditoria.push(data);
+      return data;
+    },
+  };
+  // As transações: a da alocação registra a trava pedida na fatura; a da
+  // auditoria, a trava consultiva da chave do evento.
   const tx = {
     corePaymentAllocation,
+    operationsAuditEvent,
+    $executeRaw: async (sql: TemplateStringsArray, ...valores: unknown[]) => {
+      estado.travasDaAuditoria.push(`${sql.join("?").replace(/\s+/g, " ").trim()} <- ${valores.join(",")}`);
+      return 1;
+    },
     $queryRaw: async (sql: TemplateStringsArray, ...valores: unknown[]) => {
       estado.travas.push(`${sql.join("?").replace(/\s+/g, " ").trim()} <- ${valores.join(",")}`);
       return [];
@@ -91,15 +113,16 @@ vi.mock("@/lib/prisma", () => {
         upsert: async ({ create }: { create: Record<string, unknown> }) => ({ id: "pagamento-1", ...create }),
       },
       operationsAuditEvent: {
-        findFirst: async ({ where }: { where: Record<string, unknown> }) =>
-          estado.auditoria.find((e) => e.action === where.action && e.entityId === where.entityId) ?? null,
-        create: async ({ data }: { data: Record<string, unknown> }) => {
-          if (estado.auditoriaFalha) throw new Error("banco de auditoria fora do ar");
-          estado.auditoria.push(data);
-          return data;
+        ...operationsAuditEvent,
+        findFirst: async (args: { where: Record<string, unknown> }) => {
+          if (estado.conferenciaFalha) throw new Error("conexão caiu");
+          return operationsAuditEvent.findFirst(args);
         },
       },
-      $transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
+      $transaction: async (fn: (t: typeof tx) => Promise<unknown>, limites?: unknown) => {
+        estado.limites.push(limites);
+        return fn(tx);
+      },
     },
   };
 });
@@ -133,8 +156,11 @@ beforeEach(() => {
   estado.filtroDoSaldo = null;
   estado.alocacoes = [];
   estado.travas = [];
+  estado.travasDaAuditoria = [];
+  estado.limites = [];
   estado.auditoria = [];
   estado.auditoriaFalha = false;
+  estado.conferenciaFalha = false;
   estado.alocacaoFalha = null;
   vi.restoreAllMocks();
 });
@@ -189,6 +215,12 @@ describe("baixarCobrancaPorIdExterno — alocação no ledger", () => {
     expect(estado.travas).toEqual([
       "SELECT id FROM operations.subscription_invoices WHERE id = ? FOR UPDATE <- fatura-1",
     ]);
+  });
+
+  it("a transação da alocação tem limite explícito, maior que o padrão do Prisma (2 s e 5 s)", async () => {
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(estado.limites).toEqual([{ maxWait: 5_000, timeout: 10_000 }]);
   });
 });
 
@@ -281,5 +313,100 @@ describe("baixarCobrancaPorIdExterno — rastro do pagamento que não abateu a f
       organizationId: "org-1",
       metadata: { invoiceId: "fatura-1", status: "approved", erro: "core: allocation organization/currency/status mismatch" },
     });
+  });
+
+  it("a auditoria procura e grava sob trava consultiva da chave do evento, com limite explícito", async () => {
+    estado.jaAlocado = 100;
+
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(estado.travasDaAuditoria).toEqual([
+      "SELECT pg_advisory_xact_lock(hashtextextended(?, 0)) <- audit_events:PAGAMENTO_SEM_ALOCACAO:CorePayment:pagamento-1",
+    ]);
+    // A da alocação e a da auditoria.
+    expect(estado.limites).toEqual([
+      { maxWait: 5_000, timeout: 10_000 },
+      { maxWait: 5_000, timeout: 10_000 },
+    ]);
+  });
+});
+
+/**
+ * A falha do ledger que o reenvio do gateway resolveu. O evento da falha fica
+ * na trilha para sempre; sem a marca de resolvida, quem concilia teria de
+ * conferir `core.payments` antes de agir sobre ele.
+ */
+describe("baixarCobrancaPorIdExterno — falha de ledger resolvida no reenvio", () => {
+  const ACOES = () => estado.auditoria.map((e) => e.action);
+
+  it("o reenvio que grava e aloca acrescenta PAGAMENTO_LEDGER_RESOLVIDO, sem tocar no evento da falha", async () => {
+    estado.alocacaoFalha = new Error("core: allocation organization/currency/status mismatch");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+    const falha = { ...estado.auditoria[0] };
+
+    // O gateway reenvia e desta vez o ledger aceita.
+    estado.alocacaoFalha = null;
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU", "PAGAMENTO_LEDGER_RESOLVIDO"]);
+    expect(estado.auditoria[0]).toEqual(falha);
+    expect(estado.auditoria[1]).toMatchObject({
+      action: "PAGAMENTO_LEDGER_RESOLVIDO",
+      // A mesma entidade da falha, para as duas aparecerem juntas.
+      entityType: "SubscriptionCharge",
+      entityId: "cobranca-1",
+      organizationId: "org-1",
+      metadata: {
+        falhaEventoId: "70",
+        chargeId: "cobranca-1",
+        invoiceId: "fatura-1",
+        paymentId: "pagamento-1",
+        principalCentavos: 10000,
+        alocadoCentavos: 10000,
+      },
+    });
+    expect(estado.alocacoes).toEqual([{ paymentId: "pagamento-1", invoiceId: "fatura-1", amount: 100 }]);
+  });
+
+  it("mais reenvios depois de resolvida não repetem a resolução", async () => {
+    estado.alocacaoFalha = new Error("core: invoice overpaid");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+    estado.alocacaoFalha = null;
+
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU", "PAGAMENTO_LEDGER_RESOLVIDO"]);
+  });
+
+  it("pagamento que nunca falhou não ganha evento de resolução", async () => {
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(estado.auditoria).toEqual([]);
+  });
+
+  it("reenvio que falha de novo não vira resolvido", async () => {
+    estado.alocacaoFalha = new Error("core: invoice overpaid");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU"]);
+  });
+
+  it("não conseguir conferir a falha anterior não derruba a baixa nem grava falha nova", async () => {
+    estado.conferenciaFalha = true;
+    const erroNoLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const resultado = await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(resultado).not.toBeNull();
+    expect(estado.alocacoes).toHaveLength(1);
+    expect(estado.auditoria).toEqual([]);
+    expect(erroNoLog).toHaveBeenCalledTimes(1);
+    expect(erroNoLog.mock.calls[0][0]).toContain("não consegui conferir se havia PAGAMENTO_LEDGER_FALHOU de cobranca-1");
   });
 });

@@ -12,11 +12,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * servidor e o `onClick` de cada botão é capturado na criação do elemento, pelo
  * runtime de JSX. Clicar é chamar esse `onClick` — o mesmo código que o
  * navegador chamaria — com `prompt`, `confirm` e `fetch` simulados.
+ *
+ * Para ver o que o painel mostra DEPOIS do clique, o `useState` guarda o que os
+ * `set...` receberam (render no servidor não tem segunda renderização); renderizar
+ * de novo com esse estado é o que o navegador faria sozinho.
  */
 
 type Botao = { rotulo: string; onClick: () => unknown };
 
-const { botoes } = vi.hoisted(() => ({ botoes: [] as { rotulo: string; onClick: () => unknown }[] }));
+const { botoes, memoria } = vi.hoisted(() => ({
+  botoes: [] as { rotulo: string; onClick: () => unknown }[],
+  /** O estado do painel entre uma renderização e outra, pela ordem dos `useState`. */
+  memoria: { valores: new Map<number, unknown>(), cursor: 0 },
+}));
 
 function capturando<T extends (tipo: unknown, props: Record<string, unknown>, ...resto: unknown[]) => unknown>(criar: T): T {
   return ((tipo, props, ...resto) => {
@@ -35,6 +43,20 @@ vi.mock("react/jsx-dev-runtime", async (original) => {
   const real = await original<typeof import("react/jsx-dev-runtime")>();
   return { ...real, jsxDEV: capturando(real.jsxDEV as never) };
 });
+vi.mock("react", async (original) => {
+  const real = await original<typeof import("react")>();
+  return {
+    ...real,
+    useState: (inicial: unknown) => {
+      const indice = memoria.cursor++;
+      const [doReact] = real.useState(inicial);
+      const atual = () => (memoria.valores.has(indice) ? memoria.valores.get(indice) : doReact);
+      const gravar = (novo: unknown) =>
+        memoria.valores.set(indice, typeof novo === "function" ? (novo as (antes: unknown) => unknown)(atual()) : novo);
+      return [atual(), gravar];
+    },
+  };
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 
 const { default: OperacaoPanel } = await import("@/components/OperacaoPanel");
@@ -46,8 +68,14 @@ function fatura(cobranca: typeof COBRANCA | null) {
 }
 
 /** Renderiza a ficha com uma fatura e devolve os botões de envio dela. */
-function renderizar(cobranca: typeof COBRANCA | null = COBRANCA, status = "OPEN"): { html: string; botao: (rotulo: string) => Botao } {
+function renderizar(
+  cobranca: typeof COBRANCA | null = COBRANCA,
+  status = "OPEN",
+  manterEstado = false,
+): { html: string; botao: (rotulo: string) => Botao } {
   botoes.length = 0;
+  if (!manterEstado) memoria.valores.clear();
+  memoria.cursor = 0;
   const html = renderToStaticMarkup(
     <OperacaoPanel
       organizationId="org-1"
@@ -85,7 +113,12 @@ function renderizar(cobranca: typeof COBRANCA | null = COBRANCA, status = "OPEN"
   };
 }
 
+/** O painel como fica depois do clique, sem os comentários que o React põe entre os textos. */
+const depoisDoClique = () => renderizar(COBRANCA, "OPEN", true).html.replace(/<!-- -->/g, "");
+
 type Chamada = { url: string; method: string; corpo: unknown };
+/** O que a rota de envio responde (sempre 200 aqui: a mensagem saiu). */
+let resposta: Record<string, unknown> = {};
 let chamadas: Chamada[] = [];
 let prompts: string[] = [];
 let confirmacoes: string[] = [];
@@ -109,9 +142,10 @@ beforeEach(() => {
   chamadas = [];
   prompts = [];
   confirmacoes = [];
+  resposta = { ok: true, destino: "x", registrado: true };
   vi.stubGlobal("fetch", async (url: string, init: { method: string; body: string }) => {
     chamadas.push({ url, method: init.method, corpo: JSON.parse(init.body) });
-    return { ok: true, status: 200, json: async () => ({ ok: true, destino: "x", registrado: true }) };
+    return { ok: true, status: 200, json: async () => resposta };
   });
 });
 
@@ -228,5 +262,54 @@ describe("OperacaoPanel — os quatro botões de envio de cobrança", () => {
     expect(html).not.toContain("Enviar teste por");
     expect(html).not.toContain("Enviar ao cliente por");
     expect(botoes.filter((b) => b.rotulo.startsWith("Enviar "))).toEqual([]);
+  });
+});
+
+/**
+ * A resposta do envio. A mensagem pode ter saído (200) sem o servidor conseguir
+ * gravar o desfecho na auditoria: aí vem `registrado: false`, e o painel não
+ * pode mostrar um "enviado" limpo.
+ */
+describe("OperacaoPanel — o que aparece depois do envio", () => {
+  const AVISO = "Não consegui gravar o resultado na auditoria: ficou só o registro de que o envio começou.";
+
+  async function enviarAoCliente() {
+    const { botao } = renderizar();
+    navegador({ prompt: ["1"], confirm: true });
+    await botao("Enviar ao cliente por e-mail").onClick();
+    expect(chamadas).toHaveLength(1);
+    return depoisDoClique();
+  }
+
+  it("enviado e registrado: mostra o destino, sem destaque de erro", async () => {
+    resposta = { ok: true, destino: "cliente@exemplo.com", registrado: true };
+
+    const html = await enviarAoCliente();
+
+    expect(html).toContain('<div class="prov-result" role="status"><strong>Enviado por email para cliente@exemplo.com.</strong></div>');
+    expect(html).not.toContain("prov-result-erro");
+  });
+
+  it("registrado: false — mostra o envio E o aviso do servidor, em destaque de erro", async () => {
+    resposta = { ok: true, destino: "cliente@exemplo.com", registrado: false, aviso: AVISO };
+
+    const html = await enviarAoCliente();
+
+    expect(html).toContain(
+      `<div class="prov-result prov-result-erro" role="status"><strong>Enviado por email para cliente@exemplo.com.</strong> ${AVISO}</div>`,
+    );
+    expect(html).not.toContain('<div class="prov-result" role="status">');
+  });
+
+  it("registrado: false sem texto de aviso ainda avisa, com a frase do painel", async () => {
+    resposta = { ok: true, destino: "5511999990000", registrado: false };
+    const { botao } = renderizar();
+    navegador({ prompt: ["1", "5511999990000"] });
+
+    await botao("Enviar teste por WhatsApp").onClick();
+
+    expect(depoisDoClique()).toContain(
+      '<div class="prov-result prov-result-erro" role="status"><strong>Enviado por whatsapp para 5511999990000 (teste).</strong> O registro na auditoria falhou.</div>',
+    );
   });
 });

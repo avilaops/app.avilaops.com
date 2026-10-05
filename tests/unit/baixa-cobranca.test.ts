@@ -50,6 +50,8 @@ vi.mock("@/lib/prisma", () => ({
       },
       updateMany: async () => ({ count: 0 }),
     },
+    // A baixa que dá certo confere se havia uma falha de ledger a fechar.
+    operationsAuditEvent: { findFirst: async () => null },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         $queryRaw: async () => [],

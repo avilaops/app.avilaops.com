@@ -23,8 +23,9 @@ import { prisma } from "@/lib/prisma";
  *
  * Auditoria em dois tempos, para não existir mensagem que saiu sem rastro:
  *
- * 1. ANTES de enviar, grava a intenção (`COBRANCA_ENVIO_INICIADO`). Se essa
- *    gravação falha, nada é enviado.
+ * 1. ANTES de enviar, grava a intenção (`COBRANCA_ENVIO_INICIADO`), já com o
+ *    cliente dono da fatura, para a trilha por cliente achar a intenção que
+ *    ficou sem desfecho. Se essa gravação falha, nada é enviado.
  * 2. DEPOIS, grava o desfecho, apontando para a intenção (`tentativaId`):
  *    `COBRANCA_ENVIADA`, `COBRANCA_ENVIO_FALHOU` (o provedor não entregou),
  *    `COBRANCA_ENVIO_RECUSADO` (nem tentou: sem destino, fatura cancelada...)
@@ -32,13 +33,38 @@ import { prisma } from "@/lib/prisma";
  *
  * Intenção sem desfecho na trilha quer dizer "pode ter saído e não sei": é o
  * caso de o banco cair entre o envio e o segundo registro. A resposta também
- * diz isso (`registrado: false` e um aviso), em vez de um "ok" limpo.
+ * diz isso (`registrado: false` e um aviso), em vez de um "ok" limpo. Quem lista
+ * essas intenções é `listarEnviosSemDesfecho` (`auditoria-envio-cobranca.ts`).
  *
  * As respostas de erro levam `error` (lido pelo helper `chamar()` do painel) e
  * `erro` (o nome da casa) com o mesmo texto.
  */
 const AVISO_SEM_DESFECHO =
   "Não consegui gravar o resultado na auditoria: ficou só o registro de que o envio começou. Avise quem cuida do sistema.";
+
+/**
+ * O cliente dono do alvo, para a intenção entrar na trilha dele. Uma leitura
+ * pela chave primária. Não achou ou a leitura falhou: `null`, como era antes —
+ * a intenção é gravada do mesmo jeito e o envio decide o resto (alvo que não
+ * existe sai como recusado).
+ */
+async function clienteDoAlvo(alvo: AlvoEnvio): Promise<string | null> {
+  const daFatura = { subscription: { select: { organizationId: true } } };
+  try {
+    if (alvo.tipo === "cobranca") {
+      const cobranca = await prisma.subscriptionCharge.findUnique({
+        where: { id: alvo.id },
+        select: { invoice: { select: daFatura } },
+      });
+      return cobranca?.invoice.subscription.organizationId ?? null;
+    }
+    const fatura = await prisma.subscriptionInvoice.findUnique({ where: { id: alvo.id }, select: daFatura });
+    return fatura?.subscription.organizationId ?? null;
+  } catch (erro) {
+    console.error(`[cobranca] não descobri o cliente de ${alvo.tipo} ${alvo.id}; a intenção vai sem ele`, erro);
+    return null;
+  }
+}
 
 export async function responderEnvio(request: NextRequest, alvo: AlvoEnvio) {
   const falha = (msg: string, status: number) => NextResponse.json({ erro: msg, error: msg }, { status });
@@ -68,12 +94,15 @@ export async function responderEnvio(request: NextRequest, alvo: AlvoEnvio) {
   const entidadeDoAlvo = alvo.tipo === "cobranca" ? "SubscriptionCharge" : "SubscriptionInvoice";
   const pedido = { canal, conteudo, teste, ...(teste ? { destinoTeste } : {}) };
 
+  const clienteId = await clienteDoAlvo(alvo);
+
   // 1. A intenção, antes de qualquer mensagem sair. Sem ela, não envia.
   let tentativaId: string;
   try {
     const intencao = await prisma.operationsAuditEvent.create({
       data: {
         actorId: admin.id,
+        organizationId: clienteId,
         action: "COBRANCA_ENVIO_INICIADO",
         entityType: entidadeDoAlvo,
         entityId: alvo.id,
@@ -95,7 +124,8 @@ export async function responderEnvio(request: NextRequest, alvo: AlvoEnvio) {
       await prisma.operationsAuditEvent.create({
         data: {
           actorId: admin.id,
-          organizationId: dados.organizationId,
+          // Recusado e erro não trazem o cliente do envio: vale o da intenção.
+          organizationId: dados.organizationId ?? clienteId,
           action,
           entityType: dados.entityType ?? entidadeDoAlvo,
           entityId: dados.entityId ?? alvo.id,

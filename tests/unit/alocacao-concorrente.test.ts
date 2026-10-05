@@ -14,6 +14,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * tomada se o código pedir. Tirando o `FOR UPDATE` de `assinaturas.ts`, o
  * segundo pagamento volta a ser rejeitado e o primeiro teste falha.
  *
+ * A mesma coisa vale para a auditoria: a procura do evento cede a vez, e a
+ * trava consultiva (`pg_advisory_xact_lock`) só existe se o código pedir. Sem
+ * ela, duas entregas simultâneas da mesma notificação não acham nada e gravam
+ * o evento duas vezes.
+ *
  * Contra Postgres de verdade: `tests/integration/alocacao-concorrente.test.ts`.
  */
 
@@ -25,10 +30,14 @@ const { banco } = vi.hoisted(() => ({
     valorDaFatura: 100,
     alocacoes: [] as { paymentId: string; invoiceId: string; amount: number }[],
     auditoria: [] as Record<string, unknown>[],
-    /** Fila de quem espera a trava de cada fatura. */
+    /** Fila de quem espera cada trava: a da linha da fatura e a consultiva. */
     travas: new Map<string, Promise<void>>(),
   },
 }));
+
+type Evento = Record<string, unknown>;
+const mesmoEvento = (where: Evento) => (e: Evento) =>
+  e.action === where.action && e.entityType === where.entityType && e.entityId === where.entityId;
 
 /** Toda ida ao banco cede a vez: é o que deixa as duas baixas se intercalarem. */
 const idaAoBanco = () => new Promise<void>((ok) => setTimeout(ok, 1));
@@ -50,24 +59,48 @@ vi.mock("@/lib/prisma", () => ({
       },
     },
     operationsAuditEvent: {
-      findFirst: async () => null,
-      create: async ({ data }: { data: Record<string, unknown> }) => {
-        banco.auditoria.push(data);
-        return data;
+      findFirst: async ({ where }: { where: Evento }) => {
+        await idaAoBanco();
+        return banco.auditoria.find(mesmoEvento(where)) ?? null;
       },
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
-      let soltar: (() => void) | null = null;
+      const soltar: (() => void)[] = [];
+      // Quem pede uma trava entra na fila dela e só a solta no fim da transação.
+      const travar = async (chave: string) => {
+        const anterior = banco.travas.get(chave) ?? Promise.resolve();
+        banco.travas.set(chave, anterior.then(() => new Promise<void>((ok) => soltar.push(ok))));
+        await anterior;
+      };
       // O que a transação grava só aparece para as outras no commit.
       const pendentes: Alocacao[] = [];
+      const eventos: Evento[] = [];
       const tx = {
+        $executeRaw: async (sql: TemplateStringsArray, ...valores: unknown[]) => {
+          await idaAoBanco();
+          if (sql.join("?").includes("pg_advisory_xact_lock")) await travar(`consultiva:${String(valores[0])}`);
+          return 1;
+        },
+        operationsAuditEvent: {
+          // O comando enxerga o que estava confirmado quando começou, e demora
+          // mais que a fila da fatura: sem a trava consultiva, a segunda entrega
+          // procura antes de a primeira confirmar e não acha nada.
+          findFirst: async ({ where }: { where: Evento }) => {
+            const achado = banco.auditoria.find(mesmoEvento(where)) ?? null;
+            await new Promise<void>((ok) => setTimeout(ok, 15));
+            return achado;
+          },
+          create: async ({ data }: { data: Evento }) => {
+            await idaAoBanco();
+            eventos.push(data);
+            return data;
+          },
+        },
         $queryRaw: async (sql: TemplateStringsArray, ...valores: unknown[]) => {
           await idaAoBanco();
           if (!sql.join("?").includes("FOR UPDATE")) return [];
           const fatura = String(valores[0]);
-          const anterior = banco.travas.get(fatura) ?? Promise.resolve();
-          banco.travas.set(fatura, anterior.then(() => new Promise<void>((ok) => (soltar = ok))));
-          await anterior;
+          await travar(`fatura:${fatura}`);
           return [{ id: fatura }];
         },
         corePaymentAllocation: {
@@ -93,9 +126,10 @@ vi.mock("@/lib/prisma", () => ({
       try {
         const resultado = await fn(tx);
         banco.alocacoes.push(...pendentes);
+        banco.auditoria.push(...eventos);
         return resultado;
       } finally {
-        (soltar as (() => void) | null)?.();
+        soltar.forEach((ok) => ok());
       }
     },
   },
@@ -178,5 +212,34 @@ describe("baixarCobrancaPorIdExterno — dois pagamentos simultâneos da mesma f
       organizationId: "org-1",
       metadata: { chargeId: "cobranca-mp-b", invoiceId: "fatura-1", excedenteCentavos: 10000 },
     });
+  });
+});
+
+describe("baixarCobrancaPorIdExterno — a mesma notificação entregue duas vezes ao mesmo tempo", () => {
+  it("grava o evento de auditoria uma vez só", async () => {
+    // A fatura já está coberta por outro pagamento: o de agora não abate nada.
+    banco.cobrancas = [cobranca("mp-a", 100)];
+    banco.alocacoes = [{ paymentId: "pagamento-anterior", invoiceId: "fatura-1", amount: 100 }];
+    const erroNoLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await Promise.all([baixarCobrancaPorIdExterno("mp-a", "approved"), baixarCobrancaPorIdExterno("mp-a", "approved")]);
+
+    expect(erroNoLog).not.toHaveBeenCalled();
+    expect(banco.auditoria).toHaveLength(1);
+    expect(banco.auditoria[0]).toMatchObject({
+      action: "PAGAMENTO_SEM_ALOCACAO",
+      entityType: "CorePayment",
+      entityId: "pagamento-mp-a",
+      metadata: { excedenteCentavos: 10000 },
+    });
+  });
+
+  it("eventos de pagamentos diferentes não esperam um pelo outro nem se confundem", async () => {
+    banco.cobrancas = [cobranca("mp-a", 100), cobranca("mp-b", 100)];
+    banco.alocacoes = [{ paymentId: "pagamento-anterior", invoiceId: "fatura-1", amount: 100 }];
+
+    await Promise.all([baixarCobrancaPorIdExterno("mp-a", "approved"), baixarCobrancaPorIdExterno("mp-b", "approved")]);
+
+    expect(banco.auditoria.map((e) => e.entityId).sort()).toEqual(["pagamento-mp-a", "pagamento-mp-b"]);
   });
 });

@@ -25,6 +25,9 @@ const { estado, CobrancaSemLink } = vi.hoisted(() => {
       /** Quais gravações de auditoria falham, pela ordem (1 = intenção, 2 = desfecho). */
       auditoriaFalhaNa: [] as number[],
       gravacoes: 0,
+      /** O cliente dono do alvo, como o banco responde; `Error` = a leitura falha. */
+      clienteDoAlvo: "org-1" as string | null | Error,
+      leiturasDoAlvo: [] as string[],
       envios: [] as { canal: string; alvo: unknown; opcoes: unknown }[],
       enviar: (async () => ({
         enviado: true,
@@ -54,19 +57,35 @@ vi.mock("@/lib/entrega-cobranca", () => {
     enviarCobrancaPorWhatsapp: enviarPor("whatsapp"),
   };
 });
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    operationsAuditEvent: {
-      create: async ({ data }: { data: Record<string, unknown> }) => {
-        estado.gravacoes += 1;
-        if (estado.auditoriaFalhaNa.includes(estado.gravacoes)) throw new Error("banco de auditoria fora do ar");
-        estado.linha.push(`auditoria:${String(data.action)}`);
-        estado.auditoria.push(data);
-        return { id: BigInt(estado.auditoria.length + 40), ...data };
+vi.mock("@/lib/prisma", () => {
+  const dono = (modelo: string, id: string) => {
+    estado.leiturasDoAlvo.push(`${modelo}:${id}`);
+    if (estado.clienteDoAlvo instanceof Error) throw estado.clienteDoAlvo;
+    return estado.clienteDoAlvo ? { subscription: { organizationId: estado.clienteDoAlvo } } : null;
+  };
+  return {
+    prisma: {
+      subscriptionInvoice: {
+        findUnique: async ({ where }: { where: { id: string } }) => dono("fatura", where.id),
+      },
+      subscriptionCharge: {
+        findUnique: async ({ where }: { where: { id: string } }) => {
+          const invoice = dono("cobranca", where.id);
+          return invoice ? { invoice } : null;
+        },
+      },
+      operationsAuditEvent: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          estado.gravacoes += 1;
+          if (estado.auditoriaFalhaNa.includes(estado.gravacoes)) throw new Error("banco de auditoria fora do ar");
+          estado.linha.push(`auditoria:${String(data.action)}`);
+          estado.auditoria.push(data);
+          return { id: BigInt(estado.auditoria.length + 40), ...data };
+        },
       },
     },
-  },
-}));
+  };
+});
 
 const { responderEnvio } = await import("@/lib/entrega-cobranca-http");
 
@@ -88,6 +107,8 @@ beforeEach(() => {
   estado.auditoria = [];
   estado.auditoriaFalhaNa = [];
   estado.gravacoes = 0;
+  estado.clienteDoAlvo = "org-1";
+  estado.leiturasDoAlvo = [];
   estado.envios = [];
   estado.enviar = async () => ({
     enviado: true,
@@ -114,6 +135,7 @@ describe("responderEnvio — auditoria do envio", () => {
     expect(estado.linha).toEqual(["auditoria:COBRANCA_ENVIO_INICIADO", "envio:email", "auditoria:COBRANCA_ENVIADA"]);
     expect(estado.auditoria[0]).toEqual({
       actorId: "admin-1",
+      organizationId: "org-1",
       action: "COBRANCA_ENVIO_INICIADO",
       entityType: "SubscriptionInvoice",
       entityId: "fatura-1",
@@ -215,10 +237,62 @@ describe("responderEnvio — auditoria do envio", () => {
     expect((await resposta.json()).error).toBe("Sem e-mail cadastrado para enviar a cobrança.");
     expect(estado.auditoria.map((e) => e.action)).toEqual(["COBRANCA_ENVIO_INICIADO", "COBRANCA_ENVIO_RECUSADO"]);
     expect(estado.auditoria[1]).toMatchObject({
+      // O envio recusado não devolve o cliente: vale o que a intenção achou.
+      organizationId: "org-1",
       entityType: "SubscriptionInvoice",
       entityId: "fatura-1",
       metadata: { motivo: "Sem e-mail cadastrado para enviar a cobrança.", tentativaId: "41" },
     });
+  });
+
+  it("a intenção leva o cliente dono do alvo, lido antes do envio — pela fatura ou pela cobrança", async () => {
+    estado.clienteDoAlvo = "org-7";
+
+    await responderEnvio(pedido(AO_CLIENTE), ALVO);
+    await responderEnvio(pedido(AO_CLIENTE), { tipo: "cobranca", id: "cobranca-9" });
+
+    expect(estado.leiturasDoAlvo).toEqual(["fatura:fatura-1", "cobranca:cobranca-9"]);
+    const intencoes = estado.auditoria.filter((e) => e.action === "COBRANCA_ENVIO_INICIADO");
+    expect(intencoes.map((e) => e.organizationId)).toEqual(["org-7", "org-7"]);
+    expect(intencoes.map((e) => e.entityId)).toEqual(["fatura-1", "cobranca-9"]);
+  });
+
+  it("enviou e o desfecho não gravou: a intenção que sobra está na trilha do cliente", async () => {
+    estado.auditoriaFalhaNa = [2];
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await responderEnvio(pedido(AO_CLIENTE), ALVO);
+
+    expect(estado.auditoria).toHaveLength(1);
+    expect(estado.auditoria[0]).toMatchObject({ action: "COBRANCA_ENVIO_INICIADO", organizationId: "org-1" });
+  });
+
+  it("alvo que não existe: a intenção vai sem cliente e o envio decide o resto", async () => {
+    estado.clienteDoAlvo = null;
+    estado.enviar = async () => {
+      throw new CobrancaSemLink("Fatura não encontrada.");
+    };
+
+    const resposta = await responderEnvio(pedido(AO_CLIENTE), ALVO);
+
+    expect(resposta.status).toBe(409);
+    expect(estado.auditoria.map((e) => [e.action, e.organizationId])).toEqual([
+      ["COBRANCA_ENVIO_INICIADO", null],
+      ["COBRANCA_ENVIO_RECUSADO", null],
+    ]);
+  });
+
+  it("falha ao descobrir o cliente não segura o envio: intenção sem cliente, desfecho com o do envio", async () => {
+    estado.clienteDoAlvo = new Error("conexão caiu");
+    const erroNoLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const resposta = await responderEnvio(pedido(AO_CLIENTE), ALVO);
+
+    expect(resposta.status).toBe(200);
+    expect(estado.linha).toEqual(["auditoria:COBRANCA_ENVIO_INICIADO", "envio:email", "auditoria:COBRANCA_ENVIADA"]);
+    expect(estado.auditoria.map((e) => e.organizationId)).toEqual([null, "org-1"]);
+    expect(erroNoLog).toHaveBeenCalledTimes(1);
+    expect(erroNoLog.mock.calls[0][0]).toContain("não descobri o cliente de fatura fatura-1");
   });
 
   it("erro inesperado no envio fecha a intenção como ERRO e responde 500", async () => {
