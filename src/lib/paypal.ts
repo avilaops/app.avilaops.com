@@ -60,15 +60,17 @@ export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
     const info = await chamar<{ url?: string; event_types?: { name: string }[] }>(
       `/v1/notifications/webhooks/${encodeURIComponent(webhookId)}`,
     );
-    return {
-      ambiente: amb,
-      configurado: true,
-      oauthOk: true,
-      webhookId,
-      webhookUrl: info.url ?? null,
-      eventos: (info.event_types ?? []).map((e) => e.name),
-      erro: null,
-    };
+    const url = info.url ?? null;
+    const eventos = (info.event_types ?? []).map((e) => e.name);
+    // Webhook que existe mas aponta pra URL velha, ou não assina evento de
+    // pagamento, é a falha silenciosa que este diagnóstico tem que pegar.
+    const esperada = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/+$/, "") + "/api/webhooks/paypal";
+    const urlConfere = Boolean(url && url.replace(/\/+$/, "") === esperada);
+    const cobreEventos = eventos.includes("*") || eventos.some((n) => n.startsWith("PAYMENT.CAPTURE."));
+    let erro: string | null = null;
+    if (!urlConfere) erro = `O webhook aponta para ${url ?? "lugar nenhum"}, não para ${esperada}.`;
+    else if (!cobreEventos) erro = "O webhook não assina eventos de pagamento (PAYMENT.CAPTURE.*).";
+    return { ambiente: amb, configurado: true, oauthOk: true, webhookId, webhookUrl: url, eventos, erro };
   } catch (erro) {
     return {
       ambiente: amb,

@@ -614,36 +614,54 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
   // conciliação viviam separados. Idempotente (upsert pela chave do gateway) e
   // best-effort: a baixa é pro cliente; o ledger é pra nós e não pode derrubar
   // um pagamento que já deu certo.
-  if (pago) {
+  // Reembolso: o PayPal manda PAYMENT.CAPTURE.REFUNDED e o Mercado Pago reporta
+  // "refunded"/"charged_back". Dinheiro devolvido não pode continuar contando
+  // como recebido no ledger.
+  const reembolsado = ["REFUNDED", "refunded", "charged_back"].includes(status);
+
+  if (pago || reembolsado) {
     try {
       const assinatura = cobranca.invoice.subscription;
       const refExterna = cobranca.externalId ?? cobranca.id;
-      const pagamento = await prisma.corePayment.upsert({
-        where: {
-          provider_providerAccount_externalId: {
+
+      if (reembolsado) {
+        // A view core.receivables só conta alocações de pagamentos CONFIRMED,
+        // então marcar como REFUNDED já tira este dinheiro dos recebíveis.
+        await prisma.corePayment.updateMany({
+          where: { provider: cobranca.provider, providerAccount: "principal", externalId: refExterna },
+          data: { status: "REFUNDED" },
+        });
+      } else {
+        const pagamento = await prisma.corePayment.upsert({
+          where: {
+            provider_providerAccount_externalId: {
+              provider: cobranca.provider,
+              providerAccount: "principal",
+              externalId: refExterna,
+            },
+          },
+          update: { status: "CONFIRMED" },
+          create: {
+            organizationId: assinatura.organizationId,
             provider: cobranca.provider,
             providerAccount: "principal",
             externalId: refExterna,
+            amount: cobranca.amount,
+            currency: assinatura.currency,
+            status: "CONFIRMED",
+            paidAt: cobranca.paidAt ?? agora,
+            source: "GATEWAY_WEBHOOK",
           },
-        },
-        update: { status: "CONFIRMED" },
-        create: {
-          organizationId: assinatura.organizationId,
-          provider: cobranca.provider,
-          providerAccount: "principal",
-          externalId: refExterna,
-          amount: cobranca.amount,
-          currency: assinatura.currency,
-          status: "CONFIRMED",
-          paidAt: cobranca.paidAt ?? agora,
-          source: "GATEWAY_WEBHOOK",
-        },
-      });
-      await prisma.corePaymentAllocation.upsert({
-        where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
-        update: {},
-        create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: cobranca.amount },
-      });
+        });
+        // Aloca só o principal da fatura: numa cobrança de cartão parcelado o
+        // valor capturado inclui juros do pagador e passa do valor da fatura, e
+        // o trigger core.guard_allocation rejeita alocação acima desse valor.
+        await prisma.corePaymentAllocation.upsert({
+          where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
+          update: {},
+          create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: cobranca.invoice.amount },
+        });
+      }
     } catch (erro) {
       console.error(`[ledger] não registrei o pagamento de ${cobranca.id} em core.payments`, erro);
     }

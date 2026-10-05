@@ -32,8 +32,12 @@ type Destinatario = { nome: string; email: string };
 /** O que o operador manda: só o link de pagamento, só o resumo da fatura, ou os dois. */
 export type ConteudoEnvio = "cobranca" | "fatura" | "ambos";
 
-const formatoBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const formatoData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
+
+/** Formata na moeda da cobrança — USD não pode sair como R$ pro cliente. */
+function formatarValor(valor: number, moeda: string): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: moeda }).format(valor);
+}
 
 /** Corpo do e-mail nunca confia em texto vindo de cadastro de cliente. */
 function escapar(texto: string): string {
@@ -44,14 +48,32 @@ function escapar(texto: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Não enviar meio de pagamento de fatura já paga/cancelada nem de cobrança
+ * expirada. O resumo "fatura" (sem link) é permitido sempre.
+ */
+function garantirCobrancaEnviavel(
+  cobranca: { expiresAt: Date | null; invoice: { status: string } },
+  conteudo: ConteudoEnvio,
+): void {
+  if (conteudo === "fatura") return;
+  const status = cobranca.invoice.status;
+  if (status === "PAID") throw new CobrancaSemLink("Esta fatura já está paga; não há cobrança a enviar.");
+  if (status === "CANCELLED") throw new CobrancaSemLink("Esta fatura foi cancelada.");
+  if (cobranca.expiresAt && cobranca.expiresAt.getTime() < Date.now()) {
+    throw new CobrancaSemLink("Esta cobrança expirou; gere uma nova antes de enviar.");
+  }
+}
+
 export function montarEmailDaCobranca(
   cobranca: DadosCobranca,
   destinatario: Destinatario,
   descricao: string,
   conteudo: ConteudoEnvio = "cobranca",
   vencimento: Date | null = null,
+  moeda: string = "BRL",
 ): EmailSaida {
-  const valor = formatoBRL.format(Number(cobranca.amount));
+  const valor = formatarValor(Number(cobranca.amount), moeda);
   const nome = escapar(destinatario.nome);
   const desc = escapar(descricao);
 
@@ -151,13 +173,16 @@ export async function enviarCobrancaPorEmail(
   const destino = opcoes?.destinoTeste ?? emailReal;
   if (!destino) throw new CobrancaSemLink("Sem e-mail cadastrado para enviar a cobrança.");
 
+  const conteudo = opcoes?.conteudo ?? "cobranca";
+  garantirCobrancaEnviavel(cobranca, conteudo);
   const descricao = `${cobranca.invoice.subscription.description} · ${cobranca.invoice.competence}`;
   const email = montarEmailDaCobranca(
     cobranca,
     { nome, email: destino },
     descricao,
-    opcoes?.conteudo ?? "cobranca",
+    conteudo,
     cobranca.invoice.dueDate ?? null,
+    cobranca.invoice.subscription.currency,
   );
   const enviado = await avisarPorEmail(email);
   return { enviado, destino };
@@ -171,8 +196,9 @@ export function montarWhatsappDaCobranca(
   descricao: string,
   conteudo: ConteudoEnvio = "cobranca",
   vencimento: Date | null = null,
+  moeda: string = "BRL",
 ): string {
-  const valor = formatoBRL.format(Number(cobranca.amount));
+  const valor = formatarValor(Number(cobranca.amount), moeda);
   const linhas: string[] = [];
 
   if (conteudo === "fatura" || conteudo === "ambos") {
@@ -231,12 +257,15 @@ export async function enviarCobrancaPorWhatsapp(
   const destino = opcoes?.destinoTeste ?? numeroReal;
   if (!destino) throw new CobrancaSemLink("Sem WhatsApp cadastrado para enviar a cobrança.");
 
+  const conteudo = opcoes?.conteudo ?? "cobranca";
+  garantirCobrancaEnviavel(cobranca, conteudo);
   const descricao = `${cobranca.invoice.subscription.description} · ${cobranca.invoice.competence}`;
   const texto = montarWhatsappDaCobranca(
     cobranca,
     descricao,
-    opcoes?.conteudo ?? "cobranca",
+    conteudo,
     cobranca.invoice.dueDate ?? null,
+    cobranca.invoice.subscription.currency,
   );
   const enviado = await avisarPorWhatsapp({ to: destino, text: texto });
   return { enviado, destino };

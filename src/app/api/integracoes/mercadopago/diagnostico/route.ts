@@ -15,7 +15,7 @@ export async function GET() {
   }
   const d = await diagnosticarMercadoPago();
   return NextResponse.json({
-    ok: d.tokenOk && !d.erro,
+    ok: d.tokenOk && !d.erro && Boolean(d.webhookUrl),
     linhas: [
       { rotulo: "Credencial (token)", valor: d.tokenOk ? "ok" : "falhou" },
       { rotulo: "Conta", valor: d.conta ?? "—" },

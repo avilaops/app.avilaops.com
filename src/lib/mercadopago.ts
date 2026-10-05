@@ -207,8 +207,8 @@ function participantes(p: Record<string, unknown>): { collectorId: number | null
 let usuarioCache: { id: number; apelido: string; email: string | null } | null = null;
 
 /** A conta dona do token, para saber de que lado de cada pagamento estamos. */
-export async function usuarioDoToken(): Promise<{ id: number; apelido: string; email: string | null }> {
-  if (usuarioCache) return usuarioCache;
+export async function usuarioDoToken(forcar = false): Promise<{ id: number; apelido: string; email: string | null }> {
+  if (usuarioCache && !forcar) return usuarioCache;
   const d = await chamar<{ id?: unknown; nickname?: unknown; email?: unknown }>("/users/me");
   const id = idOuNulo(d.id);
   if (!id) throw new MercadoPagoIndisponivel("Mercado Pago não devolveu a conta do token.");
@@ -233,19 +233,33 @@ export async function diagnosticarMercadoPago(): Promise<DiagnosticoMercadoPago>
     return { configurado: false, tokenOk: false, conta: null, webhookUrl: null, erro: "MP_ACCESS_TOKEN ausente." };
   }
   try {
-    const usuario = await usuarioDoToken();
-    let webhookUrl: string | null = null;
+    // Sem cache: um token revogado/trocado tem que aparecer no diagnóstico.
+    const usuario = await usuarioDoToken(true);
+    let bruto = "";
     try {
-      webhookUrl = await urlDeNotificacao();
+      bruto = await urlDeNotificacao();
     } catch {
-      webhookUrl = null;
+      bruto = "";
+    }
+    // A URL de notificação carrega o MP_WEBHOOK_TOKEN no query: redigir antes de mostrar.
+    let webhookUrl: string | null = null;
+    if (bruto) {
+      try {
+        const u = new URL(bruto);
+        u.search = "";
+        webhookUrl = u.toString();
+      } catch {
+        webhookUrl = null;
+      }
     }
     return {
       configurado: true,
       tokenOk: true,
       conta: usuario.apelido || String(usuario.id),
       webhookUrl,
-      erro: null,
+      // Sem URL pública de notificação, aviso de pagamento nunca chega: isso é
+      // "com problema", não saudável.
+      erro: webhookUrl ? null : "URL de notificação ausente ou não pública (confira APP_URL).",
     };
   } catch (erro) {
     return {

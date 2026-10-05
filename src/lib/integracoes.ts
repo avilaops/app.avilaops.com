@@ -60,8 +60,9 @@ export type LinhaRecebivel = { status: string; currency: string; quantidade: num
  */
 export async function resumoRecebiveis(): Promise<LinhaRecebivel[]> {
   const linhas = await prisma.$queryRaw<{ effective_status: string; currency: string; quantidade: bigint; total: unknown }[]>`
-    SELECT effective_status, currency, count(*) AS quantidade, COALESCE(sum(amount), 0) AS total
+    SELECT effective_status, currency, count(*) AS quantidade, COALESCE(sum(outstanding), 0) AS total
     FROM core.receivables
+    WHERE outstanding > 0
     GROUP BY effective_status, currency
     ORDER BY currency, effective_status`;
   return linhas.map((l) => ({
