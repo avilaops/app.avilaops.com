@@ -85,6 +85,28 @@ export function lerEntradaDns(corpo: CorpoDns): EntradaRegistroDns {
 }
 
 /**
+ * No DNS da casa o TTL é do conjunto (nome + tipo). Uma versão vinda do
+ * serviço externo com TTLs diferentes no mesmo conjunto não tem como ficar
+ * igual aqui: cada escrita regravaria o TTL das irmãs, e a restauração só
+ * terminaria divergente depois de já ter mexido na zona.
+ */
+function conferirTtlPorConjunto(linhas: { tipo: string; nome: string; ttl: number }[], zona: string) {
+  const ttlPorConjunto = new Map<string, number>();
+  for (const linha of linhas) {
+    if (ehDoServidor(linha, zona)) continue;
+    const chave = `${linha.tipo.toUpperCase()} ${linha.nome.toLowerCase().replace(/\.$/, "")}`;
+    const visto = ttlPorConjunto.get(chave);
+    if (visto !== undefined && visto !== linha.ttl) {
+      throw new ErroDeDns(
+        `${chave} tem TTLs diferentes nesta versão, e no DNS deste domínio o TTL vale para o conjunto inteiro. Nada foi alterado.`,
+        422,
+      );
+    }
+    ttlPorConjunto.set(chave, linha.ttl);
+  }
+}
+
+/**
  * Confere que o servidor do domínio consegue receber este conteúdo, sem
  * escrever nada. O serviço externo não aceita TXT com byte que não é UTF-8;
  * descobrir isso no meio de uma restauração, depois de apagar registros, é
@@ -485,6 +507,7 @@ export async function restaurarVersaoDns(
   for (const linha of [...diferenca.entrar, ...diferenca.ajustar.map((a) => a.alvo)]) {
     conferirParaServidor(zona.servico, paraEntrada(linha));
   }
+  if (zona.servico === "AVILA") conferirTtlPorConjunto(alvo, zona.fqdn);
 
   await garantirRetratoInicial(zona.id, zona.fqdn, atual);
 

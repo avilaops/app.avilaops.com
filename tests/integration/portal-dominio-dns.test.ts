@@ -407,5 +407,29 @@ describe("DNS pelo portal do cliente", () => {
     });
     expect(state.chamadas).toEqual([]);
   }));
+
+  it("versão com TTLs diferentes no mesmo conjunto não é restaurada no DNS da casa", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const dominio = await tx.domainAsset.update({ where: { fqdn }, data: { dnsProvider: "AVILA" } });
+    const versao = await tx.dnsZoneVersion.create({
+      data: {
+        domainAssetId: dominio.id,
+        origin: "EQUIPE",
+        reason: "veio do serviço externo",
+        records: {
+          formato: 2,
+          linhas: [
+            { tipo: "MX", nome: fqdn, conteudo: "mx1.provedor.com", ttl: 300, prioridade: 10, proxy: false },
+            { tipo: "MX", nome: fqdn, conteudo: "mx2.provedor.com", ttl: 3600, prioridade: 20, proxy: false },
+          ],
+        },
+        recordCount: 2,
+      },
+    });
+    await expect(restaurarVersaoDns(fqdn, versao.id, { id, origem: "CLIENTE" }, { organizationId: org })).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("TTLs diferentes"),
+    });
+    expect(state.chamadas).toEqual([]);
+  }));
 });
 
