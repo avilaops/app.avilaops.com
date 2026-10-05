@@ -558,9 +558,16 @@ const REEMBOLSADO = ["REFUNDED", "refunded", "charged_back"];
  * O padrão do Prisma é esperar 2 s por conexão e durar 5 s; sob disputa longa a
  * segunda baixa da mesma fatura estourava e virava `PAGAMENTO_LEDGER_FALHOU`.
  * São três comandos de milissegundos, então 10 s é folga de sobra para a fila
- * da trava. O teto de 5 s + 10 s fica abaixo do tempo que o gateway espera a
- * resposta do webhook (o Mercado Pago desiste em 22 s): se estourar, a falha
- * ainda deixa o rastro antes de o gateway reenviar.
+ * da trava.
+ *
+ * O teto de 5 s + 10 s vale por transação, não pela baixa inteira: é o de uma
+ * transação que fica abaixo do tempo que o gateway espera a resposta do webhook
+ * (o Mercado Pago desiste em 22 s). A baixa encadeia mais de uma — a alocação
+ * e, depois de ela confirmar, até duas auditorias. O rastro da falha
+ * (`PAGAMENTO_LEDGER_FALHOU`) é gravado em outra transação, com estes mesmos
+ * limites: normalmente leva milissegundos e sai antes de o gateway reenviar,
+ * mas não é garantia — se a alocação estourar o teto e a auditoria também
+ * demorar, a soma passa do tempo do gateway.
  */
 const LIMITES_DA_TRANSACAO = { maxWait: 5_000, timeout: 10_000 } as const;
 
@@ -610,11 +617,20 @@ async function auditarPagamentoForaDaFatura(evento: {
 
 /**
  * Fecha na trilha uma `PAGAMENTO_LEDGER_FALHOU` que o reenvio do gateway
- * resolveu: o pagamento agora está em `core.payments`, alocado.
+ * resolveu: o pagamento agora está em `core.payments`, alocado no que a fatura
+ * ainda devia (que pode ser zero).
  *
  * A trilha é só acréscimo: o evento da falha fica como está e ganha um
- * `PAGAMENTO_LEDGER_RESOLVIDO` na mesma cobrança, apontando para ele. Quem
- * concilia lê os dois e não precisa conferir o ledger à mão.
+ * `PAGAMENTO_LEDGER_RESOLVIDO` na mesma cobrança, apontando para ele.
+ *
+ * Limite: falha e resolução são gravadas uma vez por cobrança — a deduplicação
+ * de `auditarPagamentoForaDaFatura` é por ação e cobrança, não por tentativa.
+ * Se o ledger falha de novo depois de resolvido (o reembolso que não consegue
+ * marcar o pagamento, por exemplo), a segunda falha não deixa registro e a
+ * trilha termina em "resolvido". E só o ramo do pagamento confirmado chama
+ * esta função: quando a falha é do reembolso, o reenvio que dá certo não grava
+ * resolução. Nesses dois casos o par falha/resolução não dispensa conferir o
+ * ledger.
  *
  * Não lança, pelo mesmo motivo de `auditarPagamentoForaDaFatura` — e porque é
  * chamada de dentro do `try` do ledger: lançar aqui gravaria uma falha nova
