@@ -548,7 +548,7 @@ export async function garantirFatura(params: {
 export async function baixarCobrancaPorIdExterno(externalId: string, status: string) {
   const cobranca = await prisma.subscriptionCharge.findFirst({
     where: { externalId },
-    include: { invoice: true },
+    include: { invoice: { include: { subscription: true } } },
   });
 
   if (!cobranca) return null;
@@ -604,6 +604,47 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
       where: { id: cobranca.invoiceId },
       data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? agora },
     });
+  }
+
+  // Ledger único: todo pagamento confirmado deixa um registro em core.payments
+  // (+ alocação na fatura), pra o painel de tesouraria ver o dinheiro de verdade
+  // — hoje a baixa da cobrança não alimentava esse ledger, então gateway e
+  // conciliação viviam separados. Idempotente (upsert pela chave do gateway) e
+  // best-effort: a baixa é pro cliente; o ledger é pra nós e não pode derrubar
+  // um pagamento que já deu certo.
+  if (pago) {
+    try {
+      const assinatura = cobranca.invoice.subscription;
+      const refExterna = cobranca.externalId ?? cobranca.id;
+      const pagamento = await prisma.corePayment.upsert({
+        where: {
+          provider_providerAccount_externalId: {
+            provider: cobranca.provider,
+            providerAccount: "principal",
+            externalId: refExterna,
+          },
+        },
+        update: { status: "CONFIRMED" },
+        create: {
+          organizationId: assinatura.organizationId,
+          provider: cobranca.provider,
+          providerAccount: "principal",
+          externalId: refExterna,
+          amount: cobranca.amount,
+          currency: assinatura.currency,
+          status: "CONFIRMED",
+          paidAt: cobranca.paidAt ?? agora,
+          source: "GATEWAY_WEBHOOK",
+        },
+      });
+      await prisma.corePaymentAllocation.upsert({
+        where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
+        update: {},
+        create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: cobranca.amount },
+      });
+    } catch (erro) {
+      console.error(`[ledger] não registrei o pagamento de ${cobranca.id} em core.payments`, erro);
+    }
   }
 
   return cobranca;
