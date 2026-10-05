@@ -11,18 +11,60 @@
 
 const TIPOS_COM_HOST_NO_FIM = new Set(["CNAME", "MX", "NS", "SRV"]);
 
-/** `"abc" "def"` → `abcdef`, com escapes desfeitos. Texto sem aspas fica como está. */
+/**
+ * `"abc" "def"` → `abcdef`, desfazendo os escapes do arquivo de zona
+ * (RFC 1035 §5.1): `\X` é o caractere X e `\DDD` é um byte em decimal. Os
+ * bytes são remontados em UTF-8 no fim, para `\195\169` voltar a ser "é".
+ * Texto sem aspas fica como está.
+ */
 function txtLogico(conteudo: string): string {
   const cru = conteudo.trim();
   if (!cru.startsWith('"')) return conteudo;
-  const pedacos = [...cru.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\(.)/g, "$1"));
-  return pedacos.length ? pedacos.join("") : conteudo;
+
+  const codificador = new TextEncoder();
+  const bytes: number[] = [];
+  let dentro = false;
+  let achouAspas = false;
+  for (let i = 0; i < cru.length; i++) {
+    const c = cru[i];
+    if (c === '"') {
+      dentro = !dentro;
+      achouAspas = true;
+      continue;
+    }
+    if (!dentro) continue;
+    if (c === "\\") {
+      const decimal = cru.slice(i + 1, i + 4);
+      if (/^\d{3}$/.test(decimal) && Number(decimal) <= 255) {
+        bytes.push(Number(decimal));
+        i += 3;
+      } else if (i + 1 < cru.length) {
+        bytes.push(...codificador.encode(cru[i + 1]));
+        i += 1;
+      }
+      continue;
+    }
+    bytes.push(...codificador.encode(c));
+  }
+  return achouAspas ? new TextDecoder().decode(new Uint8Array(bytes)) : conteudo;
+}
+
+/**
+ * Tira o ponto final do último nome do conteúdo, menos quando ele é a raiz
+ * sozinha: `.` é alvo válido (MX nulo da RFC 7505, SRV "serviço indisponível")
+ * e sem o ponto viraria texto vazio.
+ */
+function semPontoNoAlvo(conteudo: string): string {
+  const partes = conteudo.trim().split(/\s+/);
+  const ultimo = partes[partes.length - 1];
+  if (ultimo !== "." && ultimo.endsWith(".")) partes[partes.length - 1] = ultimo.slice(0, -1);
+  return partes.join(" ");
 }
 
 export function conteudoLogico(tipo: string, conteudo: string): string {
   const t = tipo.toUpperCase();
   if (t === "TXT") return txtLogico(conteudo);
-  if (TIPOS_COM_HOST_NO_FIM.has(t)) return conteudo.trim().replace(/\.$/, "");
+  if (TIPOS_COM_HOST_NO_FIM.has(t)) return semPontoNoAlvo(conteudo);
   return conteudo.trim();
 }
 

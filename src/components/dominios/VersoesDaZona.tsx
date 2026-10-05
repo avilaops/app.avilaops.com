@@ -37,6 +37,7 @@ export default function VersoesDaZona({
   podeRestaurar,
   base,
   zona,
+  dnsAqui = true,
 }: {
   versoes: VersaoNaTela[];
   /** A zona agora, lida do servidor. */
@@ -48,6 +49,11 @@ export default function VersoesDaZona({
   base: string;
   /** O domínio dono da zona: SOA e NS dele são do servidor e ficam fora da diferença. */
   zona: string;
+  /**
+   * Falso quando o DNS saiu daqui. As versões continuam: são a saída do
+   * cliente. Some só o que depende da zona viva (baixar a atual, restaurar).
+   */
+  dnsAqui?: boolean;
 }) {
   const router = useRouter();
   const [aberta, setAberta] = useState<string | null>(null);
@@ -93,11 +99,17 @@ export default function VersoesDaZona({
     <>
       <CartaoLista
         titulo="Versões da zona"
-        descricao="Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela."
+        descricao={
+          dnsAqui
+            ? "Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela."
+            : "O DNS deste domínio não é mais servido por aqui. As versões guardadas continuam disponíveis para baixar em BIND."
+        }
         acao={
-          <a href={`${base}/exportar`} className="secondary-button shrink-0" download>
-            Baixar zona
-          </a>
+          dnsAqui ? (
+            <a href={`${base}/exportar`} className="secondary-button shrink-0" download>
+              Baixar zona
+            </a>
+          ) : null
         }
       >
         {aviso ? (

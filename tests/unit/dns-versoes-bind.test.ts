@@ -167,3 +167,23 @@ describe("conteúdo igual entre servidores", () => {
   });
 });
 
+describe("revisão do #80", () => {
+  it("escape decimal do TXT é um byte, e bytes UTF-8 voltam a ser o caractere", () => {
+    expect(conteudoLogico("TXT", '"a\\032b"')).toBe("a b");
+    expect(conteudoLogico("TXT", '"caf\\195\\169"')).toBe("café");
+    expect(conteudoLogico("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
+  });
+
+  it("alvo raiz '.' do MX nulo e do SRV indisponível não vira texto vazio", () => {
+    expect(conteudoLogico("MX", ".")).toBe(".");
+    expect(conteudoLogico("SRV", "0 0 .")).toBe("0 0 .");
+    expect(conteudoDeApresentacao("MX", ".")).toBe(".");
+    expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: ".", prioridade: 0 })).toBe("0 .");
+  });
+
+  it("versão antiga com TXT entre aspas é lida em forma lógica, pronta para restaurar em qualquer servidor", () => {
+    const [linha] = lerLinhas([{ tipo: "txt", nome: "X.com.br.", conteudo: '"v=spf1" " -all"', ttl: 300, prioridade: null, proxy: false }]);
+    expect(linha).toMatchObject({ tipo: "TXT", nome: "x.com.br", conteudo: "v=spf1 -all" });
+  });
+});
+

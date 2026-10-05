@@ -111,7 +111,8 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
         select: { createdAt: true, action: true, actorId: true, metadata: true },
       });
 
-      const versoes = dominio.dnsAqui ? await listarVersoes(dominio.id) : [];
+      // Mesmo sem DNS aqui: as versões guardadas são o histórico e a saída.
+      const versoes = await listarVersoes(dominio.id);
       const nome = await nomesDosAtores([...eventos.map((e) => e.actorId), ...versoes.map((v) => v.quem)], {
         mascararCasa: false,
       });

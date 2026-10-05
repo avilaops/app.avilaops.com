@@ -116,7 +116,7 @@ export function paraEntrada(linha: LinhaVersao): EntradaRegistroDns {
   };
 }
 
-/** Lê o JSON guardado no banco, descartando o que não tiver forma de linha. */
+/** Lê o JSON guardado no banco em forma lógica, descartando o que não tiver forma de linha. */
 export function lerLinhas(bruto: unknown): LinhaVersao[] {
   if (!Array.isArray(bruto)) return [];
   return bruto.flatMap((item) => {
@@ -125,9 +125,12 @@ export function lerLinhas(bruto: unknown): LinhaVersao[] {
     if (typeof l.tipo !== "string" || typeof l.nome !== "string" || typeof l.conteudo !== "string") return [];
     return [
       {
-        tipo: l.tipo,
-        nome: l.nome,
-        conteudo: l.conteudo,
+        tipo: l.tipo.toUpperCase(),
+        nome: l.nome.trim().toLowerCase().replace(/\.$/, ""),
+        // Versões guardadas antes da forma lógica podem ter TXT entre aspas
+        // do servidor da casa. Normalizar só a chave de comparação não basta:
+        // é este conteúdo que vai para o servidor ao restaurar.
+        conteudo: conteudoLogico(l.tipo, l.conteudo),
         ttl: typeof l.ttl === "number" ? l.ttl : 1,
         prioridade: typeof l.prioridade === "number" ? l.prioridade : null,
         proxy: l.proxy === true,

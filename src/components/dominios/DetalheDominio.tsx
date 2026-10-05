@@ -118,7 +118,7 @@ export default function DetalheDominio({
         podeEditar={escrita.editarDns}
       />
 
-      {dominio.dnsAqui ? (
+      {dominio.dnsAqui || versoes.length > 0 ? (
         <VersoesDaZona
           versoes={versoes}
           atual={registros}
@@ -126,6 +126,7 @@ export default function DetalheDominio({
           podeRestaurar={escrita.editarDns}
           base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
           zona={dominio.fqdn}
+          dnsAqui={dominio.dnsAqui}
         />
       ) : null}
 

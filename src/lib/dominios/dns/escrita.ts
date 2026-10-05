@@ -460,13 +460,16 @@ export async function restaurarVersaoDns(
     divergente = !zonaIgual(diferencaParaVersao(guardada.registros, alvo, zona.fqdn));
   }
 
-  const resultado = falha ? "INCOMPLETA" : divergente ? "DIVERGENTE" : guardada?.relida ? "OK" : "NAO_CONFERIDA";
+  // Sem a releitura não dá para descartar que alguém mexeu na zona no meio:
+  // aplicado e não conferido não é "restaurado".
+  const naoConferida = !falha && !guardada?.relida;
+  const resultado = falha ? "INCOMPLETA" : divergente ? "DIVERGENTE" : naoConferida ? "NAO_CONFERIDA" : "OK";
   await prisma.operationsAuditEvent
     .create({
       data: {
         actorId: ator.id,
         organizationId: zona.organizationId,
-        action: resultado === "OK" || resultado === "NAO_CONFERIDA" ? "DNS_ZONA_RESTAURADA" : "DNS_ZONA_RESTAURADA_INCOMPLETA",
+        action: resultado === "OK" ? "DNS_ZONA_RESTAURADA" : "DNS_ZONA_RESTAURADA_INCOMPLETA",
         entityType: "DomainAsset",
         entityId: zona.id,
         metadata: JSON.parse(
@@ -496,6 +499,13 @@ export async function restaurarVersaoDns(
     throw new ErroDeDns(
       `A restauração parou em ${aplicadas} de ${total} mudanças. ${ondeFicou}; ` +
         (ator.origem === "EQUIPE" ? `o servidor respondeu: ${falha}` : "fale com o seu atendimento."),
+      502,
+    );
+  }
+  if (naoConferida) {
+    throw new ErroDeDns(
+      `As ${total} mudanças foram aplicadas, mas o servidor não deixou reler a zona para conferir se ela ficou igual à versão. ` +
+        `${ondeFicou}. Confira a zona em alguns minutos.`,
       502,
     );
   }

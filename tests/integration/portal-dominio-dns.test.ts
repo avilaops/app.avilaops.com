@@ -270,5 +270,30 @@ describe("DNS pelo portal do cliente", () => {
     expect(arquivo.conteudo).toContain("IN\tMX\t10 mx1.provedor.com.");
     await expect(exportarZonaBind(fqdn, cliente, { organizationId: org })).rejects.toMatchObject({ status: 409 });
   }));
+
+  it("restauração aplicada mas sem releitura não é anunciada como restaurada", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+
+    state.chamadas = [];
+    state.caiDepoisDe = 1; // a única mudança (recriar o MX) passa; a releitura cai
+    await expect(restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org })).rejects.toMatchObject({
+      status: 502,
+      message: expect.stringContaining("não deixou reler"),
+    });
+    expect(state.chamadas).toEqual(["criar MX @"]);
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA_INCOMPLETA" } });
+    expect(evento.metadata).toMatchObject({ resultado: "NAO_CONFERIDA", aplicadas: 1 });
+    expect(await tx.operationsAuditEvent.count({ where: { organizationId: org, action: "DNS_ZONA_RESTAURADA" } })).toBe(0);
+  }));
+
+  it("versões continuam na página do domínio depois que o DNS saiu daqui", () => isolado(async ({ tx, id, org, fqdn }) => {
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, { id, origem: "CLIENTE" }, { organizationId: org });
+    await tx.domainAsset.update({ where: { fqdn }, data: { dnsProvider: "NENHUM" } });
+    const dominio = await carregarDominioDoCliente(id, org, fqdn);
+    expect(dominio?.servicoDns).toBe("NENHUM");
+    expect(dominio?.versoes.length).toBe(2);
+  }));
 });
 
