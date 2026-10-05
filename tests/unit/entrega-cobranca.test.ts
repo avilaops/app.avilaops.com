@@ -130,20 +130,20 @@ describe("conteúdo do envio (fatura / boleto / ambos)", () => {
 
 describe("garantirEnviavel", () => {
   const agora = new Date("2026-10-05T12:00:00Z");
-  const aberta = { status: "OPEN" };
-  const ativa = { status: "PENDING", expiresAt: new Date("2026-10-10T00:00:00Z") };
+  const aberta = { status: "OPEN", saldo: 100 };
+  const ativa = { status: "PENDING", expiresAt: new Date("2026-10-10T00:00:00Z"), amount: 100 };
 
   it("libera cobrança ativa de fatura aberta", () => {
     expect(() => garantirEnviavel(aberta, ativa, "cobranca", agora)).not.toThrow();
   });
 
   it("recusa link de fatura paga, mas deixa mandar o resumo", () => {
-    expect(() => garantirEnviavel({ status: "PAID" }, ativa, "cobranca", agora)).toThrow(CobrancaSemLink);
-    expect(() => garantirEnviavel({ status: "PAID" }, ativa, "fatura", agora)).not.toThrow();
+    expect(() => garantirEnviavel({ status: "PAID", saldo: 0 }, ativa, "cobranca", agora)).toThrow(CobrancaSemLink);
+    expect(() => garantirEnviavel({ status: "PAID", saldo: 0 }, ativa, "fatura", agora)).not.toThrow();
   });
 
   it("recusa qualquer envio de fatura cancelada", () => {
-    expect(() => garantirEnviavel({ status: "CANCELLED" }, ativa, "fatura", agora)).toThrow(CobrancaSemLink);
+    expect(() => garantirEnviavel({ status: "CANCELLED", saldo: 0 }, ativa, "fatura", agora)).toThrow(CobrancaSemLink);
   });
 
   it("recusa cobrança cancelada, recusada ou paga mesmo com a fatura aberta", () => {
@@ -154,8 +154,31 @@ describe("garantirEnviavel", () => {
 
   it("recusa cobrança expirada", () => {
     expect(() =>
-      garantirEnviavel(aberta, { status: "PENDING", expiresAt: new Date("2026-10-01T00:00:00Z") }, "cobranca", agora),
+      garantirEnviavel(aberta, { ...ativa, expiresAt: new Date("2026-10-01T00:00:00Z") }, "cobranca", agora),
     ).toThrow(/expirou/);
+  });
+
+  it("recusa cobrança de valor cheio quando a fatura já tem pagamento parcial", () => {
+    // Fatura de R$ 100 com R$ 60 alocados: deve R$ 40, não os R$ 100 do PIX.
+    const parcial = { status: "OPEN", saldo: 40 };
+    expect(() => garantirEnviavel(parcial, ativa, "cobranca", agora)).toThrow(/saldo em aberto/);
+    expect(() => garantirEnviavel(parcial, ativa, "ambos", agora)).toThrow(CobrancaSemLink);
+    // O resumo não leva meio de pagamento: continua liberado.
+    expect(() => garantirEnviavel(parcial, ativa, "fatura", agora)).not.toThrow();
+  });
+
+  it("recusa quando o saldo da fatura não pôde ser conferido", () => {
+    expect(() => garantirEnviavel({ status: "OPEN", saldo: null }, ativa, "cobranca", agora)).toThrow(/conferir o saldo/);
+  });
+
+  it("o juros do cartão parcelado não conta como divergência de saldo", () => {
+    const parcelada = { ...ativa, amount: 112.5, interestAmount: 12.5 };
+    expect(() => garantirEnviavel(aberta, parcelada, "cobranca", agora)).not.toThrow();
+    expect(() => garantirEnviavel({ status: "OPEN", saldo: 40 }, parcelada, "cobranca", agora)).toThrow(/saldo em aberto/);
+  });
+
+  it("compara em centavos, sem erro de ponto flutuante", () => {
+    expect(() => garantirEnviavel({ status: "OPEN", saldo: 0.3 }, { ...ativa, amount: 0.1 + 0.2 }, "cobranca", agora)).not.toThrow();
   });
 
   it("sem cobrança emitida, só o resumo passa", () => {

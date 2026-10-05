@@ -62,14 +62,32 @@ function escapar(texto: string): string {
  */
 export const STATUS_COBRANCA_ATIVA = ["CREATED", "PENDING", "WAITING"];
 
+/** Compara dinheiro em centavos: 60.1 + 39.9 em ponto flutuante não fecha 100. */
+function centavos(valor: number | { toString(): string }): number {
+  return Math.round(Number(valor) * 100);
+}
+
 /**
  * Não enviar meio de pagamento de fatura já paga/cancelada, de cobrança
- * cancelada/recusada/paga nem de cobrança expirada. O resumo "fatura" (sem
- * link) é permitido sempre, exceto de fatura cancelada.
+ * cancelada/recusada/paga, de cobrança expirada nem de cobrança cujo valor não
+ * é mais o que o cliente deve. O resumo "fatura" (sem link) é permitido
+ * sempre, exceto de fatura cancelada.
+ *
+ * `saldo` é o `outstanding` de `core.receivables`: fatura de R$ 100 com R$ 60
+ * já alocados deve R$ 40, e mandar o PIX de R$ 100 cobraria R$ 60 a mais. O
+ * principal da cobrança (sem o juros do parcelamento, que não abate fatura)
+ * tem que ser exatamente o saldo — a mesma regra que o portal usa para mostrar
+ * a cobrança e que `gerarCobrancaDaFatura` usa para emitir. Sem saldo
+ * conhecido (`null`) não há como garantir o valor: recusa.
  */
 export function garantirEnviavel(
-  invoice: { status: string },
-  cobranca: { status: string; expiresAt: Date | null } | null,
+  invoice: { status: string; saldo: number | null },
+  cobranca: {
+    status: string;
+    expiresAt: Date | null;
+    amount: number | { toString(): string };
+    interestAmount?: number | { toString(): string } | null;
+  } | null,
   conteudo: ConteudoEnvio,
   agora: Date = new Date(),
 ): void {
@@ -84,6 +102,15 @@ export function garantirEnviavel(
   }
   if (cobranca.expiresAt && cobranca.expiresAt.getTime() < agora.getTime()) {
     throw new CobrancaSemLink("Esta cobrança expirou; gere uma nova antes de enviar.");
+  }
+  if (invoice.saldo === null) {
+    throw new CobrancaSemLink("Não foi possível conferir o saldo em aberto desta fatura; a cobrança não foi enviada.");
+  }
+  const principal = centavos(cobranca.amount) - centavos(cobranca.interestAmount ?? 0);
+  if (principal !== centavos(invoice.saldo)) {
+    throw new CobrancaSemLink(
+      "O valor desta cobrança não confere com o saldo em aberto da fatura (há pagamento registrado). Concilie o saldo antes de enviar.",
+    );
   }
 }
 
@@ -198,8 +225,19 @@ const INCLUI_FATURA = {
 } as const;
 
 /**
- * Carrega fatura e cobrança do alvo. Pela fatura, usa a cobrança mais recente
- * dela (se houver) — `garantirEnviavel` decide se ela ainda serve.
+ * Saldo em aberto da fatura, da mesma visão que o portal e a emissão usam.
+ * `null` quando a fatura não aparece em `core.receivables`.
+ */
+async function saldoEmAberto(invoiceId: string): Promise<number | null> {
+  const [linha] = await prisma.$queryRaw<{ outstanding: unknown }[]>`
+    SELECT outstanding FROM core.receivables WHERE source='INVOICE' AND source_id=${invoiceId}`;
+  return linha ? Number(linha.outstanding) : null;
+}
+
+/**
+ * Carrega fatura (com o saldo em aberto) e cobrança do alvo. Pela fatura, usa
+ * a cobrança mais recente dela (se houver) — `garantirEnviavel` decide se ela
+ * ainda serve.
  */
 async function carregarAlvo(alvo: AlvoEnvio) {
   if (alvo.tipo === "cobranca") {
@@ -209,7 +247,7 @@ async function carregarAlvo(alvo: AlvoEnvio) {
     });
     if (!cobranca) throw new CobrancaSemLink("Cobrança não encontrada.");
     const { invoice, ...resto } = cobranca;
-    return { invoice, cobranca: resto };
+    return { invoice: { ...invoice, saldo: await saldoEmAberto(invoice.id) }, cobranca: resto };
   }
   const invoice = await prisma.subscriptionInvoice.findUnique({
     where: { id: alvo.id },
@@ -217,7 +255,7 @@ async function carregarAlvo(alvo: AlvoEnvio) {
   });
   if (!invoice) throw new CobrancaSemLink("Fatura não encontrada.");
   const { charges, ...fatura } = invoice;
-  return { invoice: fatura, cobranca: charges[0] ?? null };
+  return { invoice: { ...fatura, saldo: await saldoEmAberto(fatura.id) }, cobranca: charges[0] ?? null };
 }
 
 /**
