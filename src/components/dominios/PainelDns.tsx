@@ -8,6 +8,7 @@ import { BOTAO, CAMPO, CartaoLista, LINHA_ITEM, MensagemErro, MensagemStatus } f
 import { Input } from "@/components/shadcn/input";
 import { Label } from "@/components/shadcn/label";
 import { TIPOS_DNS, type RegistroDns } from "@/lib/dominios/dns";
+import { ehDoServidor } from "@/lib/dominios/dns/conteudo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -299,7 +300,7 @@ export default function PainelDns({
                     {registro.proxy ? " · pela rede da plataforma" : ""}
                   </span>
                 </span>
-                {podeEditar ? (
+                {podeEditar && !ehDoServidor(registro, fqdn) ? (
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"

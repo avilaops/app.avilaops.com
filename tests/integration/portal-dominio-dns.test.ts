@@ -381,5 +381,31 @@ describe("DNS pelo portal do cliente", () => {
     expect(state.chamadas).toEqual([]);
     expect(state.zona.map((r) => r.id)).toEqual(["spf", "mx"]);
   }));
+
+  it("SOA e NS do próprio domínio não são alterados pelo painel", () => isolado(async ({ id, org, fqdn }) => {
+    state.zona.push({ id: "ns-apex", tipo: "NS", nome: fqdn, conteudo: "ns1.avilaops.com", ttl: 3600, proxy: false, prioridade: null });
+    await expect(
+      executarOperacaoDns(fqdn, { acao: "apagar", registroId: "ns-apex" }, { id, origem: "CLIENTE" }, { organizationId: org }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(state.chamadas).toEqual([]);
+  }));
+
+  it("versão com proxy não é restaurada no DNS da casa, e nada é apagado antes", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const dominio = await tx.domainAsset.update({ where: { fqdn }, data: { dnsProvider: "AVILA" } });
+    const versao = await tx.dnsZoneVersion.create({
+      data: {
+        domainAssetId: dominio.id,
+        origin: "EQUIPE",
+        reason: "veio do serviço externo",
+        records: { formato: 2, linhas: [{ tipo: "A", nome: fqdn, conteudo: "203.0.113.10", ttl: 1, prioridade: null, proxy: true }] },
+        recordCount: 1,
+      },
+    });
+    await expect(restaurarVersaoDns(fqdn, versao.id, { id, origem: "CLIENTE" }, { organizationId: org })).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("proxy"),
+    });
+    expect(state.chamadas).toEqual([]);
+  }));
 });
 

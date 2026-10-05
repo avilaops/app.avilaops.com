@@ -166,26 +166,32 @@ export function txtDeEntrada(digitado: string): string {
 // ── fronteira com o serviço externo (texto puro) ───────────────────────────
 
 /**
- * Canônica → o que vai à API do serviço externo. Uma string só vai como texto
- * puro, como sempre foi; várias vão entre aspas, que é como a API recebe
- * strings separadas. Byte que não forma UTF-8 não tem como ir numa string de
- * API: recusa em vez de trocar o conteúdo.
+ * Canônica → texto puro, para a API do serviço externo, que trata o TXT como
+ * um texto só e o divide sozinho a cada 255 bytes. Recusa, em vez de trocar o
+ * conteúdo, o que ela não consegue guardar: byte que não forma UTF-8, e TXT
+ * dividido em strings de outro jeito (`"foo" "bar"`), cuja divisão se perderia.
  */
 export function txtParaTextoPuro(canonico: string): string {
   const segmentos = segmentosDaApresentacao(canonico);
+  const bytes = segmentos.flat();
+  let texto: string;
   try {
-    for (const s of segmentos) decodificadorEstrito.decode(Uint8Array.from(s));
+    texto = decodificadorEstrito.decode(Uint8Array.from(bytes));
   } catch {
     throw new Error("Este TXT tem bytes que não são texto UTF-8, e o serviço de DNS deste domínio não os aceita.");
   }
-  if (segmentos.length <= 1) return decodificadorEstrito.decode(Uint8Array.from(segmentos[0] ?? []));
-  return txtCanonico(segmentos);
+  if (txtDeTextoPuro(texto) !== txtCanonico(segmentos)) {
+    throw new Error("Este TXT é dividido em strings separadas, e o serviço de DNS deste domínio não guarda essa divisão.");
+  }
+  return texto;
 }
 
 function semPontoNoAlvo(conteudo: string): string {
   const partes = conteudo.trim().split(/\s+/);
-  const ultimo = partes[partes.length - 1];
-  if (ultimo !== "." && ultimo.endsWith(".")) partes[partes.length - 1] = ultimo.slice(0, -1);
+  // Nome de host não diferencia maiúscula (RFC 4343): `MX.Example.COM` e
+  // `mx.example.com` são o mesmo alvo, e não podem virar apagar e recriar.
+  const ultimo = partes[partes.length - 1].toLowerCase();
+  partes[partes.length - 1] = ultimo !== "." && ultimo.endsWith(".") ? ultimo.slice(0, -1) : ultimo;
   return partes.join(" ");
 }
 
@@ -213,8 +219,9 @@ export function paraApresentacao(tipo: string, conteudo: string): string {
 /** Texto puro do serviço externo → canônica. */
 export function deTextoPuro(tipo: string, conteudo: string): string {
   const t = tipo.toUpperCase();
-  // A API pode devolver várias strings já entre aspas; uma só vem como texto.
-  if (t === "TXT") return ehTxtDeApresentacao(conteudo) ? txtDaApresentacao(conteudo) : txtDeTextoPuro(conteudo);
+  // O que a API devolve é o texto do registro, inclusive aspas que façam parte
+  // dele: nunca é lido como forma de apresentação.
+  if (t === "TXT") return txtDeTextoPuro(conteudo);
   if (TIPOS_COM_HOST_NO_FIM.has(t)) return semPontoNoAlvo(conteudo);
   return conteudo.trim();
 }

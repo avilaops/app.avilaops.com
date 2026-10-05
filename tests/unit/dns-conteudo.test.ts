@@ -116,23 +116,30 @@ describe("fronteira com o servidor da casa (apresentação)", () => {
     expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: ".", prioridade: 0 })).toBe("0 .");
   });
 
-  it("host ganha e perde o ponto final; a raiz '.' fica", () => {
+  it("host ganha e perde o ponto final, em minúsculas; a raiz '.' fica", () => {
     expect(daApresentacao("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
+    expect(deTextoPuro("MX", "MX1.Provedor.COM")).toBe("mx1.provedor.com");
+    expect(zonaIgual(diferencaParaVersao([r("MX", Z, "MX.Example.COM", { prioridade: 10 })], [paraLinha(r("MX", Z, "mx.example.com", { prioridade: 10 }))], Z))).toBe(true);
     expect(paraApresentacao("CNAME", "x.com.br")).toBe("x.com.br.");
     expect(daApresentacao("SRV", "0 0 .")).toBe("0 0 .");
   });
 });
 
 describe("fronteira com o serviço externo (texto puro)", () => {
-  it("uma string vai e volta como texto puro, inclusive com aspas e barra", () => {
-    for (const texto of ["v=spf1 -all", "a\\b", "café", "linha1\nlinha2"]) {
+  it("o texto da API vai e volta igual, inclusive aspas que fazem parte dele", () => {
+    for (const texto of ["v=spf1 -all", "a\\b", "café", "linha1\nlinha2", '"sale"', '"foo" "bar"']) {
       expect(paraTextoPuro("TXT", deTextoPuro("TXT", texto))).toBe(texto);
     }
   });
 
-  it("várias strings vão entre aspas, que é como a API as recebe", () => {
-    expect(paraTextoPuro("TXT", '"foo" "bar"')).toBe('"foo" "bar"');
-    expect(deTextoPuro("TXT", '"foo" "bar"')).toBe('"foo" "bar"');
+  it("aspas vindas da API são conteúdo, não forma de apresentação", () => {
+    expect(deTextoPuro("TXT", '"sale"')).toBe('"\\"sale\\""');
+  });
+
+  it("TXT dividido em strings é recusado em vez de perder a divisão", () => {
+    expect(() => paraTextoPuro("TXT", '"foo" "bar"')).toThrow(/divisão/);
+    // A divisão automática a cada 255 bytes é a que a API faz sozinha: passa.
+    expect(paraTextoPuro("TXT", txtDeTextoPuro("a".repeat(300)))).toBe("a".repeat(300));
   });
 
   it("byte fora de UTF-8 é recusado em vez de trocado", () => {

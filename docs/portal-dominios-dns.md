@@ -79,7 +79,8 @@ host com ponto final —, e o serviço externo usa texto puro. Por dentro (tela,
 validação, versões, comparação) circula uma forma só, a canônica de
 `lib/dominios/dns/conteudo.ts`:
 
-- host sem ponto final, menos a raiz `.` (MX nulo, SRV indisponível);
+- host sem ponto final e em minúsculas, menos a raiz `.` (MX nulo, SRV
+  indisponível);
 - TXT na forma de apresentação **normalizada**: cada string de caractere
   entre aspas, separadas por um espaço, com um só jeito de escrever cada
   byte (UTF-8 imprimível literal; `\"` e `\\`; `\DDD` para controle, NUL e
@@ -92,9 +93,13 @@ apresentação, como em todo painel de DNS.
 
 Cada adaptador converte na própria fronteira (`achatar`/`montarConteudo` no
 da casa, `paraRegistro`/`paraEntradaExterna` no externo), e o BIND converte
-ao gerar o arquivo. Byte que não é UTF-8 não tem como ir ao serviço externo:
-a escrita é recusada em vez de trocar o conteúdo, e a restauração confere
-todos os alvos antes da primeira mudança.
+ao gerar o arquivo. O texto que a API do serviço externo devolve é sempre
+o texto do registro, aspas incluídas. A API guarda o TXT como um texto só,
+então ela recusa o que não consegue guardar — byte que não é UTF-8, TXT
+dividido em strings de outro jeito que não a cada 255 bytes —, e o DNS da
+casa recusa proxy. A restauração confere todos os alvos antes da primeira
+mudança. SOA e NS do próprio domínio são do servidor: não entram em versão
+nem podem ser alterados pelo painel.
 
 As versões gravam `{ formato: 2, linhas }`. A lista solta do #77 (formato 1)
 só existe em banco de desenvolvimento e é lida pela origem provável: TXT

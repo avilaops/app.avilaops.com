@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { lerServicoDeDns, provedorDeDnsDoDominio, tipoDnsValido } from "@/lib/dominios/dns";
 import type { EntradaRegistroDns, RegistroDns, ServicoDeDns } from "@/lib/dominios/dns/tipos";
 import { nomeCompleto, validarRegistroDns, type ProblemaDns } from "@/lib/dominios/dns/validacao";
-import { paraTextoPuro, txtDeEntrada } from "@/lib/dominios/dns/conteudo";
+import { ehDoServidor, paraTextoPuro, txtDeEntrada } from "@/lib/dominios/dns/conteudo";
 import {
   diferencaParaVersao,
   lerLinhas,
@@ -91,6 +91,17 @@ export function lerEntradaDns(corpo: CorpoDns): EntradaRegistroDns {
  * deixar a zona pela metade.
  */
 function conferirParaServidor(servico: ServicoDeDns, entrada: EntradaRegistroDns) {
+  if (servico === "AVILA") {
+    // Proxy é recurso de rede de borda do serviço externo; o DNS da casa não
+    // tem. Uma versão com proxy restaurada aqui nunca ficaria igual à versão.
+    if (entrada.proxy) {
+      throw new ErroDeDns(
+        `${entrada.tipo} ${entrada.nome} usa proxy, que o DNS deste domínio não oferece. Nada foi alterado.`,
+        422,
+      );
+    }
+    return;
+  }
   if (servico !== "EXTERNO") return;
   try {
     paraTextoPuro(entrada.tipo, entrada.conteudo);
@@ -232,6 +243,14 @@ export async function executarOperacaoDns(
     operacao.acao === "criar" ? null : (existentes.find((registro) => registro.id === operacao.registroId) ?? null);
   if (operacao.acao !== "criar" && !antes) {
     throw new ErroDeDns("Esse registro não existe mais na zona. Atualize a página.", 404);
+  }
+  // SOA e NS do próprio domínio são do servidor: ficam fora das versões, então
+  // um erro neles não teria para onde voltar. Não se mexe neles por aqui.
+  const alvoDoServidor =
+    (antes && ehDoServidor(antes, zona.fqdn)) ||
+    (operacao.acao !== "apagar" && ehDoServidor({ ...operacao.entrada, nome: nomeCompleto(operacao.entrada.nome, zona.fqdn) }, zona.fqdn));
+  if (alvoDoServidor) {
+    throw new ErroDeDns("SOA e NS do próprio domínio são do servidor de DNS e não são alterados pelo painel.", 403);
   }
 
   if (operacao.acao !== "apagar") {
