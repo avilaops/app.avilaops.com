@@ -61,6 +61,8 @@ const { estado } = vi.hoisted(() => ({
     /** A leitura fora de transação (a conferência da falha anterior) falha. */
     conferenciaFalha: false,
     alocacaoFalha: null as null | Error,
+    /** Marcar o pagamento como reembolsado em core.payments falha. */
+    reembolsoFalha: null as null | Error,
   },
 }));
 
@@ -80,7 +82,7 @@ vi.mock("@/lib/prisma", () => {
     // O id é a posição na trilha: o banco numera em sequência.
     findFirst: async ({ where }: { where: Record<string, unknown> }) => {
       const posicao = estado.auditoria.findIndex((e) => e.action === where.action && e.entityId === where.entityId);
-      return posicao < 0 ? null : { id: BigInt(posicao + 70) };
+      return posicao < 0 ? null : { id: BigInt(posicao + 70), metadata: estado.auditoria[posicao].metadata };
     },
     create: async ({ data }: { data: Record<string, unknown> }) => {
       if (estado.auditoriaFalha) throw new Error("banco de auditoria fora do ar");
@@ -111,6 +113,10 @@ vi.mock("@/lib/prisma", () => {
       subscriptionInvoice: { update: async ({ data }: { data: Record<string, unknown> }) => data },
       corePayment: {
         upsert: async ({ create }: { create: Record<string, unknown> }) => ({ id: "pagamento-1", ...create }),
+        updateMany: async () => {
+          if (estado.reembolsoFalha) throw estado.reembolsoFalha;
+          return { count: 1 };
+        },
       },
       operationsAuditEvent: {
         ...operationsAuditEvent,
@@ -162,6 +168,7 @@ beforeEach(() => {
   estado.auditoriaFalha = false;
   estado.conferenciaFalha = false;
   estado.alocacaoFalha = null;
+  estado.reembolsoFalha = null;
   vi.restoreAllMocks();
 });
 
@@ -311,7 +318,12 @@ describe("baixarCobrancaPorIdExterno — rastro do pagamento que não abateu a f
       entityType: "SubscriptionCharge",
       entityId: "cobranca-1",
       organizationId: "org-1",
-      metadata: { invoiceId: "fatura-1", status: "approved", erro: "core: allocation organization/currency/status mismatch" },
+      metadata: {
+        invoiceId: "fatura-1",
+        status: "approved",
+        operacao: "PAGAMENTO",
+        erro: "core: allocation organization/currency/status mismatch",
+      },
     });
   });
 
@@ -408,5 +420,61 @@ describe("baixarCobrancaPorIdExterno — falha de ledger resolvida no reenvio", 
     expect(estado.auditoria).toEqual([]);
     expect(erroNoLog).toHaveBeenCalledTimes(1);
     expect(erroNoLog.mock.calls[0][0]).toContain("não consegui conferir se havia PAGAMENTO_LEDGER_FALHOU de cobranca-1");
+  });
+
+  it("falha no reembolso + aviso de pago posterior não grava resolução", async () => {
+    // A corrida: o aviso de pago foi consultado no gateway antes do reembolso
+    // e só é processado depois de o reembolso falhar no ledger. O pagamento
+    // segue CONFIRMED em core.payments, então a baixa chega até a conferência.
+    estado.reembolsoFalha = new Error("conexão caiu");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await baixarCobrancaPorIdExterno("mp-123", "refunded");
+    estado.reembolsoFalha = null;
+
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU"]);
+    expect(estado.auditoria[0]).toMatchObject({
+      entityType: "SubscriptionCharge",
+      entityId: "cobranca-1",
+      metadata: { status: "refunded", operacao: "REEMBOLSO", erro: "conexão caiu" },
+    });
+  });
+
+  it("o reenvio do reembolso que dá certo também não grava resolução", async () => {
+    estado.reembolsoFalha = new Error("conexão caiu");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await baixarCobrancaPorIdExterno("mp-123", "refunded");
+    estado.reembolsoFalha = null;
+
+    await baixarCobrancaPorIdExterno("mp-123", "refunded");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU"]);
+  });
+
+  it("falha de reembolso gravada antes de existir `operacao` é reconhecida pelo status", async () => {
+    estado.auditoria.push({
+      action: "PAGAMENTO_LEDGER_FALHOU",
+      entityType: "SubscriptionCharge",
+      entityId: "cobranca-1",
+      metadata: { chargeId: "cobranca-1", status: "charged_back", erro: "conexão caiu" },
+    });
+
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU"]);
+  });
+
+  it("falha de pagamento gravada antes de existir `operacao` continua sendo fechada", async () => {
+    estado.auditoria.push({
+      action: "PAGAMENTO_LEDGER_FALHOU",
+      entityType: "SubscriptionCharge",
+      entityId: "cobranca-1",
+      metadata: { chargeId: "cobranca-1", status: "approved", erro: "core: invoice overpaid" },
+    });
+
+    await baixarCobrancaPorIdExterno("mp-123", "approved");
+
+    expect(ACOES()).toEqual(["PAGAMENTO_LEDGER_FALHOU", "PAGAMENTO_LEDGER_RESOLVIDO"]);
   });
 });

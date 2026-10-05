@@ -560,10 +560,11 @@ const REEMBOLSADO = ["REFUNDED", "refunded", "charged_back"];
  * São três comandos de milissegundos, então 10 s é folga de sobra para a fila
  * da trava.
  *
- * O teto de 5 s + 10 s vale por transação, não pela baixa inteira: é o de uma
- * transação que fica abaixo do tempo que o gateway espera a resposta do webhook
- * (o Mercado Pago desiste em 22 s). A baixa encadeia mais de uma — a alocação
- * e, depois de ela confirmar, até duas auditorias. O rastro da falha
+ * O teto de 5 s + 10 s vale por transação, não pela baixa inteira: uma
+ * transação sozinha, no pior caso (15 s), termina antes de o gateway desistir
+ * de esperar a resposta do webhook (o Mercado Pago desiste em 22 s). A baixa
+ * encadeia mais de uma — a alocação e, depois de ela confirmar, até duas
+ * auditorias. O rastro da falha
  * (`PAGAMENTO_LEDGER_FALHOU`) é gravado em outra transação, com estes mesmos
  * limites: normalmente leva milissegundos e sai antes de o gateway reenviar,
  * mas não é garantia — se a alocação estourar o teto e a auditoria também
@@ -616,6 +617,17 @@ async function auditarPagamentoForaDaFatura(evento: {
 }
 
 /**
+ * Se a `PAGAMENTO_LEDGER_FALHOU` registrada foi do reembolso, e não do
+ * pagamento. Evento novo traz `operacao`; o gravado antes dela só tem o
+ * `status` que o gateway mandou, que diz a mesma coisa.
+ */
+function falhaFoiDeReembolso(metadata: Prisma.JsonValue): boolean {
+  if (metadata === null || typeof metadata !== "object" || Array.isArray(metadata)) return false;
+  if (typeof metadata.operacao === "string") return metadata.operacao === "REEMBOLSO";
+  return typeof metadata.status === "string" && REEMBOLSADO.includes(metadata.status);
+}
+
+/**
  * Fecha na trilha uma `PAGAMENTO_LEDGER_FALHOU` que o reenvio do gateway
  * resolveu: o pagamento agora está em `core.payments`, alocado no que a fatura
  * ainda devia (que pode ser zero).
@@ -623,14 +635,23 @@ async function auditarPagamentoForaDaFatura(evento: {
  * A trilha é só acréscimo: o evento da falha fica como está e ganha um
  * `PAGAMENTO_LEDGER_RESOLVIDO` na mesma cobrança, apontando para ele.
  *
+ * Só fecha falha de PAGAMENTO. A falha registrada diz no `metadata.operacao`
+ * se o que não entrou no ledger foi o pagamento ou o reembolso, e a de
+ * reembolso fica aberta mesmo que chegue um aviso de pago depois: o pagamento
+ * estar em `core.payments` não diz nada sobre o reembolso que não foi marcado
+ * (ele segue lá como CONFIRMED). Sem essa distinção, um aviso de pago
+ * consultado antes do reembolso e processado depois da falha gravava
+ * "resolvido" com o ledger ainda errado.
+ *
  * Limite: falha e resolução são gravadas uma vez por cobrança — a deduplicação
  * de `auditarPagamentoForaDaFatura` é por ação e cobrança, não por tentativa.
- * Se o ledger falha de novo depois de resolvido (o reembolso que não consegue
- * marcar o pagamento, por exemplo), a segunda falha não deixa registro e a
- * trilha termina em "resolvido". E só o ramo do pagamento confirmado chama
- * esta função: quando a falha é do reembolso, o reenvio que dá certo não grava
- * resolução. Nesses dois casos o par falha/resolução não dispensa conferir o
- * ledger.
+ * Se o ledger falha de novo na mesma cobrança (o reembolso que não consegue
+ * marcar o pagamento, depois de uma falha de pagamento, por exemplo), a
+ * segunda falha não deixa registro e a trilha fica com a operação da primeira
+ * — podendo terminar em "resolvido". E só o ramo do pagamento confirmado
+ * chama esta função: quando a falha é do reembolso, nem o reenvio do
+ * reembolso que dá certo grava resolução. Nesses dois casos a trilha não
+ * dispensa conferir o ledger.
  *
  * Não lança, pelo mesmo motivo de `auditarPagamentoForaDaFatura` — e porque é
  * chamada de dentro do `try` do ledger: lançar aqui gravaria uma falha nova
@@ -641,17 +662,17 @@ async function auditarLedgerResolvido(evento: {
   chargeId: string;
   metadata: Prisma.InputJsonObject;
 }) {
-  let falha: { id: bigint } | null;
+  let falha: { id: bigint; metadata: Prisma.JsonValue } | null;
   try {
     falha = await prisma.operationsAuditEvent.findFirst({
       where: { action: "PAGAMENTO_LEDGER_FALHOU", entityType: "SubscriptionCharge", entityId: evento.chargeId },
-      select: { id: true },
+      select: { id: true, metadata: true },
     });
   } catch (erro) {
     console.error(`[ledger] não consegui conferir se havia PAGAMENTO_LEDGER_FALHOU de ${evento.chargeId}`, erro);
     return;
   }
-  if (!falha) return;
+  if (!falha || falhaFoiDeReembolso(falha.metadata)) return;
   await auditarPagamentoForaDaFatura({
     action: "PAGAMENTO_LEDGER_RESOLVIDO",
     organizationId: evento.organizationId,
@@ -892,6 +913,9 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
           provider: cobranca.provider,
           externalId: cobranca.externalId,
           status,
+          // O que não entrou no ledger: `auditarLedgerResolvido` só fecha a
+          // falha de pagamento.
+          operacao: reembolsado ? "REEMBOLSO" : "PAGAMENTO",
           erro: (erro instanceof Error ? erro.message : String(erro)).slice(0, 500),
         },
       });
