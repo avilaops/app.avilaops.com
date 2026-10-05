@@ -1,3 +1,4 @@
+import { daApresentacao } from "@/lib/dominios/dns/conteudo";
 import type { EntradaProvedor } from "@/lib/dominios/capacidades";
 import {
   achatar,
@@ -174,7 +175,9 @@ export class ProvedorAvilaDns implements DnsProvider {
   private montarResposta(entrada: EntradaRegistroDns): RegistroDns {
     const tipo = entrada.tipo.toUpperCase();
     const conteudoCru = montarConteudo(entrada);
-    const { conteudo, prioridade } = separarPrioridade(tipo, conteudoCru);
+    const separado = separarPrioridade(tipo, conteudoCru);
+    const conteudo = daApresentacao(tipo, separado.conteudo);
+    const prioridade = separado.prioridade;
     return {
       id: idDoRegistro(entrada.nome, tipo, conteudoCru),
       tipo,

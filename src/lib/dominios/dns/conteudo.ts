@@ -1,35 +1,80 @@
 /**
- * O conteúdo de um registro em forma lógica, igual para qualquer servidor.
+ * O conteúdo de um registro: forma lógica e forma de apresentação.
  *
- * Cada fornecedor devolve o mesmo dado de um jeito: o servidor autoritativo
- * da casa (PowerDNS) usa a forma de apresentação do arquivo de zona — TXT
- * entre aspas e em pedaços, nome de host com ponto final —, o serviço externo
- * devolve o texto lógico. Uma versão guardada de um lado e restaurada do
- * outro só funciona se as duas formas virarem uma só antes de comparar e de
- * guardar, e se cada adaptador converter de volta ao escrever.
+ * Dentro do sistema todo conteúdo circula em **forma lógica**: o texto do TXT
+ * como ele é, o nome de host sem ponto final. É o que o serviço externo usa
+ * na API dele.
+ *
+ * A **forma de apresentação** é a do arquivo de zona (RFC 1035 §5.1): TXT
+ * entre aspas, em pedaços, com escapes; host com ponto final. É o que o
+ * servidor autoritativo da casa (PowerDNS) fala, e o que sai no BIND.
+ *
+ * A conversão mora na fronteira com quem fala apresentação — o adaptador da
+ * casa e a exportação — e só lá. Converter no meio do caminho, sem saber de
+ * onde o dado veio, tomaria por aspas de apresentação um TXT do serviço
+ * externo que começa com aspas de verdade, e as apagaria.
  */
 
 const TIPOS_COM_HOST_NO_FIM = new Set(["CNAME", "MX", "NS", "SRV"]);
 
 /**
- * `"abc" "def"` → `abcdef`, desfazendo os escapes do arquivo de zona
- * (RFC 1035 §5.1): `\X` é o caractere X e `\DDD` é um byte em decimal. Os
- * bytes são remontados em UTF-8 no fim, para `\195\169` voltar a ser "é".
- * Texto sem aspas fica como está.
+ * Byte que não forma UTF-8 válido (TXT carrega octetos quaisquer). Vira um
+ * caractere da área de uso privado, U+F700 + byte, que atravessa JSON e o
+ * banco sem perda, e volta a ser o byte na forma de apresentação. Texto real
+ * nessa faixa não aparece em registro de DNS.
  */
-function txtLogico(conteudo: string): string {
+const BASE_BYTE_SOLTO = 0xf700;
+
+function ehByteSolto(codigo: number): boolean {
+  return codigo >= BASE_BYTE_SOLTO && codigo <= BASE_BYTE_SOLTO + 0xff;
+}
+
+/** Bytes em texto: UTF-8 válido vira o caractere; o que não for vira byte solto. */
+function bytesParaTexto(bytes: number[]): string {
+  const decodificador = new TextDecoder("utf-8", { fatal: true });
+  let saida = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const b = bytes[i];
+    const tamanho = b < 0x80 ? 1 : b >= 0xc2 && b <= 0xdf ? 2 : b >= 0xe0 && b <= 0xef ? 3 : b >= 0xf0 && b <= 0xf4 ? 4 : 0;
+    if (tamanho > 0 && i + tamanho <= bytes.length) {
+      try {
+        saida += decodificador.decode(new Uint8Array(bytes.slice(i, i + tamanho)));
+        i += tamanho;
+        continue;
+      } catch {
+        /* sequência inválida: cai para byte solto */
+      }
+    }
+    saida += String.fromCodePoint(BASE_BYTE_SOLTO + b);
+    i += 1;
+  }
+  return saida;
+}
+
+/** Bytes de um caractere lógico: byte solto é um byte só. */
+function bytesDe(caractere: string): number[] {
+  const codigo = caractere.codePointAt(0)!;
+  if (ehByteSolto(codigo)) return [codigo - BASE_BYTE_SOLTO];
+  return [...new TextEncoder().encode(caractere)];
+}
+
+/**
+ * `"abc" "def"` → `abcdef`, desfazendo os escapes: `\X` é o caractere X e
+ * `\DDD` é um byte em decimal. Os bytes são remontados em UTF-8 no fim, para
+ * `\195\169` voltar a ser "é".
+ */
+function txtDaApresentacao(conteudo: string): string {
   const cru = conteudo.trim();
   if (!cru.startsWith('"')) return conteudo;
 
   const codificador = new TextEncoder();
   const bytes: number[] = [];
   let dentro = false;
-  let achouAspas = false;
   for (let i = 0; i < cru.length; i++) {
     const c = cru[i];
     if (c === '"') {
       dentro = !dentro;
-      achouAspas = true;
       continue;
     }
     if (!dentro) continue;
@@ -46,7 +91,7 @@ function txtLogico(conteudo: string): string {
     }
     bytes.push(...codificador.encode(c));
   }
-  return achouAspas ? new TextDecoder().decode(new Uint8Array(bytes)) : conteudo;
+  return bytesParaTexto(bytes);
 }
 
 /**
@@ -61,11 +106,22 @@ function semPontoNoAlvo(conteudo: string): string {
   return partes.join(" ");
 }
 
-export function conteudoLogico(tipo: string, conteudo: string): string {
+/**
+ * Normalização que vale para conteúdo de qualquer origem: só o ponto final de
+ * host, que é ambíguo nos dois lados. TXT passa intacto — aspas num TXT
+ * lógico são conteúdo.
+ */
+export function normalizarLogico(tipo: string, conteudo: string): string {
   const t = tipo.toUpperCase();
-  if (t === "TXT") return txtLogico(conteudo);
+  if (t === "TXT") return conteudo;
   if (TIPOS_COM_HOST_NO_FIM.has(t)) return semPontoNoAlvo(conteudo);
   return conteudo.trim();
+}
+
+/** Forma de apresentação → lógica. Só para o que veio de quem fala apresentação. */
+export function daApresentacao(tipo: string, conteudo: string): string {
+  if (tipo.toUpperCase() === "TXT") return txtDaApresentacao(conteudo);
+  return normalizarLogico(tipo, conteudo);
 }
 
 /**
@@ -74,12 +130,11 @@ export function conteudoLogico(tipo: string, conteudo: string): string {
  * no meio. Contar caracteres deixaria "é" × 200 num pedaço de 400 bytes.
  */
 export function pedacosDe255Bytes(texto: string): string[] {
-  const codificador = new TextEncoder();
   const pedacos: string[] = [];
   let atual = "";
   let bytes = 0;
   for (const caractere of texto) {
-    const tamanho = codificador.encode(caractere).length;
+    const tamanho = bytesDe(caractere).length;
     if (bytes + tamanho > 255) {
       pedacos.push(atual);
       atual = "";
@@ -94,8 +149,8 @@ export function pedacosDe255Bytes(texto: string): string[] {
 
 /**
  * Um pedaço de TXT em forma de apresentação. Aspas e barra levam escape; byte
- * de controle (quebra de linha, tab, DEL) vira `\DDD`, senão o registro sai
- * com uma quebra de linha no meio e o arquivo de zona fica inválido.
+ * de controle (quebra de linha, tab, DEL) e byte solto viram `\DDD`, senão o
+ * registro sai com uma quebra de linha no meio ou com bytes trocados.
  */
 function escaparPedaco(pedaco: string): string {
   let saida = "";
@@ -103,6 +158,7 @@ function escaparPedaco(pedaco: string): string {
     const codigo = caractere.codePointAt(0)!;
     if (caractere === "\\" || caractere === '"') saida += `\\${caractere}`;
     else if (codigo < 0x20 || codigo === 0x7f) saida += `\\${String(codigo).padStart(3, "0")}`;
+    else if (ehByteSolto(codigo)) saida += `\\${String(codigo - BASE_BYTE_SOLTO).padStart(3, "0")}`;
     else saida += caractere;
   }
   return saida;
@@ -115,10 +171,10 @@ export function txtEmAspas(logico: string): string {
     .join(" ");
 }
 
-/** Conteúdo lógico na forma que o servidor autoritativo e o arquivo de zona exigem. */
-export function conteudoDeApresentacao(tipo: string, conteudo: string): string {
+/** Forma lógica → apresentação, para o servidor autoritativo e o arquivo de zona. */
+export function paraApresentacao(tipo: string, conteudo: string): string {
   const t = tipo.toUpperCase();
-  if (t === "TXT") return conteudo.trim().startsWith('"') ? conteudo.trim() : txtEmAspas(conteudo);
+  if (t === "TXT") return txtEmAspas(conteudo);
   if (TIPOS_COM_HOST_NO_FIM.has(t)) {
     const partes = conteudo.trim().split(/\s+/);
     const ultimo = partes[partes.length - 1];

@@ -327,5 +327,18 @@ describe("DNS pelo portal do cliente", () => {
     expect(ultima.reason).toMatch(/calculada/);
     expect((ultima.records as { ttl: number }[]).map((l) => l.ttl)).toEqual([3600, 3600]);
   }));
+
+  it("versão guardada de uma restauração divergente não se chama 'Restaurada'", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const cliente = { id, origem: "CLIENTE" as const };
+    await executarOperacaoDns(fqdn, { acao: "apagar", registroId: "mx" }, cliente, { organizationId: org });
+    const inicial = await tx.dnsZoneVersion.findFirstOrThrow({ where: { origin: "SISTEMA", domainAsset: { fqdn } } });
+    state.aoEscrever = () => {
+      state.zona.push({ id: "intruso", tipo: "TXT", nome: "@", conteudo: "verificacao=xyz", ttl: 1, proxy: false, prioridade: null });
+    };
+    await expect(restaurarVersaoDns(fqdn, inicial.id, cliente, { organizationId: org })).rejects.toMatchObject({ status: 409 });
+    const ultima = await tx.dnsZoneVersion.findFirstOrThrow({ where: { domainAsset: { fqdn } }, orderBy: { createdAt: "desc" } });
+    expect(ultima.reason).toMatch(/não conferiu/);
+    expect(ultima.reason).not.toMatch(/^Restaurada/);
+  }));
 });
 

@@ -103,7 +103,8 @@ describe("achatar a zona em linhas", () => {
 
     expect(linhas).toHaveLength(3);
     expect(linhas[0].prioridade).toBe(10);
-    expect(linhas[0].conteudo).toBe("mx1.provedor.com.");
+    // Forma lógica, como a do serviço externo: sem o ponto final.
+    expect(linhas[0].conteudo).toBe("mx1.provedor.com");
     expect(linhas[0].nome).toBe("cliente.com.br");
   });
 

@@ -1,4 +1,4 @@
-import { conteudoDeApresentacao, conteudoLogico, ehDoServidor } from "@/lib/dominios/dns/conteudo";
+import { ehDoServidor, paraApresentacao } from "@/lib/dominios/dns/conteudo";
 import type { LinhaVersao } from "@/lib/dominios/dns/versoes";
 
 /**
@@ -22,7 +22,7 @@ function absoluto(nome: string): string {
 
 function dados(linha: LinhaVersao): string {
   const tipo = linha.tipo.toUpperCase();
-  const conteudo = conteudoDeApresentacao(tipo, conteudoLogico(tipo, linha.conteudo));
+  const conteudo = paraApresentacao(tipo, linha.conteudo);
   return linha.prioridade !== null && (tipo === "MX" || tipo === "SRV") ? `${linha.prioridade} ${conteudo}` : conteudo;
 }
 

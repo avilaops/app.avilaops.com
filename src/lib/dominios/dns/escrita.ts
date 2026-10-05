@@ -319,22 +319,27 @@ async function garantirRetratoInicial(domainAssetId: string, zona: string, exist
 async function registrarVersaoAtual(
   zona: { id: string; fqdn: string; zonaId: string; provedor: { listar(zonaId: string): Promise<RegistroDns[]> } },
   ator: Ator,
-  motivo: string,
+  /**
+   * O texto da versão. Como função, recebe o que foi relido: a restauração só
+   * sabe se deu certo depois de comparar a zona relida com a versão, e o
+   * motivo guardado não pode dizer "restaurada" quando não ficou.
+   */
+  motivo: string | ((registros: RegistroDns[], relida: boolean) => string),
   calculada: () => RegistroDns[],
 ): Promise<{ registros: RegistroDns[]; relida: boolean; guardada: boolean }> {
   // Reler e guardar são resultados separados: falha do banco ao guardar não
   // pode virar "o servidor não deixou reler", e vice-versa.
   let registros: RegistroDns[];
   let relida = true;
-  let texto = motivo;
   try {
     registros = await zona.provedor.listar(zona.zonaId);
   } catch (e) {
     console.error("[dns] releitura após escrita falhou; versão calculada", zona.fqdn, e);
     registros = calculada();
     relida = false;
-    texto = `${motivo} (calculada; o servidor não respondeu à releitura)`;
   }
+  const base = typeof motivo === "function" ? motivo(registros, relida) : motivo;
+  const texto = relida ? base : `${base} (calculada; o servidor não respondeu à releitura)`;
   try {
     await gravarVersao(zona.id, zona.fqdn, registros, ator.origem, ator.id, texto);
     return { registros, relida, guardada: true };
@@ -456,9 +461,13 @@ export async function restaurarVersaoDns(
   const guardada = await registrarVersaoAtual(
     zona,
     ator,
-    falha
-      ? `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças)`
-      : `Restaurada a versão de ${quando}`,
+    (registros, relida) => {
+      if (falha) return `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças)`;
+      if (!relida) return `Restauração da versão de ${quando} aplicada sem conferência`;
+      return zonaIgual(diferencaParaVersao(registros, alvo, zona.fqdn))
+        ? `Restaurada a versão de ${quando}`
+        : `Restauração da versão de ${quando} não conferiu: a zona mudou durante a restauração`;
+    },
     () => estado,
   );
 

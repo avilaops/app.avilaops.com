@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { zonaParaBind } from "@/lib/dominios/dns/bind";
-import { conteudoDeApresentacao, conteudoLogico, ehDoServidor, pedacosDe255Bytes } from "@/lib/dominios/dns/conteudo";
-import { montarConteudo } from "@/lib/dominios/dns/rrset";
+import { daApresentacao, ehDoServidor, normalizarLogico, paraApresentacao, pedacosDe255Bytes } from "@/lib/dominios/dns/conteudo";
+import { achatar, montarConteudo } from "@/lib/dominios/dns/rrset";
 import type { RegistroDns } from "@/lib/dominios/dns/tipos";
 import { diferencaParaVersao, lerLinhas, ordenarLinhas, paraLinha, zonaIgual, type LinhaVersao } from "@/lib/dominios/dns/versoes";
 
@@ -83,7 +83,7 @@ describe("zonaParaBind", () => {
   const linhas = ordenarLinhas([
     ...ATUAL.map(paraLinha),
     paraLinha(r("CNAME", "www.x.com.br", "x.com.br")),
-    paraLinha(r("TXT", "_dmarc.x.com.br", '"v=DMARC1; p=none"')),
+    paraLinha(r("TXT", "_dmarc.x.com.br", "v=DMARC1; p=none")),
     paraLinha(r("TXT", "longo.x.com.br", "a".repeat(300))),
   ]);
   const arquivo = zonaParaBind("x.com.br", linhas, { geradoEm: new Date("2026-10-04T12:00:00Z"), origem: "teste" });
@@ -102,7 +102,7 @@ describe("zonaParaBind", () => {
     expect(arquivo).toContain("x.com.br.\t300\tIN\tA\t203.0.113.10");
   });
 
-  it("TXT entre aspas, sem aspas dobradas, e em pedaços de 255", () => {
+  it("TXT sai entre aspas, uma vez só, e em pedaços de 255", () => {
     expect(arquivo).toContain('_dmarc.x.com.br.\t300\tIN\tTXT\t"v=DMARC1; p=none"');
     const longo = arquivo.split("\n").find((l) => l.startsWith("longo."))!;
     expect(longo).toContain(`"${"a".repeat(255)}" "${"a".repeat(45)}"`);
@@ -138,26 +138,33 @@ describe("registros do servidor", () => {
 
 describe("conteúdo igual entre servidores", () => {
   it("TXT entre aspas e em pedaços vira o mesmo texto lógico", () => {
-    expect(conteudoLogico("TXT", '"v=spf1 include:a.com" " ~all"')).toBe("v=spf1 include:a.com ~all");
-    expect(conteudoLogico("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
-    expect(conteudoLogico("TXT", "v=spf1 -all")).toBe("v=spf1 -all");
+    expect(daApresentacao("TXT", '"v=spf1 include:a.com" " ~all"')).toBe("v=spf1 include:a.com ~all");
+    expect(daApresentacao("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
+    expect(daApresentacao("TXT", "v=spf1 -all")).toBe("v=spf1 -all");
   });
 
   it("host com ou sem ponto final é o mesmo host", () => {
-    expect(conteudoLogico("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
+    expect(daApresentacao("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
+    expect(normalizarLogico("MX", "mx1.provedor.com.")).toBe("mx1.provedor.com");
   });
 
   it("versão do servidor da casa e zona do serviço externo não aparecem como diferentes", () => {
-    const daCasa = [r("TXT", "x.com.br", '"v=spf1 -all"'), r("MX", "x.com.br", "mx1.provedor.com.", { prioridade: 10 })];
+    // O adaptador da casa já entrega forma lógica: a conversão mora nele.
+    const daCasa = achatar([
+      { name: "x.com.br.", type: "TXT", ttl: 1, records: [{ content: '"v=spf1 -all"' }] },
+      { name: "x.com.br.", type: "MX", ttl: 1, records: [{ content: "10 mx1.provedor.com." }] },
+    ]);
+    expect(daCasa.map((l) => l.conteudo)).toEqual(["v=spf1 -all", "mx1.provedor.com"]);
     const externa = [r("TXT", "x.com.br", "v=spf1 -all"), r("MX", "x.com.br", "mx1.provedor.com", { prioridade: 10 })];
     expect(zonaIgual(diferencaParaVersao(externa, daCasa.map(paraLinha), Z))).toBe(true);
   });
 
   it("o servidor da casa recebe TXT entre aspas e host com ponto final", () => {
     expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: "v=spf1 -all" })).toBe('"v=spf1 -all"');
-    expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: '"já" "em aspas"' })).toBe('"já" "em aspas"');
+    // Entrada é sempre lógica: aspas digitadas são conteúdo e levam escape.
+    expect(montarConteudo({ tipo: "TXT", nome: Z, conteudo: '"sale"' })).toBe('"\\"sale\\""');
     expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: "mx1.provedor.com", prioridade: 10 })).toBe("10 mx1.provedor.com.");
-    expect(conteudoDeApresentacao("CNAME", "x.com.br")).toBe("x.com.br.");
+    expect(paraApresentacao("CNAME", "x.com.br")).toBe("x.com.br.");
   });
 
   it("TXT é cortado por bytes, sem partir acento no meio", () => {
@@ -169,34 +176,56 @@ describe("conteúdo igual entre servidores", () => {
 
 describe("revisão do #80", () => {
   it("escape decimal do TXT é um byte, e bytes UTF-8 voltam a ser o caractere", () => {
-    expect(conteudoLogico("TXT", '"a\\032b"')).toBe("a b");
-    expect(conteudoLogico("TXT", '"caf\\195\\169"')).toBe("café");
-    expect(conteudoLogico("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
+    expect(daApresentacao("TXT", '"a\\032b"')).toBe("a b");
+    expect(daApresentacao("TXT", '"caf\\195\\169"')).toBe("café");
+    expect(daApresentacao("TXT", '"diz \\"oi\\""')).toBe('diz "oi"');
   });
 
   it("alvo raiz '.' do MX nulo e do SRV indisponível não vira texto vazio", () => {
-    expect(conteudoLogico("MX", ".")).toBe(".");
-    expect(conteudoLogico("SRV", "0 0 .")).toBe("0 0 .");
-    expect(conteudoDeApresentacao("MX", ".")).toBe(".");
+    expect(daApresentacao("MX", ".")).toBe(".");
+    expect(daApresentacao("SRV", "0 0 .")).toBe("0 0 .");
+    expect(paraApresentacao("MX", ".")).toBe(".");
     expect(montarConteudo({ tipo: "MX", nome: Z, conteudo: ".", prioridade: 0 })).toBe("0 .");
   });
 
-  it("versão antiga com TXT entre aspas é lida em forma lógica, pronta para restaurar em qualquer servidor", () => {
-    const [linha] = lerLinhas([{ tipo: "txt", nome: "X.com.br.", conteudo: '"v=spf1" " -all"', ttl: 300, prioridade: null, proxy: false }]);
-    expect(linha).toMatchObject({ tipo: "TXT", nome: "x.com.br", conteudo: "v=spf1 -all" });
+  it("versão guardada é lida normalizada: tipo, nome e host", () => {
+    const [linha] = lerLinhas([{ tipo: "mx", nome: "X.com.br.", conteudo: "mx1.provedor.com.", ttl: 300, prioridade: 10, proxy: false }]);
+    expect(linha).toMatchObject({ tipo: "MX", nome: "x.com.br", conteudo: "mx1.provedor.com" });
   });
 });
 
 describe("revisão do #80, terceira rodada", () => {
   it("byte de controle do TXT vai e volta como escape decimal", () => {
-    expect(conteudoLogico("TXT", '"a\\010b"')).toBe("a\nb");
-    expect(conteudoDeApresentacao("TXT", "a\nb\tc")).toBe('"a\\010b\\009c"');
-    expect(conteudoLogico("TXT", conteudoDeApresentacao("TXT", "a\nb"))).toBe("a\nb");
+    expect(daApresentacao("TXT", '"a\\010b"')).toBe("a\nb");
+    expect(paraApresentacao("TXT", "a\nb\tc")).toBe('"a\\010b\\009c"');
+    expect(daApresentacao("TXT", paraApresentacao("TXT", "a\nb"))).toBe("a\nb");
   });
 
   it("BIND não sai com quebra de linha no meio de um TXT", () => {
     const arquivo = zonaParaBind(Z, [paraLinha(r("TXT", "x.com.br", "linha1\nlinha2"))], { geradoEm: new Date(), origem: "t" });
     expect(arquivo).toContain('"linha1\\010linha2"');
+  });
+});
+
+describe("revisão do #80, quarta rodada", () => {
+  it("TXT lógico que começa com aspas mantém as aspas: são conteúdo", () => {
+    expect(paraLinha(r("TXT", "x.com.br", '"sale"')).conteudo).toBe('"sale"');
+    const [linha] = lerLinhas([{ tipo: "TXT", nome: "x.com.br", conteudo: '"sale"', ttl: 1, prioridade: null, proxy: false }]);
+    expect(linha.conteudo).toBe('"sale"');
+    expect(zonaIgual(diferencaParaVersao([r("TXT", "x.com.br", '"sale"')], [linha], Z))).toBe(true);
+  });
+
+  it("byte fora de UTF-8 no TXT vai e volta sem virar caractere de substituição", () => {
+    const logico = daApresentacao("TXT", '"a\\255b"');
+    expect(logico).not.toContain("\uFFFD");
+    expect(paraApresentacao("TXT", logico)).toBe('"a\\255b"');
+    // "a" + byte solto + "b" são 3 bytes, não 5: 3 + 252 = 255 cabe num pedaço.
+    expect(pedacosDe255Bytes(logico + "x".repeat(252))).toHaveLength(1);
+    expect(pedacosDe255Bytes(logico + "x".repeat(253))).toHaveLength(2);
+  });
+
+  it("acento continua acento mesmo ao lado de byte solto", () => {
+    expect(paraApresentacao("TXT", daApresentacao("TXT", '"caf\\195\\169\\255"'))).toBe('"café\\255"');
   });
 });
 

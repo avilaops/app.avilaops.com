@@ -1,4 +1,4 @@
-import { conteudoLogico, ehDoServidor } from "@/lib/dominios/dns/conteudo";
+import { ehDoServidor, normalizarLogico } from "@/lib/dominios/dns/conteudo";
 import type { EntradaRegistroDns, RegistroDns } from "@/lib/dominios/dns/tipos";
 
 /**
@@ -34,7 +34,7 @@ export function paraLinha(registro: RegistroDns): LinhaVersao {
   return {
     tipo: registro.tipo.toUpperCase(),
     nome: registro.nome.trim().toLowerCase().replace(/\.$/, ""),
-    conteudo: conteudoLogico(registro.tipo, registro.conteudo),
+    conteudo: normalizarLogico(registro.tipo, registro.conteudo),
     ttl: registro.ttl,
     prioridade: registro.prioridade,
     proxy: registro.proxy,
@@ -59,7 +59,7 @@ export function ordenarLinhas(linhas: LinhaVersao[]): LinhaVersao[] {
  */
 function chave(linha: { tipo: string; nome: string; conteudo: string; prioridade: number | null }): string {
   const nome = linha.nome.trim().toLowerCase().replace(/\.$/, "");
-  return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${conteudoLogico(linha.tipo, linha.conteudo)}`;
+  return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${normalizarLogico(linha.tipo, linha.conteudo)}`;
 }
 
 export type DiferencaZona = {
@@ -127,10 +127,9 @@ export function lerLinhas(bruto: unknown): LinhaVersao[] {
       {
         tipo: l.tipo.toUpperCase(),
         nome: l.nome.trim().toLowerCase().replace(/\.$/, ""),
-        // Versões guardadas antes da forma lógica podem ter TXT entre aspas
-        // do servidor da casa. Normalizar só a chave de comparação não basta:
-        // é este conteúdo que vai para o servidor ao restaurar.
-        conteudo: conteudoLogico(l.tipo, l.conteudo),
+        // É este conteúdo que vai para o servidor ao restaurar, então a
+        // normalização vale aqui também, não só na chave de comparação.
+        conteudo: normalizarLogico(l.tipo, l.conteudo),
         ttl: typeof l.ttl === "number" ? l.ttl : 1,
         prioridade: typeof l.prioridade === "number" ? l.prioridade : null,
         proxy: l.proxy === true,
