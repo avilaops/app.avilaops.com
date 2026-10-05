@@ -13,6 +13,15 @@ export async function GET() {
   if (!ehDono(admin.role)) {
     return NextResponse.json({ erro: "Só o dono pode diagnosticar." }, { status: 403 });
   }
-  const diagnostico = await diagnosticarWebhook();
-  return NextResponse.json(diagnostico);
+  const d = await diagnosticarWebhook();
+  return NextResponse.json({
+    ok: d.oauthOk && !d.erro,
+    linhas: [
+      { rotulo: "Ambiente", valor: d.ambiente },
+      { rotulo: "Credencial (OAuth)", valor: d.oauthOk ? "ok" : "falhou" },
+      { rotulo: "Webhook", valor: d.webhookUrl ?? d.webhookId ?? "não configurado" },
+      { rotulo: "Eventos assinados", valor: d.eventos.length ? d.eventos.join(", ") : "—" },
+    ],
+    erro: d.erro,
+  });
 }

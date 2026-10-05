@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import DiagnosticoPaypal from "@/components/integracoes/DiagnosticoPaypal";
+import DiagnosticoIntegracao from "@/components/integracoes/DiagnosticoIntegracao";
 import EventosRecentes from "@/components/whatsapp/EventosRecentes";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { eventosDoProvedor, pagamentosRecentes, resumoRecebiveis } from "@/lib/integracoes";
@@ -40,7 +40,8 @@ export default async function IntegracoesPage() {
       </header>
 
       <div className="flex flex-col gap-4">
-        <DiagnosticoPaypal />
+        <DiagnosticoIntegracao titulo="PayPal" endpoint="/api/integracoes/paypal/diagnostico" />
+        <DiagnosticoIntegracao titulo="Mercado Pago" endpoint="/api/integracoes/mercadopago/diagnostico" />
 
         <section className="w-full rounded-xl border border-border bg-card p-4">
           <h2 className="text-[15px] font-semibold text-foreground">Recebíveis</h2>

@@ -216,6 +216,48 @@ export async function usuarioDoToken(): Promise<{ id: number; apelido: string; e
   return usuarioCache;
 }
 
+export type DiagnosticoMercadoPago = {
+  configurado: boolean;
+  tokenOk: boolean;
+  conta: string | null;
+  webhookUrl: string | null;
+  erro: string | null;
+};
+
+/**
+ * Confere se o Mercado Pago está de pé: o token autentica (/users/me) e qual é
+ * a URL de notificação. Espelha o diagnóstico do PayPal para o painel.
+ */
+export async function diagnosticarMercadoPago(): Promise<DiagnosticoMercadoPago> {
+  if (!(await mercadoPagoConfigurado())) {
+    return { configurado: false, tokenOk: false, conta: null, webhookUrl: null, erro: "MP_ACCESS_TOKEN ausente." };
+  }
+  try {
+    const usuario = await usuarioDoToken();
+    let webhookUrl: string | null = null;
+    try {
+      webhookUrl = await urlDeNotificacao();
+    } catch {
+      webhookUrl = null;
+    }
+    return {
+      configurado: true,
+      tokenOk: true,
+      conta: usuario.apelido || String(usuario.id),
+      webhookUrl,
+      erro: null,
+    };
+  } catch (erro) {
+    return {
+      configurado: true,
+      tokenOk: false,
+      conta: null,
+      webhookUrl: null,
+      erro: erro instanceof Error ? erro.message : "Falha ao consultar o Mercado Pago.",
+    };
+  }
+}
+
 export interface ConfiguracaoWebhook {
   aplicacao: string;
   clientId: number;
