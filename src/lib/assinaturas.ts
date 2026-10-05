@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { centavosAAlocar } from "@/lib/alocacao-pagamento";
 import {
   createBoletoCharge,
   createCardCharge,
@@ -687,15 +688,35 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
             source: "GATEWAY_WEBHOOK",
           },
         });
-        // Aloca só o principal da fatura: numa cobrança de cartão parcelado o
-        // valor capturado inclui juros do pagador e passa do valor da fatura, e
-        // o trigger core.guard_allocation rejeita alocação acima desse valor.
+        // Aloca o menor entre o principal da cobrança e o que a fatura ainda
+        // deve. Principal, porque numa cobrança de cartão parcelado o valor
+        // capturado inclui juros do pagador; saldo, porque com alocação parcial
+        // anterior o valor cheio estoura a fatura, o trigger
+        // core.guard_allocation rejeita ("invoice overpaid") e o pagamento
+        // ficaria em core.payments sem alocação nenhuma.
         if (pagamento.status === "CONFIRMED") {
-          await prisma.corePaymentAllocation.upsert({
-            where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
-            update: {},
-            create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: cobranca.invoice.amount },
+          // Só os OUTROS pagamentos: reprocessar o mesmo evento não pode contar
+          // a alocação deste aqui como saldo já consumido.
+          const outros = await prisma.corePaymentAllocation.aggregate({
+            _sum: { amount: true },
+            where: {
+              invoiceId: cobranca.invoiceId,
+              paymentId: { not: pagamento.id },
+              payment: { status: "CONFIRMED" },
+            },
           });
+          const aAlocar = centavosAAlocar(cobranca, cobranca.invoice.amount, outros._sum.amount);
+          if (aAlocar > 0) {
+            await prisma.corePaymentAllocation.upsert({
+              where: { paymentId_invoiceId: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId } },
+              update: {},
+              create: { paymentId: pagamento.id, invoiceId: cobranca.invoiceId, amount: aAlocar / 100 },
+            });
+          } else {
+            // Fatura já coberta por outros pagamentos: o dinheiro entrou e fica
+            // em core.payments sem alocação, para a conciliação decidir.
+            console.warn(`[ledger] pagamento de ${cobranca.id} sem alocação: a fatura ${cobranca.invoiceId} já está coberta`);
+          }
         }
       }
     } catch (erro) {
