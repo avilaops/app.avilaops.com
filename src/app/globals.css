@@ -6443,13 +6443,24 @@ tbody tr:last-child td {
   padding-left: 12px;
 }
 
+/* A linha da fatura quebra em duas quando não cabe: com cobrar e enviar
+   lado a lado, sem quebra o título da fatura encolhia até sumir e os botões
+   de envio ficavam cortados na borda do cartão. */
 .prov-fatura {
+  flex-wrap: wrap;
+  row-gap: 8px;
   padding-left: 28px;
+}
+
+.prov-fatura .prov-row-main {
+  flex: 1 1 220px;
 }
 
 .prov-fatura-acoes {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 

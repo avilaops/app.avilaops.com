@@ -17,9 +17,17 @@ import { limparCacheDeCredenciais } from "@/lib/credenciais";
  * calculada de verdade com o mesmo HMAC que eles usam.
  */
 
-const { getPagamentoStatus } = vi.hoisted(() => ({ getPagamentoStatus: vi.fn() }));
+const { getPagamentoStatus, aprovacao } = vi.hoisted(() => ({
+  getPagamentoStatus: vi.fn(),
+  aprovacao: { em: null as Date | null },
+}));
 
-vi.mock("@/lib/mercadopago-cobranca", () => ({ getPagamentoStatus }));
+// O webhook consulta status e instante de aprovação juntos; o teste controla o
+// status pelo mock e a aprovação por `aprovacao.em` (vazia por padrão).
+vi.mock("@/lib/mercadopago-cobranca", () => ({
+  getPagamentoStatus,
+  consultarPagamento: async (id: string) => ({ status: await getPagamentoStatus(id), aprovadoEm: aprovacao.em }),
+}));
 vi.mock("@/lib/deliverables", () => ({ markDeliverablePaidAndNotify: vi.fn() }));
 
 const { POST } = await import("@/app/api/webhooks/mercadopago/route");
@@ -73,10 +81,13 @@ async function limpar() {
   await prisma.corePayment.deleteMany({ where: { organizationId: { in: orgIds } } });
   await prisma.subscription.deleteMany({ where: { productKey: PRODUTO } });
   await prisma.organization.deleteMany({ where: { slug: { startsWith: "teste-webhook-mp-" } } });
+  // Só este arquivo grava eventos do Mercado Pago no banco descartável.
+  await prisma.integrationWebhookEvent.deleteMany({ where: { provider: "mercadopago" } });
 }
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  aprovacao.em = null;
   process.env.MP_WEBHOOK_SECRET = SEGREDO;
   delete process.env.MP_WEBHOOK_TOKEN;
   // O segredo passa pelo cofre, que guarda o que leu por 60 segundos: sem
@@ -289,5 +300,77 @@ describe("decisão sobre o dinheiro", () => {
     expect(resposta.status).toBe(200);
     expect(getPagamentoStatus).not.toHaveBeenCalled();
     expect((await situacaoDaFatura()).status).toBe("OPEN");
+  });
+});
+
+describe("ledger, reembolso e registro do evento", () => {
+  it("grava a data de aprovação do Mercado Pago, não a do processamento", async () => {
+    aprovacao.em = new Date("2026-09-10T01:30:00Z");
+    getPagamentoStatus.mockResolvedValue("approved");
+
+    expect((await POST(notificacao(pagamentoId))).status).toBe(200);
+
+    const fatura = await situacaoDaFatura();
+    expect(fatura.paidAt?.toISOString()).toBe("2026-09-10T01:30:00.000Z");
+    expect(fatura.charges[0].paidAt?.toISOString()).toBe("2026-09-10T01:30:00.000Z");
+    const pagamento = await prisma.corePayment.findFirstOrThrow({ where: { externalId: pagamentoId } });
+    expect(pagamento.status).toBe("CONFIRMED");
+    expect(pagamento.paidAt?.toISOString()).toBe("2026-09-10T01:30:00.000Z");
+  });
+
+  it("aloca só o principal quando a cobrança tem juros de parcelamento", async () => {
+    await prisma.subscriptionCharge.updateMany({ where: { externalId: pagamentoId }, data: { amount: 320, interestAmount: 21 } });
+    getPagamentoStatus.mockResolvedValue("approved");
+
+    expect((await POST(notificacao(pagamentoId))).status).toBe(200);
+
+    const pagamento = await prisma.corePayment.findFirstOrThrow({
+      where: { externalId: pagamentoId },
+      include: { allocations: true },
+    });
+    expect(Number(pagamento.amount)).toBe(320);
+    expect(pagamento.allocations).toHaveLength(1);
+    expect(Number(pagamento.allocations[0].amount)).toBe(299);
+  });
+
+  it("reembolso reabre a fatura e tira o dinheiro dos recebíveis", async () => {
+    getPagamentoStatus.mockResolvedValueOnce("approved");
+    await POST(notificacao(pagamentoId));
+    expect((await situacaoDaFatura()).status).toBe("PAID");
+
+    getPagamentoStatus.mockResolvedValueOnce("refunded");
+    expect((await POST(notificacao(pagamentoId, { requestId: "req-mp-2" }))).status).toBe(200);
+
+    const fatura = await situacaoDaFatura();
+    expect(fatura.status).toBe("OPEN");
+    expect(fatura.paidAt).toBeNull();
+    expect(fatura.charges[0].status).toBe("REFUNDED");
+    const pagamento = await prisma.corePayment.findFirstOrThrow({ where: { externalId: pagamentoId } });
+    expect(pagamento.status).toBe("REFUNDED");
+    const [recebivel] = await prisma.$queryRaw<{ outstanding: unknown }[]>`
+      SELECT outstanding FROM core.receivables WHERE source='INVOICE' AND source_id=${invoiceId}`;
+    expect(Number(recebivel.outstanding)).toBe(299);
+  });
+
+  it("registra o evento e marca a situação do tratamento", async () => {
+    getPagamentoStatus.mockResolvedValue("approved");
+    await POST(notificacao(pagamentoId));
+
+    const evento = await prisma.integrationWebhookEvent.findFirstOrThrow({
+      where: { provider: "mercadopago", externalId: pagamentoId },
+    });
+    expect(evento.status).toBe("PROCESSED");
+    expect(evento.processedAt).not.toBeNull();
+  });
+
+  it("falha da API fica registrada como FAILED", async () => {
+    getPagamentoStatus.mockRejectedValue(new Error("timeout"));
+    await POST(notificacao(pagamentoId));
+
+    const evento = await prisma.integrationWebhookEvent.findFirstOrThrow({
+      where: { provider: "mercadopago", externalId: pagamentoId },
+    });
+    expect(evento.status).toBe("FAILED");
+    expect(evento.error).toContain("timeout");
   });
 });

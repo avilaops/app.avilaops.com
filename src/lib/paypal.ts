@@ -27,6 +27,43 @@ export function paypalConfigurado(): boolean {
   return Boolean(process.env.PAYPAL_CLIENT_ID?.trim() && process.env.PAYPAL_SECRET?.trim());
 }
 
+/**
+ * Eventos que `src/app/api/webhooks/paypal/route.ts` trata como dinheiro. O
+ * diagnóstico exige todos; mudar a lista lá exige mudar aqui.
+ */
+export const EVENTOS_DE_PAGAMENTO = [
+  "PAYMENT.CAPTURE.COMPLETED",
+  "PAYMENT.CAPTURE.DENIED",
+  "PAYMENT.CAPTURE.REFUNDED",
+] as const;
+const EVENTOS_EXIGIDOS: readonly string[] = EVENTOS_DE_PAGAMENTO;
+
+/**
+ * Casas decimais que o PayPal aceita por moeda. JPY, HUF e TWD não têm
+ * centavos na API (Orders v2): mandar "100.00" faz a ordem ser recusada.
+ * Moeda fora desta lista não é aceita pela conta — melhor recusar aqui, com
+ * mensagem clara, do que deixar o PayPal recusar com erro genérico.
+ */
+const CASAS_POR_MOEDA: Record<string, number> = {
+  AUD: 2, BRL: 2, CAD: 2, CHF: 2, CNY: 2, CZK: 2, DKK: 2, EUR: 2, GBP: 2, HKD: 2,
+  HUF: 0, ILS: 2, JPY: 0, MXN: 2, MYR: 2, NOK: 2, NZD: 2, PHP: 2, PLN: 2, SEK: 2,
+  SGD: 2, THB: 2, TWD: 0, USD: 2,
+};
+
+export class MoedaNaoSuportadaPeloPaypal extends Error {}
+
+/** Valor no formato do PayPal para a moeda, ou erro se a moeda não é aceita. */
+export function valorPaypal(valor: number, moeda: string): string {
+  const casas = CASAS_POR_MOEDA[moeda.toUpperCase()];
+  if (casas === undefined) {
+    throw new MoedaNaoSuportadaPeloPaypal(`O PayPal não cobra em ${moeda}.`);
+  }
+  if (casas === 0 && !Number.isInteger(valor)) {
+    throw new MoedaNaoSuportadaPeloPaypal(`${moeda} não tem centavos no PayPal; o valor ${valor} precisa ser inteiro.`);
+  }
+  return valor.toFixed(casas);
+}
+
 export type DiagnosticoPaypal = {
   ambiente: "sandbox" | "live";
   configurado: boolean;
@@ -75,10 +112,12 @@ export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
     // pagamento, é a falha silenciosa que este diagnóstico tem que pegar.
     const esperada = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/+$/, "") + "/api/webhooks/paypal";
     const urlConfere = Boolean(url && url.replace(/\/+$/, "") === esperada);
-    const cobreEventos = eventos.includes("*") || eventos.some((n) => n.startsWith("PAYMENT.CAPTURE."));
+    // Cada evento que o handler trata precisa estar assinado: um webhook só com
+    // DENIED nunca avisaria pagamento concluído nem reembolso.
+    const faltando = eventos.includes("*") ? [] : EVENTOS_EXIGIDOS.filter((n) => !eventos.includes(n));
     let erro: string | null = null;
     if (!urlConfere) erro = `O webhook aponta para ${url ?? "lugar nenhum"}, não para ${esperada}.`;
-    else if (!cobreEventos) erro = "O webhook não assina eventos de pagamento (PAYMENT.CAPTURE.*).";
+    else if (faltando.length > 0) erro = `O webhook não assina: ${faltando.join(", ")}.`;
     return { ambiente: amb, configurado: true, oauthOk: true, webhookId, webhookUrl: url, eventos, erro };
   } catch (erro) {
     // OAuth deu certo; só a consulta do webhook falhou. Credencial segue ok.
@@ -141,6 +180,7 @@ async function chamar<T>(caminho: string, init?: RequestInit): Promise<T> {
 }
 
 export async function criarOrdem(params: { valor: number; moeda?: string; descricao: string; referencia: string; retorno: string; cancelamento: string }) {
+  const moeda = (params.moeda ?? "BRL").toUpperCase();
   const ordem = await chamar<{ id: string; status: string; links?: Array<{ rel: string; href: string }> }>("/v2/checkout/orders", {
     method: "POST",
     headers: { "PayPal-Request-Id": `avila-${params.referencia}` },
@@ -151,7 +191,7 @@ export async function criarOrdem(params: { valor: number; moeda?: string; descri
         custom_id: params.referencia,
         invoice_id: params.referencia,
         description: params.descricao.slice(0, 127),
-        amount: { currency_code: params.moeda ?? "BRL", value: params.valor.toFixed(2) },
+        amount: { currency_code: moeda, value: valorPaypal(params.valor, moeda) },
       }],
       payment_source: {
         paypal: {
@@ -240,6 +280,8 @@ export async function consultarCaptura(id: string) {
     amount?: { value?: string; currency_code?: string };
     custom_id?: string;
     invoice_id?: string;
+    /** Instante em que o PayPal capturou — é o que vale como data do pagamento. */
+    create_time?: string;
   }>(`/v2/payments/captures/${encodeURIComponent(id)}`);
 }
 

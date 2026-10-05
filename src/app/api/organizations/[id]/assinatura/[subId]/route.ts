@@ -12,14 +12,16 @@ import { ehDono, getAdmin } from "@/lib/auth";
 import { cleanText, sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
-const METODOS: MetodoCobranca[] = ["PIX", "BOLETO"];
+// PAYPAL é o trilho de quem paga de fora do Brasil; a regra de país mora em
+// criarCobrancaDaFatura, que recusa o método errado com mensagem clara.
+const METODOS: MetodoCobranca[] = ["PIX", "BOLETO", "PAYPAL"];
 
 /**
  * Ações sobre uma assinatura existente:
  * - `pausar` / `retomar` / `cancelar` (cancelar fecha `endedAt`);
  * - `ajustar` `{ valor?, dia? }` — vale a partir da próxima fatura;
  * - `gerar-fatura` `{ competencia? }` — mensalidade do mês (idempotente);
- * - `cobrar` `{ invoiceId, metodo: PIX | BOLETO }` — emite a cobrança no
+ * - `cobrar` `{ invoiceId, metodo: PIX | BOLETO | PAYPAL }` — emite a cobrança no
  *   Mercado Pago, único meio da casa desde 31/08/2026
  *   e devolve o copia-e-cola / link do boleto para mandar ao cliente.
  */
@@ -110,7 +112,7 @@ export async function PATCH(
     const invoiceId = cleanText(body?.invoiceId, 64);
     const metodo = cleanText(body?.metodo, 10).toUpperCase() as MetodoCobranca;
     if (!invoiceId || !METODOS.includes(metodo)) {
-      return NextResponse.json({ error: "Informe a fatura e o método (PIX ou BOLETO)." }, { status: 400 });
+      return NextResponse.json({ error: "Informe a fatura e o método (PIX, BOLETO ou PAYPAL)." }, { status: 400 });
     }
     const fatura = await prisma.subscriptionInvoice.findFirst({ where: { id: invoiceId, subscriptionId: subId }, select: { id: true } });
     if (!fatura) return NextResponse.json({ error: "Fatura não encontrada nesta assinatura." }, { status: 404 });
@@ -128,6 +130,7 @@ export async function PATCH(
           pixQrBase64: cobranca.pixQrBase64,
           boletoUrl: cobranca.boletoUrl,
           boletoLinhaDigitavel: cobranca.boletoBarcode,
+          checkoutUrl: cobranca.checkoutUrl,
           expiraEm: cobranca.expiresAt?.toISOString() ?? null,
         },
       });
@@ -135,7 +138,7 @@ export async function PATCH(
       if (erro instanceof CobrancaIndisponivelError) {
         return NextResponse.json({ error: erro.message }, { status: 400 });
       }
-      return NextResponse.json({ error: erro instanceof Error ? erro.message : "O Mercado Pago recusou a cobrança." }, { status: 502 });
+      return NextResponse.json({ error: erro instanceof Error ? erro.message : "O gateway recusou a cobrança." }, { status: 502 });
     }
   }
 

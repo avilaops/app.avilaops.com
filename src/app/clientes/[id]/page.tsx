@@ -1,3 +1,4 @@
+import { paisEhBrasil } from "@/lib/assinaturas";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
@@ -95,6 +96,7 @@ export default async function ClientDossierPage({
     id: a.id,
     description: a.description,
     amountCents: cents(a.amount),
+    currency: a.currency,
     billingDay: a.billingDay,
     billingCycle: a.billingCycle,
     status: a.status,
@@ -207,6 +209,7 @@ export default async function ClientDossierPage({
           notes: e.notes,
         }))}
         cofreDisponivel={cofreDisponivel()}
+        clienteNoBrasil={paisEhBrasil(organization.profile?.country)}
       /></div> : null}
     </AppShell>
   );

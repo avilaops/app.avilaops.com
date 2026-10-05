@@ -73,7 +73,7 @@ export default async function IntegracoesPage() {
                       {new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.currency }).format(p.amount)}
                     </strong>
                     <span className="text-[13px] text-muted-foreground">
-                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString("pt-BR") : "—"}
+                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}
                     </span>
                   </span>
                 </li>
@@ -103,7 +103,7 @@ export default async function IntegracoesPage() {
             contexto={{
               funcao: "POST em src/app/api/webhooks/mercadopago/route.ts",
               vazioTitulo: "Nenhum evento do Mercado Pago ainda.",
-              vazioDescricao: "O webhook do Mercado Pago ainda não grava em integration_webhook_events; a lista pode ficar vazia até isso ser ligado.",
+              vazioDescricao: "Quando o Mercado Pago chamar o webhook com assinatura válida, os eventos aparecem aqui.",
             }}
           />
         </section>

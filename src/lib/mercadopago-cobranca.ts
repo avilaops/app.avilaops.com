@@ -55,6 +55,8 @@ type PagamentoMP = {
   id?: number;
   status?: string;
   date_of_expiration?: string;
+  /** Instante da aprovação — a data do pagamento, não a do webhook. */
+  date_approved?: string | null;
   point_of_interaction?: {
     transaction_data?: { qr_code?: string; qr_code_base64?: string; ticket_url?: string };
   };
@@ -265,8 +267,17 @@ export async function createCardCharge(input: {
  * prova — a mesma regra que já valia para o Efí.
  */
 export async function getPagamentoStatus(pagamentoId: string): Promise<string> {
+  return (await consultarPagamento(pagamentoId)).status;
+}
+
+/** Situação e instante de aprovação do pagamento, direto da API. */
+export async function consultarPagamento(pagamentoId: string): Promise<{ status: string; aprovadoEm: Date | null }> {
   const pagamento = await chamarMercadoPago<PagamentoMP>(
     `/v1/payments/${encodeURIComponent(pagamentoId)}`,
   );
-  return pagamento.status ?? "";
+  const aprovadoEm = pagamento.date_approved ? new Date(pagamento.date_approved) : null;
+  return {
+    status: pagamento.status ?? "",
+    aprovadoEm: aprovadoEm && !Number.isNaN(aprovadoEm.getTime()) ? aprovadoEm : null,
+  };
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { baixarCobrancaPorIdExterno } from "@/lib/assinaturas";
-import { assinaturaConfere, consultarAssinatura, consultarCaptura, paypalConfigurado } from "@/lib/paypal";
-import { prisma } from "@/lib/prisma";
+import { concluirEvento, registrarEvento } from "@/lib/eventos-webhook";
+import { assinaturaConfere, consultarAssinatura, consultarCaptura, EVENTOS_DE_PAGAMENTO, paypalConfigurado } from "@/lib/paypal";
 
 export const runtime = "nodejs";
 
@@ -24,12 +24,11 @@ export const runtime = "nodejs";
  * pendente.
  */
 
-/** Eventos que mexem em dinheiro. O resto é registrado e ignorado. */
-const DE_PAGAMENTO = new Set([
-  "PAYMENT.CAPTURE.COMPLETED",
-  "PAYMENT.CAPTURE.DENIED",
-  "PAYMENT.CAPTURE.REFUNDED",
-]);
+/**
+ * Eventos que mexem em dinheiro. O resto é registrado e ignorado. A lista mora
+ * em paypal.ts porque o diagnóstico exige que o webhook assine cada um deles.
+ */
+const DE_PAGAMENTO = new Set<string>(EVENTOS_DE_PAGAMENTO);
 
 const DE_ASSINATURA = new Set([
   "BILLING.SUBSCRIPTION.ACTIVATED",
@@ -60,20 +59,37 @@ export async function POST(request: NextRequest) {
   const tipo = evento.event_type ?? "";
   const recursoId = evento.resource?.id;
 
-  await registrar(evento.id, tipo, recursoId);
+  const registro = await registrarEvento({
+    provider: "paypal",
+    externalId: evento.id ?? null,
+    eventType: tipo || "desconhecido",
+    payload: { recursoId: recursoId ?? null },
+  });
 
-  if (!recursoId) return NextResponse.json({ ok: true, ignorado: true });
+  if (!recursoId) {
+    await concluirEvento(registro, "IGNORED");
+    return NextResponse.json({ ok: true, ignorado: true });
+  }
 
   try {
     if (DE_PAGAMENTO.has(tipo)) {
       // A API é a fonte: o status que veio no aviso não decide nada.
       const captura = await consultarCaptura(recursoId);
-      const baixa = await baixarCobrancaPorIdExterno(recursoId, captura.status);
+      // create_time da captura é o instante do pagamento; o do webhook pode
+      // ser horas depois, quando o PayPal reenvia após uma queda nossa.
+      const pagoEm = captura.create_time ? new Date(captura.create_time) : null;
+      const baixa = await baixarCobrancaPorIdExterno(
+        recursoId,
+        captura.status,
+        pagoEm && !Number.isNaN(pagoEm.getTime()) ? pagoEm : null,
+      );
+      await concluirEvento(registro, baixa ? "PROCESSED" : "IGNORED", baixa ? null : "Captura sem cobrança nossa.");
       return NextResponse.json({ ok: true, tipo, status: captura.status, baixado: Boolean(baixa) });
     }
 
     if (DE_ASSINATURA.has(tipo)) {
       const assinatura = await consultarAssinatura(recursoId);
+      await concluirEvento(registro, "PROCESSED");
       return NextResponse.json({ ok: true, tipo, status: assinatura.status });
     }
   } catch (erro) {
@@ -81,30 +97,10 @@ export async function POST(request: NextRequest) {
     // nossa (API fora do ar, banco indisponível). 2xx aqui perderia o evento
     // para sempre.
     console.error(`[paypal] falhei ao tratar ${tipo} de ${recursoId}`, erro);
+    await concluirEvento(registro, "FAILED", erro instanceof Error ? erro.message : "Falha ao consultar o PayPal.");
     return NextResponse.json({ erro: "Falha ao consultar o PayPal." }, { status: 502 });
   }
 
+  await concluirEvento(registro, "IGNORED");
   return NextResponse.json({ ok: true, ignorado: true, tipo });
-}
-
-/**
- * Guarda o evento para conferência posterior.
- *
- * Webhook sem registro é o tipo de coisa que só se descobre quando o cliente
- * jura que pagou. Falha aqui nunca derruba o tratamento: o registro é para nós,
- * a baixa é para o cliente.
- */
-async function registrar(eventoId: string | undefined, tipo: string, recursoId: string | undefined) {
-  try {
-    await prisma.integrationWebhookEvent.create({
-      data: {
-        provider: "paypal",
-        externalId: eventoId ?? null,
-        eventType: tipo || "desconhecido",
-        payload: { recursoId: recursoId ?? null },
-      },
-    });
-  } catch (erro) {
-    console.error("[paypal] não registrei o evento", tipo, erro);
-  }
 }

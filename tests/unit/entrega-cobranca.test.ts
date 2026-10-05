@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CobrancaSemLink, montarEmailDaCobranca, montarWhatsappDaCobranca } from "@/lib/entrega-cobranca";
+import { CobrancaSemLink, garantirEnviavel, montarEmailDaCobranca, montarWhatsappDaCobranca } from "@/lib/entrega-cobranca";
+import { MoedaNaoSuportadaPeloPaypal, valorPaypal } from "@/lib/paypal";
 
 /**
  * O núcleo da entrega é puro: dada uma cobrança e um destinatário, monta o
@@ -124,5 +125,93 @@ describe("conteúdo do envio (fatura / boleto / ambos)", () => {
     );
     expect(texto).toContain("Fatura");
     expect(texto).not.toContain("pag.efi");
+  });
+});
+
+describe("garantirEnviavel", () => {
+  const agora = new Date("2026-10-05T12:00:00Z");
+  const aberta = { status: "OPEN" };
+  const ativa = { status: "PENDING", expiresAt: new Date("2026-10-10T00:00:00Z") };
+
+  it("libera cobrança ativa de fatura aberta", () => {
+    expect(() => garantirEnviavel(aberta, ativa, "cobranca", agora)).not.toThrow();
+  });
+
+  it("recusa link de fatura paga, mas deixa mandar o resumo", () => {
+    expect(() => garantirEnviavel({ status: "PAID" }, ativa, "cobranca", agora)).toThrow(CobrancaSemLink);
+    expect(() => garantirEnviavel({ status: "PAID" }, ativa, "fatura", agora)).not.toThrow();
+  });
+
+  it("recusa qualquer envio de fatura cancelada", () => {
+    expect(() => garantirEnviavel({ status: "CANCELLED" }, ativa, "fatura", agora)).toThrow(CobrancaSemLink);
+  });
+
+  it("recusa cobrança cancelada, recusada ou paga mesmo com a fatura aberta", () => {
+    for (const status of ["CANCELLED", "REJECTED", "rejected", "PAID", "REFUNDED"]) {
+      expect(() => garantirEnviavel(aberta, { ...ativa, status }, "ambos", agora)).toThrow(CobrancaSemLink);
+    }
+  });
+
+  it("recusa cobrança expirada", () => {
+    expect(() =>
+      garantirEnviavel(aberta, { status: "PENDING", expiresAt: new Date("2026-10-01T00:00:00Z") }, "cobranca", agora),
+    ).toThrow(/expirou/);
+  });
+
+  it("sem cobrança emitida, só o resumo passa", () => {
+    expect(() => garantirEnviavel(aberta, null, "fatura", agora)).not.toThrow();
+    expect(() => garantirEnviavel(aberta, null, "cobranca", agora)).toThrow(/ainda não tem cobrança/);
+  });
+});
+
+describe("resumo da fatura sem cobrança", () => {
+  it("monta e-mail e WhatsApp só com o valor da fatura", () => {
+    const vencimento = new Date("2026-10-15T00:00:00Z");
+    const email = montarEmailDaCobranca(null, destinatario, "Site · 2026-10", "fatura", vencimento, "BRL", 250);
+    expect(email.subject).toBe("Fatura Site · 2026-10");
+    expect(email.text).toContain("250,00");
+    const zap = montarWhatsappDaCobranca(null, "Site · 2026-10", "fatura", vencimento, "BRL", 250);
+    expect(zap).toContain("250,00");
+  });
+
+  it("pedir link sem cobrança é erro, não mensagem vazia", () => {
+    expect(() => montarEmailDaCobranca(null, destinatario, "Site", "cobranca")).toThrow(CobrancaSemLink);
+  });
+});
+
+describe("texto puro e moeda", () => {
+  it("o corpo em texto puro mantém a URL do boleto visível", () => {
+    const email = montarEmailDaCobranca(base, destinatario, "Site");
+    expect(email.text).toContain("https://pag.efi/boleto/abc");
+  });
+
+  it("cobrança em USD não sai como R$", () => {
+    const zap = montarWhatsappDaCobranca(
+      { ...base, method: "PAYPAL", checkoutUrl: "https://paypal.test/x", boletoUrl: null },
+      "Site",
+      "cobranca",
+      null,
+      "USD",
+    );
+    expect(zap).not.toContain("R$");
+    expect(zap).toContain("US$");
+  });
+
+  it("expiração sai no fuso de São Paulo", () => {
+    // 01:00 UTC do dia 10 ainda é dia 09 em São Paulo.
+    const zap = montarWhatsappDaCobranca({ ...base, expiresAt: new Date("2026-10-10T01:00:00Z") }, "Site");
+    expect(zap).toContain("09/10/2026");
+  });
+});
+
+describe("valorPaypal", () => {
+  it("usa duas casas onde há centavos e nenhuma em JPY", () => {
+    expect(valorPaypal(100, "USD")).toBe("100.00");
+    expect(valorPaypal(1500, "JPY")).toBe("1500");
+  });
+
+  it("recusa moeda que o PayPal não aceita e centavos em moeda sem centavos", () => {
+    expect(() => valorPaypal(10, "ARS")).toThrow(MoedaNaoSuportadaPeloPaypal);
+    expect(() => valorPaypal(10.5, "JPY")).toThrow(MoedaNaoSuportadaPeloPaypal);
   });
 });

@@ -56,24 +56,39 @@ function escapar(texto: string): string {
 }
 
 /**
- * Não enviar meio de pagamento de fatura já paga/cancelada nem de cobrança
- * expirada. O resumo "fatura" (sem link) é permitido sempre.
+ * Estados em que a cobrança ainda aceita pagamento. É a mesma lista que o
+ * portal do cliente usa (`portal-cliente.ts`): o que o cliente não veria como
+ * pagável lá também não sai por e-mail ou WhatsApp.
  */
-function garantirCobrancaEnviavel(
-  cobranca: { expiresAt: Date | null; invoice: { status: string } },
+export const STATUS_COBRANCA_ATIVA = ["CREATED", "PENDING", "WAITING"];
+
+/**
+ * Não enviar meio de pagamento de fatura já paga/cancelada, de cobrança
+ * cancelada/recusada/paga nem de cobrança expirada. O resumo "fatura" (sem
+ * link) é permitido sempre, exceto de fatura cancelada.
+ */
+export function garantirEnviavel(
+  invoice: { status: string },
+  cobranca: { status: string; expiresAt: Date | null } | null,
   conteudo: ConteudoEnvio,
+  agora: Date = new Date(),
 ): void {
+  if (invoice.status === "CANCELLED") throw new CobrancaSemLink("Esta fatura foi cancelada.");
   if (conteudo === "fatura") return;
-  const status = cobranca.invoice.status;
-  if (status === "PAID") throw new CobrancaSemLink("Esta fatura já está paga; não há cobrança a enviar.");
-  if (status === "CANCELLED") throw new CobrancaSemLink("Esta fatura foi cancelada.");
-  if (cobranca.expiresAt && cobranca.expiresAt.getTime() < Date.now()) {
+  if (invoice.status === "PAID") throw new CobrancaSemLink("Esta fatura já está paga; não há cobrança a enviar.");
+  if (!cobranca) {
+    throw new CobrancaSemLink("Esta fatura ainda não tem cobrança emitida; emita PIX, boleto ou PayPal, ou envie só o resumo.");
+  }
+  if (!STATUS_COBRANCA_ATIVA.includes(cobranca.status)) {
+    throw new CobrancaSemLink(`Esta cobrança não aceita mais pagamento (${cobranca.status}); gere uma nova antes de enviar.`);
+  }
+  if (cobranca.expiresAt && cobranca.expiresAt.getTime() < agora.getTime()) {
     throw new CobrancaSemLink("Esta cobrança expirou; gere uma nova antes de enviar.");
   }
 }
 
 export function montarEmailDaCobranca(
-  cobranca: DadosCobranca,
+  cobranca: DadosCobranca | null,
   destinatario: Destinatario,
   descricao: string,
   conteudo: ConteudoEnvio = "cobranca",
@@ -81,10 +96,11 @@ export function montarEmailDaCobranca(
   moeda: string = "BRL",
   valorFatura: number | null = null,
 ): EmailSaida {
-  const valor = formatarValor(Number(cobranca.amount), moeda);
+  const metodo = metodoDoEnvio(cobranca, conteudo);
+  const valor = cobranca ? formatarValor(Number(cobranca.amount), moeda) : "";
   // O resumo "fatura" é o valor da fatura; a cobrança de cartão parcelado tem
   // juros acima disso, e o cliente não pode ver dois valores conflitantes.
-  const valorResumo = formatarValor(valorFatura ?? Number(cobranca.amount), moeda);
+  const valorResumo = formatarValor(valorFatura ?? Number(cobranca?.amount ?? 0), moeda);
   const nome = escapar(destinatario.nome);
   const desc = escapar(descricao);
 
@@ -100,8 +116,7 @@ export function montarEmailDaCobranca(
   }
 
   // "fatura" é só o resumo, sem link de pagamento.
-  if (conteudo !== "fatura") {
-    const metodo = cobranca.method.toUpperCase();
+  if (cobranca && metodo) {
     if (metodo === "BOLETO") {
       if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
       partes.push(`<p><a href="${escapar(cobranca.boletoUrl)}">Abrir o boleto</a><br>${escapar(cobranca.boletoUrl)}</p>`);
@@ -135,6 +150,16 @@ export function montarEmailDaCobranca(
   };
 }
 
+/**
+ * Método cujo meio de pagamento entra na mensagem, ou null quando é só o
+ * resumo. Pedir link sem cobrança é erro de quem chamou, não mensagem vazia.
+ */
+function metodoDoEnvio(cobranca: DadosCobranca | null, conteudo: ConteudoEnvio): string | null {
+  if (conteudo === "fatura") return null;
+  if (!cobranca) throw new CobrancaSemLink("Esta fatura ainda não tem cobrança emitida.");
+  return cobranca.method.toUpperCase();
+}
+
 /** Texto puro para o corpo alternativo (mesma ideia do email.ts). */
 function semTags(html: string): string {
   return html
@@ -151,68 +176,98 @@ function semTags(html: string): string {
 }
 
 /**
- * Carrega a cobrança, resolve o destinatário e envia.
+ * O que se envia: uma cobrança emitida (com o meio de pagamento) ou, antes de
+ * existir cobrança, a própria fatura — o resumo "fatura" não precisa de link.
+ */
+export type AlvoEnvio = { tipo: "cobranca"; id: string } | { tipo: "fatura"; id: string };
+
+export type ResultadoEnvio = {
+  enviado: boolean;
+  destino: string;
+  organizationId: string;
+  invoiceId: string;
+  chargeId: string | null;
+};
+
+const INCLUI_FATURA = {
+  subscription: {
+    include: {
+      organization: { include: { profile: true, contacts: { where: { isPrimary: true } } } },
+    },
+  },
+} as const;
+
+/**
+ * Carrega fatura e cobrança do alvo. Pela fatura, usa a cobrança mais recente
+ * dela (se houver) — `garantirEnviavel` decide se ela ainda serve.
+ */
+async function carregarAlvo(alvo: AlvoEnvio) {
+  if (alvo.tipo === "cobranca") {
+    const cobranca = await prisma.subscriptionCharge.findUnique({
+      where: { id: alvo.id },
+      include: { invoice: { include: INCLUI_FATURA } },
+    });
+    if (!cobranca) throw new CobrancaSemLink("Cobrança não encontrada.");
+    const { invoice, ...resto } = cobranca;
+    return { invoice, cobranca: resto };
+  }
+  const invoice = await prisma.subscriptionInvoice.findUnique({
+    where: { id: alvo.id },
+    include: { ...INCLUI_FATURA, charges: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+  if (!invoice) throw new CobrancaSemLink("Fatura não encontrada.");
+  const { charges, ...fatura } = invoice;
+  return { invoice: fatura, cobranca: charges[0] ?? null };
+}
+
+/**
+ * Carrega o alvo, resolve o destinatário e envia por e-mail.
  *
  * `destinoTeste` existe para o modo de teste: enquanto o envio real não é
  * liberado, manda para um endereço do operador em vez do cliente.
  */
 export async function enviarCobrancaPorEmail(
-  chargeId: string,
+  alvo: AlvoEnvio,
   opcoes?: { destinoTeste?: string; conteudo?: ConteudoEnvio },
-): Promise<{ enviado: boolean; destino: string }> {
-  const cobranca = await prisma.subscriptionCharge.findUnique({
-    where: { id: chargeId },
-    include: {
-      invoice: {
-        include: {
-          subscription: {
-            include: {
-              organization: {
-                include: { profile: true, contacts: { where: { isPrimary: true } } },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!cobranca) throw new CobrancaSemLink("Cobrança não encontrada.");
+): Promise<ResultadoEnvio> {
+  const { invoice, cobranca } = await carregarAlvo(alvo);
 
-  const organizacao = cobranca.invoice.subscription.organization;
+  const organizacao = invoice.subscription.organization;
   const emailReal = organizacao.profile?.email ?? organizacao.contacts[0]?.email ?? "";
   const nome = organizacao.profile?.ownerName ?? organizacao.contacts[0]?.name ?? organizacao.name;
   const destino = opcoes?.destinoTeste ?? emailReal;
   if (!destino) throw new CobrancaSemLink("Sem e-mail cadastrado para enviar a cobrança.");
 
   const conteudo = opcoes?.conteudo ?? "cobranca";
-  garantirCobrancaEnviavel(cobranca, conteudo);
-  const descricao = `${cobranca.invoice.subscription.description} · ${cobranca.invoice.competence}`;
+  garantirEnviavel(invoice, cobranca, conteudo);
+  const descricao = `${invoice.subscription.description} · ${invoice.competence}`;
   const email = montarEmailDaCobranca(
-    cobranca,
+    conteudo === "fatura" ? null : cobranca,
     { nome, email: destino },
     descricao,
     conteudo,
-    cobranca.invoice.dueDate ?? null,
-    cobranca.invoice.subscription.currency,
-    Number(cobranca.invoice.amount),
+    invoice.dueDate ?? null,
+    invoice.subscription.currency,
+    Number(invoice.amount),
   );
   const enviado = await avisarPorEmail(email);
-  return { enviado, destino };
+  return { enviado, destino, organizationId: organizacao.id, invoiceId: invoice.id, chargeId: cobranca?.id ?? null };
 }
 
 /**
  * Texto da cobrança para WhatsApp — puro, sem HTML, como o cliente lê no chat.
  */
 export function montarWhatsappDaCobranca(
-  cobranca: DadosCobranca,
+  cobranca: DadosCobranca | null,
   descricao: string,
   conteudo: ConteudoEnvio = "cobranca",
   vencimento: Date | null = null,
   moeda: string = "BRL",
   valorFatura: number | null = null,
 ): string {
-  const valor = formatarValor(Number(cobranca.amount), moeda);
-  const valorResumo = formatarValor(valorFatura ?? Number(cobranca.amount), moeda);
+  const metodo = metodoDoEnvio(cobranca, conteudo);
+  const valor = cobranca ? formatarValor(Number(cobranca.amount), moeda) : "";
+  const valorResumo = formatarValor(valorFatura ?? Number(cobranca?.amount ?? 0), moeda);
   const linhas: string[] = [];
 
   if (conteudo === "fatura" || conteudo === "ambos") {
@@ -221,8 +276,7 @@ export function montarWhatsappDaCobranca(
     linhas.push(`Cobrança *${descricao}* — ${valor}.`);
   }
 
-  if (conteudo !== "fatura") {
-    const metodo = cobranca.method.toUpperCase();
+  if (cobranca && metodo) {
     if (metodo === "BOLETO") {
       if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
       linhas.push(`Boleto: ${cobranca.boletoUrl}`);
@@ -243,32 +297,18 @@ export function montarWhatsappDaCobranca(
 }
 
 /**
- * Carrega a cobrança, resolve o número e envia por WhatsApp. `destinoTeste`
+ * Carrega o alvo, resolve o número e envia por WhatsApp. `destinoTeste`
  * manda para um número do operador enquanto o envio real não é liberado.
  */
 export async function enviarCobrancaPorWhatsapp(
-  chargeId: string,
+  alvo: AlvoEnvio,
   opcoes?: { destinoTeste?: string; conteudo?: ConteudoEnvio },
-): Promise<{ enviado: boolean; destino: string }> {
-  const cobranca = await prisma.subscriptionCharge.findUnique({
-    where: { id: chargeId },
-    include: {
-      invoice: {
-        include: {
-          subscription: {
-            include: {
-              organization: { include: { profile: true, contacts: { where: { isPrimary: true } } } },
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!cobranca) throw new CobrancaSemLink("Cobrança não encontrada.");
+): Promise<ResultadoEnvio> {
+  const { invoice, cobranca } = await carregarAlvo(alvo);
 
   // Empresa importada só com contato (sem nome de dono) pode ter o telefone no
   // perfil, não num OrganizationContact — mesmo fallback que o e-mail usa.
-  const organizacao = cobranca.invoice.subscription.organization;
+  const organizacao = invoice.subscription.organization;
   const contato = organizacao.contacts[0];
   const numeroReal =
     contato?.whatsapp ?? contato?.phone ?? organizacao.profile?.whatsapp ?? organizacao.profile?.phone ?? "";
@@ -276,16 +316,16 @@ export async function enviarCobrancaPorWhatsapp(
   if (!destino) throw new CobrancaSemLink("Sem WhatsApp cadastrado para enviar a cobrança.");
 
   const conteudo = opcoes?.conteudo ?? "cobranca";
-  garantirCobrancaEnviavel(cobranca, conteudo);
-  const descricao = `${cobranca.invoice.subscription.description} · ${cobranca.invoice.competence}`;
+  garantirEnviavel(invoice, cobranca, conteudo);
+  const descricao = `${invoice.subscription.description} · ${invoice.competence}`;
   const texto = montarWhatsappDaCobranca(
-    cobranca,
+    conteudo === "fatura" ? null : cobranca,
     descricao,
     conteudo,
-    cobranca.invoice.dueDate ?? null,
-    cobranca.invoice.subscription.currency,
-    Number(cobranca.invoice.amount),
+    invoice.dueDate ?? null,
+    invoice.subscription.currency,
+    Number(invoice.amount),
   );
   const enviado = await avisarPorWhatsapp({ to: destino, text: texto });
-  return { enviado, destino };
+  return { enviado, destino, organizationId: organizacao.id, invoiceId: invoice.id, chargeId: cobranca?.id ?? null };
 }
