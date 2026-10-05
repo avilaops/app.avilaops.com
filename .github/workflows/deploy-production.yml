@@ -43,6 +43,11 @@ jobs:
         run: docker compose -f docker-compose.test.yml exec -T db-test psql -U postgres -d cliente_portal_test -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='app_avila') THEN CREATE ROLE app_avila; END IF; END \$\$;"
       - name: Aplicar migrações no banco de teste
         run: npx prisma migrate deploy
+      # Banco recém-migrado e `schema.prisma` precisam descrever a mesma coisa.
+      # Se divergirem, o próximo `prisma migrate dev` gera uma migração que
+      # apaga o que só existe no SQL (índices de busca, coluna gerada).
+      - name: Conferir migrações contra o schema.prisma
+        run: npm run db:drift
       - name: Executar suíte completa
         run: npm test
       - name: Derrubar banco de teste

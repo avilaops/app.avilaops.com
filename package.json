@@ -20,6 +20,7 @@
     "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "db:test:down": "docker compose -f docker-compose.test.yml down -v",
     "db:test:deploy": "prisma migrate deploy",
+    "db:drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
     "meta:verificar": "tsx scripts/verificar-meta.ts",
     "chaves:inventario": "node scripts/inventario-chaves.mjs",
     "credenciais:importar": "tsx scripts/importar-credenciais.ts",
