@@ -33,6 +33,13 @@ type Destinatario = { nome: string; email: string };
 export type ConteudoEnvio = "cobranca" | "fatura" | "ambos";
 
 const formatoData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
+// expiresAt é um instante; o cliente lê no fuso de São Paulo. Sem o fuso, uma
+// expiração entre 00:00 e 02:59 UTC apareceria no dia seguinte.
+const formatoExpiracao = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
 
 /** Formata na moeda da cobrança — USD não pode sair como R$ pro cliente. */
 function formatarValor(valor: number, moeda: string): string {
@@ -72,8 +79,12 @@ export function montarEmailDaCobranca(
   conteudo: ConteudoEnvio = "cobranca",
   vencimento: Date | null = null,
   moeda: string = "BRL",
+  valorFatura: number | null = null,
 ): EmailSaida {
   const valor = formatarValor(Number(cobranca.amount), moeda);
+  // O resumo "fatura" é o valor da fatura; a cobrança de cartão parcelado tem
+  // juros acima disso, e o cliente não pode ver dois valores conflitantes.
+  const valorResumo = formatarValor(valorFatura ?? Number(cobranca.amount), moeda);
   const nome = escapar(destinatario.nome);
   const desc = escapar(descricao);
 
@@ -81,7 +92,7 @@ export function montarEmailDaCobranca(
 
   if (conteudo === "fatura" || conteudo === "ambos") {
     partes.push(
-      `<p>Fatura de <strong>${desc}</strong>: <strong>${valor}</strong>` +
+      `<p>Fatura de <strong>${desc}</strong>: <strong>${valorResumo}</strong>` +
         `${vencimento ? `, com vencimento em ${formatoData.format(vencimento)}` : ""}.</p>`,
     );
   } else {
@@ -93,23 +104,23 @@ export function montarEmailDaCobranca(
     const metodo = cobranca.method.toUpperCase();
     if (metodo === "BOLETO") {
       if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
-      partes.push(`<p><a href="${escapar(cobranca.boletoUrl)}">Abrir o boleto</a></p>`);
+      partes.push(`<p><a href="${escapar(cobranca.boletoUrl)}">Abrir o boleto</a><br>${escapar(cobranca.boletoUrl)}</p>`);
       if (cobranca.boletoBarcode) {
         partes.push(`<p>Linha digitável:<br><code>${escapar(cobranca.boletoBarcode)}</code></p>`);
       }
       if (cobranca.expiresAt) {
-        partes.push(`<p>Vence em ${formatoData.format(cobranca.expiresAt)}.</p>`);
+        partes.push(`<p>Vence em ${formatoExpiracao.format(cobranca.expiresAt)}.</p>`);
       }
     } else if (metodo === "PIX") {
       if (!cobranca.pixCopyPaste) throw new CobrancaSemLink("PIX sem copia-e-cola para enviar.");
       partes.push(`<p>Pague por PIX copia-e-cola:<br><code>${escapar(cobranca.pixCopyPaste)}</code></p>`);
       if (cobranca.expiresAt) {
-        partes.push(`<p>Válido até ${formatoData.format(cobranca.expiresAt)}.</p>`);
+        partes.push(`<p>Válido até ${formatoExpiracao.format(cobranca.expiresAt)}.</p>`);
       }
     } else {
       // CARD, PAYPAL e qualquer outro resolvem por página de checkout.
       if (!cobranca.checkoutUrl) throw new CobrancaSemLink("Cobrança sem link de pagamento para enviar.");
-      partes.push(`<p><a href="${escapar(cobranca.checkoutUrl)}">Pagar agora</a></p>`);
+      partes.push(`<p><a href="${escapar(cobranca.checkoutUrl)}">Pagar agora</a><br>${escapar(cobranca.checkoutUrl)}</p>`);
     }
   }
 
@@ -183,6 +194,7 @@ export async function enviarCobrancaPorEmail(
     conteudo,
     cobranca.invoice.dueDate ?? null,
     cobranca.invoice.subscription.currency,
+    Number(cobranca.invoice.amount),
   );
   const enviado = await avisarPorEmail(email);
   return { enviado, destino };
@@ -197,12 +209,14 @@ export function montarWhatsappDaCobranca(
   conteudo: ConteudoEnvio = "cobranca",
   vencimento: Date | null = null,
   moeda: string = "BRL",
+  valorFatura: number | null = null,
 ): string {
   const valor = formatarValor(Number(cobranca.amount), moeda);
+  const valorResumo = formatarValor(valorFatura ?? Number(cobranca.amount), moeda);
   const linhas: string[] = [];
 
   if (conteudo === "fatura" || conteudo === "ambos") {
-    linhas.push(`Fatura *${descricao}* — ${valor}${vencimento ? `, vence ${formatoData.format(vencimento)}` : ""}.`);
+    linhas.push(`Fatura *${descricao}* — ${valorResumo}${vencimento ? `, vence ${formatoData.format(vencimento)}` : ""}.`);
   } else {
     linhas.push(`Cobrança *${descricao}* — ${valor}.`);
   }
@@ -213,11 +227,11 @@ export function montarWhatsappDaCobranca(
       if (!cobranca.boletoUrl) throw new CobrancaSemLink("Boleto sem link para enviar.");
       linhas.push(`Boleto: ${cobranca.boletoUrl}`);
       if (cobranca.boletoBarcode) linhas.push(`Linha digitável: ${cobranca.boletoBarcode}`);
-      if (cobranca.expiresAt) linhas.push(`Vence em ${formatoData.format(cobranca.expiresAt)}.`);
+      if (cobranca.expiresAt) linhas.push(`Vence em ${formatoExpiracao.format(cobranca.expiresAt)}.`);
     } else if (metodo === "PIX") {
       if (!cobranca.pixCopyPaste) throw new CobrancaSemLink("PIX sem copia-e-cola para enviar.");
       linhas.push(`PIX copia-e-cola:`, cobranca.pixCopyPaste);
-      if (cobranca.expiresAt) linhas.push(`Válido até ${formatoData.format(cobranca.expiresAt)}.`);
+      if (cobranca.expiresAt) linhas.push(`Válido até ${formatoExpiracao.format(cobranca.expiresAt)}.`);
     } else {
       if (!cobranca.checkoutUrl) throw new CobrancaSemLink("Cobrança sem link de pagamento para enviar.");
       linhas.push(`Pague aqui: ${cobranca.checkoutUrl}`);
@@ -243,7 +257,7 @@ export async function enviarCobrancaPorWhatsapp(
         include: {
           subscription: {
             include: {
-              organization: { include: { contacts: { where: { isPrimary: true } } } },
+              organization: { include: { profile: true, contacts: { where: { isPrimary: true } } } },
             },
           },
         },
@@ -252,8 +266,12 @@ export async function enviarCobrancaPorWhatsapp(
   });
   if (!cobranca) throw new CobrancaSemLink("Cobrança não encontrada.");
 
-  const contato = cobranca.invoice.subscription.organization.contacts[0];
-  const numeroReal = contato?.whatsapp ?? contato?.phone ?? "";
+  // Empresa importada só com contato (sem nome de dono) pode ter o telefone no
+  // perfil, não num OrganizationContact — mesmo fallback que o e-mail usa.
+  const organizacao = cobranca.invoice.subscription.organization;
+  const contato = organizacao.contacts[0];
+  const numeroReal =
+    contato?.whatsapp ?? contato?.phone ?? organizacao.profile?.whatsapp ?? organizacao.profile?.phone ?? "";
   const destino = opcoes?.destinoTeste ?? numeroReal;
   if (!destino) throw new CobrancaSemLink("Sem WhatsApp cadastrado para enviar a cobrança.");
 
@@ -266,6 +284,7 @@ export async function enviarCobrancaPorWhatsapp(
     conteudo,
     cobranca.invoice.dueDate ?? null,
     cobranca.invoice.subscription.currency,
+    Number(cobranca.invoice.amount),
   );
   const enviado = await avisarPorWhatsapp({ to: destino, text: texto });
   return { enviado, destino };

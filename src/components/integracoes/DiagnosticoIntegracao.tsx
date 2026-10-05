@@ -33,6 +33,7 @@ export default function DiagnosticoIntegracao({ titulo, endpoint }: { titulo: st
       }
     } catch {
       setErro("Sem resposta do servidor.");
+      setResultado(null); // não deixar um "saudável" velho ao lado do erro
     } finally {
       setCarregando(false);
     }

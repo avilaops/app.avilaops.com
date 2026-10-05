@@ -58,13 +58,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ? await enviarCobrancaPorEmail(id, opcoes)
         : await enviarCobrancaPorWhatsapp(id, opcoes);
 
-    // Envio a cliente é ação externa: deixa rastro. Auditoria é para nós, não
-    // pode derrubar o envio que acabou de dar certo.
+    // Envio a cliente é ação externa: deixa rastro. A ação distingue enviado de
+    // tentativa falha, pra auditoria não contar um 502 como contato concluído.
     await prisma.operationsAuditEvent
       .create({
         data: {
           actorId: admin.id,
-          action: "COBRANCA_ENVIADA",
+          action: resultado.enviado ? "COBRANCA_ENVIADA" : "COBRANCA_ENVIO_FALHOU",
           entityType: "SubscriptionCharge",
           entityId: id,
           metadata: { canal, conteudo, teste, destino: resultado.destino, enviado: resultado.enviado },
@@ -73,17 +73,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .catch((e) => console.error("[cobranca] não auditei o envio", e));
 
     if (!resultado.enviado) {
-      return NextResponse.json(
-        { erro: "O envio falhou no provedor. Veja o log do servidor.", destino: resultado.destino },
-        { status: 502 },
-      );
+      // `error` e `erro`: o helper chamar() do painel lê `error`; manter os dois.
+      const msg = "O envio falhou no provedor. Veja o log do servidor.";
+      return NextResponse.json({ erro: msg, error: msg, destino: resultado.destino }, { status: 502 });
     }
     return NextResponse.json({ ok: true, canal, teste, destino: resultado.destino });
   } catch (erro) {
     if (erro instanceof CobrancaSemLink) {
-      return NextResponse.json({ erro: erro.message }, { status: 409 });
+      return NextResponse.json({ erro: erro.message, error: erro.message }, { status: 409 });
     }
     console.error(`[cobranca] falha ao enviar ${id} por ${canal}`, erro);
-    return NextResponse.json({ erro: "Não consegui enviar a cobrança." }, { status: 500 });
+    const msg = "Não consegui enviar a cobrança.";
+    return NextResponse.json({ erro: msg, error: msg }, { status: 500 });
   }
 }

@@ -84,12 +84,28 @@ export default async function IntegracoesPage() {
 
         <section className="w-full">
           <h2 className="mb-2 text-[15px] font-semibold text-foreground">PayPal</h2>
-          <EventosRecentes eventos={paypal} lidoEm={lidoEm} />
+          <EventosRecentes
+            eventos={paypal}
+            lidoEm={lidoEm}
+            contexto={{
+              funcao: "POST em src/app/api/webhooks/paypal/route.ts",
+              vazioTitulo: "Nenhum evento do PayPal ainda.",
+              vazioDescricao: "Quando o PayPal chamar o webhook, os eventos aparecem aqui.",
+            }}
+          />
         </section>
 
         <section className="w-full">
           <h2 className="mb-2 text-[15px] font-semibold text-foreground">Mercado Pago</h2>
-          <EventosRecentes eventos={mercadopago} lidoEm={lidoEm} />
+          <EventosRecentes
+            eventos={mercadopago}
+            lidoEm={lidoEm}
+            contexto={{
+              funcao: "POST em src/app/api/webhooks/mercadopago/route.ts",
+              vazioTitulo: "Nenhum evento do Mercado Pago ainda.",
+              vazioDescricao: "O webhook do Mercado Pago ainda não grava em integration_webhook_events; a lista pode ficar vazia até isso ser ligado.",
+            }}
+          />
         </section>
 
         <section className="w-full">

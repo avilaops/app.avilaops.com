@@ -52,11 +52,20 @@ export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
     return { ambiente: amb, configurado: false, oauthOk: false, webhookId, webhookUrl: null, eventos: [], erro: "PAYPAL_CLIENT_ID/SECRET ausentes." };
   }
 
+  // OAuth isolado: se a credencial autentica, oauthOk fica true mesmo que a
+  // consulta do webhook falhe depois — senão o diagnóstico mandaria trocar uma
+  // credencial que funciona quando o problema é só a configuração do webhook.
   try {
-    if (!webhookId) {
-      await token(); // valida a credencial mesmo sem webhook
-      return { ambiente: amb, configurado: true, oauthOk: true, webhookId: null, webhookUrl: null, eventos: [], erro: "PAYPAL_WEBHOOK_ID ausente." };
-    }
+    await token();
+  } catch (erro) {
+    return { ambiente: amb, configurado: true, oauthOk: false, webhookId, webhookUrl: null, eventos: [], erro: erro instanceof Error ? erro.message : "Credencial PayPal inválida." };
+  }
+
+  if (!webhookId) {
+    return { ambiente: amb, configurado: true, oauthOk: true, webhookId: null, webhookUrl: null, eventos: [], erro: "PAYPAL_WEBHOOK_ID ausente." };
+  }
+
+  try {
     const info = await chamar<{ url?: string; event_types?: { name: string }[] }>(
       `/v1/notifications/webhooks/${encodeURIComponent(webhookId)}`,
     );
@@ -72,15 +81,8 @@ export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
     else if (!cobreEventos) erro = "O webhook não assina eventos de pagamento (PAYMENT.CAPTURE.*).";
     return { ambiente: amb, configurado: true, oauthOk: true, webhookId, webhookUrl: url, eventos, erro };
   } catch (erro) {
-    return {
-      ambiente: amb,
-      configurado: true,
-      oauthOk: false,
-      webhookId,
-      webhookUrl: null,
-      eventos: [],
-      erro: erro instanceof Error ? erro.message : "Falha ao consultar o PayPal.",
-    };
+    // OAuth deu certo; só a consulta do webhook falhou. Credencial segue ok.
+    return { ambiente: amb, configurado: true, oauthOk: true, webhookId, webhookUrl: null, eventos: [], erro: `Falha ao consultar o webhook: ${erro instanceof Error ? erro.message : "erro"}` };
   }
 }
 
