@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
@@ -20,9 +21,25 @@ import { prisma } from "@/lib/prisma";
  * dá para disparar a um cliente real sem essa escolha explícita. No teste, o
  * operador informa `destinoTeste` (o próprio e-mail/número).
  *
+ * Auditoria em dois tempos, para não existir mensagem que saiu sem rastro:
+ *
+ * 1. ANTES de enviar, grava a intenção (`COBRANCA_ENVIO_INICIADO`). Se essa
+ *    gravação falha, nada é enviado.
+ * 2. DEPOIS, grava o desfecho, apontando para a intenção (`tentativaId`):
+ *    `COBRANCA_ENVIADA`, `COBRANCA_ENVIO_FALHOU` (o provedor não entregou),
+ *    `COBRANCA_ENVIO_RECUSADO` (nem tentou: sem destino, fatura cancelada...)
+ *    ou `COBRANCA_ENVIO_ERRO`.
+ *
+ * Intenção sem desfecho na trilha quer dizer "pode ter saído e não sei": é o
+ * caso de o banco cair entre o envio e o segundo registro. A resposta também
+ * diz isso (`registrado: false` e um aviso), em vez de um "ok" limpo.
+ *
  * As respostas de erro levam `error` (lido pelo helper `chamar()` do painel) e
  * `erro` (o nome da casa) com o mesmo texto.
  */
+const AVISO_SEM_DESFECHO =
+  "Não consegui gravar o resultado na auditoria: ficou só o registro de que o envio começou. Avise quem cuida do sistema.";
+
 export async function responderEnvio(request: NextRequest, alvo: AlvoEnvio) {
   const falha = (msg: string, status: number) => NextResponse.json({ erro: msg, error: msg }, { status });
 
@@ -48,43 +65,106 @@ export async function responderEnvio(request: NextRequest, alvo: AlvoEnvio) {
   const destinoTeste = typeof corpo?.destinoTeste === "string" ? corpo.destinoTeste.trim() : "";
   if (teste && !destinoTeste) return falha("Em modo de teste, informe destinoTeste (seu e-mail ou número).", 400);
 
-  try {
-    const opcoes = teste ? { destinoTeste, conteudo } : { conteudo };
-    const resultado =
-      canal === "email" ? await enviarCobrancaPorEmail(alvo, opcoes) : await enviarCobrancaPorWhatsapp(alvo, opcoes);
+  const entidadeDoAlvo = alvo.tipo === "cobranca" ? "SubscriptionCharge" : "SubscriptionInvoice";
+  const pedido = { canal, conteudo, teste, ...(teste ? { destinoTeste } : {}) };
 
-    // Envio a cliente é ação externa: deixa rastro, no cliente certo
-    // (organizationId) para a trilha por cliente achar. A ação distingue
-    // enviado de tentativa falha, pra auditoria não contar um 502 como contato.
-    await prisma.operationsAuditEvent
-      .create({
+  // 1. A intenção, antes de qualquer mensagem sair. Sem ela, não envia.
+  let tentativaId: string;
+  try {
+    const intencao = await prisma.operationsAuditEvent.create({
+      data: {
+        actorId: admin.id,
+        action: "COBRANCA_ENVIO_INICIADO",
+        entityType: entidadeDoAlvo,
+        entityId: alvo.id,
+        metadata: pedido,
+      },
+    });
+    tentativaId = String(intencao.id);
+  } catch (erro) {
+    console.error(`[cobranca] não registrei a intenção de envio de ${alvo.tipo} ${alvo.id}; nada foi enviado`, erro);
+    return falha("Não consegui registrar o envio na auditoria. Nada foi enviado.", 503);
+  }
+
+  // 2. O desfecho. Devolve se ficou gravado, para a resposta não esconder.
+  const registrarDesfecho = async (
+    action: string,
+    dados: { organizationId?: string; entityType?: string; entityId?: string; metadata: Prisma.InputJsonObject },
+  ) => {
+    try {
+      await prisma.operationsAuditEvent.create({
         data: {
           actorId: admin.id,
-          organizationId: resultado.organizationId,
-          action: resultado.enviado ? "COBRANCA_ENVIADA" : "COBRANCA_ENVIO_FALHOU",
-          entityType: resultado.chargeId && conteudo !== "fatura" ? "SubscriptionCharge" : "SubscriptionInvoice",
-          entityId: resultado.chargeId && conteudo !== "fatura" ? resultado.chargeId : resultado.invoiceId,
-          metadata: {
-            canal,
-            conteudo,
-            teste,
-            destino: resultado.destino,
-            enviado: resultado.enviado,
-            invoiceId: resultado.invoiceId,
-            chargeId: resultado.chargeId,
-          },
+          organizationId: dados.organizationId,
+          action,
+          entityType: dados.entityType ?? entidadeDoAlvo,
+          entityId: dados.entityId ?? alvo.id,
+          metadata: { ...pedido, ...dados.metadata, tentativaId },
         },
-      })
-      .catch((e) => console.error("[cobranca] não auditei o envio", e));
-
-    if (!resultado.enviado) {
-      const msg = "O envio falhou no provedor. Veja o log do servidor.";
-      return NextResponse.json({ erro: msg, error: msg, destino: resultado.destino }, { status: 502 });
+      });
+      return true;
+    } catch (erro) {
+      console.error(
+        `[cobranca] SEM DESFECHO NA AUDITORIA: ${action} de ${alvo.tipo} ${alvo.id} (tentativa ${tentativaId})`,
+        dados.metadata,
+        erro,
+      );
+      return false;
     }
-    return NextResponse.json({ ok: true, canal, teste, destino: resultado.destino });
+  };
+  const falhaRegistrada = (msg: string, status: number, registrado: boolean, extra: Record<string, unknown> = {}) => {
+    const texto = registrado ? msg : `${msg} ${AVISO_SEM_DESFECHO}`;
+    return NextResponse.json(
+      { erro: texto, error: texto, ...extra, ...(registrado ? {} : { registrado: false }) },
+      { status },
+    );
+  };
+
+  let resultado;
+  try {
+    const opcoes = teste ? { destinoTeste, conteudo } : { conteudo };
+    resultado =
+      canal === "email" ? await enviarCobrancaPorEmail(alvo, opcoes) : await enviarCobrancaPorWhatsapp(alvo, opcoes);
   } catch (erro) {
-    if (erro instanceof CobrancaSemLink) return falha(erro.message, 409);
+    if (erro instanceof CobrancaSemLink) {
+      const registrado = await registrarDesfecho("COBRANCA_ENVIO_RECUSADO", { metadata: { motivo: erro.message } });
+      return falhaRegistrada(erro.message, 409, registrado);
+    }
     console.error(`[cobranca] falha ao enviar ${alvo.tipo} ${alvo.id} por ${canal}`, erro);
-    return falha("Não consegui enviar a cobrança.", 500);
+    const registrado = await registrarDesfecho("COBRANCA_ENVIO_ERRO", {
+      metadata: { erro: (erro instanceof Error ? erro.message : String(erro)).slice(0, 500) },
+    });
+    return falhaRegistrada("Não consegui enviar a cobrança.", 500, registrado);
   }
+
+  // Envio a cliente é ação externa: deixa rastro, no cliente certo
+  // (organizationId) para a trilha por cliente achar. A ação distingue
+  // enviado de tentativa falha, pra auditoria não contar um 502 como contato.
+  const naCobranca = Boolean(resultado.chargeId) && conteudo !== "fatura";
+  const registrado = await registrarDesfecho(resultado.enviado ? "COBRANCA_ENVIADA" : "COBRANCA_ENVIO_FALHOU", {
+    organizationId: resultado.organizationId,
+    entityType: naCobranca ? "SubscriptionCharge" : "SubscriptionInvoice",
+    entityId: naCobranca && resultado.chargeId ? resultado.chargeId : resultado.invoiceId,
+    metadata: {
+      destino: resultado.destino,
+      enviado: resultado.enviado,
+      invoiceId: resultado.invoiceId,
+      chargeId: resultado.chargeId,
+    },
+  });
+
+  if (!resultado.enviado) {
+    return falhaRegistrada("O envio falhou no provedor. Veja o log do servidor.", 502, registrado, {
+      destino: resultado.destino,
+    });
+  }
+  // A mensagem saiu. Sem o desfecho gravado, a resposta diz — não é um "ok" limpo.
+  return NextResponse.json({
+    ok: true,
+    canal,
+    teste,
+    destino: resultado.destino,
+    registrado,
+    ...(registrado ? {} : { aviso: AVISO_SEM_DESFECHO }),
+  });
 }

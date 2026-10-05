@@ -266,11 +266,18 @@ export default function OperacaoPanel({
     await executar(
       "cobranca",
       async () => {
-        const r = await chamar<{ destino: string }>(`/api/billing/faturas/${invoiceId}/enviar`, pedido, "POST");
-        return {
-          tipo: "ok",
-          conteudo: <strong>Enviado por {canal} para {r.destino}{pedido.teste ? " (teste)" : ""}.</strong>,
-        };
+        const r = await chamar<{ destino: string; registrado?: boolean; aviso?: string }>(
+          `/api/billing/faturas/${invoiceId}/enviar`,
+          pedido,
+          "POST",
+        );
+        const enviado = <strong>Enviado por {canal} para {r.destino}{pedido.teste ? " (teste)" : ""}.</strong>;
+        // A mensagem saiu, mas o servidor não gravou o resultado na auditoria:
+        // o operador precisa saber, não ver um "enviado" limpo.
+        if (r.registrado === false) {
+          return { tipo: "erro", conteudo: <>{enviado} {r.aviso ?? "O registro na auditoria falhou."}</> };
+        }
+        return { tipo: "ok", conteudo: enviado };
       },
       `Cobrança enviada por ${canal}.`,
     );
