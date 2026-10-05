@@ -1,3 +1,4 @@
+import { ehDoServidor, paraApresentacao } from "@/lib/dominios/dns/conteudo";
 import type { LinhaVersao } from "@/lib/dominios/dns/versoes";
 
 /**
@@ -19,28 +20,9 @@ function absoluto(nome: string): string {
   return limpo.endsWith(".") ? limpo : `${limpo}.`;
 }
 
-/** Nome de host no conteúdo (CNAME, MX, NS, SRV) também precisa de ponto final. */
-const TIPOS_COM_HOST_NO_FIM = new Set(["CNAME", "MX", "NS", "SRV"]);
-
-/** TXT vai entre aspas, em pedaços de até 255 bytes, que é o limite de cada string. */
-function textoTxt(conteudo: string): string {
-  const cru = /^"[\s\S]*"$/.test(conteudo.trim()) ? conteudo.trim().slice(1, -1).replace(/"\s+"/g, "") : conteudo;
-  const pedacos: string[] = [];
-  for (let i = 0; i < cru.length; i += 255) pedacos.push(cru.slice(i, i + 255));
-  if (pedacos.length === 0) pedacos.push("");
-  return pedacos.map((p) => `"${p.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(" ");
-}
-
 function dados(linha: LinhaVersao): string {
   const tipo = linha.tipo.toUpperCase();
-  if (tipo === "TXT") return textoTxt(linha.conteudo);
-
-  let conteudo = linha.conteudo.trim();
-  if (TIPOS_COM_HOST_NO_FIM.has(tipo)) {
-    const partes = conteudo.split(/\s+/);
-    partes[partes.length - 1] = absoluto(partes[partes.length - 1]);
-    conteudo = partes.join(" ");
-  }
+  const conteudo = paraApresentacao(tipo, linha.conteudo);
   return linha.prioridade !== null && (tipo === "MX" || tipo === "SRV") ? `${linha.prioridade} ${conteudo}` : conteudo;
 }
 
@@ -50,7 +32,7 @@ export function zonaParaBind(
   cabecalho: { geradoEm: Date; origem: string },
 ): string {
   const raiz = absoluto(zona);
-  const corpo = linhas.map((linha) => {
+  const corpo = linhas.filter((linha) => !ehDoServidor(linha, zona)).map((linha) => {
     const ttl = linha.ttl === 1 ? TTL_AUTOMATICO_EM_SEGUNDOS : linha.ttl;
     return [absoluto(linha.nome), String(ttl), "IN", linha.tipo.toUpperCase(), dados(linha)].join("\t");
   });

@@ -111,7 +111,8 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
         select: { createdAt: true, action: true, actorId: true, metadata: true },
       });
 
-      const versoes = dominio.dnsAqui ? await listarVersoes(dominio.id) : [];
+      // Mesmo sem DNS aqui: as versões guardadas são o histórico e a saída.
+      const versoes = await listarVersoes(dominio.id);
       const nome = await nomesDosAtores([...eventos.map((e) => e.actorId), ...versoes.map((v) => v.quem)], {
         mascararCasa: false,
       });
@@ -171,6 +172,8 @@ function rotuloDaAcao(acao: string): string {
     DNS_REGISTRO_APAGADO_FALHOU: "Remoção de registro recusada pelo DNS",
     DNS_ZONA_RESTAURADA: "Zona restaurada a uma versão",
     DNS_ZONA_RESTAURADA_INCOMPLETA: "Restauração de versão interrompida",
+    DNS_ZONA_RESTAURADA_NAO_CONFERIDA: "Restauração aplicada, sem conferência da zona",
+    DNS_ZONA_RESTAURADA_DIVERGENTE: "Restauração aplicada, mas a zona mudou no meio",
     DNS_ZONA_EXPORTADA: "Zona exportada em BIND",
     CLOUDFLARE_DOMAINS_SYNCED: "DNS sincronizado",
     REGISTRO_BR_VENCIMENTOS_SINCRONIZADOS: "Vencimentos consultados",

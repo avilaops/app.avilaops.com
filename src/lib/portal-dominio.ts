@@ -43,6 +43,8 @@ const ROTULO_ACAO: Record<string, string> = {
   DNS_REGISTRO_APAGADO_FALHOU: "Tentativa de apagar registro recusada pelo DNS",
   DNS_ZONA_RESTAURADA: "Zona restaurada a uma versão anterior",
   DNS_ZONA_RESTAURADA_INCOMPLETA: "Restauração de versão interrompida",
+  DNS_ZONA_RESTAURADA_NAO_CONFERIDA: "Restauração aplicada, sem conferência da zona",
+  DNS_ZONA_RESTAURADA_DIVERGENTE: "Restauração aplicada, mas a zona mudou no meio",
   DNS_ZONA_EXPORTADA: "Zona exportada em BIND",
 };
 

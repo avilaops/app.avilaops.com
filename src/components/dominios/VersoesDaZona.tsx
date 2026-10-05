@@ -36,6 +36,8 @@ export default function VersoesDaZona({
   zonaLida,
   podeRestaurar,
   base,
+  zona,
+  dnsAqui = true,
 }: {
   versoes: VersaoNaTela[];
   /** A zona agora, lida do servidor. */
@@ -45,6 +47,13 @@ export default function VersoesDaZona({
   podeRestaurar: boolean;
   /** Rota de DNS do domínio, sem barra no fim: `/api/portal/dominios/x.com.br/dns`. */
   base: string;
+  /** O domínio dono da zona: SOA e NS dele são do servidor e ficam fora da diferença. */
+  zona: string;
+  /**
+   * Falso quando o DNS saiu daqui. As versões continuam: são a saída do
+   * cliente. Some só o que depende da zona viva (baixar a atual, restaurar).
+   */
+  dnsAqui?: boolean;
 }) {
   const router = useRouter();
   const [aberta, setAberta] = useState<string | null>(null);
@@ -54,8 +63,8 @@ export default function VersoesDaZona({
   const [aviso, setAviso] = useState("");
 
   const diferencas = useMemo(
-    () => new Map(versoes.map((v) => [v.id, diferencaParaVersao(atual, v.linhas)])),
-    [versoes, atual],
+    () => new Map(versoes.map((v) => [v.id, diferencaParaVersao(atual, v.linhas, zona)])),
+    [versoes, atual, zona],
   );
 
   async function restaurar() {
@@ -71,6 +80,11 @@ export default function VersoesDaZona({
       const dados = await resposta.json().catch(() => ({}));
       if (!resposta.ok || !dados.ok) {
         setFalha(dados.error ?? "Não foi possível restaurar a zona.");
+        setARestaurar(null);
+        // Mesmo com erro, parte da restauração pode ter sido aplicada e uma
+        // versão nova guardada: a tela relê a zona para não decidir em cima
+        // do estado de antes.
+        router.refresh();
         return;
       }
       setAviso(`Zona restaurada à versão de ${formatarDataHora(aRestaurar.criadaEm)}.`);
@@ -90,11 +104,17 @@ export default function VersoesDaZona({
     <>
       <CartaoLista
         titulo="Versões da zona"
-        descricao="Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela."
+        descricao={
+          dnsAqui
+            ? "Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela."
+            : "O DNS deste domínio não é mais servido por aqui. As versões guardadas continuam disponíveis para baixar em BIND."
+        }
         acao={
-          <a href={`${base}/exportar`} className="secondary-button shrink-0" download>
-            Baixar zona
-          </a>
+          dnsAqui ? (
+            <a href={`${base}/exportar`} className="secondary-button shrink-0" download>
+              Baixar zona
+            </a>
+          ) : null
         }
       >
         {aviso ? (

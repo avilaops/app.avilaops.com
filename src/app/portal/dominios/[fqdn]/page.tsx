@@ -125,13 +125,15 @@ export default async function DominioDoClientePage({ params }: { params: Promise
         }
       />
 
-      {dominio.servicoDns !== "NENHUM" ? (
+      {dominio.servicoDns !== "NENHUM" || dominio.versoes.length > 0 ? (
         <VersoesDaZona
           versoes={dominio.versoes}
           atual={dominio.dns.registros}
           zonaLida={Boolean(dominio.dns.lidoEm)}
           podeRestaurar={podeEditar}
           base={`/api/portal/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
+          zona={dominio.fqdn}
+          dnsAqui={dominio.servicoDns !== "NENHUM"}
         />
       ) : null}
 
