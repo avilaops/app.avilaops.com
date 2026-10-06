@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { ehEscopo, gerarChave } from "@/lib/chaves-api";
-import { cleanText, sameOrigin } from "@/lib/http";
+import { cleanText, origemEstrita } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 /** Validades oferecidas na tela. `0` = sem validade. */
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   if (!admin || !ehDono(admin.role)) {
     return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
   }
-  if (!sameOrigin(request)) {
+  if (!origemEstrita(request)) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   }
 

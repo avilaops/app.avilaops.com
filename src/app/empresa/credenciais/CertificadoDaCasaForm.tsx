@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { useConfirmacaoDeSenha } from "@/components/sistema/ConfirmarSenha";
 import { Grupo } from "@/components/sistema/Lista";
 import type { CertificadoDaCasa } from "@/lib/dados-da-casa";
 
@@ -36,6 +37,7 @@ export default function CertificadoDaCasaForm({
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [recado, setRecado] = useState<string | null>(null);
+  const { executar, folha } = useConfirmacaoDeSenha();
 
   const cnpjDivergente =
     certificado?.cnpj && cnpjCadastrado && certificado.cnpj !== cnpjCadastrado;
@@ -51,7 +53,7 @@ export default function CertificadoDaCasaForm({
     corpo.append("senha", senha);
 
     try {
-      const resposta = await fetch("/api/empresa/certificado", { method: "POST", body: corpo });
+      const resposta = await executar(() => fetch("/api/empresa/certificado", { method: "POST", body: corpo }));
       const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
       if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui guardar o certificado.");
       setRecado("Certificado guardado.");
@@ -74,8 +76,11 @@ export default function CertificadoDaCasaForm({
     setErro(null);
     setRecado(null);
     try {
-      const resposta = await fetch("/api/empresa/certificado", { method: "DELETE" });
-      if (!resposta.ok) throw new Error("Não consegui remover o certificado.");
+      const resposta = await executar(() => fetch("/api/empresa/certificado", { method: "DELETE" }));
+      if (!resposta.ok) {
+        const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
+        throw new Error(dados.erro ?? "Não consegui remover o certificado.");
+      }
       setRecado("Certificado removido.");
       router.refresh();
     } catch (falha) {
@@ -182,6 +187,7 @@ export default function CertificadoDaCasaForm({
         {erro ? <p className="aviso-erro">{erro}</p> : null}
         {recado ? <p className="aviso-ok">{recado}</p> : null}
       </div>
+      {folha}
     </Grupo>
   );
 }

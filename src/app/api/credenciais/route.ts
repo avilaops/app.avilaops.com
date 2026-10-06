@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { listarCredenciais, salvarCredencial } from "@/lib/credenciais";
+import { origemEstrita } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
   if (!admin) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   if (!ehDono(admin.role)) {
     return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
+  }
+  if (!origemEstrita(request)) {
+    return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   }
 
   const corpo = (await request.json().catch(() => null)) as {

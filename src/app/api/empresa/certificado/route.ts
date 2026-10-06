@@ -5,7 +5,8 @@ import {
   removerCertificadoDaCasa,
   salvarCertificadoDaCasa,
 } from "@/lib/dados-da-casa";
-import { sameOrigin } from "@/lib/http";
+import { pedirConfirmacao, temConfirmacaoRecente } from "@/lib/confirmacao-recente";
+import { origemEstrita } from "@/lib/http";
 
 export const runtime = "nodejs";
 
@@ -18,9 +19,12 @@ async function exigirDono(request: NextRequest) {
   if (!ehDono(admin.role)) {
     return { erro: NextResponse.json({ erro: "Só o dono da conta pode isto." }, { status: 403 }) };
   }
-  if (!sameOrigin(request)) {
+  if (!origemEstrita(request)) {
     return { erro: NextResponse.json({ erro: "Origem não autorizada." }, { status: 403 }) };
   }
+  // Trocar ou tirar o certificado é trocar quem assina a nota: pede a senha
+  // de novo, mesmo com a sessão aberta.
+  if (!(await temConfirmacaoRecente(admin.id))) return { erro: pedirConfirmacao() };
   return { admin };
 }
 

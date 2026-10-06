@@ -100,3 +100,21 @@ export function sameOrigin(request: NextRequest) {
     return false;
   }
 }
+
+/**
+ * `sameOrigin` sem o benefício da dúvida: quem não diz de onde vem não passa.
+ *
+ * `sameOrigin` aceita pedido sem `Origin` porque atende também a automação, que
+ * chama de fora do navegador e não manda o cabeçalho. Rota de segredo (cofre,
+ * certificado, chave de API, dados da casa) não tem esse público: só o dono, no
+ * navegador, com cookie. Ali a ausência do cabeçalho não é neutra — é um pedido
+ * que não saiu da nossa tela.
+ *
+ * Navegador atual manda `Origin` em todo POST/PUT/DELETE; quando não manda,
+ * `Sec-Fetch-Site` diz a mesma coisa e não pode ser forjado por script de
+ * página. Sem nenhum dos dois, recusa.
+ */
+export function origemEstrita(request: Request) {
+  if (request.headers.get("origin")) return sameOrigin(request as NextRequest);
+  return request.headers.get("sec-fetch-site") === "same-origin";
+}

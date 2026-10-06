@@ -17,7 +17,7 @@ vi.mock("@/lib/auth", () => ({
   getAdmin: async () => ({ id: "teste-revogacao", role: "OWNER" }),
   ehDono: (role: string) => role === "OWNER",
 }));
-vi.mock("@/lib/http", () => ({ sameOrigin: () => true }));
+vi.mock("@/lib/http", () => ({ origemEstrita: () => true }));
 import { DELETE } from "@/app/api/chaves-api/[id]/route";
 
 const url = new URL(process.env.DATABASE_URL!);

@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { removerCredencial } from "@/lib/credenciais";
+import { origemEstrita } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ chave: string }> },
 ) {
   const admin = await getAdmin();
   if (!admin) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   if (!ehDono(admin.role)) {
     return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
+  }
+  if (!origemEstrita(request)) {
+    return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   }
 
   const { chave } = await params;

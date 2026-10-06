@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { sameOrigin } from "@/lib/http";
+import { origemEstrita } from "@/lib/http";
 import { salvarCredencial } from "@/lib/credenciais";
 import { financeiraPorSlug } from "@/lib/credenciais-financeiro";
 import { prisma } from "@/lib/prisma";
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   if (!ehDono(admin.role)) {
     return NextResponse.json({ erro: "Só o dono da conta pode isto." }, { status: 403 });
   }
-  if (!sameOrigin(request)) {
+  if (!origemEstrita(request)) {
     return NextResponse.json({ erro: "Origem não autorizada." }, { status: 403 });
   }
 

@@ -8,7 +8,7 @@ const mock = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({
   getAdmin: mock.admin, ehDono: (role: string) => role === "OWNER",
 }));
-vi.mock("@/lib/http", () => ({ sameOrigin: mock.origem }));
+vi.mock("@/lib/http", () => ({ origemEstrita: mock.origem }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
   chaveDeApi: { findUnique: mock.chave },
   $transaction: mock.transacao,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { sameOrigin } from "@/lib/http";
+import { origemEstrita } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -12,7 +12,7 @@ export async function DELETE(request: NextRequest, contexto: { params: Promise<{
   if (!admin || !ehDono(admin.role)) {
     return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 });
   }
-  if (!sameOrigin(request)) {
+  if (!origemEstrita(request)) {
     return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   }
 

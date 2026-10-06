@@ -7,7 +7,7 @@ import {
   chaveLivre,
   slugDaInstituicao,
 } from "@/lib/credenciais-financeiro";
-import { sameOrigin } from "@/lib/http";
+import { origemEstrita } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ async function exigirDono(request: NextRequest) {
   if (!ehDono(admin.role)) {
     return { erro: NextResponse.json({ erro: "Só o dono da conta pode isto." }, { status: 403 }) };
   }
-  if (!sameOrigin(request)) {
+  if (!origemEstrita(request)) {
     return { erro: NextResponse.json({ erro: "Origem não autorizada." }, { status: 403 }) };
   }
   return { admin };

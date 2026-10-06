@@ -141,6 +141,7 @@ export async function salvarIconeDaCasa(params: {
     update: { iconeDados: bytes, iconeMime: mime, iconeVersao: versao, atualizadoPor: params.atorId },
     create: { id: ID, iconeDados: bytes, iconeMime: mime, iconeVersao: versao, atualizadoPor: params.atorId },
   });
+  await registrar("ICONE_DA_CASA_TROCADO", params.atorId, { mime, versao });
 
   return { mime, versao };
 }
@@ -152,6 +153,7 @@ export async function removerIconeDaCasa(atorId: string) {
     update: { iconeDados: null, iconeMime: null, iconeVersao: null, atualizadoPor: atorId },
     create: { id: ID, atualizadoPor: atorId },
   });
+  await registrar("ICONE_DA_CASA_REMOVIDO", atorId);
 }
 
 export async function renomearCasa(nome: string, atorId: string) {
@@ -164,8 +166,19 @@ export async function renomearCasa(nome: string, atorId: string) {
     update: { nome: limpo, atualizadoPor: atorId },
     create: { id: ID, nome: limpo, atualizadoPor: atorId },
   });
+  await registrar("IDENTIDADE_DA_CASA_RENOMEADA", atorId, { nome: limpo });
 
   return limpo;
+}
+
+/**
+ * Nome e ícone são a cara do painel para todo mundo que entra. Dados fiscais e
+ * certificado já deixavam rastro; a identidade mudava sem registro nenhum.
+ */
+async function registrar(action: string, atorId: string, metadata?: Record<string, string>) {
+  await prisma.operationsAuditEvent.create({
+    data: { actorId: atorId, action, entityType: "IdentidadeDaCasa", entityId: ID, metadata },
+  });
 }
 
 /**

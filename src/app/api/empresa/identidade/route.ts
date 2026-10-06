@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
-import { sameOrigin } from "@/lib/http";
+import { origemEstrita } from "@/lib/http";
 import { IconeInvalido, renomearCasa } from "@/lib/identidade-casa";
 
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export async function PUT(request: NextRequest) {
   if (!ehDono(admin.role)) {
     return NextResponse.json({ erro: "Só o dono da conta pode isto." }, { status: 403 });
   }
-  if (!sameOrigin(request)) {
+  if (!origemEstrita(request)) {
     return NextResponse.json({ erro: "Origem não autorizada." }, { status: 403 });
   }
 

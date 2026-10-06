@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useConfirmacaoDeSenha } from "@/components/sistema/ConfirmarSenha";
 import { Grupo, LinhaDobravel, LinhaInfo } from "@/components/sistema/Lista";
 import BadgeStatus from "@/components/sistema/Status";
 import { LogoSocial, type MarcaSocial } from "@/components/ui/LogoSocial";
@@ -68,6 +69,7 @@ export default function CofreClient({
   const [reveladas, setReveladas] = useState<Record<string, string>>({});
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const { executar, folha } = useConfirmacaoDeSenha();
 
   const categorias = useMemo(
     () => [...new Set(credenciais.map((c) => c.categoria))].sort(),
@@ -104,9 +106,9 @@ export default function CofreClient({
     setErro(null);
     setOcupado(chave);
     try {
-      const resposta = await fetch(`/api/credenciais/${encodeURIComponent(chave)}/revelar`, {
-        method: "POST",
-      });
+      const resposta = await executar(() =>
+        fetch(`/api/credenciais/${encodeURIComponent(chave)}/revelar`, { method: "POST" }),
+      );
       const dados = await resposta.json();
       if (!resposta.ok) throw new Error(dados.error ?? "Falha ao revelar.");
       setReveladas((atual) => ({ ...atual, [chave]: dados.valor }));
@@ -353,6 +355,7 @@ export default function CofreClient({
           })}
         </Grupo>
       ))}
+      {folha}
     </div>
   );
 }

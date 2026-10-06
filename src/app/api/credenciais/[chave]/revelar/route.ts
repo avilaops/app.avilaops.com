@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
+import { pedirConfirmacao, temConfirmacaoRecente } from "@/lib/confirmacao-recente";
 import { revelarCredencial } from "@/lib/credenciais";
+import { origemEstrita } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -13,7 +15,7 @@ export const runtime = "nodejs";
  * sozinho. Toda revelação vira evento de auditoria com autor e horário.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ chave: string }> },
 ) {
   const admin = await getAdmin();
@@ -21,6 +23,11 @@ export async function POST(
   if (!ehDono(admin.role)) {
     return NextResponse.json({ error: "Só o dono da conta pode isto." }, { status: 403 });
   }
+  if (!origemEstrita(request)) {
+    return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
+  }
+  // Sessão aberta não basta para ver segredo em claro: pede a senha de novo.
+  if (!(await temConfirmacaoRecente(admin.id))) return pedirConfirmacao();
 
   const { chave } = await params;
 
