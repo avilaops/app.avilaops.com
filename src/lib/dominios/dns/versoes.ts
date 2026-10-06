@@ -57,7 +57,7 @@ export function ordenarLinhas(linhas: LinhaVersao[]): LinhaVersao[] {
  * só um deles é alteração da mesma linha, não apagar e criar outra — apagar
  * e criar deixa o nome sem resposta no intervalo.
  */
-function chave(linha: { tipo: string; nome: string; conteudo: string; prioridade: number | null }): string {
+export function chave(linha: { tipo: string; nome: string; conteudo: string; prioridade: number | null }): string {
   const nome = linha.nome.trim().toLowerCase().replace(/\.$/, "");
   return `${linha.tipo.toUpperCase()}|${nome}|${linha.prioridade ?? ""}|${normalizarCanonico(linha.tipo, linha.conteudo)}`;
 }

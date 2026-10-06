@@ -5,6 +5,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BadgeStatus from "@/components/sistema/Status";
 import { CartaoLista, LINHA_ITEM, LINHA_LINK, formatarDataHora } from "@/components/hub-social/comum";
 import PainelDns from "@/components/dominios/PainelDns";
+import ImportarZona from "@/components/dominios/ImportarZona";
 import VersoesDaZona, { type VersaoNaTela } from "@/components/dominios/VersoesDaZona";
 import {
   BASE,
@@ -119,6 +120,10 @@ export default function DetalheDominio({
         erro={erroDns}
         podeEditar={escrita.editarDns}
       />
+
+      {dominio.dnsAqui && escrita.editarDns && !erroDns ? (
+        <ImportarZona base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`} />
+      ) : null}
 
       {dominio.dnsAqui || versoes.length > 0 ? (
         <VersoesDaZona
