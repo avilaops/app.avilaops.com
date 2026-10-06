@@ -48,6 +48,10 @@ const ROTULO_ACAO: Record<string, string> = {
   DNS_ZONA_RESTAURADA_NAO_CONFERIDA: "Restauração aplicada, sem conferência da zona",
   DNS_ZONA_RESTAURADA_DIVERGENTE: "Restauração aplicada, mas a zona mudou no meio",
   DNS_ZONA_EXPORTADA: "Zona exportada em BIND",
+  DNS_ZONA_IMPORTADA: "Zona importada de arquivo BIND",
+  DNS_ZONA_IMPORTADA_INCOMPLETA: "Importação de zona interrompida",
+  DNS_ZONA_IMPORTADA_NAO_CONFERIDA: "Importação aplicada, sem conferência da zona",
+  DNS_ZONA_IMPORTADA_DIVERGENTE: "Importação aplicada, mas a zona mudou no meio",
 };
 
 type Resumivel = { tipo?: unknown; nome?: unknown; conteudo?: unknown } | null | undefined;

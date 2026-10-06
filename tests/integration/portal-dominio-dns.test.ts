@@ -68,7 +68,13 @@ vi.mock("@/lib/dominios/dns", async (original) => {
   };
 });
 
-import { ErroDeDns, executarOperacaoDns, restaurarVersaoDns } from "@/lib/dominios/dns/escrita";
+import {
+  ErroDeDns,
+  executarOperacaoDns,
+  importarZonaBind,
+  previaImportacaoBind,
+  restaurarVersaoDns,
+} from "@/lib/dominios/dns/escrita";
 import { exportarZonaBind } from "@/lib/dominios/dns/exportacao";
 import { lerLinhas } from "@/lib/dominios/dns/versoes";
 import { carregarDominioDoCliente } from "@/lib/portal-dominio";
@@ -466,4 +472,95 @@ describe("DNS pelo portal do cliente", () => {
     const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { entityId: dominio.id, action: "DNS_VERSOES_DESCARTADAS" } });
     expect(evento.metadata).toMatchObject({ quantidade: 1, parametro: { versao: parametro.id, dias: 90 } });
   }));
+
+  describe("importação de arquivo BIND", () => {
+    // Como os servidores de verdade devolvem: nome completo, TTL automático no serviço externo.
+    const zonaReal = (fqdn: string): RegistroDns[] => [
+      { id: "spf", tipo: "TXT", nome: fqdn, conteudo: "v=spf1 include:_spf.provedor.com ~all", ttl: 1, proxy: false, prioridade: null },
+      { id: "mx", tipo: "MX", nome: fqdn, conteudo: "mx1.provedor.com", ttl: 1, proxy: false, prioridade: 10 },
+      { id: "site", tipo: "A", nome: fqdn, conteudo: "203.0.113.10", ttl: 1, proxy: true, prioridade: null },
+    ];
+    const arquivo = (fqdn: string) => [
+      `$ORIGIN ${fqdn}.`,
+      "$TTL 3600",
+      `@ IN SOA ns1.outro.com. hostmaster.outro.com. ( 1 3600 900 604800 300 )`,
+      "@ IN NS ns1.outro.com.",
+      `@ 300 IN TXT "v=spf1 include:_spf.provedor.com ~all"`,
+      "@ 300 IN MX 10 mx1.provedor.com.",
+      "@ 300 IN A 203.0.113.10",
+      "loja IN CNAME lojas.plataforma.com.",
+    ].join("\n");
+
+    it("prévia não muda nada; importar aplica a mesma diferença, guarda versão e audita", () => isolado(async ({ tx, id, org, fqdn }) => {
+      state.zona = zonaReal(fqdn);
+      const cliente = { id, origem: "CLIENTE" as const };
+      const previa = await previaImportacaoBind(fqdn, arquivo(fqdn), { organizationId: org });
+      expect(state.chamadas).toEqual([]);
+      expect(previa.problemas).toEqual([]);
+      expect(previa.ignoradas).toHaveLength(2);
+      expect(previa.diferenca.sair).toEqual([]);
+      expect(previa.diferenca.ajustar).toEqual([]);
+      expect(previa.diferenca.entrar).toEqual([
+        { tipo: "CNAME", nome: `loja.${fqdn}`, conteudo: "lojas.plataforma.com", ttl: 3600, prioridade: null, proxy: false },
+      ]);
+
+      await importarZonaBind(fqdn, arquivo(fqdn), previa.assinatura, cliente, { organizationId: org });
+      expect(state.chamadas).toEqual([`criar CNAME loja.${fqdn}`]);
+      // O A que já existia continua com proxy: o arquivo não sabe de proxy.
+      expect(state.zona.find((r) => r.id === "site")?.proxy).toBe(true);
+
+      const versoes = await tx.dnsZoneVersion.findMany({ where: { domainAsset: { fqdn } }, orderBy: { createdAt: "asc" } });
+      expect(versoes.map((v) => v.reason)).toEqual(["Zona antes da primeira alteração pelo painel", "Zona importada de arquivo BIND"]);
+      const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { organizationId: org, action: "DNS_ZONA_IMPORTADA" } });
+      expect(evento.metadata).toMatchObject({ origem: "CLIENTE", resultado: "OK", arquivo: { registros: 4, ignoradas: 2 } });
+    }));
+
+    it("a zona mudou entre a prévia e o clique: nada é aplicado", () => isolado(async ({ id, org, fqdn }) => {
+      state.zona = zonaReal(fqdn);
+      const previa = await previaImportacaoBind(fqdn, arquivo(fqdn), { organizationId: org });
+      state.zona = state.zona.filter((r) => r.id !== "mx");
+      await expect(
+        importarZonaBind(fqdn, arquivo(fqdn), previa.assinatura, { id, origem: "CLIENTE" }, { organizationId: org }),
+      ).rejects.toMatchObject({ status: 409, message: expect.stringContaining("mudou desde a prévia") });
+      expect(state.chamadas).toEqual([]);
+    }));
+
+    it("arquivo com problema ou sem registro nenhum não apaga nada", () => isolado(async ({ id, org, fqdn }) => {
+      state.zona = zonaReal(fqdn);
+      const cliente = { id, origem: "CLIENTE" as const };
+      const comSpfDuplo = `${arquivo(fqdn)}\n@ 300 IN TXT "v=spf1 -all"`;
+      const previa = await previaImportacaoBind(fqdn, comSpfDuplo, { organizationId: org });
+      expect(previa.problemas.join(" ")).toMatch(/SPF/);
+      await expect(importarZonaBind(fqdn, comSpfDuplo, previa.assinatura, cliente, { organizationId: org })).rejects.toMatchObject({
+        status: 422,
+      });
+
+      const soServidor = `$ORIGIN ${fqdn}.\n@ 3600 IN SOA a. b. 1 2 3 4 5\n@ 3600 IN NS ns1.outro.com.`;
+      const vazia = await previaImportacaoBind(fqdn, soServidor, { organizationId: org });
+      expect(vazia.problemas[0]).toMatch(/esvaziada/);
+      await expect(importarZonaBind(fqdn, soServidor, vazia.assinatura, cliente, { organizationId: org })).rejects.toMatchObject({
+        status: 422,
+      });
+      expect(state.chamadas).toEqual([]);
+    }));
+
+    it("domínio de outra empresa não é importado nem mostrado", () => isolado(async ({ id, org, outroFqdn }) => {
+      await expect(previaImportacaoBind(outroFqdn, arquivo(outroFqdn), { organizationId: org })).rejects.toMatchObject({ status: 404 });
+      await expect(
+        importarZonaBind(outroFqdn, arquivo(outroFqdn), "0".repeat(32), { id, origem: "CLIENTE" }, { organizationId: org }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(state.chamadas).toEqual([]);
+    }));
+
+    it("importar a zona que acabou de ser exportada não muda nada", () => isolado(async ({ id, org, fqdn }) => {
+      state.zona = zonaReal(fqdn);
+      const exportada = await exportarZonaBind(fqdn, { id, origem: "CLIENTE" }, { organizationId: org });
+      const previa = await previaImportacaoBind(fqdn, exportada.conteudo, { organizationId: org });
+      expect(previa.problemas).toEqual([]);
+      expect(previa.diferenca).toEqual({ sair: [], entrar: [], ajustar: [] });
+      await expect(
+        importarZonaBind(fqdn, exportada.conteudo, previa.assinatura, { id, origem: "CLIENTE" }, { organizationId: org }),
+      ).rejects.toMatchObject({ status: 409 });
+    }));
+  });
 });
