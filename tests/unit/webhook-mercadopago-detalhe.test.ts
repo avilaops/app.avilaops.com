@@ -14,10 +14,11 @@ import { NextRequest } from "next/server";
  * `tests/integration/webhook-mercadopago.test.ts`.
  */
 
-const { api, baixa, chamada } = vi.hoisted(() => ({
+const { api, baixa, chamada, registro } = vi.hoisted(() => ({
   api: { pagamento: {} as Record<string, unknown> },
   baixa: vi.fn(),
   chamada: vi.fn(),
+  registro: vi.fn(),
 }));
 
 vi.mock("@/lib/mercadopago", () => ({
@@ -30,7 +31,10 @@ vi.mock("@/lib/mercadopago", () => ({
 vi.mock("@/lib/assinaturas", () => ({ baixarCobrancaPorIdExterno: baixa }));
 vi.mock("@/lib/deliverables", () => ({ markDeliverablePaidAndNotify: vi.fn() }));
 vi.mock("@/lib/eventos-webhook", () => ({
-  registrarEvento: async () => ({ id: "evento-1" }),
+  registrarEvento: async (evento: unknown) => {
+    registro(evento);
+    return { id: "evento-1" };
+  },
   concluirEvento: async () => undefined,
 }));
 vi.mock("@/lib/mercadopago-assinatura", () => ({
@@ -66,9 +70,9 @@ function notificacao(id: string) {
  * documentação: `data.id` é o caso (na query também, é o que a assinatura
  * cobre) e o pagamento vem em `data.payment_id`.
  */
-function contestacao(dados: Record<string, unknown>) {
+function contestacao(dados: Record<string, unknown>, casoNaQuery: string | null = "217000061307271000") {
   const url = new URL("https://app.avilaops.com/api/webhooks/mercadopago");
-  url.searchParams.set("data.id", "217000061307271000");
+  if (casoNaQuery !== null) url.searchParams.set("data.id", casoNaQuery);
   url.searchParams.set("type", "topic_chargebacks_wh");
   return new NextRequest(url, {
     method: "POST",
@@ -87,6 +91,7 @@ function contestacao(dados: Record<string, unknown>) {
 beforeEach(() => {
   baixa.mockReset();
   chamada.mockReset();
+  registro.mockReset();
   delete process.env.MP_WEBHOOK_TOKEN;
 });
 
@@ -170,5 +175,69 @@ describe("webhook do Mercado Pago — tópico de contestação", () => {
     expect(await resposta.json()).toEqual({ ok: true, ignorado: true });
     expect(chamada).not.toHaveBeenCalled();
     expect(baixa).not.toHaveBeenCalled();
+  });
+});
+
+describe("webhook do Mercado Pago — id do caso no registro do evento", () => {
+  /** O `payload` que a rota mandou gravar em `integration_webhook_events`. */
+  function payloadRegistrado() {
+    expect(registro).toHaveBeenCalledTimes(1);
+    return (registro.mock.calls[0][0] as { payload: unknown }).payload;
+  }
+
+  it("contestação com `payment_id` grava o id do caso, sem mexer no `externalId`", async () => {
+    api.pagamento = { id: 123456789, status: "charged_back", status_detail: "reimbursed" };
+
+    await POST(contestacao({ payment_id: 123456789 }));
+
+    expect(payloadRegistrado()).toEqual({ pagamentoId: "123456789", requestId: null, casoId: "217000061307271000" });
+    expect(registro.mock.calls[0][0]).toMatchObject({ externalId: "123456789", eventType: "topic_chargebacks_wh" });
+  });
+
+  it("contestação ignorada por falta de `payment_id` também grava o id do caso", async () => {
+    const resposta = await POST(contestacao({}));
+
+    expect(await resposta.json()).toEqual({ ok: true, ignorado: true });
+    expect(payloadRegistrado()).toEqual({ pagamentoId: null, requestId: null, casoId: "217000061307271000" });
+    // O `externalId` segue sendo o id da notificação, como antes.
+    expect(registro.mock.calls[0][0]).toMatchObject({ externalId: "114544942708" });
+  });
+
+  it("id do caso como número grande no corpo vem da query, sem arredondar", async () => {
+    // No exemplo da documentação o `data.id` é número, e este não cabe num
+    // número de JavaScript: lido do corpo, viraria ...71100.
+    await POST(contestacao({ id: 217000061307271123 }, "217000061307271123"));
+
+    expect(payloadRegistrado()).toMatchObject({ casoId: "217000061307271123" });
+  });
+
+  it("id do caso como número pequeno no corpo é gravado como texto", async () => {
+    await POST(contestacao({ id: 4321 }, null));
+
+    expect(payloadRegistrado()).toMatchObject({ casoId: "4321" });
+  });
+
+  it.each([
+    ["ausente", { id: undefined }],
+    ["nulo", { id: null }],
+    ["que não é número", { id: "217/../x" }],
+    ["objeto", { id: { a: 1 } }],
+    ["número grande, sem a query para conferir", { id: 217000061307271123 }],
+  ])("id do caso %s vira nulo e a notificação segue", async (_nome, dados) => {
+    api.pagamento = { id: 123456789, status: "charged_back", status_detail: "reimbursed" };
+
+    const resposta = await POST(contestacao({ payment_id: 123456789, ...dados }, null));
+
+    expect(resposta.status).toBe(200);
+    expect(payloadRegistrado()).toEqual({ pagamentoId: "123456789", requestId: null, casoId: null });
+    expect(baixa).toHaveBeenCalledTimes(1);
+  });
+
+  it("tópico `payment` grava o mesmo payload de antes, sem o campo", async () => {
+    api.pagamento = { id: 123456789, status: "approved", status_detail: "accredited" };
+
+    await POST(notificacao("123456789"));
+
+    expect(payloadRegistrado()).toEqual({ pagamentoId: "123456789", requestId: null });
   });
 });

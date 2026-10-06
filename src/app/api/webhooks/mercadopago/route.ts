@@ -144,6 +144,28 @@ function idDoPagamento(
   return /^\d+$/.test(bruto) ? bruto : null;
 }
 
+/**
+ * O id do caso de uma contestação, só para o registro do evento.
+ *
+ * Vem do corpo, que a assinatura não cobre: serve para quem for investigar a
+ * contestação à mão e nunca para consulta nem decisão. O caso tem mais dígitos
+ * do que um número de JavaScript guarda sem arredondar, e o exemplo da
+ * documentação manda `data.id` como número; aí o valor do corpo já chegou
+ * errado, e o que vale é o `data.id` da query, que é texto. Fora da contestação
+ * devolve `undefined`, e o registro fica como era.
+ */
+function idDoCaso(request: NextRequest, body: Record<string, unknown> | null): string | null | undefined {
+  const busca = request.nextUrl.searchParams;
+  const tipo = String(body?.type ?? body?.topic ?? busca.get("topic") ?? busca.get("type") ?? "");
+  if (!tipo.includes("chargeback")) return undefined;
+
+  const id = (body?.data as { id?: unknown } | undefined)?.id;
+  const bruto =
+    typeof id === "string" ? id : typeof id === "number" && Number.isSafeInteger(id) ? String(id) : busca.get("data.id");
+
+  return bruto && /^\d{1,32}$/.test(bruto) ? bruto : null;
+}
+
 export async function POST(request: NextRequest) {
   if (!tokenConfere(request)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
@@ -156,6 +178,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const pagamentoId = idDoPagamento(request, body);
+  const casoId = idDoCaso(request, body);
 
   // Registro só depois da assinatura: o que não provou ser do Mercado Pago não
   // enche a tabela que o painel de integrações mostra como evidência.
@@ -164,7 +187,11 @@ export async function POST(request: NextRequest) {
     provider: "mercadopago",
     externalId: pagamentoId ?? (body?.id !== undefined ? String(body.id) : null),
     eventType: String(body?.action ?? body?.type ?? body?.topic ?? busca.get("type") ?? busca.get("topic") ?? "desconhecido"),
-    payload: { pagamentoId, requestId: request.headers.get("x-request-id") },
+    payload: {
+      pagamentoId,
+      requestId: request.headers.get("x-request-id"),
+      ...(casoId !== undefined ? { casoId } : {}),
+    },
   });
 
   // Notificação de outro tópico (assinatura, reclamação, alerta de fraude) ou
