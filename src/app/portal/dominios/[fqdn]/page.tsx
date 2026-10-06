@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import PainelDns from "@/components/dominios/PainelDns";
+import ImportarZona from "@/components/dominios/ImportarZona";
 import VersoesDaZona from "@/components/dominios/VersoesDaZona";
 import BotaoEvidencia from "@/components/hub-social/FolhaEvidencia";
 import { CartaoLista, LINHA_ITEM, formatarDataHora } from "@/components/hub-social/comum";
@@ -125,6 +126,10 @@ export default async function DominioDoClientePage({ params }: { params: Promise
         }
       />
 
+      {dominio.servicoDns !== "NENHUM" && podeEditar && !dominio.dns.erro ? (
+        <ImportarZona base={`/api/portal/dominios/${encodeURIComponent(dominio.fqdn)}/dns`} />
+      ) : null}
+
       {dominio.servicoDns !== "NENHUM" || dominio.versoes.length > 0 ? (
         <VersoesDaZona
           versoes={dominio.versoes}
@@ -134,6 +139,7 @@ export default async function DominioDoClientePage({ params }: { params: Promise
           base={`/api/portal/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
           zona={dominio.fqdn}
           dnsAqui={dominio.servicoDns !== "NENHUM"}
+          retencaoDias={dominio.retencaoVersoesDias}
         />
       ) : null}
 

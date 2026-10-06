@@ -1,11 +1,17 @@
+import { createHash } from "node:crypto";
 import { exigirDominio } from "@/lib/dominio";
 import { cleanText } from "@/lib/http";
+import { escoposDoDominio, lerParametro } from "@/lib/parametros";
 import { prisma } from "@/lib/prisma";
 import { lerServicoDeDns, provedorDeDnsDoDominio, tipoDnsValido } from "@/lib/dominios/dns";
 import type { EntradaRegistroDns, RegistroDns, ServicoDeDns } from "@/lib/dominios/dns/tipos";
 import { nomeCompleto, validarRegistroDns, type ProblemaDns } from "@/lib/dominios/dns/validacao";
 import { ehDoServidor, paraTextoPuro, txtDeEntrada } from "@/lib/dominios/dns/conteudo";
+import { lerZonaBind, validarZonaImportada, type LinhaIgnorada } from "@/lib/dominios/dns/importacao-bind";
 import {
+  type DiferencaZona,
+  type LinhaVersao,
+  chave,
   diferencaParaVersao,
   lerLinhas,
   paraEntrada,
@@ -217,6 +223,13 @@ const ACAO_RESTAURACAO = {
   DIVERGENTE: "DNS_ZONA_RESTAURADA_DIVERGENTE",
 } as const;
 
+const ACAO_IMPORTACAO = {
+  OK: "DNS_ZONA_IMPORTADA",
+  INCOMPLETA: "DNS_ZONA_IMPORTADA_INCOMPLETA",
+  NAO_CONFERIDA: "DNS_ZONA_IMPORTADA_NAO_CONFERIDA",
+  DIVERGENTE: "DNS_ZONA_IMPORTADA_DIVERGENTE",
+} as const;
+
 const ACAO_AUDITORIA = {
   criar: "DNS_REGISTRO_CRIADO",
   alterar: "DNS_REGISTRO_ALTERADO",
@@ -386,6 +399,59 @@ async function gravarVersao(
   });
 }
 
+export const CHAVE_RETENCAO_VERSOES = "produto.dns.versoesRetencaoDias";
+
+/**
+ * Quantos dias uma versão fica guardada para este domínio, hoje. Nulo enquanto
+ * o prazo não estiver confirmado: aí nada é descartado, e a tela diz isso.
+ */
+export async function retencaoDeVersoes(fqdn: string): Promise<number | null> {
+  try {
+    const prazo = await lerParametro(CHAVE_RETENCAO_VERSOES, { escopos: escoposDoDominio(fqdn) });
+    return prazo.tipo === "vigente" && typeof prazo.valor === "number" ? prazo.valor : null;
+  } catch (e) {
+    console.error("[dns] falha ao ler o prazo de retenção de versões", fqdn, e);
+    return null;
+  }
+}
+
+/**
+ * Descarta as versões mais velhas que o prazo de retenção. O prazo vem da
+ * camada de parâmetros (`produto.dns.versoesRetencaoDias`), lido na data de
+ * hoje e no escopo do domínio; enquanto ele estiver pendente de confirmação,
+ * nada é descartado — pendente não decide.
+ *
+ * Roda logo depois de gravar uma versão, que por ser a mais nova nunca cai no
+ * corte: a zona sempre tem para onde voltar. Falha aqui não desfaz a escrita no
+ * DNS, que já aconteceu; só fica para a próxima.
+ */
+export async function descartarVersoesAntigas(domainAssetId: string, fqdn: string, agora = new Date()) {
+  try {
+    const prazo = await lerParametro(CHAVE_RETENCAO_VERSOES, { escopos: escoposDoDominio(fqdn), em: agora });
+    if (prazo.tipo !== "vigente" || typeof prazo.valor !== "number") return 0;
+    const corte = new Date(agora.getTime() - prazo.valor * 86_400_000);
+    const { count } = await prisma.dnsZoneVersion.deleteMany({ where: { domainAssetId, createdAt: { lt: corte } } });
+    if (count > 0) {
+      await prisma.operationsAuditEvent.create({
+        data: {
+          action: "DNS_VERSOES_DESCARTADAS",
+          entityType: "DomainAsset",
+          entityId: domainAssetId,
+          metadata: {
+            quantidade: count,
+            anterioresA: corte.toISOString(),
+            parametro: { chave: CHAVE_RETENCAO_VERSOES, versao: prazo.versao.id, dias: prazo.valor },
+          },
+        },
+      });
+    }
+    return count;
+  } catch (e) {
+    console.error("[dns] falha ao descartar versões antigas de", fqdn, e);
+    return 0;
+  }
+}
+
 /**
  * Antes da primeira escrita pelo painel, a zona como ela estava. Sem isso a
  * primeira versão já seria a zona com o erro, e não haveria para onde voltar.
@@ -428,6 +494,7 @@ async function registrarVersaoAtual(
   const texto = relida ? base : `${base} (calculada; o servidor não respondeu à releitura)`;
   try {
     await gravarVersao(zona.id, zona.fqdn, registros, ator.origem, ator.id, texto);
+    await descartarVersoesAntigas(zona.id, zona.fqdn);
     return { registros, relida, guardada: true };
   } catch (e) {
     console.error("[dns] não foi possível gravar a versão da zona", zona.fqdn, e);
@@ -470,17 +537,9 @@ const formatoQuando = new Intl.DateTimeFormat("pt-BR", {
  * Volta a zona ao estado de uma versão.
  *
  * Aplica a diferença em três passos: tira o que não existia, ajusta TTL e
- * proxy, cria o que faltava. Tirar primeiro é o que deixa voltar um CNAME
- * para um nome que hoje tem A.
- *
- * A validação de registro não roda aqui: a versão é um estado em que a zona
- * já esteve e serviu, inclusive o retrato anterior ao painel, que pode ter
- * registro que a validação de hoje recusaria. Barrar a volta a ele seria
- * barrar justamente o desfazer.
- *
- * Se o servidor recusar no meio, para, grava a zona como ficou numa versão
- * própria e diz quanto foi aplicado. Zona pela metade sem registro é o pior
- * caso: ninguém saberia de onde partir.
+ * proxy, põe o que faltava. A versão de antes é garantida antes do primeiro
+ * passo, e a zona como ficou é guardada no fim — inclusive se parar no meio:
+ * restaurar também se desfaz.
  */
 export async function restaurarVersaoDns(
   fqdn: string,
@@ -492,26 +551,73 @@ export async function restaurarVersaoDns(
   const versao = await prisma.dnsZoneVersion.findFirst({ where: { id: versaoId, domainAssetId: zona.id } });
   if (!versao) throw new ErroDeDns("Versão não encontrada.", 404);
 
-  let atual: RegistroDns[];
-  try {
-    atual = await zona.provedor.listar(zona.zonaId);
-  } catch (e) {
-    console.error("[dns] falha ao ler a zona antes de restaurar", zona.fqdn, e);
-    throw new ErroDeDns("Não foi possível ler a zona agora. Nada foi alterado.", 502);
-  }
-
+  const atual = await lerAntesDeAplicar(zona, "restaurar");
   const alvo = lerLinhas(versao.records);
   const diferenca = diferencaParaVersao(atual, alvo, zona.fqdn);
   if (zonaIgual(diferenca)) throw new ErroDeDns("A zona já está igual a esta versão.", 409);
 
-  for (const linha of [...diferenca.entrar, ...diferenca.ajustar.map((a) => a.alvo)]) {
+  const quando = formatoQuando.format(versao.createdAt);
+  return aplicarZonaAlvo(zona, atual, alvo, diferenca, ator, {
+    acoes: ACAO_RESTAURACAO,
+    descricao: `Restauração da versão de ${quando}`,
+    feito: `Restaurada a versão de ${quando}`,
+    substantivo: "restauração",
+    alvoNome: "à versão escolhida",
+    metadata: { versaoId },
+  });
+}
+
+/** A zona agora, lida do servidor antes de qualquer mudança. Sem ela, nada é aplicado. */
+async function lerAntesDeAplicar(zona: ZonaResolvida, verbo: string): Promise<RegistroDns[]> {
+  try {
+    return await zona.provedor.listar(zona.zonaId);
+  } catch (e) {
+    console.error(`[dns] falha ao ler a zona antes de ${verbo}`, zona.fqdn, e);
+    throw new ErroDeDns("Não foi possível ler a zona agora. Nada foi alterado.", 502);
+  }
+}
+
+type ZonaResolvida = Awaited<ReturnType<typeof resolverZonaDns>>;
+type Desfecho = "OK" | "INCOMPLETA" | "NAO_CONFERIDA" | "DIVERGENTE";
+
+type Aplicacao = {
+  /** Uma ação de auditoria por desfecho. */
+  acoes: Record<Desfecho, string>;
+  /** "Restauração da versão de 04/10/2026 10:00": começa as frases da versão guardada. */
+  descricao: string;
+  /** Motivo da versão quando a zona relida bate com o alvo. */
+  feito: string;
+  substantivo: string;
+  /** Com a crase: "à versão escolhida", "ao arquivo importado". */
+  alvoNome: string;
+  metadata: Record<string, unknown>;
+};
+
+/**
+ * Leva a zona de `atual` até `alvo`: o caminho comum de restaurar versão e
+ * importar arquivo BIND.
+ *
+ * Confere antes de mexer em qualquer coisa se o servidor aceita o alvo; aplica
+ * em três passos (tira, ajusta, põe) acompanhando o estado passo a passo;
+ * relê e compara com o alvo, e só diz que deu certo se bater. Cada desfecho
+ * tem ação de auditoria própria, e a zona como ficou é guardada como versão
+ * mesmo se parar no meio.
+ */
+async function aplicarZonaAlvo(
+  zona: ZonaResolvida,
+  atual: RegistroDns[],
+  alvo: LinhaVersao[],
+  diferenca: DiferencaZona,
+  ator: Ator,
+  a: Aplicacao,
+): Promise<{ aplicadas: number }> {
+  for (const linha of [...diferenca.entrar, ...diferenca.ajustar.map((x) => x.alvo)]) {
     conferirParaServidor(zona.servico, paraEntrada(linha));
   }
   if (zona.servico === "AVILA") conferirTtlPorConjunto(alvo, zona.fqdn);
 
   await garantirRetratoInicial(zona.id, zona.fqdn, atual);
 
-  const quando = formatoQuando.format(versao.createdAt);
   const total = diferenca.sair.length + diferenca.ajustar.length + diferenca.entrar.length;
   let aplicadas = 0;
   let falha: string | null = null;
@@ -545,7 +651,7 @@ export async function restaurarVersaoDns(
       aplicadas++;
     }
   } catch (e) {
-    console.error("[dns] restauração interrompida", zona.fqdn, versaoId, e);
+    console.error(`[dns] ${a.substantivo} interrompida`, zona.fqdn, a.metadata, e);
     falha = e instanceof Error ? e.message.slice(0, 500) : "erro desconhecido";
   }
 
@@ -557,37 +663,37 @@ export async function restaurarVersaoDns(
       // antes de a resposta chegar. Sem releitura, o estado calculado conta
       // só o que o servidor confirmou, e a versão diz que é incerto.
       if (falha && !relida) {
-        return `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças confirmadas; estado incerto: a mudança seguinte pode ter sido aplicada)`;
+        return `${a.descricao} interrompida (${aplicadas} de ${total} mudanças confirmadas; estado incerto: a mudança seguinte pode ter sido aplicada)`;
       }
-      if (falha) return `Restauração da versão de ${quando} interrompida (${aplicadas} de ${total} mudanças)`;
-      if (!relida) return `Restauração da versão de ${quando} aplicada sem conferência`;
+      if (falha) return `${a.descricao} interrompida (${aplicadas} de ${total} mudanças)`;
+      if (!relida) return `${a.descricao} aplicada sem conferência`;
       return zonaIgual(diferencaParaVersao(registros, alvo, zona.fqdn))
-        ? `Restaurada a versão de ${quando}`
-        : `Restauração da versão de ${quando} não conferiu: a zona mudou durante a restauração`;
+        ? a.feito
+        : `${a.descricao} não conferiu: a zona mudou durante a ${a.substantivo}`;
     },
     () => estado,
   );
 
-  // Todas as chamadas deram certo não quer dizer que a zona ficou igual à
-  // versão: alguém pode ter mexido nela no meio. Só se diz "restaurada"
-  // depois de conferir a zona relida contra a versão.
+  // Todas as chamadas deram certo não quer dizer que a zona ficou igual ao
+  // alvo: alguém pode ter mexido nela no meio. Só se diz que deu certo
+  // depois de conferir a zona relida contra o alvo.
   let divergente = false;
   if (!falha && guardada.relida) {
     divergente = !zonaIgual(diferencaParaVersao(guardada.registros, alvo, zona.fqdn));
   }
 
   // Sem a releitura não dá para descartar que alguém mexeu na zona no meio:
-  // aplicado e não conferido não é "restaurado".
+  // aplicado e não conferido não é "feito".
   const naoConferida = !falha && !guardada.relida;
-  const resultado = falha ? "INCOMPLETA" : divergente ? "DIVERGENTE" : naoConferida ? "NAO_CONFERIDA" : "OK";
+  const resultado: Desfecho = falha ? "INCOMPLETA" : divergente ? "DIVERGENTE" : naoConferida ? "NAO_CONFERIDA" : "OK";
   await prisma.operationsAuditEvent
     .create({
       data: {
         actorId: ator.id,
         organizationId: zona.organizationId,
         // Uma ação por desfecho: "interrompida" é quando o laço parou no meio;
-        // não conferida e divergente são restaurações que rodaram inteiras.
-        action: ACAO_RESTAURACAO[resultado],
+        // não conferida e divergente rodaram inteiras.
+        action: a.acoes[resultado],
         entityType: "DomainAsset",
         entityId: zona.id,
         metadata: JSON.parse(
@@ -595,20 +701,20 @@ export async function restaurarVersaoDns(
             fqdn: zona.fqdn,
             origem: ator.origem,
             servico: zona.servico,
-            versaoId,
+            ...a.metadata,
             aplicadas,
             total,
             resultado,
             versaoGuardada: guardada.guardada,
             saiu: diferenca.sair.map(paraAuditoria),
             entrou: diferenca.entrar,
-            ajustou: diferenca.ajustar.map((a) => ({ antes: paraAuditoria(a.atual), depois: a.alvo })),
+            ajustou: diferenca.ajustar.map((x) => ({ antes: paraAuditoria(x.atual), depois: x.alvo })),
             ...(falha ? { erro: falha } : {}),
           }),
         ),
       },
     })
-    .catch((e) => console.error("[dns] auditoria da restauração falhou", zona.fqdn, e));
+    .catch((e) => console.error(`[dns] auditoria da ${a.substantivo} falhou`, zona.fqdn, e));
 
   const ondeFicou = guardada.guardada
     ? "A zona como ficou foi guardada como versão"
@@ -616,24 +722,161 @@ export async function restaurarVersaoDns(
   if (falha) {
     const incerto = guardada.relida ? "" : " Uma mudança pode ter sido aplicada sem confirmação.";
     throw new ErroDeDns(
-      `A restauração parou em ${aplicadas} de ${total} mudanças confirmadas.${incerto} ${ondeFicou}; ` +
+      `A ${a.substantivo} parou em ${aplicadas} de ${total} mudanças confirmadas.${incerto} ${ondeFicou}; ` +
         (ator.origem === "EQUIPE" ? `o servidor respondeu: ${falha}` : "fale com o seu atendimento."),
       502,
     );
   }
   if (naoConferida) {
     throw new ErroDeDns(
-      `As ${total} mudanças foram aplicadas, mas o servidor não deixou reler a zona para conferir se ela ficou igual à versão. ` +
+      `As ${total} mudanças foram aplicadas, mas o servidor não deixou reler a zona para conferir se ela ficou igual ${a.alvoNome}. ` +
         `${ondeFicou}. Confira a zona em alguns minutos.`,
       502,
     );
   }
   if (divergente) {
     throw new ErroDeDns(
-      "As mudanças foram aplicadas, mas a zona mudou durante a restauração e não ficou igual à versão escolhida. " +
-        `${ondeFicou}. Confira as versões e restaure de novo se for o caso.`,
+      `As mudanças foram aplicadas, mas a zona mudou durante a ${a.substantivo} e não ficou igual ${a.alvoNome}. ` +
+        `${ondeFicou}. Confira as versões e tente de novo se for o caso.`,
       409,
     );
   }
   return { aplicadas };
+}
+
+// ── importação de arquivo BIND ───────────────────────────────────────────
+
+export type PreviaImportacao = {
+  linhas: LinhaVersao[];
+  ignoradas: LinhaIgnorada[];
+  /** Com qualquer problema, nada é aplicado. */
+  problemas: string[];
+  diferenca: DiferencaZona;
+  /**
+   * Resumo da diferença mostrada. A importação só aplica se a diferença de
+   * agora for a mesma: se a zona mudou entre a prévia e o clique, o que a
+   * pessoa aprovou não é mais o que aconteceria.
+   */
+  assinatura: string;
+};
+
+/** TTL que o arquivo exportado daqui escreve no lugar do "automático" (1) do serviço externo. */
+const TTL_AUTOMATICO_NO_ARQUIVO = 300;
+
+/**
+ * O arquivo não sabe de proxy, e o TTL "automático" do serviço externo sai
+ * como 300 no BIND exportado. Linha que já existe na zona herda dela essas
+ * duas coisas: importar a própria zona exportada não muda nada, e importar
+ * não desliga o proxy de quem já usava.
+ */
+function herdarDaZona(linhas: LinhaVersao[], atual: RegistroDns[]): LinhaVersao[] {
+  const porChave = new Map<string, RegistroDns[]>();
+  for (const r of atual) porChave.set(chave(r), [...(porChave.get(chave(r)) ?? []), r]);
+  return linhas.map((linha) => {
+    const existente = porChave.get(chave(linha))?.shift();
+    if (!existente) return linha;
+    const ttl = existente.ttl === 1 && linha.ttl === TTL_AUTOMATICO_NO_ARQUIVO ? 1 : linha.ttl;
+    return { ...linha, ttl, proxy: existente.proxy };
+  });
+}
+
+function assinar(diferenca: DiferencaZona): string {
+  const resumo = {
+    sair: diferenca.sair.map((r) => r.id).sort(),
+    entrar: diferenca.entrar.map((l) => `${chave(l)}|${l.ttl}|${l.proxy}`).sort(),
+    ajustar: diferenca.ajustar.map((a) => `${a.atual.id}|${a.alvo.ttl}|${a.alvo.proxy}`).sort(),
+  };
+  return createHash("sha256").update(JSON.stringify(resumo)).digest("hex").slice(0, 32);
+}
+
+function montarPrevia(texto: string, zona: ZonaResolvida, atual: RegistroDns[]): PreviaImportacao {
+  const lido = lerZonaBind(texto, zona.fqdn);
+  const linhas = herdarDaZona(lido.linhas, atual);
+  const problemas = lido.problemas.map((p) => (p.linha ? `Linha ${p.linha}: ${p.mensagem}` : p.mensagem));
+  if (!problemas.length && !linhas.length) {
+    // Um arquivo vazio (ou só com SOA e NS) apagaria a zona inteira.
+    problemas.push("O arquivo não tem nenhum registro que o painel gerencia. Nada seria importado, e a zona seria esvaziada.");
+  }
+  problemas.push(...validarZonaImportada(linhas, zona.fqdn, zona.servico === "EXTERNO"));
+  for (const linha of linhas) {
+    try {
+      conferirParaServidor(zona.servico, paraEntrada(linha));
+    } catch (e) {
+      if (e instanceof ErroDeDns) problemas.push(`${linha.tipo} ${linha.nome}: ${e.message}`);
+      else throw e;
+    }
+  }
+  if (zona.servico === "AVILA") {
+    try {
+      conferirTtlPorConjunto(linhas, zona.fqdn);
+    } catch (e) {
+      if (e instanceof ErroDeDns) problemas.push(e.message);
+      else throw e;
+    }
+  }
+  const diferenca = diferencaParaVersao(atual, linhas, zona.fqdn);
+  return {
+    linhas,
+    ignoradas: lido.ignoradas,
+    problemas: [...new Set(problemas)],
+    diferenca,
+    assinatura: assinar(diferenca),
+  };
+}
+
+/** O que importar o arquivo faria com a zona agora. Não muda nada. */
+export async function previaImportacaoBind(
+  fqdn: string,
+  texto: string,
+  escopo?: { organizationId: string },
+): Promise<PreviaImportacao> {
+  const zona = await resolverZonaDns(fqdn, escopo?.organizationId);
+  return montarPrevia(texto, zona, await lerAntesDeAplicar(zona, "importar"));
+}
+
+/**
+ * Leva a zona ao que está no arquivo: o que não está nele sai, o que falta
+ * entra. Só aplica a mesma diferença que a pessoa viu na prévia.
+ */
+export async function importarZonaBind(
+  fqdn: string,
+  texto: string,
+  assinatura: string,
+  ator: Ator,
+  escopo?: { organizationId: string },
+): Promise<{ aplicadas: number }> {
+  const zona = await resolverZonaDns(fqdn, escopo?.organizationId);
+  const atual = await lerAntesDeAplicar(zona, "importar");
+  const previa = montarPrevia(texto, zona, atual);
+  if (previa.problemas.length) {
+    throw new ErroDeDns(`O arquivo tem problemas e nada foi alterado. ${previa.problemas[0]}`, 422);
+  }
+  if (zonaIgual(previa.diferenca)) throw new ErroDeDns("A zona já está igual ao arquivo.", 409);
+  if (previa.assinatura !== assinatura) {
+    throw new ErroDeDns("A zona mudou desde a prévia. Nada foi alterado; confira de novo o que vai mudar.", 409);
+  }
+
+  return aplicarZonaAlvo(zona, atual, previa.linhas, previa.diferenca, ator, {
+    acoes: ACAO_IMPORTACAO,
+    descricao: "Importação de arquivo BIND",
+    feito: "Zona importada de arquivo BIND",
+    substantivo: "importação",
+    alvoNome: "ao arquivo importado",
+    metadata: {
+      arquivo: {
+        bytes: new TextEncoder().encode(texto).length,
+        registros: previa.linhas.length,
+        ignoradas: previa.ignoradas.length,
+        assinatura,
+      },
+    },
+  });
+}
+
+/** Corpo das rotas de importação: o texto do arquivo e, para aplicar, a assinatura da prévia. */
+export function lerPedidoDeImportacao(corpo: Record<string, unknown>): { texto: string; assinatura: string | null } {
+  const texto = typeof corpo.texto === "string" ? corpo.texto : "";
+  if (!texto.trim()) throw new ErroDeDns("Envie o conteúdo do arquivo de zona.");
+  const assinatura = typeof corpo.assinatura === "string" && /^[0-9a-f]{32}$/.test(corpo.assinatura) ? corpo.assinatura : null;
+  return { texto, assinatura };
 }

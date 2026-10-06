@@ -8,6 +8,7 @@ import { CartaoLista, LINHA_ITEM, MensagemErro, MensagemStatus, formatarDataHora
 import type { RegistroDns } from "@/lib/dominios/dns/tipos";
 import { diferencaParaVersao, zonaIgual, type LinhaVersao } from "@/lib/dominios/dns/versoes";
 import { cn } from "@/lib/utils";
+import { BlocoDiferenca, linhaTexto, textoDoAjuste } from "@/components/dominios/DiferencaDeZona";
 
 /**
  * As versões guardadas da zona, com o que mudaria ao voltar a cada uma.
@@ -26,9 +27,6 @@ export type VersaoNaTela = {
   linhas: LinhaVersao[];
 };
 
-function linhaTexto(l: { tipo: string; nome: string; conteudo: string; prioridade: number | null }) {
-  return `${l.tipo} ${l.nome} → ${l.prioridade !== null ? `${l.prioridade} ` : ""}${l.conteudo}`;
-}
 
 export default function VersoesDaZona({
   versoes,
@@ -38,6 +36,7 @@ export default function VersoesDaZona({
   base,
   zona,
   dnsAqui = true,
+  retencaoDias = null,
 }: {
   versoes: VersaoNaTela[];
   /** A zona agora, lida do servidor. */
@@ -54,7 +53,16 @@ export default function VersoesDaZona({
    * cliente. Some só o que depende da zona viva (baixar a atual, restaurar).
    */
   dnsAqui?: boolean;
+  /**
+   * Prazo de guarda vindo da camada de parâmetros. Nulo enquanto não estiver
+   * confirmado: nada é descartado, e a tela não promete prazo que não existe.
+   */
+  retencaoDias?: number | null;
 }) {
+  const guarda =
+    retencaoDias === null
+      ? " Por enquanto, nenhuma versão é descartada."
+      : ` Cada versão fica guardada por ${retencaoDias} ${retencaoDias === 1 ? "dia" : "dias"}; a mais recente, sempre.`;
   const router = useRouter();
   const [aberta, setAberta] = useState<string | null>(null);
   const [aRestaurar, setARestaurar] = useState<VersaoNaTela | null>(null);
@@ -106,8 +114,8 @@ export default function VersoesDaZona({
         titulo="Versões da zona"
         descricao={
           dnsAqui
-            ? "Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela."
-            : "O DNS deste domínio não é mais servido por aqui. As versões guardadas continuam disponíveis para baixar em BIND."
+            ? `Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela.${guarda}`
+            : `O DNS deste domínio não é mais servido por aqui. As versões guardadas continuam disponíveis para baixar em BIND.${guarda}`
         }
         acao={
           dnsAqui ? (
@@ -180,9 +188,7 @@ export default function VersoesDaZona({
                       <BlocoDiferenca titulo="Volta para a zona" linhas={dif.entrar.map(linhaTexto)} />
                       <BlocoDiferenca
                         titulo="Muda TTL ou proxy"
-                        linhas={dif.ajustar.map(
-                          (a) => `${linhaTexto(a.alvo)} (TTL ${a.atual.ttl} → ${a.alvo.ttl}${a.atual.proxy !== a.alvo.proxy ? `, proxy ${a.alvo.proxy ? "ligado" : "desligado"}` : ""})`,
-                        )}
+                        linhas={dif.ajustar.map(textoDoAjuste)}
                       />
                       {podeRestaurar ? (
                         <button type="button" className="primary-button" onClick={() => setARestaurar(versao)}>
@@ -213,23 +219,5 @@ export default function VersoesDaZona({
         />
       ) : null}
     </>
-  );
-}
-
-function BlocoDiferenca({ titulo, linhas }: { titulo: string; linhas: string[] }) {
-  if (linhas.length === 0) return null;
-  return (
-    <div>
-      <p className="text-[13px] font-semibold text-foreground">
-        {titulo} · {linhas.length}
-      </p>
-      <ul className="mt-1 list-none space-y-0.5 p-0">
-        {linhas.map((linha, i) => (
-          <li key={`${i}-${linha}`} className="font-mono text-[13px] text-muted-foreground [overflow-wrap:anywhere]">
-            {linha}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

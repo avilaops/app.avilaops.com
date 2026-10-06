@@ -4,6 +4,7 @@ import { CartaoLista, Chevron, LINHA_ITEM, LINHA_LINK } from "@/components/hub-s
 import ListaDominios from "@/components/dominios/ListaDominios";
 import Luz from "@/components/dominios/Luz";
 import {
+  BASE,
   hrefConsulta,
   hrefFuncao,
   type Capacidade,
@@ -27,13 +28,21 @@ export default function VisaoGeralDominios({
   resumo,
   lidoEm,
   filtroInicial,
+  parametros,
 }: {
   dominios: DominioDaCarteira[];
   capacidades: Capacidade[];
   resumo: ResumoCarteira;
   lidoEm: string;
   filtroInicial: Filtro;
+  /** Resumo da camada de parâmetros: o que espera decisão do dono. */
+  parametros: { pendentes: number; semValor: number; conflitos: number };
 }) {
+  const resumoParametros = parametros.conflitos
+    ? `${parametros.conflitos} ${parametros.conflitos === 1 ? "política contraria" : "políticas contrariam"} regra externa`
+    : parametros.pendentes
+      ? `${parametros.pendentes} ${parametros.pendentes === 1 ? "pendente" : "pendentes"} de confirmação`
+      : "Prazos e limites com fonte e vigência";
   const consulta = 'prisma.domainAsset.findMany({ where: { status: { not: "ARCHIVED" } } })';
 
   return (
@@ -122,6 +131,16 @@ export default function VisaoGeralDominios({
               </Link>
             </li>
           ))}
+          <li className={LINHA_ITEM}>
+            <Link href={`${BASE}/parametros`} className={cn(LINHA_LINK, "justify-between")}>
+              <Luz estado={parametros.conflitos ? "INDISPONIVEL" : parametros.pendentes || parametros.semValor ? "ATENCAO" : "OPERACIONAL"} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-semibold">Políticas e prazos</span>
+                <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{resumoParametros}</span>
+              </span>
+              <Chevron />
+            </Link>
+          </li>
         </ul>
       </CartaoLista>
 

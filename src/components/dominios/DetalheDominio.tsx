@@ -5,6 +5,7 @@ import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BadgeStatus from "@/components/sistema/Status";
 import { CartaoLista, LINHA_ITEM, LINHA_LINK, formatarDataHora } from "@/components/hub-social/comum";
 import PainelDns from "@/components/dominios/PainelDns";
+import ImportarZona from "@/components/dominios/ImportarZona";
 import VersoesDaZona, { type VersaoNaTela } from "@/components/dominios/VersoesDaZona";
 import {
   BASE,
@@ -33,6 +34,7 @@ export default function DetalheDominio({
   historico,
   versoes,
   zonaLida,
+  retencaoDias,
 }: {
   dominio: DominioDaCarteira;
   registros: RegistroDns[];
@@ -41,6 +43,7 @@ export default function DetalheDominio({
   historico: { quando: string; acao: string; quem: string | null; resultado: string | null }[];
   versoes: VersaoNaTela[];
   zonaLida: boolean;
+  retencaoDias: number | null;
 }) {
   const prazo =
     dominio.diasRestantes === null
@@ -118,6 +121,10 @@ export default function DetalheDominio({
         podeEditar={escrita.editarDns}
       />
 
+      {dominio.dnsAqui && escrita.editarDns && !erroDns ? (
+        <ImportarZona base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`} />
+      ) : null}
+
       {dominio.dnsAqui || versoes.length > 0 ? (
         <VersoesDaZona
           versoes={versoes}
@@ -127,6 +134,7 @@ export default function DetalheDominio({
           base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
           zona={dominio.fqdn}
           dnsAqui={dominio.dnsAqui}
+          retencaoDias={retencaoDias}
         />
       ) : null}
 

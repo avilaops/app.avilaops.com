@@ -67,9 +67,10 @@ Contrato externo 02 §7 e regimento interno 13 do `cliente.avilaops.com`.
 Rotas: `…/dns/restaurar` (POST, só quem edita) e `…/dns/exportar[?versao=]`
 (GET), tanto em `/api/portal/dominios/[fqdn]` quanto em `/api/dominios/[fqdn]`.
 
-A retenção de versões ([90 dias] no regimento interno 13) ainda não tem
-rotina de limpeza: é parâmetro de política e entra com a camada de
-parâmetros, não escrita no código.
+A retenção de versões é o parâmetro `produto.dns.versoesRetencaoDias`
+(proposto: 90 dias, regimento interno 13). O descarte roda a cada versão
+gravada e só depois que o dono confirma o prazo; antes disso, nada é
+descartado. Ver `docs/politicas-e-parametros.md`.
 
 ## Conteúdo do registro: forma canônica
 
@@ -113,7 +114,38 @@ SPF que já estava lá muda de TTL junto. Não derruba nada, e a versão mostra 
 mudança, mas a tela não avisa. Nenhum domínio usa o DNS da casa hoje
 (`docs/avila-dns.md`); vale corrigir antes da primeira migração.
 
+## Importação de zona em BIND
+
+É o caminho de quem traz o domínio de outro provedor: o arquivo de zona
+exportado lá vira a zona aqui. A zona passa a ser **o que está no arquivo**:
+o que não está nele sai, e o que falta entra.
+
+- **Leitura** (`importacao-bind.ts`, função pura) segue o RFC 1035 §5.1:
+  `$ORIGIN`, `$TTL`, `@`, nome relativo, dono herdado por linha recuada,
+  parênteses, comentário, TTL com unidade (`1h`) e TXT com várias strings ou
+  palavra sem aspas.
+- **Fica de fora, listado:** SOA, os NS do próprio domínio e os tipos que o
+  painel não gerencia (PTR, DS…).
+- **É problema, e nada é aplicado:** nome fora do domínio, classe que não é
+  IN, `$INCLUDE` ou `$GENERATE`, aspas ou parênteses que não fecham, registro
+  sem TTL e arquivo sem nenhum registro, que esvaziaria a zona. O mesmo vale
+  quando as regras do painel (SPF duplo, CNAME dividindo nome, MX para IP)
+  aplicadas à zona do arquivo, ou o servidor atual, recusam o resultado.
+- **Proxy e TTL automático:** o arquivo não traz proxy, e o TTL automático
+  (1) sai como 300 no arquivo exportado. Uma linha que já existe na zona
+  herda os dois. Assim, importar a própria zona exportada não muda nada, e a
+  importação não desliga o proxy de quem já usava.
+- **Dois passos:**
+  1. A prévia não muda nada e devolve a diferença com uma assinatura.
+  2. Importar só aplica se a diferença de agora tiver a mesma assinatura. Se
+     a zona mudou entre a prévia e o clique, responde 409 e nada é alterado.
+- **Aplicação:** é o mesmo caminho da restauração (`aplicarZonaAlvo`), com
+  pré-conferência, aplicação passo a passo, releitura e versão guardada, e
+  com auditoria própria: `DNS_ZONA_IMPORTADA[_INCOMPLETA|_NAO_CONFERIDA|_DIVERGENTE]`.
+- **Rotas:** `…/dns/importar` (POST, só quem edita), em
+  `/api/portal/dominios/[fqdn]` e em `/api/dominios/[fqdn]`.
+
 ## O que ainda não existe
 
 Registro, renovação e transferência pelo cliente dependem das decisões A1 e A3
-do `cliente.avilaops.com`. Importação de zona em BIND fica para depois.
+do `cliente.avilaops.com`.

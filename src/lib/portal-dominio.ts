@@ -3,7 +3,7 @@ import { situacaoDe } from "@/lib/dominios/central";
 import { lerServicoDeDns, provedorDeDnsDoDominio, type RegistroDns, type ServicoDeDns } from "@/lib/dominios/dns";
 import type { SituacaoDominio } from "@/lib/dominios/tipos";
 import { nomesDosAtores } from "@/lib/atores";
-import { listarVersoes } from "@/lib/dominios/dns/escrita";
+import { listarVersoes, retencaoDeVersoes } from "@/lib/dominios/dns/escrita";
 import type { LinhaVersao } from "@/lib/dominios/dns/versoes";
 import { participaDaEmpresa } from "@/lib/nucleo/acesso";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +32,8 @@ export type DominioDoCliente = {
   dns: { registros: RegistroDns[]; lidoEm: string | null; erro: string | null };
   historico: Array<{ quando: string; acao: string; quem: string; resumo: string | null }>;
   versoes: Array<{ id: string; criadaEm: string; quem: string; motivo: string; linhas: LinhaVersao[] }>;
+  /** Dias de guarda de cada versão, da camada de parâmetros; nulo enquanto não confirmado. */
+  retencaoVersoesDias: number | null;
 };
 
 const ROTULO_ACAO: Record<string, string> = {
@@ -46,6 +48,10 @@ const ROTULO_ACAO: Record<string, string> = {
   DNS_ZONA_RESTAURADA_NAO_CONFERIDA: "Restauração aplicada, sem conferência da zona",
   DNS_ZONA_RESTAURADA_DIVERGENTE: "Restauração aplicada, mas a zona mudou no meio",
   DNS_ZONA_EXPORTADA: "Zona exportada em BIND",
+  DNS_ZONA_IMPORTADA: "Zona importada de arquivo BIND",
+  DNS_ZONA_IMPORTADA_INCOMPLETA: "Importação de zona interrompida",
+  DNS_ZONA_IMPORTADA_NAO_CONFERIDA: "Importação aplicada, sem conferência da zona",
+  DNS_ZONA_IMPORTADA_DIVERGENTE: "Importação aplicada, mas a zona mudou no meio",
 };
 
 type Resumivel = { tipo?: unknown; nome?: unknown; conteudo?: unknown } | null | undefined;
@@ -104,6 +110,7 @@ export async function carregarDominioDoCliente(
     select: { createdAt: true, action: true, actorId: true, metadata: true },
   });
   const versoes = await listarVersoes(dominio.id);
+  const retencaoVersoesDias = await retencaoDeVersoes(dominio.fqdn);
   // Nome só de quem é da própria empresa. Gente da casa aparece como equipe.
   const nome = await nomesDosAtores([...eventos.map((e) => e.actorId), ...versoes.map((v) => v.quem)], {
     mascararCasa: true,
@@ -138,5 +145,6 @@ export async function carregarDominioDoCliente(
       motivo: v.motivo,
       linhas: v.linhas,
     })),
+    retencaoVersoesDias,
   };
 }
