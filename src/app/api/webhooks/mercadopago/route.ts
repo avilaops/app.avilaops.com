@@ -108,6 +108,12 @@ async function assinaturaConfere(
  * `?topic=payment&id=`; e algumas integrações mandam `{ resource }` com a URL
  * inteira. Aceitar as três é mais barato do que descobrir em produção qual
  * delas a conta está configurada para enviar.
+ *
+ * A contestação tem tópico próprio (`topic_chargebacks_wh`), e é por ele que a
+ * documentação diz que o desfecho é avisado ("when a chargeback is initiated
+ * or its status is changed"); ela não diz que o tópico `payment` repete esse
+ * aviso. O tratamento é o mesmo do pagamento — consulta na API e a mesma
+ * baixa —, então se os dois tópicos avisarem, o segundo não muda nada.
  */
 function idDoPagamento(
   request: NextRequest,
@@ -115,14 +121,21 @@ function idDoPagamento(
 ): string | null {
   const busca = request.nextUrl.searchParams;
   const tipo = String(body?.type ?? body?.topic ?? busca.get("topic") ?? busca.get("type") ?? "");
+  const dados = body?.data as { id?: unknown; payment_id?: unknown } | undefined;
 
-  if (tipo && !tipo.includes("payment")) return null;
-
-  const dados = body?.data as { id?: unknown } | undefined;
-  const bruto =
-    (dados?.id !== undefined ? String(dados.id) : null) ??
-    busca.get("id") ??
-    (typeof body?.resource === "string" ? body.resource.split("/").pop() ?? null : null);
+  let bruto: string | null;
+  if (tipo.includes("chargeback")) {
+    // Na contestação o `data.id` é o do caso, não o do pagamento; o do
+    // pagamento vem ao lado, em `data.payment_id`.
+    bruto = dados?.payment_id !== undefined && dados.payment_id !== null ? String(dados.payment_id) : null;
+  } else if (tipo && !tipo.includes("payment")) {
+    return null;
+  } else {
+    bruto =
+      (dados?.id !== undefined ? String(dados.id) : null) ??
+      busca.get("id") ??
+      (typeof body?.resource === "string" ? body.resource.split("/").pop() ?? null : null);
+  }
 
   if (!bruto) return null;
 
@@ -154,7 +167,8 @@ export async function POST(request: NextRequest) {
     payload: { pagamentoId, requestId: request.headers.get("x-request-id") },
   });
 
-  // Notificação de outro tópico (assinatura, estorno, contestação) não é erro:
+  // Notificação de outro tópico (assinatura, reclamação, alerta de fraude) ou
+  // contestação sem o id do pagamento não é erro:
   // devolver 4xx faria a fila do Mercado Pago repetir para sempre um evento
   // que nunca vai ser nosso.
   if (!pagamentoId) {

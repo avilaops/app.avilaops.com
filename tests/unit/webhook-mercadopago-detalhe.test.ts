@@ -14,13 +14,17 @@ import { NextRequest } from "next/server";
  * `tests/integration/webhook-mercadopago.test.ts`.
  */
 
-const { api, baixa } = vi.hoisted(() => ({
+const { api, baixa, chamada } = vi.hoisted(() => ({
   api: { pagamento: {} as Record<string, unknown> },
   baixa: vi.fn(),
+  chamada: vi.fn(),
 }));
 
 vi.mock("@/lib/mercadopago", () => ({
-  chamarMercadoPago: async () => api.pagamento,
+  chamarMercadoPago: async (caminho: string) => {
+    chamada(caminho);
+    return api.pagamento;
+  },
   urlDeNotificacao: async () => "",
 }));
 vi.mock("@/lib/assinaturas", () => ({ baixarCobrancaPorIdExterno: baixa }));
@@ -35,7 +39,11 @@ vi.mock("@/lib/mercadopago-assinatura", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    subscriptionCharge: { findFirst: async () => ({ id: "cobranca-1" }) },
+    // Só o pagamento 123456789 é cobrança nossa.
+    subscriptionCharge: {
+      findFirst: async ({ where }: { where: { externalId: string } }) =>
+        where.externalId === "123456789" ? { id: "cobranca-1" } : null,
+    },
     deliverableCharge: { findFirst: async () => null },
   },
 }));
@@ -53,8 +61,32 @@ function notificacao(id: string) {
   });
 }
 
+/**
+ * A notificação do tópico de contestação, no formato do exemplo da
+ * documentação: `data.id` é o caso (na query também, é o que a assinatura
+ * cobre) e o pagamento vem em `data.payment_id`.
+ */
+function contestacao(dados: Record<string, unknown>) {
+  const url = new URL("https://app.avilaops.com/api/webhooks/mercadopago");
+  url.searchParams.set("data.id", "217000061307271000");
+  url.searchParams.set("type", "topic_chargebacks_wh");
+  return new NextRequest(url, {
+    method: "POST",
+    body: JSON.stringify({
+      actions: ["changed_case_status"],
+      api_version: "v1",
+      data: { checkout: "PRO", id: "217000061307271000", site_id: "MLB", ...dados },
+      id: 114544942708,
+      live_mode: true,
+      type: "topic_chargebacks_wh",
+    }),
+    headers: { "content-type": "application/json" },
+  });
+}
+
 beforeEach(() => {
   baixa.mockReset();
+  chamada.mockReset();
   delete process.env.MP_WEBHOOK_TOKEN;
 });
 
@@ -88,5 +120,55 @@ describe("webhook do Mercado Pago — status_detail", () => {
     await POST(notificacao("123456789"));
 
     expect(baixa).toHaveBeenCalledWith("123456789", "charged_back", null, null);
+  });
+});
+
+describe("webhook do Mercado Pago — tópico de contestação", () => {
+  it("consulta o pagamento de `data.payment_id` e leva o desfecho à mesma baixa", async () => {
+    api.pagamento = { id: 123456789, status: "charged_back", status_detail: "reimbursed", date_approved: "2026-09-30T12:00:00.000Z" };
+
+    const resposta = await POST(contestacao({ payment_id: 123456789 }));
+
+    expect(resposta.status).toBe(200);
+    expect(await resposta.json()).toEqual({ ok: true, status: "charged_back" });
+    // O que se consulta é o pagamento, não o caso da contestação.
+    expect(chamada).toHaveBeenCalledTimes(1);
+    expect(chamada).toHaveBeenCalledWith("/v1/payments/123456789");
+    expect(baixa).toHaveBeenCalledTimes(1);
+    expect(baixa).toHaveBeenCalledWith("123456789", "charged_back", new Date("2026-09-30T12:00:00.000Z"), "reimbursed");
+  });
+
+  it("o mesmo desfecho pelos dois tópicos chama a baixa com os mesmos argumentos", async () => {
+    api.pagamento = { id: 123456789, status: "charged_back", status_detail: "reimbursed", date_approved: "2026-09-30T12:00:00.000Z" };
+
+    await POST(contestacao({ payment_id: 123456789 }));
+    await POST(notificacao("123456789"));
+
+    // Uma vez por aviso, e iguais: quem garante um rastro só é a baixa
+    // (`baixa-cobranca.test.ts`), que recebe aqui duas chamadas idênticas.
+    expect(baixa).toHaveBeenCalledTimes(2);
+    expect(baixa.mock.calls[0]).toEqual(baixa.mock.calls[1]);
+  });
+
+  it("contestação de pagamento que não é nosso não consulta a API", async () => {
+    const resposta = await POST(contestacao({ payment_id: 999 }));
+
+    expect(resposta.status).toBe(200);
+    expect(await resposta.json()).toEqual({ ok: true, desconhecido: true });
+    expect(chamada).not.toHaveBeenCalled();
+    expect(baixa).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["sem payment_id", {}],
+    ["com payment_id nulo", { payment_id: null }],
+    ["com payment_id que não é número", { payment_id: "123456789/../x" }],
+  ])("contestação %s é ignorada, sem cair no id do caso", async (_nome, dados) => {
+    const resposta = await POST(contestacao(dados));
+
+    expect(resposta.status).toBe(200);
+    expect(await resposta.json()).toEqual({ ok: true, ignorado: true });
+    expect(chamada).not.toHaveBeenCalled();
+    expect(baixa).not.toHaveBeenCalled();
   });
 });

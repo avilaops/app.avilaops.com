@@ -22,11 +22,17 @@ const { getPagamentoStatus, aprovacao } = vi.hoisted(() => ({
   aprovacao: { em: null as Date | null },
 }));
 
-// O webhook consulta status e instante de aprovação juntos; o teste controla o
-// status pelo mock e a aprovação por `aprovacao.em` (vazia por padrão).
+// O webhook consulta status, detalhe e instante de aprovação juntos; o teste
+// controla o status pelo mock e a aprovação por `aprovacao.em` (vazia por
+// padrão). O detalhe (`status_detail`) fica nulo: o caminho dele tem teste
+// próprio em `tests/unit/webhook-mercadopago-detalhe.test.ts`.
 vi.mock("@/lib/mercadopago-cobranca", () => ({
   getPagamentoStatus,
-  consultarPagamento: async (id: string) => ({ status: await getPagamentoStatus(id), aprovadoEm: aprovacao.em }),
+  consultarPagamento: async (id: string) => ({
+    status: await getPagamentoStatus(id),
+    detalhe: null as string | null,
+    aprovadoEm: aprovacao.em,
+  }),
 }));
 vi.mock("@/lib/deliverables", () => ({ markDeliverablePaidAndNotify: vi.fn() }));
 
