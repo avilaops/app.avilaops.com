@@ -1,5 +1,6 @@
 import { exigirDominio } from "@/lib/dominio";
 import { cleanText } from "@/lib/http";
+import { escoposDoDominio, lerParametro } from "@/lib/parametros";
 import { prisma } from "@/lib/prisma";
 import { lerServicoDeDns, provedorDeDnsDoDominio, tipoDnsValido } from "@/lib/dominios/dns";
 import type { EntradaRegistroDns, RegistroDns, ServicoDeDns } from "@/lib/dominios/dns/tipos";
@@ -386,6 +387,59 @@ async function gravarVersao(
   });
 }
 
+export const CHAVE_RETENCAO_VERSOES = "produto.dns.versoesRetencaoDias";
+
+/**
+ * Quantos dias uma versão fica guardada para este domínio, hoje. Nulo enquanto
+ * o prazo não estiver confirmado: aí nada é descartado, e a tela diz isso.
+ */
+export async function retencaoDeVersoes(fqdn: string): Promise<number | null> {
+  try {
+    const prazo = await lerParametro(CHAVE_RETENCAO_VERSOES, { escopos: escoposDoDominio(fqdn) });
+    return prazo.tipo === "vigente" && typeof prazo.valor === "number" ? prazo.valor : null;
+  } catch (e) {
+    console.error("[dns] falha ao ler o prazo de retenção de versões", fqdn, e);
+    return null;
+  }
+}
+
+/**
+ * Descarta as versões mais velhas que o prazo de retenção. O prazo vem da
+ * camada de parâmetros (`produto.dns.versoesRetencaoDias`), lido na data de
+ * hoje e no escopo do domínio; enquanto ele estiver pendente de confirmação,
+ * nada é descartado — pendente não decide.
+ *
+ * Roda logo depois de gravar uma versão, que por ser a mais nova nunca cai no
+ * corte: a zona sempre tem para onde voltar. Falha aqui não desfaz a escrita no
+ * DNS, que já aconteceu; só fica para a próxima.
+ */
+export async function descartarVersoesAntigas(domainAssetId: string, fqdn: string, agora = new Date()) {
+  try {
+    const prazo = await lerParametro(CHAVE_RETENCAO_VERSOES, { escopos: escoposDoDominio(fqdn), em: agora });
+    if (prazo.tipo !== "vigente" || typeof prazo.valor !== "number") return 0;
+    const corte = new Date(agora.getTime() - prazo.valor * 86_400_000);
+    const { count } = await prisma.dnsZoneVersion.deleteMany({ where: { domainAssetId, createdAt: { lt: corte } } });
+    if (count > 0) {
+      await prisma.operationsAuditEvent.create({
+        data: {
+          action: "DNS_VERSOES_DESCARTADAS",
+          entityType: "DomainAsset",
+          entityId: domainAssetId,
+          metadata: {
+            quantidade: count,
+            anterioresA: corte.toISOString(),
+            parametro: { chave: CHAVE_RETENCAO_VERSOES, versao: prazo.versao.id, dias: prazo.valor },
+          },
+        },
+      });
+    }
+    return count;
+  } catch (e) {
+    console.error("[dns] falha ao descartar versões antigas de", fqdn, e);
+    return 0;
+  }
+}
+
 /**
  * Antes da primeira escrita pelo painel, a zona como ela estava. Sem isso a
  * primeira versão já seria a zona com o erro, e não haveria para onde voltar.
@@ -428,6 +482,7 @@ async function registrarVersaoAtual(
   const texto = relida ? base : `${base} (calculada; o servidor não respondeu à releitura)`;
   try {
     await gravarVersao(zona.id, zona.fqdn, registros, ator.origem, ator.id, texto);
+    await descartarVersoesAntigas(zona.id, zona.fqdn);
     return { registros, relida, guardada: true };
   } catch (e) {
     console.error("[dns] não foi possível gravar a versão da zona", zona.fqdn, e);

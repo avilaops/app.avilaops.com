@@ -83,6 +83,8 @@ async function isolado(teste: (c: Cenario) => Promise<void>) {
   try {
     await db.$transaction(async (tx) => {
       state.tx = tx;
+      // O prazo de retenção é o da migração (pendente), não o que sobrou no banco.
+      await tx.policyParameterVersion.deleteMany({ where: { NOT: { id: { startsWith: "semente:" } } } });
       const id = randomUUID();
       const org = await tx.organization.create({ data: { name: "Cliente DNS", slug: id } });
       const outra = await tx.organization.create({ data: { name: "Outra empresa", slug: randomUUID() } });
@@ -431,5 +433,37 @@ describe("DNS pelo portal do cliente", () => {
     });
     expect(state.chamadas).toEqual([]);
   }));
-});
 
+  it("prazo de retenção pendente não descarta versão nenhuma", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const dominio = await tx.domainAsset.findUniqueOrThrow({ where: { fqdn } });
+    const velha = await tx.dnsZoneVersion.create({
+      data: { domainAssetId: dominio.id, origin: "EQUIPE", reason: "antiga", records: { formato: 2, linhas: [] }, recordCount: 0, createdAt: new Date(Date.now() - 400 * 86_400_000) },
+    });
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "loja", conteudo: "203.0.113.10" } }, { id, origem: "CLIENTE" }, { organizationId: org });
+    expect(await tx.dnsZoneVersion.findUnique({ where: { id: velha.id } })).not.toBeNull();
+    expect(await tx.operationsAuditEvent.count({ where: { entityId: dominio.id, action: "DNS_VERSOES_DESCARTADAS" } })).toBe(0);
+  }));
+
+  it("com o prazo confirmado, versão mais velha que ele é descartada e o descarte cita a versão do parâmetro", () => isolado(async ({ tx, id, org, fqdn }) => {
+    const dominio = await tx.domainAsset.findUniqueOrThrow({ where: { fqdn } });
+    const parametro = await tx.policyParameterVersion.create({
+      data: {
+        key: "produto.dns.versoesRetencaoDias", layer: "POLITICA_PRODUTO", value: 90, state: "VIGENTE", sources: ["interno 13"],
+        effectiveFrom: new Date(Date.now() - 86_400_000), owner: "Dono do serviço",
+      },
+    });
+    const criar = (dias: number, motivo: string) =>
+      tx.dnsZoneVersion.create({
+        data: { domainAssetId: dominio.id, origin: "EQUIPE", reason: motivo, records: { formato: 2, linhas: [] }, recordCount: 0, createdAt: new Date(Date.now() - dias * 86_400_000) },
+      });
+    const velha = await criar(91, "velha");
+    const recente = await criar(89, "recente");
+
+    await executarOperacaoDns(fqdn, { acao: "criar", entrada: { tipo: "A", nome: "loja", conteudo: "203.0.113.10" } }, { id, origem: "CLIENTE" }, { organizationId: org });
+
+    expect(await tx.dnsZoneVersion.findUnique({ where: { id: velha.id } })).toBeNull();
+    expect(await tx.dnsZoneVersion.findUnique({ where: { id: recente.id } })).not.toBeNull();
+    const evento = await tx.operationsAuditEvent.findFirstOrThrow({ where: { entityId: dominio.id, action: "DNS_VERSOES_DESCARTADAS" } });
+    expect(evento.metadata).toMatchObject({ quantidade: 1, parametro: { versao: parametro.id, dias: 90 } });
+  }));
+});

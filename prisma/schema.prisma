@@ -2763,3 +2763,33 @@ model CoreReconciliationIssue {
   @@map("reconciliation_issues")
   @@schema("core")
 }
+
+/// Uma versão de um parâmetro de política (prazo, limite ou lista que decide
+/// algo sobre domínio). Só se acrescenta: mudança é versão nova com data de
+/// vigência, e o evento usa a versão em vigor na data dele; duas versões com a
+/// mesma data valem pela registrada por último (correção no mesmo dia). Ver
+/// `src/lib/parametros` e POLITICAS-E-PARAMETROS.md do cliente.avilaops.com.
+model PolicyParameterVersion {
+  id            String    @id @default(cuid())
+  /// Chave conceitual: `icann.transfer.travaAposTrocaTitularDias`.
+  key           String
+  /// REGRA_EXTERNA, REGRA_FORNECEDOR ou POLITICA_PRODUTO.
+  layer         String
+  /// `global`, uma extensão (`.br`) ou `registrador:<nome>`.
+  scope         String    @default("global")
+  value         Json
+  /// VIGENTE, PENDENTE_DE_CONFIRMACAO ou MONITORADA.
+  state         String
+  /// IDs de FONTES-REGRAS-DE-TERCEIROS ou o documento interno da decisão.
+  sources       String[]
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  reviewAt      DateTime? @map("review_at") @db.Date
+  owner         String
+  note          String?
+  actorId       String?   @map("actor_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([key, scope, effectiveFrom])
+  @@map("policy_parameter_versions")
+  @@schema("operations")
+}

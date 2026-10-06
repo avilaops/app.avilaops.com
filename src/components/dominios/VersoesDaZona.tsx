@@ -38,6 +38,7 @@ export default function VersoesDaZona({
   base,
   zona,
   dnsAqui = true,
+  retencaoDias = null,
 }: {
   versoes: VersaoNaTela[];
   /** A zona agora, lida do servidor. */
@@ -54,7 +55,16 @@ export default function VersoesDaZona({
    * cliente. Some só o que depende da zona viva (baixar a atual, restaurar).
    */
   dnsAqui?: boolean;
+  /**
+   * Prazo de guarda vindo da camada de parâmetros. Nulo enquanto não estiver
+   * confirmado: nada é descartado, e a tela não promete prazo que não existe.
+   */
+  retencaoDias?: number | null;
 }) {
+  const guarda =
+    retencaoDias === null
+      ? " Por enquanto, nenhuma versão é descartada."
+      : ` Cada versão fica guardada por ${retencaoDias} ${retencaoDias === 1 ? "dia" : "dias"}; a mais recente, sempre.`;
   const router = useRouter();
   const [aberta, setAberta] = useState<string | null>(null);
   const [aRestaurar, setARestaurar] = useState<VersaoNaTela | null>(null);
@@ -106,8 +116,8 @@ export default function VersoesDaZona({
         titulo="Versões da zona"
         descricao={
           dnsAqui
-            ? "Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela."
-            : "O DNS deste domínio não é mais servido por aqui. As versões guardadas continuam disponíveis para baixar em BIND."
+            ? `Uma versão a cada alteração. Dá para baixar qualquer uma em formato BIND ou voltar a ela.${guarda}`
+            : `O DNS deste domínio não é mais servido por aqui. As versões guardadas continuam disponíveis para baixar em BIND.${guarda}`
         }
         acao={
           dnsAqui ? (

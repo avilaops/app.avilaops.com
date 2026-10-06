@@ -67,9 +67,10 @@ Contrato externo 02 §7 e regimento interno 13 do `cliente.avilaops.com`.
 Rotas: `…/dns/restaurar` (POST, só quem edita) e `…/dns/exportar[?versao=]`
 (GET), tanto em `/api/portal/dominios/[fqdn]` quanto em `/api/dominios/[fqdn]`.
 
-A retenção de versões ([90 dias] no regimento interno 13) ainda não tem
-rotina de limpeza: é parâmetro de política e entra com a camada de
-parâmetros, não escrita no código.
+A retenção de versões é o parâmetro `produto.dns.versoesRetencaoDias`
+(proposto: 90 dias, regimento interno 13). O descarte roda a cada versão
+gravada e só depois que o dono confirma o prazo; antes disso, nada é
+descartado. Ver `docs/politicas-e-parametros.md`.
 
 ## Conteúdo do registro: forma canônica
 

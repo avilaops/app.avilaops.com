@@ -134,6 +134,7 @@ export default async function DominioDoClientePage({ params }: { params: Promise
           base={`/api/portal/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
           zona={dominio.fqdn}
           dnsAqui={dominio.servicoDns !== "NENHUM"}
+          retencaoDias={dominio.retencaoVersoesDias}
         />
       ) : null}
 

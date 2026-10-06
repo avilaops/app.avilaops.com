@@ -9,9 +9,11 @@ import VisaoGeralDominios from "@/components/dominios/VisaoGeralDominios";
 import { BASE, hrefRegistrar, lerFiltro, type Params } from "@/components/dominios/dados";
 import { nomesDosAtores } from "@/lib/atores";
 import { getAdmin } from "@/lib/auth";
-import { listarVersoes } from "@/lib/dominios/dns/escrita";
+import { listarVersoes, retencaoDeVersoes } from "@/lib/dominios/dns/escrita";
 import { carregarCentral } from "@/lib/dominios/central";
 import { provedorDeDnsDoDominio, type RegistroDns } from "@/lib/dominios/dns";
+import { carregarVersoes, dataDoEvento } from "@/lib/parametros";
+import { montarPainel, resumoDoPainel } from "@/lib/parametros/painel";
 import { prisma } from "@/lib/prisma";
 import type { ChaveCapacidade } from "@/lib/dominios/tipos";
 
@@ -113,6 +115,7 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
 
       // Mesmo sem DNS aqui: as versões guardadas são o histórico e a saída.
       const versoes = await listarVersoes(dominio.id);
+      const retencaoDias = await retencaoDeVersoes(dominio.fqdn);
       const nome = await nomesDosAtores([...eventos.map((e) => e.actorId), ...versoes.map((v) => v.quem)], {
         mascararCasa: false,
       });
@@ -137,6 +140,7 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
             linhas: v.linhas,
           }))}
           zonaLida={dominio.dnsAqui && !erroDns}
+          retencaoDias={retencaoDias}
         />
       );
     }
@@ -156,6 +160,7 @@ export default async function DominiosPage({ searchParams }: { searchParams: Pro
         resumo={central.resumo}
         lidoEm={central.lidoEm}
         filtroInicial={lerFiltro(params.filtro)}
+        parametros={resumoDoPainel(montarPainel(await carregarVersoes(), dataDoEvento(new Date())))}
       />
     </>
   );

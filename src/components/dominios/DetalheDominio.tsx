@@ -33,6 +33,7 @@ export default function DetalheDominio({
   historico,
   versoes,
   zonaLida,
+  retencaoDias,
 }: {
   dominio: DominioDaCarteira;
   registros: RegistroDns[];
@@ -41,6 +42,7 @@ export default function DetalheDominio({
   historico: { quando: string; acao: string; quem: string | null; resultado: string | null }[];
   versoes: VersaoNaTela[];
   zonaLida: boolean;
+  retencaoDias: number | null;
 }) {
   const prazo =
     dominio.diasRestantes === null
@@ -127,6 +129,7 @@ export default function DetalheDominio({
           base={`/api/dominios/${encodeURIComponent(dominio.fqdn)}/dns`}
           zona={dominio.fqdn}
           dnsAqui={dominio.dnsAqui}
+          retencaoDias={retencaoDias}
         />
       ) : null}
 
