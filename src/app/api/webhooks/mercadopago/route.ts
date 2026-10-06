@@ -189,9 +189,10 @@ export async function POST(request: NextRequest) {
   }
 
   let situacao: string;
+  let detalhe: string | null;
   let aprovadoEm: Date | null;
   try {
-    ({ status: situacao, aprovadoEm } = await consultarPagamento(pagamentoId));
+    ({ status: situacao, detalhe, aprovadoEm } = await consultarPagamento(pagamentoId));
   } catch (erro) {
     console.error(`Falha ao confirmar o pagamento ${pagamentoId} no Mercado Pago`, erro);
     await concluirEvento(registro, "FAILED", erro instanceof Error ? erro.message : "Falha ao consultar o Mercado Pago.");
@@ -206,7 +207,9 @@ export async function POST(request: NextRequest) {
     // um "pendente" que nunca vai virar pago.
     // `aprovadoEm` é o instante do Mercado Pago: notificação reenviada depois
     // de uma queda não move o pagamento para o dia do processamento.
-    await baixarCobrancaPorIdExterno(pagamentoId, situacao === PAGO ? "approved" : situacao, aprovadoEm);
+    // O `detalhe` vai junto por causa da contestação: é ele que diz como ela
+    // terminou, com o status ainda `charged_back`.
+    await baixarCobrancaPorIdExterno(pagamentoId, situacao === PAGO ? "approved" : situacao, aprovadoEm, detalhe);
   }
 
   if (entregavel && situacao === PAGO && entregavel.status !== "PAID") {

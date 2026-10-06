@@ -278,6 +278,128 @@ describe("baixarCobrancaPorIdExterno", () => {
     );
   });
 
+  describe("reembolso que chega antes do pago", () => {
+    // O aviso de reembolso gravado antes do de pago: a cobrança nunca teve
+    // `paidAt`. A guarda olha só o status, então segura do mesmo jeito.
+    it("o reembolso em cobrança ainda aberta grava REFUNDED sem paidAt e não mexe na fatura", async () => {
+      await baixarCobrancaPorIdExterno("123456789", "refunded");
+
+      expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: null });
+      // A fatura já estava aberta: nada a reabrir.
+      expect(estado.dadosDaFatura).toBeNull();
+      expect(estado.pagamentos).toEqual([]);
+      expect(estado.auditoria).toEqual([]);
+    });
+
+    it("o pago atrasado vira PAGO_APOS_REEMBOLSO e não grava nada", async () => {
+      estado.cobranca = aberta({ status: "REFUNDED", paidAt: null });
+
+      const resultado = await baixarCobrancaPorIdExterno("123456789", "approved", new Date("2026-10-05T10:00:00Z"));
+
+      expect(resultado).toBe(estado.cobranca);
+      // Nem cobrança, nem fatura, nem ledger: o rastro é o único sinal de que
+      // esse dinheiro passou por aqui.
+      expect(estado.dadosDaCobranca).toBeNull();
+      expect(estado.dadosDaFatura).toBeNull();
+      expect(estado.pagamentos).toEqual([]);
+      expect(estado.alocacoes).toEqual([]);
+      expect(estado.auditoria).toEqual([
+        {
+          action: "PAGO_APOS_REEMBOLSO",
+          entityType: "SubscriptionCharge",
+          entityId: "cobranca-1",
+          organizationId: "org-1",
+          metadata: {
+            chargeId: "cobranca-1",
+            invoiceId: "fatura-1",
+            provider: "MERCADO_PAGO",
+            externalId: "123456789",
+            status: "approved",
+          },
+        },
+      ]);
+      expect(erroNoLog).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("contestação do Mercado Pago (charged_back)", () => {
+    const pagoEm = new Date("2026-09-30T12:00:00Z");
+    const RASTRO = {
+      action: "CONTESTACAO_REEMBOLSADA",
+      entityType: "SubscriptionCharge",
+      entityId: "cobranca-1",
+      organizationId: "org-1",
+      metadata: {
+        chargeId: "cobranca-1",
+        invoiceId: "fatura-1",
+        provider: "MERCADO_PAGO",
+        externalId: "123456789",
+        status: "charged_back",
+        statusDetail: "reimbursed",
+      },
+    };
+
+    function paga() {
+      return aberta({
+        status: "PAID",
+        paidAt: pagoEm,
+        invoice: { id: "fatura-1", status: "PAID", paidAt: pagoEm, ...FATURA_NO_LEDGER },
+      });
+    }
+
+    function jaReembolsada() {
+      return aberta({ status: "REFUNDED", paidAt: pagoEm });
+    }
+
+    it("devolvida (reimbursed) deixa rastro e segue contada como reembolso", async () => {
+      estado.cobranca = paga();
+
+      await baixarCobrancaPorIdExterno("123456789", "charged_back", pagoEm, "reimbursed");
+
+      // A baixa não muda: desfazer no ledger exige migração.
+      expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: pagoEm });
+      expect(estado.dadosDaFatura).toEqual({ status: "OPEN", paidAt: null });
+      expect(estado.reembolsosNoLedger).toBe(1);
+      expect(estado.auditoria).toEqual([RASTRO]);
+      expect(erroNoLog).not.toHaveBeenCalled();
+    });
+
+    it("devolvida em cobrança que a disputa já tinha reembolsado também deixa rastro, uma vez só", async () => {
+      // O caso comum: o `in_process` chegou antes e gravou REFUNDED.
+      estado.cobranca = jaReembolsada();
+
+      await baixarCobrancaPorIdExterno("123456789", "charged_back", pagoEm, "reimbursed");
+      await baixarCobrancaPorIdExterno("123456789", "charged_back", pagoEm, "reimbursed");
+
+      expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: pagoEm });
+      expect(estado.dadosDaFatura).toBeNull();
+      expect(estado.auditoria).toEqual([RASTRO]);
+    });
+
+    it.each([["in_process"], ["settled"], [null], [undefined], [""]])(
+      "sem o detalhe de devolvida (%s) é reembolso comum, sem rastro",
+      async (detalhe) => {
+        estado.cobranca = paga();
+
+        await baixarCobrancaPorIdExterno("123456789", "charged_back", pagoEm, detalhe);
+
+        expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: pagoEm });
+        expect(estado.dadosDaFatura).toEqual({ status: "OPEN", paidAt: null });
+        expect(estado.reembolsosNoLedger).toBe(1);
+        expect(estado.auditoria).toEqual([]);
+      },
+    );
+
+    it('"reimbursed" só vale junto de charged_back', async () => {
+      estado.cobranca = paga();
+
+      await baixarCobrancaPorIdExterno("123456789", "refunded", pagoEm, "reimbursed");
+
+      expect(estado.dadosDaCobranca).toEqual({ status: "REFUNDED", paidAt: pagoEm });
+      expect(estado.auditoria).toEqual([]);
+    });
+  });
+
   it("id que não é de nenhuma cobrança nossa não muda nada", async () => {
     estado.cobranca = null;
 

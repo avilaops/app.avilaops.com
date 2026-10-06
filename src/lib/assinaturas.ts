@@ -553,6 +553,19 @@ export async function garantirFatura(params: {
 const REEMBOLSADO = ["REFUNDED", "refunded", "charged_back"];
 
 /**
+ * `status_detail` do Mercado Pago para a contestação cujo dinheiro voltou.
+ *
+ * A tabela oficial de status dá três detalhes para `charged_back`:
+ * `in_process` (em disputa), `settled` ("o dinheiro foi retido após um processo
+ * de estorno") e `reimbursed` ("o dinheiro foi devolvido após um processo de
+ * estorno"). Ela não escreve a quem; leio pelo par e pela introdução de
+ * contestações, que diz que o valor em disputa fica retido na conta do
+ * vendedor até o fim: retido de vez é a disputa perdida, devolvido é a ganha.
+ * https://www.mercadopago.com.br/developers/pt/docs/checkout-api-payments/response-handling/query-results
+ */
+const CONTESTACAO_REEMBOLSADA = "reimbursed";
+
+/**
  * Limites das transações interativas daqui (a alocação e a auditoria com trava).
  *
  * O padrão do Prisma é esperar 2 s por conexão e durar 5 s; sob disputa longa a
@@ -692,8 +705,17 @@ async function auditarLedgerResolvido(evento: {
  * `pagoEm` é o instante em que o PROVEDOR aprovou/capturou. Sem ele, um
  * webhook atrasado ou reenviado depois de uma queda gravaria a hora do
  * processamento, e o dinheiro cairia no dia errado do ledger.
+ *
+ * `detalhe` é o `status_detail` do Mercado Pago, quando o webhook o tem. Não
+ * muda a baixa: só serve para deixar rastro da contestação que o gateway
+ * devolveu (ver o fim da função).
  */
-export async function baixarCobrancaPorIdExterno(externalId: string, status: string, pagoEm?: Date | null) {
+export async function baixarCobrancaPorIdExterno(
+  externalId: string,
+  status: string,
+  pagoEm?: Date | null,
+  detalhe?: string | null,
+) {
   const cobranca = await prisma.subscriptionCharge.findFirst({
     where: { externalId },
     include: { invoice: { include: { subscription: true } } },
@@ -725,7 +747,8 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
     reembolso feito por nós, e contestação é outro evento
     (PAYMENT.CAPTURE.REVERSED), que este sistema não trata; no Mercado Pago a
     contestação decidida muda só o `status_detail` (`settled`, `reimbursed`),
-    com o `status` ainda `charged_back`. O ledger também não desfaz: o gatilho
+    com o `status` ainda `charged_back` — a devolvida (`reimbursed`) ganha
+    rastro próprio no fim desta função. O ledger também não desfaz: o gatilho
     `core.guard_payment_update` recusa tirar um pagamento de REFUNDED.
 
     Por isso o aviso é ignorado sem comparar datas. O de pago deixa rastro: se
@@ -958,6 +981,36 @@ export async function baixarCobrancaPorIdExterno(externalId: string, status: str
         },
       });
     }
+  }
+
+  /*
+    Contestação que o Mercado Pago devolveu: `charged_back` com o detalhe
+    `reimbursed`. O dinheiro está na conta e tudo acima a tratou como
+    reembolso — cobrança REFUNDED, fatura aberta, `core.payments` REFUNDED —
+    porque o `status` é o mesmo da contestação perdida.
+
+    Aqui fica só o rastro, uma vez por cobrança, para a conciliação achar sem
+    depender de alguém olhar o painel do gateway. Desfazer sozinho não dá sem
+    migração: o gatilho `core.guard_payment_update` recusa tirar um pagamento
+    de REFUNDED. Por isso vem depois da baixa e não a altera — inclusive
+    quando a cobrança já estava REFUNDED, que é o caso comum (o `in_process`
+    chega antes e a reembolsa; o desfecho vem dias depois).
+  */
+  if (status === "charged_back" && detalhe === CONTESTACAO_REEMBOLSADA) {
+    await auditarPagamentoForaDaFatura({
+      action: "CONTESTACAO_REEMBOLSADA",
+      organizationId: cobranca.invoice.subscription?.organizationId ?? null,
+      entityType: "SubscriptionCharge",
+      entityId: cobranca.id,
+      metadata: {
+        chargeId: cobranca.id,
+        invoiceId: cobranca.invoiceId,
+        provider: cobranca.provider,
+        externalId: cobranca.externalId,
+        status,
+        statusDetail: detalhe,
+      },
+    });
   }
 
   return cobranca;

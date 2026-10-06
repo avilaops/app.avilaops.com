@@ -54,6 +54,8 @@ export type BoletoCharge = {
 type PagamentoMP = {
   id?: number;
   status?: string;
+  /** O porquê do `status`. Na contestação é ele que diz o desfecho. */
+  status_detail?: string | null;
   date_of_expiration?: string;
   /** Instante da aprovação — a data do pagamento, não a do webhook. */
   date_approved?: string | null;
@@ -270,14 +272,23 @@ export async function getPagamentoStatus(pagamentoId: string): Promise<string> {
   return (await consultarPagamento(pagamentoId)).status;
 }
 
-/** Situação e instante de aprovação do pagamento, direto da API. */
-export async function consultarPagamento(pagamentoId: string): Promise<{ status: string; aprovadoEm: Date | null }> {
+/**
+ * Situação, detalhe e instante de aprovação do pagamento, direto da API.
+ *
+ * O `detalhe` é o `status_detail`. Vai junto porque na contestação o `status`
+ * fica parado em `charged_back` e só o detalhe muda (`in_process`, `settled`,
+ * `reimbursed`).
+ */
+export async function consultarPagamento(
+  pagamentoId: string,
+): Promise<{ status: string; detalhe: string | null; aprovadoEm: Date | null }> {
   const pagamento = await chamarMercadoPago<PagamentoMP>(
     `/v1/payments/${encodeURIComponent(pagamentoId)}`,
   );
   const aprovadoEm = pagamento.date_approved ? new Date(pagamento.date_approved) : null;
   return {
     status: pagamento.status ?? "",
+    detalhe: pagamento.status_detail || null,
     aprovadoEm: aprovadoEm && !Number.isNaN(aprovadoEm.getTime()) ? aprovadoEm : null,
   };
 }
