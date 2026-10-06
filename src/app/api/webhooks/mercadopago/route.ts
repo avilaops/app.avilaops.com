@@ -147,23 +147,29 @@ function idDoPagamento(
 /**
  * O id do caso de uma contestação, só para o registro do evento.
  *
- * Vem do corpo, que a assinatura não cobre: serve para quem for investigar a
- * contestação à mão e nunca para consulta nem decisão. O caso tem mais dígitos
- * do que um número de JavaScript guarda sem arredondar, e o exemplo da
- * documentação manda `data.id` como número; aí o valor do corpo já chegou
- * errado, e o que vale é o `data.id` da query, que é texto. Fora da contestação
- * devolve `undefined`, e o registro fica como era.
+ * Serve para quem for investigar a contestação à mão e nunca para consulta nem
+ * decisão. Vem primeiro do `data.id` da query, que é o campo que a assinatura
+ * cobre e, por ser texto, não arredonda; o corpo só entra quando a query não
+ * traz um id válido. Do corpo vale o texto e, por último, o número inteiro que
+ * cabe num número de JavaScript: o caso tem mais dígitos do que isso, o exemplo
+ * da documentação manda `data.id` como número, e o que passa do limite já
+ * chegou arredondado. Fora da contestação devolve `undefined`, e o registro
+ * fica como era.
  */
 function idDoCaso(request: NextRequest, body: Record<string, unknown> | null): string | null | undefined {
   const busca = request.nextUrl.searchParams;
   const tipo = String(body?.type ?? body?.topic ?? busca.get("topic") ?? busca.get("type") ?? "");
   if (!tipo.includes("chargeback")) return undefined;
 
-  const id = (body?.data as { id?: unknown } | undefined)?.id;
-  const bruto =
-    typeof id === "string" ? id : typeof id === "number" && Number.isSafeInteger(id) ? String(id) : busca.get("data.id");
+  const valido = (bruto: string | null) => (bruto !== null && /^\d{1,32}$/.test(bruto) ? bruto : null);
 
-  return bruto && /^\d{1,32}$/.test(bruto) ? bruto : null;
+  const id = (body?.data as { id?: unknown } | undefined)?.id;
+  return (
+    valido(busca.get("data.id")) ??
+    (typeof id === "string" ? valido(id) : null) ??
+    // `isSafeInteger` recusa também o decimal: id de caso é inteiro.
+    (typeof id === "number" && Number.isSafeInteger(id) ? valido(String(id)) : null)
+  );
 }
 
 export async function POST(request: NextRequest) {

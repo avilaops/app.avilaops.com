@@ -205,7 +205,7 @@ describe("webhook do Mercado Pago — id do caso no registro do evento", () => {
 
   it("id do caso como número grande no corpo vem da query, sem arredondar", async () => {
     // No exemplo da documentação o `data.id` é número, e este não cabe num
-    // número de JavaScript: lido do corpo, viraria ...71100.
+    // número de JavaScript: lido do corpo, viraria ...71140.
     await POST(contestacao({ id: 217000061307271123 }, "217000061307271123"));
 
     expect(payloadRegistrado()).toMatchObject({ casoId: "217000061307271123" });
@@ -218,11 +218,43 @@ describe("webhook do Mercado Pago — id do caso no registro do evento", () => {
   });
 
   it.each([
+    ["texto", { id: "999" }],
+    ["número", { id: 999 }],
+  ])("corpo e query divergentes: vale a query, que a assinatura cobre (corpo com %s)", async (_nome, dados) => {
+    await POST(contestacao(dados, "217000061307271123"));
+
+    expect(payloadRegistrado()).toMatchObject({ casoId: "217000061307271123" });
+  });
+
+  it.each([
+    ["vazio", { id: "" }],
+    ["inválido", { id: "abc" }],
+    ["número decimal", { id: 4321.5 }],
+  ])("id %s no corpo não descarta a query válida", async (_nome, dados) => {
+    await POST(contestacao(dados, "217000061307271123"));
+
+    expect(payloadRegistrado()).toMatchObject({ casoId: "217000061307271123" });
+  });
+
+  it.each([
+    ["ausente", null],
+    ["inválida", "217/../x"],
+    ["vazia", ""],
+  ])("query %s cai para o texto do corpo", async (_nome, casoNaQuery) => {
+    await POST(contestacao({ id: "555" }, casoNaQuery));
+
+    expect(payloadRegistrado()).toMatchObject({ casoId: "555" });
+  });
+
+  it.each([
     ["ausente", { id: undefined }],
     ["nulo", { id: null }],
     ["que não é número", { id: "217/../x" }],
     ["objeto", { id: { a: 1 } }],
     ["número grande, sem a query para conferir", { id: 217000061307271123 }],
+    ["número decimal", { id: 4321.5 }],
+    ["número decimal pequeno", { id: 0.5 }],
+    ["número negativo", { id: -4321 }],
   ])("id do caso %s vira nulo e a notificação segue", async (_nome, dados) => {
     api.pagamento = { id: 123456789, status: "charged_back", status_detail: "reimbursed" };
 
