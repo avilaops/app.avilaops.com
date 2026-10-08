@@ -64,8 +64,14 @@ mesma tarefa), sem branch nem PR parado.
 
 O deploy é por SSH, com `deploy/publicar.sh <ref>`: build na máquina que chama o
 script (o `creators`; `BUILD_HOST=<alias>` para outro host), imagem levada ao
-`applications` e troca do container. O GitHub Actions está parado por cobrança
-da conta desde 19/09/2026, então push na `main` **não** publica nada. Nunca rode
+`applications` e troca do container. Push na `main` **não** publica nada: o
+workflow `deploy-production.yml` valida e publica a imagem no GHCR, mas o job
+`deploy` fica pulado enquanto a variável `DEPLOY_ENABLED` estiver `false` (o
+deploy do Actions só troca a imagem e não aplica migração). De 19/09 a 08/10/2026
+o workflow nem iniciava: o repositório é público e chamava os workflows
+reutilizáveis do `avilaops/infra`, que é privado (não era cobrança); desde
+`c26b454` os jobs `image` e `deploy` moram no próprio workflow, cópia dos do
+`infra` — mudou lá, traga para cá. Nunca rode
 `docker build` no `applications`: sem swap, o build derruba os apps de cliente
 por falta de memória. O script para se o ref não contiver o que está no ar ou se
 houver migração que produção ainda não tem.
