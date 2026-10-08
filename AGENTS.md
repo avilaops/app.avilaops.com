@@ -57,12 +57,26 @@ Não encerre a tarefa deixando PR em rascunho, ou PR aberto sem motivo.
 pedido explícito para não mesclar — inclusive um pedido escrito no próprio PR
 ("prints aprovados pelo Nicolas antes do merge" é um pedido explícito).
 
-O deploy é por SSH, com `deploy/publicar.sh <ref>`: build no `orchestrator`,
-imagem levada ao `applications` e troca do container. O GitHub Actions está
-parado por cobrança da conta desde 19/09/2026, então push na `main` **não**
-publica nada. Nunca rode `docker build` no `applications`: sem swap, o build
-derruba os apps de cliente por falta de memória. O script para se o ref não
-contiver o que está no ar ou se houver migração que produção ainda não tem.
+No servidor `creators` vale a regra do `~/AGENTS.md` (Nicolas, 05/10/2026), acima
+do ciclo de branch e PR descrito aqui: alteração testada vai direto para a
+`main` (`git pull --rebase origin main`, commit e `git push origin main` na
+mesma tarefa), sem branch nem PR parado.
+
+O deploy é por SSH, com `deploy/publicar.sh <ref>`: build na máquina que chama o
+script (o `creators`; `BUILD_HOST=<alias>` para outro host), imagem levada ao
+`applications` e troca do container. O GitHub Actions está parado por cobrança
+da conta desde 19/09/2026, então push na `main` **não** publica nada. Nunca rode
+`docker build` no `applications`: sem swap, o build derruba os apps de cliente
+por falta de memória. O script para se o ref não contiver o que está no ar ou se
+houver migração que produção ainda não tem.
+
+Migração em produção se aplica antes da troca da imagem, com dump antes e ensaio
+numa cópia do dump: `prisma migrate deploy` por túnel SSH para o Postgres do
+`applications` (`ssh -L 55440:127.0.0.1:5432 applications`, `DATABASE_URL` do
+`/opt/app-avilaops/.env.production` com o host trocado). Em 08/10/2026 foram
+aplicadas as 11 pendentes até `20261006120000_parametros_de_politica`;
+`20260919_projeto_descricao_url_arquivos` já existia no esquema e foi só
+registrada (`migrate resolve --applied`).
 
 PR de outra sessão que ainda está aberto não é seu para mesclar sem conferir: a
 sessão dona pode estar no meio do trabalho.

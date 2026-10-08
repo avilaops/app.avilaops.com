@@ -7,22 +7,32 @@
 # - O build NÃO roda no servidor `applications`. Ele tem 3,8 GB de RAM e
 #   nenhum swap; em 28/09/2026 o `next build` lá ficou 30 min em "Running
 #   TypeScript", levou o load a 36 e o OOM killer matou apps de cliente.
-#   O build roda no `orchestrator` (2 GB de swap, só o n8n dele) e a imagem
-#   atravessa pela rede da Hetzner com `docker save | docker load`.
+#   O build roda na máquina que chama o script — o servidor `creators`, que
+#   é o antigo `orchestrator` e tem 6 GB de swap — e a imagem atravessa pela
+#   rede da Hetzner com `docker save | docker load`. O alias de SSH
+#   `orchestrator` deixou de existir em 10/2026; para construir em outro
+#   host, passe `BUILD_HOST=<alias>`.
 # - O container não roda migração. Se o ref tiver migração que o banco de
 #   produção ainda não aplicou, o script para antes de trocar a imagem e diz
 #   quais são: aplicar migração é decisão à parte, não efeito colateral.
 #
-# Precisa dos hosts `orchestrator` e `applications` no ~/.ssh/config.
+# Precisa do host `applications` no ~/.ssh/config e de uns 4 GB livres em
+# disco na máquina do build.
 set -euo pipefail
 
 REF="${1:?uso: deploy/publicar.sh <ref-do-git>}"
 SHA="$(git rev-parse --short "$REF")"
 TAG="avilaops-app:${SHA}"
+BUILD_HOST="${BUILD_HOST:-local}"
 BUILD_DIR="build/app-${SHA}"
 APP_DIR="/opt/app-avilaops"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+# Roda no host do build: aqui mesmo, ou por SSH quando BUILD_HOST aponta outro.
+no_build() {
+  if [ "$BUILD_HOST" = local ]; then bash -c "$1"; else ssh "$BUILD_HOST" "$1"; fi
+}
 
 echo "==> ${REF} (${SHA})"
 
@@ -54,17 +64,21 @@ if [ -n "$PENDENTES" ]; then
   exit 1
 fi
 
-echo "==> Enviando o código para o orchestrator"
+echo "==> Enviando o código para o build (${BUILD_HOST})"
 git archive --format=tar.gz -o "$TMP/app.tgz" "$REF"
-ssh orchestrator "rm -rf ~/${BUILD_DIR} && mkdir -p ~/${BUILD_DIR}"
-scp -q "$TMP/app.tgz" "orchestrator:${BUILD_DIR}/app.tgz"
+no_build "rm -rf ~/${BUILD_DIR} && mkdir -p ~/${BUILD_DIR}"
+if [ "$BUILD_HOST" = local ]; then
+  cp "$TMP/app.tgz" ~/"${BUILD_DIR}/app.tgz"
+else
+  scp -q "$TMP/app.tgz" "${BUILD_HOST}:${BUILD_DIR}/app.tgz"
+fi
 
 echo "==> Build da imagem ${TAG} (uns 10 minutos)"
-ssh orchestrator "cd ~/${BUILD_DIR} && tar xzf app.tgz && docker build -q \
+no_build "cd ~/${BUILD_DIR} && tar xzf app.tgz && docker build -q \
   --build-arg GIT_SHA=${SHA} --build-arg BUILT_AT=\$(date -u +%FT%TZ) -t ${TAG} ."
 
 echo "==> Levando a imagem para o applications"
-ssh orchestrator "docker save ${TAG} | gzip -1" | ssh applications "gunzip | docker load"
+no_build "docker save ${TAG} | gzip -1" | ssh applications "gunzip | docker load"
 
 echo "==> Trocando o container (backup do compose em deploy-backups/)"
 ssh applications "cd ${APP_DIR} \
@@ -76,6 +90,6 @@ ssh applications "cd ${APP_DIR} \
 echo "==> Conferindo"
 ssh applications "for i in \$(seq 1 40); do c=\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3004/login); [ \"\$c\" = 307 ] || [ \"\$c\" = 200 ] && break; sleep 2; done; echo \"login: \$c\"; \
   echo \"GIT_SHA no container: \$(docker exec app-avilaops-app-1 printenv GIT_SHA)\""
-ssh orchestrator "rm -rf ~/${BUILD_DIR}"
+no_build "rm -rf ~/${BUILD_DIR}"
 
 echo "==> Publicado ${SHA}. Para voltar: copie o compose de ${APP_DIR}/deploy-backups/ e rode docker compose up -d."
