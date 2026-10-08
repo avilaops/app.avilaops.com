@@ -113,3 +113,33 @@ describe("baixarCobrancaPorIdExterno — pagamentos simultâneos da mesma fatura
     expect(await prisma.operationsAuditEvent.count({ where: { organizationId } })).toBe(1);
   });
 });
+
+describe("auditoria de pagamento fora da fatura — a mesma notificação entregue várias vezes ao mesmo tempo (Postgres)", () => {
+  /*
+    O que serializa as entregas é `pg_advisory_xact_lock`, pedido pelo Prisma
+    dentro da transação. O teste unitário só prova que o código pede a trava;
+    este prova que, no Postgres de verdade e pelo pool do Prisma, oito entregas
+    simultâneas do mesmo aviso deixam UM evento — sem a trava, todas procuram
+    antes de qualquer uma gravar e cada uma grava o seu.
+  */
+  it("oito avisos de pago simultâneos numa cobrança reembolsada: um só PAGO_APOS_REEMBOLSO", async () => {
+    const externalId = `7${Math.floor(Math.random() * 1e9)}`;
+    const reembolsada = await prisma.subscriptionCharge.create({
+      data: { invoiceId, method: "PIX", provider: "MERCADO_PAGO", externalId, status: "REFUNDED", amount: 300 },
+    });
+    const erroNoLog = vi.spyOn(console, "error");
+
+    await Promise.all(Array.from({ length: 8 }, () => baixarCobrancaPorIdExterno(externalId, "approved")));
+
+    const eventos = await prisma.operationsAuditEvent.findMany({
+      where: { action: "PAGO_APOS_REEMBOLSO", entityType: "SubscriptionCharge", entityId: reembolsada.id },
+    });
+    expect(eventos).toHaveLength(1);
+    expect(eventos[0].organizationId).toBe(organizationId);
+    // Nenhuma entrega perdeu o rastro por estouro de transação ou de pool.
+    expect(erroNoLog.mock.calls.filter((c) => String(c[0]).includes("[ledger]"))).toEqual([]);
+    // E o aviso de pago não desfez o reembolso.
+    expect((await prisma.subscriptionCharge.findUniqueOrThrow({ where: { id: reembolsada.id } })).status).toBe("REFUNDED");
+    erroNoLog.mockRestore();
+  });
+});

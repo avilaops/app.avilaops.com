@@ -161,7 +161,15 @@ export default function GeradorDeIcones({
       <div className="icon-generator-form">
         <label className="field">
           <span>Logo de origem</span>
-          <select value={origemId} onChange={(evento) => setOrigemId(evento.target.value)}>
+          <select
+            value={origemId}
+            onChange={(evento) => {
+              setOrigemId(evento.target.value);
+              // O único erro que nasce sem pedido ao servidor é "escolha a
+              // logo": escolhida, ele deixa de ser verdade e sai da tela.
+              if (evento.target.value) setErro("");
+            }}
+          >
             {origens.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.assetType} · v{a.version ?? "1"} · {a.name ?? "arquivo"}

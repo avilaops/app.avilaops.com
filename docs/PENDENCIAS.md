@@ -7,6 +7,35 @@ tirado do banco de produção ou de uma varredura do código.
 
 Ordem dentro de cada bloco é a de quanto estrago evita, não a de esforço.
 
+## Atualização de 08/10/2026
+
+Conferido contra o código e os servidores nesta data. O texto abaixo é o
+levantamento original de 19/09; o que mudou desde então:
+
+- **2.2 resolvido.** A mensagem "Escolha a logo de origem." sai da tela quando
+  a logo é escolhida.
+- **1.2 segue aberto.** `src/lib/campos-explicados.ts` continua sem nenhum
+  importador. O cadastro foi refeito em 01/10
+  (`docs/cadastro-cliente-nivel-erp.md`), então a contagem de 76 campos e a
+  lista dos 24 sem leitor precisam ser medidas de novo antes de cortar.
+- **3.2:** a frase "não há migration pendente" valeu até 19/09. Em 08/10
+  produção recebeu as 11 migrações acumuladas até
+  `20261006120000_parametros_de_politica`, aplicadas como `app_avila`, sem o
+  erro de dono. O procedimento está no `AGENTS.md`.
+- **4.2 superado.** O deploy é `deploy/publicar.sh <ref>`, com build fora do
+  `applications`. O roteiro de `docker compose build` no servidor não deve mais
+  ser usado: foi ele que derrubou apps de cliente em 28/09.
+- **4.3 e 4.4 encerrados.** Os contêineres do n8n antigo, minas-espetinhos,
+  sorroche e mello foram removidos do `applications` em 06/10; o Comandeiro foi
+  religado em 07/10 e o n8n roda nativo lá desde 08/10.
+- **Produção** roda a `main` (imagem `avilaops-app:<sha>` em
+  `/opt/app-avilaops/docker-compose.yml`), não mais `7e4765a`.
+- **Novo, e parado em produção:** o webhook do Mercado Pago responde 503
+  enquanto `MP_WEBHOOK_SECRET` não for gravado em Empresa › Credenciais. A
+  baixa automática de fatura depende disso.
+- **Novo:** a suíte recusa rodar se o Postgres em `DATABASE_URL` tiver outros
+  bancos (`tests/global-setup.ts`). Motivo e data no próprio arquivo.
+
 ---
 
 ## 1. Cadastro do cliente

@@ -111,6 +111,12 @@ DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='app_avila')
 
 Sem Docker, dá para subir um PostgreSQL local e apontar `DATABASE_URL` para ele.
 
+Encadeie os passos com `&&`: se `db:test:up` falhar (porta 55433 ocupada, por
+exemplo por um túnel SSH), o `prisma migrate deploy` seguinte cria o banco de
+teste em quem estiver escutando naquela porta. Use `TEST_DB_PORT` para outra
+porta. A suíte confere isso sozinha (`tests/global-setup.ts`) e recusa um
+Postgres que tenha outros bancos; o `migrate deploy` não confere nada.
+
 `npm run test:unit` roda só `tests/unit` — útil no meio do trabalho, mas não
 substitui a suíte antes do PR.
 
