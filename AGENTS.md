@@ -62,19 +62,29 @@ do ciclo de branch e PR descrito aqui: alteração testada vai direto para a
 `main` (`git pull --rebase origin main`, commit e `git push origin main` na
 mesma tarefa), sem branch nem PR parado.
 
-O deploy é por SSH, com `deploy/publicar.sh <ref>`: build na máquina que chama o
-script (o `creators`; `BUILD_HOST=<alias>` para outro host), imagem levada ao
-`applications` e troca do container. Push na `main` **não** publica nada: o
-workflow `deploy-production.yml` valida e publica a imagem no GHCR, mas o job
-`deploy` fica pulado enquanto a variável `DEPLOY_ENABLED` estiver `false` (o
-deploy do Actions só troca a imagem e não aplica migração). De 19/09 a 08/10/2026
-o workflow nem iniciava: o repositório é público e chamava os workflows
-reutilizáveis do `avilaops/infra`, que é privado (não era cobrança); desde
-`c26b454` os jobs `image` e `deploy` moram no próprio workflow, cópia dos do
-`infra` — mudou lá, traga para cá. Nunca rode
-`docker build` no `applications`: sem swap, o build derruba os apps de cliente
-por falta de memória. O script para se o ref não contiver o que está no ar ou se
-houver migração que produção ainda não tem.
+**Push na `main` publica em produção** desde 08/10/2026 (`DEPLOY_ENABLED=true`,
+pedido do Nicolas). O workflow `deploy-production.yml` valida (lint, tipos,
+testes, deriva do schema), publica a imagem no GHCR e o job `deploy` chama o
+`avila-deploy` do `applications`, que roda `prisma migrate deploy` antes de
+trocar a imagem e volta sozinho para a anterior se `/api/health` não responder.
+Leva uns 4 minutos. Para desligar:
+`gh variable set DEPLOY_ENABLED --body false -R avilaops/app.avilaops.com`.
+
+**Commit com migração nova:** o `avila-deploy` instalado aplica a migração **sem
+dump antes** (a versão com dump está em `scripts/deploy-container.sh` do `infra`
+e ainda não foi instalada no servidor). Até lá, faça o dump do `cliente_portal`
+e o ensaio numa cópia antes do push, como descrito abaixo.
+
+Os jobs `image` e `deploy` moram no próprio workflow, cópia dos do `infra`
+(repositório público não pode chamar workflow reutilizável de repositório
+privado) — mudou lá, traga para cá.
+
+`deploy/publicar.sh <ref>` fica como reserva para quando o Actions estiver fora:
+build na máquina que chama (`BUILD_HOST=apps-noclient` em vez do `creators`, que
+tem 4 GB), imagem levada ao `applications` e troca do container. Ele edita a
+linha `image:` do compose e sobe sem o `image.yml` do `avila-deploy`; o deploy
+seguinte do Actions volta a mandar. Nunca rode `docker build` no `applications`:
+sem swap, o build derruba os apps de cliente por falta de memória.
 
 Migração em produção se aplica antes da troca da imagem, com dump antes e ensaio
 numa cópia do dump: `prisma migrate deploy` por túnel SSH para o Postgres do
