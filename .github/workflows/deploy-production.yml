@@ -53,26 +53,129 @@ jobs:
       - name: Derrubar banco de teste
         if: always()
         run: docker compose -f docker-compose.test.yml down -v
+  # Construcao e implantacao moram aqui, e nao em `uses: avilaops/infra/...`:
+  # este repositorio e publico e o avilaops/infra e privado, e o GitHub nao
+  # deixa repositorio publico chamar workflow reutilizavel de repositorio
+  # privado: o run termina em falha de inicializacao sem executar nada. Foi o
+  # que derrubou todo push daqui ate 08/10/2026.
+  #
+  # Os dois jobs abaixo sao copia de avilaops/infra
+  # (`.github/workflows/container.yml` e `deploy-ssh.yml`), com as mesmas
+  # actions fixadas por SHA. Mudou la, traga para ca.
+  #
+  # `image` depende de `verify` para que teste vermelho barre a publicacao da
+  # imagem e, por tabela, o deploy.
   image:
+    name: image / build
     needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
-    uses: avilaops/infra/.github/workflows/container.yml@5e560f44062c8e025ddcfd86197e5394b562deae
-    with:
-      publish: ${{ github.event_name != 'pull_request' }}
+    env:
+      # Pull request constroi e valida; so o push na main publica a imagem.
+      PUBLISH: ${{ github.event_name != 'pull_request' }}
+    outputs:
+      image: ${{ steps.result.outputs.image }}
+    steps:
+      - name: Obter codigo do commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validar publicacao
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if [[ "$PUBLISH" == true ]]; then
+            [[ "$GITHUB_EVENT_NAME" != pull_request* ]]
+            [[ "$GITHUB_REF" == "refs/heads/$DEFAULT_BRANCH" ]]
+          fi
+          printf 'IMAGE_NAME=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: Preparar Docker
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Autenticar no GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Construir e validar imagem
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=container
+          cache-to: type=gha,mode=max,scope=container
+      - name: Identificar imagem publicada
+        if: env.PUBLISH == 'true'
+        id: result
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'image=%s@%s\n' "$IMAGE_NAME" "$DIGEST" >> "$GITHUB_OUTPUT"
+
   deploy:
+    name: deploy
+    needs: image
+    # So a main, so por push ou disparo manual, e so com o deploy ligado na
+    # variavel do repositorio. Pull request, inclusive de fork (o repositorio e
+    # publico), nunca chega aqui nem ve os segredos.
+    if: >-
+      github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
     permissions:
       contents: read
       packages: read
-    needs: image
-    if: github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true'
-    uses: avilaops/infra/.github/workflows/deploy-ssh.yml@5e560f44062c8e025ddcfd86197e5394b562deae
-    with:
-      application: app.avilaops.com
-      image: ${{ needs.image.outputs.image }}
-    secrets:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+    concurrency:
+      group: deploy-production-app.avilaops.com
+      cancel-in-progress: false
+    steps:
+      - name: Enviar imagem ao servidor
+        env:
+          APPLICATION: app.avilaops.com
+          IMAGE: ${{ needs.image.outputs.image }}
+          DEPLOY_PORT: 22
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$APPLICATION" =~ ^[a-z0-9][a-z0-9.-]*$ ]]
+          [[ "$IMAGE" =~ ^ghcr\.io/avilaops/[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]]
+          (( DEPLOY_PORT > 0 && DEPLOY_PORT < 65536 ))
+          temporary_ssh=$(mktemp -d)
+          trap 'rm -rf "$temporary_ssh"' EXIT
+          chmod 700 "$temporary_ssh"
+          printf '%s\n' "$SSH_KEY" > "$temporary_ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$temporary_ssh/known_hosts"
+          chmod 600 "$temporary_ssh/key" "$temporary_ssh/known_hosts"
+          printf '%s\n' "$GHCR_TOKEN" | ssh -T -i "$temporary_ssh/key" -p "$DEPLOY_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$temporary_ssh/known_hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "deploy $APPLICATION $IMAGE"
