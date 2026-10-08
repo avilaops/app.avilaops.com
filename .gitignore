@@ -30,3 +30,6 @@ standalone-health*.tgz
 output/playwright/
 output/nucleo-postgres/
 output/publicacoes-validation/
+
+# Rascunho de agente; nunca entra em commit.
+.work/

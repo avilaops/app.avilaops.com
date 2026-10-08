@@ -62,6 +62,13 @@ export const ACOES_DA_CASA: Record<string, Descricao> = {
       return juntar(texto(m.financeira) ?? id, chaves.length ? chaves.join(", ") : null);
     },
   },
+  MERCADO_PAGO_CONECTADO_POR_OAUTH: {
+    titulo: "Mercado Pago conectado",
+    // A conta que passou a receber: é o que se quer achar quando o dinheiro
+    // some de onde deveria estar.
+    detalhe: (_id, m) => (texto(m.userId) ? `Conta ${texto(m.userId)}` : null),
+    atencao: true,
+  },
   CREDENCIAL_BANCO_LIVRE_GUARDADA: {
     titulo: "Campo de banco guardado",
     detalhe: (id, m) => juntar(texto(m.instituicao), texto(m.rotulo)) ?? id,

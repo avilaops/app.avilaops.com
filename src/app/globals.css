@@ -11134,6 +11134,19 @@ main [data-slot="select-trigger"]:focus-visible {
 }
 
 /*
+ * O bloco é grid: sem `min-width: 0` o filho cresce até caber a maior palavra,
+ * e o endereço de retorno do OAuth (uma URL inteira, sem espaço) alargava o
+ * bloco no celular e cortava os parágrafos vizinhos.
+ */
+.aviso-financeira > * {
+  min-width: 0;
+}
+
+.aviso-financeira code {
+  overflow-wrap: anywhere;
+}
+
+/*
  * Abas de /empresa e o formulário de dados fiscais (01/10/2026).
  */
 .abas-empresa {

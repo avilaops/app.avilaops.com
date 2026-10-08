@@ -3,6 +3,7 @@ import AppShell from "@/components/AppShell";
 import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import { Grupo } from "@/components/sistema/Lista";
 import CamposLivres, { type CampoLivreNaTela } from "@/app/empresa/credenciais/financeiro/CamposLivres";
+import ConectarMercadoPago from "@/app/empresa/credenciais/financeiro/[slug]/ConectarMercadoPago";
 import FormularioDaFinanceira from "@/app/empresa/credenciais/financeiro/[slug]/FormularioDaFinanceira";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { listarCredenciais } from "@/lib/credenciais";
@@ -11,6 +12,7 @@ import {
   financeiraPorSlug,
   slugDaInstituicao,
 } from "@/lib/credenciais-financeiro";
+import { enderecoDeRetorno, estadoDaConexao } from "@/lib/mercadopago-oauth";
 
 const VOLTAR = { href: "/empresa/credenciais", rotulo: "Voltar para Credenciais" };
 
@@ -18,8 +20,10 @@ export const dynamic = "force-dynamic";
 
 export default async function FichaDaFinanceira({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ conectado?: string; erro?: string }>;
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
@@ -75,6 +79,10 @@ export default async function FichaDaFinanceira({
 
   const porChave = new Map(guardadas.map((c) => [c.chave, c]));
 
+  // Só o Mercado Pago tem conexão por OAuth; as demais fichas não consultam nada.
+  const conexao = financeira.slug === "mercado-pago" ? await estadoDaConexao() : null;
+  const volta = await searchParams;
+
   // O valor NUNCA vem para a tela: o que chega é a máscara que o cofre guarda
   // em claro ao lado do segredo ("97ad…ead7"). Ver o valor inteiro é outra
   // ação, explícita, pelo cofre completo.
@@ -111,6 +119,15 @@ export default async function FichaDaFinanceira({
               <p>{financeira.aviso}</p>
             </div>
           </Grupo>
+        ) : null}
+
+        {conexao ? (
+          <ConectarMercadoPago
+            estado={conexao}
+            retorno={enderecoDeRetorno()}
+            conectouAgora={volta.conectado === "1"}
+            erroDaVolta={typeof volta.erro === "string" && volta.erro ? volta.erro.slice(0, 300) : null}
+          />
         ) : null}
 
         {campos.length === 0 ? (

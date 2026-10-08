@@ -1,4 +1,5 @@
 import { obterCredencial } from "@/lib/credenciais";
+import { renovarTokenSeVencendo } from "@/lib/mercadopago-oauth";
 import { segredoDoWebhook } from "@/lib/mercadopago-assinatura";
 
 /**
@@ -105,6 +106,8 @@ async function chamar<T>(
   caminho: string,
   init: { method?: string; body?: unknown; idempotencia?: string } = {},
 ): Promise<T> {
+  // Token conectado por OAuth vence em 180 dias; perto disso, troca antes de usar.
+  await renovarTokenSeVencendo();
   const { token } = await credencial();
   if (!token) {
     throw new MercadoPagoIndisponivel(

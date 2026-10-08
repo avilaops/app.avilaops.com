@@ -39,6 +39,7 @@ describe("catálogo do financeiro", () => {
       "MP_ACCESS_TOKEN",
       "MP_WEBHOOK_SECRET",
       "MP_CLIENT_ID",
+      "MP_CLIENT_SECRET",
       "MP_WEBHOOK_TOKEN",
       "MP_PUBLIC_KEY",
     ]);

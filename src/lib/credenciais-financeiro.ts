@@ -62,9 +62,17 @@ export const FINANCEIRAS: Financeira[] = [
         chave: "MP_CLIENT_ID",
         rotulo: "Client ID da aplicação",
         ajuda:
-          "Só diagnóstico: é por ele que a tela do Mercado Pago lê para onde a URL global de notificação está apontada.",
+          "Identifica a aplicação. Serve ao diagnóstico da URL global de notificação e, junto com o Client Secret, ao botão de conectar a conta.",
         obrigatorio: false,
         ondeAchar: "Painel de desenvolvedor → sua aplicação → Dados da aplicação",
+      },
+      {
+        chave: "MP_CLIENT_SECRET",
+        rotulo: "Client Secret da aplicação",
+        ajuda:
+          "Só é usado para conectar a conta por OAuth e renovar o token sozinho. Quem cola o Access Token à mão pode deixar vazio.",
+        obrigatorio: false,
+        ondeAchar: "Painel de desenvolvedor → sua aplicação → Credenciais de produção",
       },
       {
         chave: "MP_WEBHOOK_TOKEN",

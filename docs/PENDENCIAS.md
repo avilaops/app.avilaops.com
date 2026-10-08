@@ -33,6 +33,9 @@ levantamento original de 19/09; o que mudou desde então:
 - **Novo, e parado em produção:** o webhook do Mercado Pago responde 503
   enquanto `MP_WEBHOOK_SECRET` não for gravado em Empresa › Credenciais. A
   baixa automática de fatura depende disso.
+- **Novo:** conexão do Mercado Pago por OAuth (`docs/mercadopago-oauth.md`).
+  Falta a primeira conexão real: guardar o Client Secret e cadastrar o endereço
+  de retorno na aplicação. Não substitui o `MP_WEBHOOK_SECRET`.
 - **Novo:** a suíte recusa rodar se o Postgres em `DATABASE_URL` tiver outros
   bancos (`tests/global-setup.ts`). Motivo e data no próprio arquivo.
 
