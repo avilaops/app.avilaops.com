@@ -3,7 +3,9 @@ import AppShell from "@/components/AppShell";
 import CabecalhoTela from "@/components/sistema/CabecalhoTela";
 import { Grupo } from "@/components/sistema/Lista";
 import CamposLivres, { type CampoLivreNaTela } from "@/app/empresa/credenciais/financeiro/CamposLivres";
-import ConectarMercadoPago from "@/app/empresa/credenciais/financeiro/[slug]/ConectarMercadoPago";
+import ConectarMercadoPago, {
+  SituacaoMercadoPago,
+} from "@/app/empresa/credenciais/financeiro/[slug]/ConectarMercadoPago";
 import FormularioDaFinanceira from "@/app/empresa/credenciais/financeiro/[slug]/FormularioDaFinanceira";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { listarCredenciais } from "@/lib/credenciais";
@@ -105,6 +107,18 @@ export default async function FichaDaFinanceira({
       />
 
       <div className="pilha">
+        {conexao ? (
+          <SituacaoMercadoPago
+            chaves={{
+              token: porChave.get("MP_ACCESS_TOKEN")?.preenchida
+                ? (porChave.get("MP_ACCESS_TOKEN")?.mascara ?? "guardado")
+                : null,
+              webhook: porChave.get("MP_WEBHOOK_SECRET")?.preenchida ?? false,
+            }}
+            conexao={conexao}
+          />
+        ) : null}
+
         {financeira.aviso ? (
           /*
             O aviso NÃO cabe numa `LinhaInfo`: ela corta a descrição em uma
@@ -121,6 +135,14 @@ export default async function FichaDaFinanceira({
           </Grupo>
         ) : null}
 
+        {campos.length === 0 ? (
+          // Sem integração, o catálogo não inventa campo — quem nomeia é o
+          // dono, e a tela diz que nada lê o que for guardado aqui.
+          <CamposLivres instituicao={financeira.nome} campos={camposLivres} />
+        ) : (
+          <FormularioDaFinanceira slug={financeira.slug} nome={financeira.nome} campos={campos} />
+        )}
+
         {conexao ? (
           <ConectarMercadoPago
             estado={conexao}
@@ -129,14 +151,6 @@ export default async function FichaDaFinanceira({
             erroDaVolta={typeof volta.erro === "string" && volta.erro ? volta.erro.slice(0, 300) : null}
           />
         ) : null}
-
-        {campos.length === 0 ? (
-          // Sem integração, o catálogo não inventa campo — quem nomeia é o
-          // dono, e a tela diz que nada lê o que for guardado aqui.
-          <CamposLivres instituicao={financeira.nome} campos={camposLivres} />
-        ) : (
-          <FormularioDaFinanceira slug={financeira.slug} nome={financeira.nome} campos={campos} />
-        )}
       </div>
     </AppShell>
   );

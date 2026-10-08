@@ -10992,6 +10992,135 @@ main [data-slot="select-trigger"]:focus-visible {
   padding: 16px;
 }
 
+/*
+ * Ficha de financeira organizada (08/10/2026): campos agrupados por finalidade,
+ * estado ao lado do nome e a conexão por OAuth em passos numerados.
+ */
+.credenciais-bloco {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.credenciais-bloco + .credenciais-bloco {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.credenciais-bloco legend {
+  padding: 0;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.credencial-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.credencial-selo {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.credencial-selo-ok {
+  color: var(--success, #15803d);
+}
+
+.credencial-estado {
+  overflow-wrap: anywhere;
+}
+
+.conexao {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.conexao > * {
+  min-width: 0;
+}
+
+.conexao-resumo {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.conexao-passos {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conexao-passos li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.conexao-passos li > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conexao-passos strong {
+  font-size: 0.8125rem;
+}
+
+.conexao-passos small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.conexao-numero {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.conexao-numero-ok {
+  border-color: transparent;
+  background: var(--success, #15803d);
+  color: #fff;
+}
+
+.conexao-endereco {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.conexao-endereco code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
 .credenciais-acoes {
   display: grid;
   gap: 8px;

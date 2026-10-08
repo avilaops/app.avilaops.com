@@ -10,10 +10,16 @@ export type CampoNaTela = {
   ajuda: string;
   obrigatorio: boolean;
   ondeAchar?: string;
+  grupo?: string;
   preenchida: boolean;
   mascara: string | null;
   atualizadoEm: string | null;
 };
+
+/** O `id` do campo de uma chave, para outra parte da tela levar o cursor até ele. */
+export function idDoCampo(chave: string) {
+  return `credencial-${chave}`;
+}
 
 /**
  * Os campos de uma financeira.
@@ -69,35 +75,54 @@ export default function FormularioDaFinanceira({
     }
   }
 
+  // Campos vizinhos do mesmo grupo ficam sob um título só. Financeira sem
+  // grupo no catálogo continua como sempre: uma fila única, sem título.
+  const blocos: Array<{ titulo: string | null; campos: CampoNaTela[] }> = [];
+  for (const campo of campos) {
+    const titulo = campo.grupo ?? null;
+    const ultimo = blocos[blocos.length - 1];
+    if (ultimo && ultimo.titulo === titulo) ultimo.campos.push(campo);
+    else blocos.push({ titulo, campos: [campo] });
+  }
+
   return (
     <Grupo titulo="Chaves">
       <div className="credenciais-form">
-        {campos.map((campo) => (
-          <label className="credencial-campo" key={campo.chave}>
-            <span>
-              {campo.rotulo}
-              {campo.obrigatorio ? <em className="credencial-obrigatoria"> · obrigatória</em> : null}
-            </span>
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder={campo.preenchida ? "Guardada — digite para substituir" : "Ainda não guardada"}
-              value={valores[campo.chave] ?? ""}
-              disabled={salvando}
-              onChange={(evento) =>
-                setValores((atual) => ({ ...atual, [campo.chave]: evento.target.value }))
-              }
-            />
-            <small>
-              {campo.ajuda}
-              {campo.ondeAchar ? ` Onde achar: ${campo.ondeAchar}.` : ""}
-            </small>
-            <small className="credencial-estado">
-              <code>{campo.chave}</code>
-              {campo.preenchida && campo.mascara ? ` · guardada: ${campo.mascara}` : " · vazia"}
-            </small>
-          </label>
+        {blocos.map((bloco) => (
+          <fieldset className="credenciais-bloco" key={bloco.titulo ?? "sem-grupo"}>
+            {bloco.titulo ? <legend>{bloco.titulo}</legend> : null}
+            {bloco.campos.map((campo) => (
+              <label className="credencial-campo" key={campo.chave}>
+                <span className="credencial-cabecalho">
+                  <span>
+                    {campo.rotulo}
+                    {campo.obrigatorio ? <em className="credencial-obrigatoria"> · obrigatória</em> : null}
+                  </span>
+                  {/* O estado ao lado do nome: dá para saber o que falta sem ler campo por campo. */}
+                  <em className={campo.preenchida ? "credencial-selo credencial-selo-ok" : "credencial-selo"}>
+                    {campo.preenchida ? `Guardada${campo.mascara ? ` · ${campo.mascara}` : ""}` : "Vazia"}
+                  </em>
+                </span>
+                <input
+                  id={idDoCampo(campo.chave)}
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={campo.preenchida ? "Digite para substituir" : "Cole o valor aqui"}
+                  value={valores[campo.chave] ?? ""}
+                  disabled={salvando}
+                  onChange={(evento) =>
+                    setValores((atual) => ({ ...atual, [campo.chave]: evento.target.value }))
+                  }
+                />
+                <small>{campo.ajuda}</small>
+                <small className="credencial-estado">
+                  {campo.ondeAchar ? `Onde achar: ${campo.ondeAchar} · ` : ""}
+                  <code>{campo.chave}</code>
+                </small>
+              </label>
+            ))}
+          </fieldset>
         ))}
 
         <div className="credenciais-acoes">

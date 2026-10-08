@@ -38,9 +38,9 @@ describe("catálogo do financeiro", () => {
     expect(mp?.campos.map((c) => c.chave)).toEqual([
       "MP_ACCESS_TOKEN",
       "MP_WEBHOOK_SECRET",
+      "MP_WEBHOOK_TOKEN",
       "MP_CLIENT_ID",
       "MP_CLIENT_SECRET",
-      "MP_WEBHOOK_TOKEN",
       "MP_PUBLIC_KEY",
     ]);
   });

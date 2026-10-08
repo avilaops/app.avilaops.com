@@ -22,6 +22,12 @@ export type CampoCredencial = {
   obrigatorio: boolean;
   /** Onde o valor é gerado, para quem está com o painel do provedor aberto. */
   ondeAchar?: string;
+  /**
+   * Para que a chave serve, em duas ou três palavras. A ficha junta os campos
+   * vizinhos do mesmo grupo sob um título — seis campos em fila não dizem qual
+   * deles faz a cobrança sair e qual só serve ao diagnóstico.
+   */
+  grupo?: string;
 };
 
 export type Financeira = {
@@ -46,9 +52,10 @@ export const FINANCEIRAS: Financeira[] = [
       {
         chave: "MP_ACCESS_TOKEN",
         rotulo: "Access Token de produção",
-        ajuda: "Começa com APP_USR-. É com ele que toda cobrança é emitida.",
+        ajuda: "Começa com APP_USR-. É com ele que toda cobrança é emitida. Conectando a conta, ele é preenchido sozinho.",
         obrigatorio: true,
         ondeAchar: "Painel de desenvolvedor → sua aplicação → Credenciais de produção",
+        grupo: "Para cobrar",
       },
       {
         chave: "MP_WEBHOOK_SECRET",
@@ -57,6 +64,15 @@ export const FINANCEIRAS: Financeira[] = [
           "Sem ela o webhook não processa nada: responde 503 e o Mercado Pago reenvia, então a baixa das faturas para e volta sozinha quando a chave entrar.",
         obrigatorio: true,
         ondeAchar: "Painel de desenvolvedor → sua aplicação → Webhooks → Assinatura secreta",
+        grupo: "Para dar baixa sozinho",
+      },
+      {
+        chave: "MP_WEBHOOK_TOKEN",
+        rotulo: "Token na URL de notificação",
+        ajuda:
+          "Opcional, e é a primeira barreira do webhook, antes da assinatura. Quando preenchido, entra sozinho na notification_url de cada cobrança.",
+        obrigatorio: false,
+        grupo: "Para dar baixa sozinho",
       },
       {
         chave: "MP_CLIENT_ID",
@@ -65,6 +81,7 @@ export const FINANCEIRAS: Financeira[] = [
           "Identifica a aplicação. Serve ao diagnóstico da URL global de notificação e, junto com o Client Secret, ao botão de conectar a conta.",
         obrigatorio: false,
         ondeAchar: "Painel de desenvolvedor → sua aplicação → Dados da aplicação",
+        grupo: "Para conectar a conta",
       },
       {
         chave: "MP_CLIENT_SECRET",
@@ -73,13 +90,7 @@ export const FINANCEIRAS: Financeira[] = [
           "Só é usado para conectar a conta por OAuth e renovar o token sozinho. Quem cola o Access Token à mão pode deixar vazio.",
         obrigatorio: false,
         ondeAchar: "Painel de desenvolvedor → sua aplicação → Credenciais de produção",
-      },
-      {
-        chave: "MP_WEBHOOK_TOKEN",
-        rotulo: "Token na URL de notificação",
-        ajuda:
-          "Opcional, e é a primeira barreira do webhook, antes da assinatura. Quando preenchido, entra sozinho na notification_url de cada cobrança.",
-        obrigatorio: false,
+        grupo: "Para conectar a conta",
       },
       {
         chave: "MP_PUBLIC_KEY",
@@ -87,6 +98,7 @@ export const FINANCEIRAS: Financeira[] = [
         ajuda: "Só será usada quando o formulário de cartão existir. Pode ficar vazia.",
         obrigatorio: false,
         ondeAchar: "Painel de desenvolvedor → sua aplicação → Credenciais de produção",
+        grupo: "Ainda sem uso",
       },
     ],
   },
