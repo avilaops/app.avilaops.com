@@ -98,7 +98,9 @@ async function handlePixNotification(body: Record<string, unknown>) {
  */
 async function reconcilePendingCobrancas() {
   const pending = await prisma.deliverableCharge.findMany({
-    where: { method: { in: ["BOLETO", "CARD"] }, status: "PENDING", externalId: { not: null } },
+    // Só o que nasceu no Efí: id de cobrança do Mercado Pago mandado à API do
+    // Efí falha e loga erro a cada notificação — e um dia um id colide.
+    where: { provider: "EFI", method: { in: ["BOLETO", "CARD"] }, status: "PENDING", externalId: { not: null } },
   });
 
   for (const charge of pending) {
@@ -120,6 +122,7 @@ async function reconcilePendingCobrancas() {
   // As mesmas duas formas de pagamento, agora nas mensalidades.
   const mensalidades = await prisma.subscriptionCharge.findMany({
     where: {
+      provider: "EFI",
       method: { in: ["BOLETO", "CARD"] },
       status: { notIn: ["PAID", "CANCELLED"] },
       externalId: { not: null },

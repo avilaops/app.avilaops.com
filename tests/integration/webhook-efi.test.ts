@@ -195,7 +195,7 @@ describe("notificação de Cobranças (boleto e cartão)", () => {
   it("reconsulta as pendentes e baixa as que o Efí diz pagas", async () => {
     await prisma.subscriptionCharge.updateMany({
       where: { invoiceId },
-      data: { method: "BOLETO", status: "PENDING" },
+      data: { method: "BOLETO", status: "PENDING", provider: "EFI" },
     });
 
     getCobrancaChargeStatus.mockResolvedValue("paid");
@@ -206,10 +206,27 @@ describe("notificação de Cobranças (boleto e cartão)", () => {
     expect((await situacaoDaFatura()).status).toBe("PAID");
   });
 
+  it("boleto do Mercado Pago em aberto não é perguntado ao Efí", async () => {
+    // O id é de outro gateway: mandado ao Efí, falha a cada notificação — e
+    // no dia em que colidir com um id de lá, baixa a fatura errada.
+    await prisma.subscriptionCharge.updateMany({
+      where: { invoiceId },
+      data: { method: "BOLETO", status: "PENDING", provider: "MERCADO_PAGO" },
+    });
+    getCobrancaChargeStatus.mockClear();
+    getCobrancaChargeStatus.mockResolvedValue("paid");
+
+    const resposta = await POST(notificacao({ evento: "cobranca" }));
+
+    expect(resposta.status).toBe(200);
+    expect(getCobrancaChargeStatus).not.toHaveBeenCalled();
+    expect((await situacaoDaFatura()).status).toBe("OPEN");
+  });
+
   it("não mexe no que o Efí ainda considera aberto", async () => {
     await prisma.subscriptionCharge.updateMany({
       where: { invoiceId },
-      data: { method: "BOLETO", status: "PENDING" },
+      data: { method: "BOLETO", status: "PENDING", provider: "EFI" },
     });
 
     getCobrancaChargeStatus.mockResolvedValue("waiting");

@@ -313,6 +313,17 @@ produção. O código está pronto para o dia em que houver.
 
 ### Fase 2 — a mensalidade se cobra sozinha
 
+> **Estado em 08/10/2026.** Feito: a rotina que gera a fatura do mês e passa a
+> vencida para `OVERDUE` (`src/lib/faturamento-recorrente.ts`,
+> `/api/billing/faturamento/run`: `GET` simula, `POST` executa, sempre na
+> competência corrente, com `x-service-key` ou sessão da equipe), e o P1-6b
+> (o webhook do Efí só reconsulta cobrança `provider: "EFI"`). **Falta:**
+> agendar a rodada diária no n8n; a primeira cobrança PIX automática e a régua
+> de avisos (a rotina não fala com o gateway nem com o cliente, de propósito);
+> o default `EFI` de `DeliverableCharge.provider` no schema. Em produção, nesta
+> data, não há nenhuma cobrança gravada (nem Efí nem Mercado Pago), há 3
+> assinaturas ativas e a competência mais recente faturada é 2026-09.
+
 - Rotina mensal de faturamento: para cada `Subscription` ativa, `garantirFatura`
   da competência e a primeira cobrança PIX. Idempotente pelo índice único que já
   existe, então reexecutar é seguro — e é isso que torna aceitável agendar no
