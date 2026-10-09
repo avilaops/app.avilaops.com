@@ -32,12 +32,25 @@ BUILD_HOST="${BUILD_HOST:-local}"
 BUILD_DIR="build/app-${SHA}"
 APP_DIR="/opt/app-avilaops"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+BUILD_DIR_CRIADO=0
 
 # Roda no host do build: aqui mesmo, ou por SSH quando BUILD_HOST aponta outro.
 no_build() {
   if [ "$BUILD_HOST" = local ]; then bash -c "$1"; else ssh "$BUILD_HOST" "$1"; fi
 }
+
+# Em qualquer saída (fim, falha do build, 75 da trava do build-pesado, sinal)
+# o diretório do build sai do host do build: são o código e o app.tgz de um
+# commit, e ficavam para trás a cada deploy que parava no meio. Só apaga o que
+# este script criou, e a falha da limpeza não muda o status de saída.
+limpar() {
+  rm -rf "$TMP"
+  if [ "$BUILD_DIR_CRIADO" = 1 ]; then
+    no_build "rm -rf ~/${BUILD_DIR}" \
+      || echo "Aviso: não consegui apagar ~/${BUILD_DIR} do host do build (${BUILD_HOST}); apague à mão." >&2
+  fi
+}
+trap limpar EXIT
 
 echo "==> ${REF} (${SHA})"
 
@@ -71,6 +84,7 @@ fi
 
 echo "==> Enviando o código para o build (${BUILD_HOST})"
 git archive --format=tar.gz -o "$TMP/app.tgz" "$REF"
+BUILD_DIR_CRIADO=1
 no_build "rm -rf ~/${BUILD_DIR} && mkdir -p ~/${BUILD_DIR}"
 if [ "$BUILD_HOST" = local ]; then
   cp "$TMP/app.tgz" ~/"${BUILD_DIR}/app.tgz"
@@ -120,6 +134,5 @@ ssh applications "cd ${APP_DIR} \
 echo "==> Conferindo"
 ssh applications "for i in \$(seq 1 40); do c=\$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3004/login); [ \"\$c\" = 307 ] || [ \"\$c\" = 200 ] && break; sleep 2; done; echo \"login: \$c\"; \
   echo \"GIT_SHA no container: \$(docker exec app-avilaops-app-1 printenv GIT_SHA)\""
-no_build "rm -rf ~/${BUILD_DIR}"
 
 echo "==> Publicado ${SHA}. Para voltar: copie o compose de ${APP_DIR}/deploy-backups/ e rode docker compose up -d."
