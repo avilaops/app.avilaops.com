@@ -2,17 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   alertasDaLoja,
   enderecoDaLoja,
-  filtrarProdutos,
   juntarLojasComClientes,
-  lerSituacao,
-  paginar,
-  resumirCatalogo,
   resumirLojas,
   rotuloDoPlano,
   sugerirCliente,
   type LojaNoPainel,
 } from "@/lib/lojas-painel";
-import type { LojaDaPlataforma, ProdutoDaLoja } from "@/lib/lojas-plataforma";
+import type { LojaDaPlataforma } from "@/lib/lojas-plataforma";
 
 const AGORA = new Date("2026-09-19T12:00:00.000Z");
 const ONTEM = "2026-09-18T12:00:00.000Z";
@@ -44,27 +40,6 @@ function noPainel(parcial: Partial<LojaDaPlataforma> = {}, cliente: LojaNoPainel
   return { ...loja(parcial), cliente };
 }
 
-function produto(parcial: Partial<ProdutoDaLoja> = {}): ProdutoDaLoja {
-  return {
-    id: "p1",
-    slug: "retentor-xpto",
-    nome: "Retentor XPTO",
-    marca: "Sabó",
-    sku: "SB-123",
-    precoCentavos: 2490,
-    precoDeCentavos: null,
-    imagens: ["https://lojas.avilaops.com/uploads/brilhax/retentor.jpg"],
-    imagemOrigem: "propria",
-    destaque: false,
-    ativo: true,
-    disponibilidade: "in_stock",
-    estoque: 5,
-    atualizadoEm: ONTEM,
-    criadoEm: MES_PASSADO,
-    categoria: { nome: "Retentores", slug: "retentores" },
-    ...parcial,
-  };
-}
 
 describe("juntar a plataforma com as fichas do Ávila OS", () => {
   it("a lista mestra é a da plataforma: loja sem ficha aparece, com cliente nulo", () => {
@@ -193,87 +168,6 @@ describe("endereço público", () => {
   });
 });
 
-describe("saúde do catálogo", () => {
-  it("só produto no ar conta como defeito — rascunho é trabalho em andamento", () => {
-    const resumo = resumirCatalogo([
-      produto({ id: "1" }),
-      produto({ id: "2", ativo: false, imagens: [], precoCentavos: 0 }),
-    ]);
-    expect(resumo).toMatchObject({ total: 2, ativos: 1, inativos: 1, semFoto: 0, semPreco: 0 });
-  });
-
-  it("acusa o que o comprador vê e o lojista não", () => {
-    const resumo = resumirCatalogo([
-      produto({ id: "1", imagens: [] }),
-      produto({ id: "2", precoCentavos: 0 }),
-      produto({ id: "3", disponibilidade: "in_stock", estoque: 0 }),
-      produto({ id: "4", imagemOrigem: "representativa" }),
-      produto({ id: "5", imagemOrigem: "ilustracao" }),
-    ]);
-    expect(resumo.semFoto).toBe(1);
-    expect(resumo.semPreco).toBe(1);
-    expect(resumo.prometendoEstoqueQueNaoTem).toBe(1);
-    expect(resumo.fotoNaoEDoItem).toBe(2);
-  });
-
-  it("produto sem controle de estoque não é acusado de prometer o que não tem", () => {
-    // `estoque: null` na plataforma significa "não controla", e não "zero".
-    const resumo = resumirCatalogo([produto({ estoque: null, disponibilidade: "in_stock" })]);
-    expect(resumo.prometendoEstoqueQueNaoTem).toBe(0);
-  });
-
-  it("fora de estoque declarado é honesto, não defeito", () => {
-    const resumo = resumirCatalogo([produto({ disponibilidade: "out_of_stock", estoque: 0 })]);
-    expect(resumo.prometendoEstoqueQueNaoTem).toBe(0);
-  });
-});
-
-describe("filtro do catálogo", () => {
-  const catalogo = [
-    produto({ id: "1", nome: "Retentor XPTO", sku: "SB-123", marca: "Sabó" }),
-    produto({ id: "2", nome: "Rolamento ABC", sku: "NSK-9", marca: "NSK", imagens: [] }),
-    produto({ id: "3", nome: "Junta do cabeçote", sku: null, marca: null, ativo: false }),
-  ];
-
-  it("busca por nome, SKU ou marca — o que a pessoa tem na mão", () => {
-    expect(filtrarProdutos(catalogo, { busca: "rolamento" }).map((p) => p.id)).toEqual(["2"]);
-    expect(filtrarProdutos(catalogo, { busca: "nsk-9" }).map((p) => p.id)).toEqual(["2"]);
-    expect(filtrarProdutos(catalogo, { busca: "sabó" }).map((p) => p.id)).toEqual(["1"]);
-  });
-
-  it("produto sem SKU nem marca não quebra a busca", () => {
-    expect(filtrarProdutos(catalogo, { busca: "junta" }).map((p) => p.id)).toEqual(["3"]);
-  });
-
-  it("filtro e busca se somam, não se substituem", () => {
-    expect(filtrarProdutos(catalogo, { busca: "o", situacao: "sem-foto" }).map((p) => p.id)).toEqual(["2"]);
-  });
-
-  it("situação desconhecida na URL cai em todos, sem lista vazia enganosa", () => {
-    expect(lerSituacao("chute")).toBe("todos");
-    expect(lerSituacao(undefined)).toBe("todos");
-    expect(lerSituacao("sem-foto")).toBe("sem-foto");
-  });
-});
-
-describe("paginação", () => {
-  const itens = Array.from({ length: 120 }, (_, i) => i);
-
-  it("página fora do intervalo volta para a mais próxima em vez de mostrar vazio", () => {
-    expect(paginar(itens, 999, 50).pagina).toBe(3);
-    expect(paginar(itens, 0, 50).pagina).toBe(1);
-    expect(paginar(itens, Number.NaN, 50).pagina).toBe(1);
-  });
-
-  it("a última página traz o resto", () => {
-    expect(paginar(itens, 3, 50).itens).toHaveLength(20);
-  });
-
-  it("lista vazia tem uma página, não zero", () => {
-    expect(paginar([], 1, 50)).toMatchObject({ pagina: 1, paginas: 1, total: 0 });
-  });
-});
-
 describe("quem provavelmente é o dono da loja", () => {
   const carteira = [
     { id: "o1", nome: "Brilhax Automotiva LTDA", slug: "brilhax-automotiva" },
@@ -313,5 +207,26 @@ describe("quem provavelmente é o dono da loja", () => {
 
   it("carteira vazia não quebra nem inventa", () => {
     expect(sugerirCliente({ slug: "brilhax", nome: "Brilhax" }, [])).toBeNull();
+  });
+});
+
+describe("lojas organizadas por cliente", () => {
+  it("junta as lojas do mesmo cliente e deixa as sem vínculo num grupo próprio, no fim", async () => {
+    const { agruparPorCliente } = await import("@/lib/lojas-painel");
+    const vinculada = (slug: string, nome: string, cliente: { id: string; nome: string } | null): LojaNoPainel => ({
+      ...loja({ slug, nome }),
+      cliente,
+    });
+    const blocos = agruparPorCliente([
+      vinculada("zeta", "Zeta", null),
+      vinculada("b-loja", "B Loja", { id: "c1", nome: "Cliente Um" }),
+      vinculada("alfa", "Alfa", { id: "c2", nome: "Água Viva" }),
+      vinculada("a-loja", "A Loja", { id: "c1", nome: "Cliente Um" }),
+    ]);
+    expect(blocos.map((b) => [b.titulo, b.lojas.map((l) => l.nome)])).toEqual([
+      ["Água Viva", ["Alfa"]],
+      ["Cliente Um", ["A Loja", "B Loja"]],
+      ["Sem cliente vinculado", ["Zeta"]],
+    ]);
   });
 });

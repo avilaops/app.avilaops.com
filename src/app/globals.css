@@ -11555,3 +11555,804 @@ a[data-slot="button"][data-variant="default"] { @apply text-primary-foreground; 
   gap: 8px;
   flex-shrink: 0;
 }
+
+/* =========================================================================
+   Lojas › catálogo da loja (09/10/2026)
+   -------------------------------------------------------------------------
+   Uma família só: tudo herda `--fonte`. Monoespaçada fica restrita a SKU e
+   GTIN (identificador que se confere caractere a caractere). Número usa a
+   mesma família com algarismos tabulares, para alinhar sem trocar de fonte.
+   Os tamanhos são os da régua do sistema: 0.9375rem no conteúdo, 0.8125rem
+   no secundário, 0.75rem no rótulo — nada abaixo de 12px.
+   ========================================================================= */
+.catalogo-migalhas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 var(--e2);
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.catalogo-migalhas a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.catalogo-migalhas [aria-current="page"] {
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.catalogo-loja,
+.catalogo-indicadores {
+  display: grid;
+  gap: var(--e3);
+  min-width: 0;
+  margin-bottom: var(--e4);
+  padding: var(--e4);
+  border-radius: var(--raio-m, 14px);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.catalogo-loja dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--e3) var(--e5);
+  margin: 0;
+}
+
+.catalogo-loja dl > div {
+  min-width: 0;
+}
+
+.catalogo-loja dt,
+.produto-dados dt {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.catalogo-loja dd,
+.produto-dados dd {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.catalogo-loja dd small,
+.produto-dados dd small {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.catalogo-numero {
+  font-variant-numeric: tabular-nums;
+}
+
+.catalogo-sku {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+.catalogo-assinatura summary,
+.catalogo-regras summary {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--texto-secundario);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.catalogo-assinatura > div,
+.catalogo-regras ul {
+  display: grid;
+  gap: var(--e2);
+  margin: var(--e2) 0 0;
+  padding: 0;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.catalogo-regras ul {
+  padding-left: 1.1em;
+}
+
+.catalogo-assinatura p {
+  margin: 0;
+}
+
+.catalogo-indicadores header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--e3);
+}
+
+.catalogo-indicadores h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.catalogo-indicadores header p {
+  margin: 0;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.catalogo-atalhos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: var(--e2);
+}
+
+.catalogo-atalho {
+  display: grid;
+  gap: 2px;
+  min-height: 56px;
+  padding: var(--e2) var(--e3);
+  border: 1px solid transparent;
+  border-radius: var(--raio-p);
+  background: var(--superficie-suave);
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.catalogo-atalho strong {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.catalogo-atalho span {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.catalogo-atalho[data-tom="ruim"] strong {
+  color: var(--red);
+}
+
+.catalogo-atalho[data-tom="atencao"] strong {
+  color: var(--amber);
+}
+
+.catalogo-atalho[aria-pressed="true"] {
+  border-color: var(--marca-azul);
+  background: var(--marca-azul-suave);
+}
+
+.catalogo-atalho[aria-pressed="true"] span {
+  color: var(--texto);
+}
+
+.catalogo-atalho:focus-visible,
+.catalogo-tabela a:focus-visible,
+.catalogo-lista summary:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 2px;
+}
+
+/* ---------- busca, filtros, ordenar, agrupar ---------- */
+.catalogo-controles {
+  display: grid;
+  gap: var(--e2);
+  min-width: 0;
+  margin-bottom: var(--e3);
+}
+
+.catalogo-filtros {
+  display: grid;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+.catalogo-filtros-desktop {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+  gap: var(--e2);
+  min-width: 0;
+}
+
+.catalogo-campo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.catalogo-campo > span,
+.catalogo-campo > legend {
+  padding: 0;
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.catalogo-campo select,
+.catalogo-campo input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 var(--e3);
+  border: 0;
+  border-radius: var(--raio-p);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.875rem;
+  box-shadow: var(--sombra-1);
+}
+
+.catalogo-campo select:focus-visible,
+.catalogo-campo input:focus-visible {
+  outline: 2px solid var(--marca-azul);
+  outline-offset: 1px;
+}
+
+.catalogo-faixa {
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--e2);
+}
+
+.catalogo-faixa legend {
+  grid-column: 1 / -1;
+}
+
+.catalogo-pendencias {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+}
+
+.catalogo-pendencias legend {
+  width: 100%;
+}
+
+.catalogo-pendencias label,
+.catalogo-preferencias label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 0.875rem;
+}
+
+.catalogo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--e2) var(--e3);
+}
+
+.catalogo-compacto {
+  flex: 0 1 220px;
+}
+
+.catalogo-abrir-filtros {
+  display: none;
+}
+
+.catalogo-filtros-folha {
+  display: grid;
+  gap: var(--e3);
+}
+
+/* ---------- resultado ---------- */
+.catalogo-resultado {
+  min-width: 0;
+  transition: opacity 120ms ease;
+}
+
+.catalogo-resultado[data-pendente="sim"] > :not(.catalogo-carregando) {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.catalogo-carregando {
+  min-height: 0;
+  margin: 0;
+  color: var(--marca-azul);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.catalogo-carregando:empty {
+  display: none;
+}
+
+.catalogo-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2);
+  margin-bottom: var(--e2);
+}
+
+.catalogo-barra p {
+  margin: 0;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+}
+
+.catalogo-preferencias {
+  position: relative;
+}
+
+.catalogo-preferencias summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.catalogo-preferencias summary::-webkit-details-marker {
+  display: none;
+}
+
+.catalogo-preferencias-painel {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--e3);
+  min-width: 200px;
+  margin-top: 6px;
+  padding: var(--e3);
+  border-radius: var(--raio-p);
+  background: var(--superficie);
+  box-shadow: var(--sombra-2);
+}
+
+.catalogo-preferencias fieldset {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.catalogo-preferencias legend {
+  padding: 0;
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.catalogo-tabela {
+  min-width: 0;
+  border-radius: var(--raio-m, 14px);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.catalogo-tabela table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Larguras fixas: quem cede espaço é o nome, nunca o preço nem as ações. */
+  table-layout: fixed;
+  font-size: 0.875rem;
+}
+
+.catalogo-tabela thead th {
+  padding: 10px 12px;
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.catalogo-tabela tbody td,
+.catalogo-tabela tbody th {
+  padding: 10px 12px;
+  border-top: 1px solid var(--line-soft, var(--line));
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.catalogo-tabela[data-densidade="compacta"] tbody td,
+.catalogo-tabela[data-densidade="compacta"] tbody th {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.catalogo-tabela .col-foto { width: 68px; }
+.catalogo-tabela .col-sku { width: 150px; }
+.catalogo-tabela .col-categoria { width: 140px; }
+.catalogo-tabela .col-situacao { width: 104px; }
+.catalogo-tabela .col-preco { width: 116px; text-align: right; }
+.catalogo-tabela .col-estoque { width: 110px; text-align: right; }
+.catalogo-tabela .col-acoes { width: 76px; text-align: right; }
+
+.catalogo-tabela td.col-preco,
+.catalogo-tabela td.col-estoque {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.catalogo-tabela td.col-sku {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+}
+
+/* Uma regra global de `th` fixa 12px, e o nome do produto é um `th` de linha:
+   sem isto ele saía menor que o resto da própria linha. */
+.catalogo-tabela tbody th {
+  font-size: 0.875rem;
+}
+
+.catalogo-tabela th.col-produto a {
+  color: var(--texto);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.catalogo-tabela th.col-produto a:hover {
+  text-decoration: underline;
+}
+
+.catalogo-tabela th.col-produto small,
+.catalogo-item-texto small {
+  display: block;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.catalogo-tabela [data-grave="sim"] { color: var(--red); }
+.catalogo-tabela [data-grave="nao"] { color: var(--amber); }
+
+.catalogo-tabela tr[data-voltou="sim"] > *,
+.catalogo-lista li[data-voltou="sim"] {
+  background: var(--marca-azul-suave);
+}
+
+.catalogo-tabela[data-ocultas~="foto"] .col-foto,
+.catalogo-tabela[data-ocultas~="sku"] .col-sku,
+.catalogo-tabela[data-ocultas~="categoria"] .col-categoria,
+.catalogo-tabela[data-ocultas~="estoque"] .col-estoque,
+.catalogo-tabela[data-sem-estoque="sim"] .col-estoque {
+  display: none;
+}
+
+.catalogo-grupo th,
+.catalogo-lista h3 {
+  padding: 8px 12px;
+  background: var(--superficie-suave);
+  color: var(--texto);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.catalogo-grupo th span,
+.catalogo-lista h3 span {
+  margin-left: 6px;
+  color: var(--texto-secundario);
+  font-weight: 400;
+}
+
+.catalogo-miniatura {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--superficie-suave);
+  object-fit: contain;
+}
+
+.catalogo-tabela[data-densidade="compacta"] .catalogo-miniatura {
+  width: 32px;
+  height: 32px;
+}
+
+.catalogo-sem-foto {
+  color: var(--texto-secundario);
+  font-size: 0.625rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* ---------- lista do celular ---------- */
+.catalogo-lista {
+  display: none;
+  min-width: 0;
+  border-radius: var(--raio-m, 14px);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.catalogo-lista ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalogo-lista h3 {
+  margin: 0;
+}
+
+.catalogo-lista li + li {
+  border-top: 1px solid var(--line-soft, var(--line));
+}
+
+.catalogo-lista summary {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.catalogo-lista summary::-webkit-details-marker {
+  display: none;
+}
+
+.catalogo-item-texto {
+  min-width: 0;
+}
+
+.catalogo-item-texto strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 600;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.catalogo-item-valor {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.catalogo-lista details > dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e2);
+  margin: 0;
+  padding: 0 12px 8px 66px;
+  font-size: 0.8125rem;
+}
+
+.catalogo-lista dt {
+  color: var(--texto-secundario);
+  font-size: 0.75rem;
+}
+
+.catalogo-lista dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalogo-lista details > .secondary-button {
+  margin: 0 12px 12px 66px;
+}
+
+/* ---------- paginação ---------- */
+.catalogo-paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  margin-top: var(--e3);
+  font-size: 0.8125rem;
+}
+
+.catalogo-por-pagina,
+.catalogo-paginas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  color: var(--texto-secundario);
+}
+
+.catalogo-por-pagina .chip-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.catalogo-paginas [aria-disabled="true"] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.catalogo-paginas [aria-current="page"] {
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- ficha do produto ---------- */
+.produto-ficha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--e4);
+  min-width: 0;
+  margin-bottom: var(--e4);
+}
+
+.produto-ficha > section,
+.produto-historico {
+  min-width: 0;
+  padding: var(--e4);
+  border-radius: var(--raio-m, 14px);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.produto-fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.produto-fotos img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: var(--superficie-suave);
+  object-fit: contain;
+}
+
+.produto-sem-foto {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--superficie-suave);
+  font-size: 0.8125rem;
+}
+
+.produto-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--e3) var(--e5);
+  margin: 0;
+}
+
+.produto-nota {
+  margin: var(--e3) 0 0;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.produto-historico h2 {
+  margin: 0 0 var(--e3);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.produto-historico ol {
+  display: grid;
+  gap: var(--e3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.produto-historico ol > li + li {
+  padding-top: var(--e3);
+  border-top: 1px solid var(--line-soft, var(--line));
+}
+
+.produto-historico header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--e3);
+  font-size: 0.8125rem;
+}
+
+.produto-historico header span {
+  color: var(--texto-secundario);
+}
+
+.produto-historico ol ul {
+  margin: 4px 0 0;
+  padding-left: 1.1em;
+  color: var(--texto-secundario);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.produto-historico code {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 820px) {
+  .catalogo-tabela,
+  .catalogo-filtros-desktop,
+  .catalogo-preferencias {
+    display: none;
+  }
+
+  .catalogo-lista {
+    display: block;
+  }
+
+  .catalogo-abrir-filtros {
+    display: inline-flex;
+    min-height: 44px;
+  }
+
+  .catalogo-acoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .catalogo-acoes .catalogo-abrir-filtros,
+  .catalogo-acoes .text-button {
+    grid-column: 1 / -1;
+  }
+
+  .catalogo-compacto {
+    flex: none;
+  }
+
+  .catalogo-campo select,
+  .catalogo-campo input[type="text"] {
+    min-height: 44px;
+    font-size: 1rem; /* 16px: abaixo disso o iPhone dá zoom ao focar */
+  }
+
+  .catalogo-atalhos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .catalogo-paginacao {
+    justify-content: center;
+  }
+
+  .catalogo-paginas .secondary-button,
+  .catalogo-por-pagina .chip-toggle {
+    min-height: 44px;
+  }
+
+  .produto-ficha {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalogo-resultado {
+    transition: none;
+  }
+}

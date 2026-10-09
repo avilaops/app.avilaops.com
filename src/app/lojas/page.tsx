@@ -11,6 +11,7 @@ import BadgeStatus from "@/components/sistema/Status";
 import { getAdmin } from "@/lib/auth";
 import { contar, formatDateTime, formatShortDate, nomeProprio } from "@/lib/format";
 import {
+  agruparPorCliente,
   agruparPorFaixa,
   alertasDaLoja,
   duracaoLegivel,
@@ -48,7 +49,7 @@ function tomDaLoja(loja: LojaNoPainel, agora: Date): "vermelho" | "amarelo" | "a
   return alertas.length > 0 ? "amarelo" : "azul";
 }
 
-export default async function LojasPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function LojasPage({ searchParams }: { searchParams: Promise<{ q?: string; por?: string }> }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
 
@@ -57,14 +58,29 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
   const resumo = resumirLojas(painel.lojas, agora);
   const rotinas = resumirRotinas(painel.rotinas);
 
-  const busca = ((await searchParams).q ?? "").trim();
+  const consulta = await searchParams;
+  const busca = (consulta.q ?? "").trim();
+  // Duas organizações da mesma lista: pelo que a loja pede (o padrão) ou por
+  // cliente, pelo vínculo real que a ficha do cliente guarda.
+  const porCliente = consulta.por === "cliente";
   const visiveis = filtrarLojas(painel.lojas, busca);
-  const blocos = agruparPorFaixa(visiveis, agora);
+  const blocos: { chave: string; titulo: string; lojas: LojaNoPainel[] }[] = porCliente
+    ? agruparPorCliente(visiveis)
+    : agruparPorFaixa(visiveis, agora);
 
-  const ordenadas = [...visiveis].sort((a, b) => {
-    const peso = (l: LojaNoPainel) => (faixaDaLoja(l, agora) === "atencao" ? 0 : 1);
-    return peso(a) - peso(b) || a.nome.localeCompare(b.nome, "pt-BR");
-  });
+  const ordenadas = porCliente
+    ? blocos.flatMap((bloco) => bloco.lojas)
+    : [...visiveis].sort((a, b) => {
+        const peso = (l: LojaNoPainel) => (faixaDaLoja(l, agora) === "atencao" ? 0 : 1);
+        return peso(a) - peso(b) || a.nome.localeCompare(b.nome, "pt-BR");
+      });
+  const enderecoDaLista = (por: "situacao" | "cliente") => {
+    const query = new URLSearchParams();
+    if (busca) query.set("q", busca);
+    if (por === "cliente") query.set("por", "cliente");
+    const sufixo = query.toString();
+    return sufixo ? `/lojas?${sufixo}` : "/lojas";
+  };
 
   const evidencia = (rotulo: string, formula: string, bruto: unknown) =>
     evidenciaDaPlataforma(rotulo, {
@@ -178,6 +194,7 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
                 <span className="sr-only">Buscar loja</span>
                 <input type="search" name="q" defaultValue={busca} placeholder="Buscar por loja, domínio ou cliente" />
               </label>
+              {porCliente ? <input type="hidden" name="por" value="cliente" /> : null}
               <button type="submit" className="secondary-button">
                 Buscar
               </button>
@@ -187,6 +204,17 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
                 </Link>
               ) : null}
             </form>
+          ) : null}
+
+          {painel.lojas.length > 1 ? (
+            <nav className="chip-group" aria-label="Organizar as lojas">
+              <Link className="chip-toggle" href={enderecoDaLista("situacao")} aria-pressed={!porCliente}>
+                Por situação
+              </Link>
+              <Link className="chip-toggle" href={enderecoDaLista("cliente")} aria-pressed={porCliente}>
+                Por cliente
+              </Link>
+            </nav>
           ) : null}
 
           {painel.rotinas && !rotinas.agendadorLigado && (
@@ -245,7 +273,9 @@ export default async function LojasPage({ searchParams }: { searchParams: Promis
                       <BotaoEvidencia
                         evidencia={evidencia(
                           bloco.titulo,
-                          `lojas em que faixaDaLoja() devolveu "${bloco.chave}"`,
+                          porCliente
+                            ? "lojas com este cliente no vínculo lojas_avilaops da ficha"
+                            : `lojas em que faixaDaLoja() devolveu "${bloco.chave}"`,
                           bloco.lojas.map((l) => ({ slug: l.slug, status: l.status, alertas: alertasDaLoja(l, agora) })),
                         )}
                         rotulo={`Evidência de ${bloco.titulo}`}

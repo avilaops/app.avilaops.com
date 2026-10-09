@@ -12,6 +12,8 @@
  * pela porta dos fundos deixaria os dois lados discordando até a varredura do
  * dia seguinte.
  */
+import type { ProdutoResumido } from "@/lib/lojas-catalogo";
+
 const BASE = (process.env.LOJAS_API_URL ?? "https://lojas.avilaops.com").replace(/\/+$/, "");
 
 export class PlataformaIndisponivel extends Error {}
@@ -118,6 +120,8 @@ export interface FichaDaLoja extends Omit<LojaDaPlataforma, "_count"> {
  * ou um desenho (`ilustracao`). Quem acompanha o catálogo de fora precisa ver
  * isso — foto plausível de produto errado gera compra errada e devolução.
  */
+export type { ProdutoResumido } from "@/lib/lojas-catalogo";
+
 export interface ProdutoDaLoja {
   id: string;
   slug: string;
@@ -139,6 +143,32 @@ export interface ProdutoDaLoja {
 
 export const lerLoja = (slug: string) =>
   chamar<FichaDaLoja>(`/api/admin/tenants/${encodeURIComponent(slug)}`);
+
+/**
+ * O catálogo enxuto: só o que uma linha de tabela mostra, sem descrição,
+ * atributos nem a lista inteira de imagens. É o que a tela da loja lê.
+ */
+export const listarCatalogoResumido = (slug: string) =>
+  chamar<ProdutoResumido[]>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos?resumo=1`);
+
+/** Uma alteração de produto registrada pela própria plataforma (`HistoricoCatalogo`). */
+export interface AlteracaoDeProduto {
+  versao: number;
+  /** Quem escreveu: `painel`, `importacao`, `api:…`, rotina. */
+  origem: string;
+  campos: string[];
+  antes: Record<string, unknown>;
+  depois: Record<string, unknown>;
+  criadoEm: string;
+}
+
+export interface FichaDoProduto {
+  produto: ProdutoDaLoja & { descricaoCurta: string | null; descricao: string | null; gtin: string | null; imagemFamilia: string | null };
+  historico: AlteracaoDeProduto[];
+}
+
+export const lerProduto = (slug: string, id: string) =>
+  chamar<FichaDoProduto>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos/${encodeURIComponent(id)}`);
 
 export const listarProdutosDaLoja = (slug: string) =>
   chamar<ProdutoDaLoja[]>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos`);

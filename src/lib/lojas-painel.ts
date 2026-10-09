@@ -1,5 +1,5 @@
 import type { Evidencia } from "@/lib/evidencia";
-import type { LojaDaPlataforma, ProdutoDaLoja, RotinaDaPlataforma, SaudeDasRotinas } from "@/lib/lojas-plataforma";
+import type { LojaDaPlataforma, RotinaDaPlataforma, SaudeDasRotinas } from "@/lib/lojas-plataforma";
 
 /**
  * O acompanhamento das lojas dos clientes, do lado de cá.
@@ -162,6 +162,28 @@ export function agruparPorFaixa(
   })).filter((bloco) => bloco.lojas.length > 0);
 }
 
+/**
+ * As lojas organizadas por cliente, pelo vínculo que o Ávila OS guarda.
+ *
+ * Quem tem mais de uma loja aparece com todas juntas. Loja sem vínculo vai
+ * para um grupo próprio, no fim — a tela não adivinha de quem ela é.
+ */
+export function agruparPorCliente(lojas: LojaNoPainel[]): { chave: string; titulo: string; lojas: LojaNoPainel[] }[] {
+  const grupos = new Map<string, { chave: string; titulo: string; lojas: LojaNoPainel[] }>();
+  for (const loja of lojas) {
+    const chave = loja.cliente ? `cliente-${loja.cliente.id}` : "sem-cliente";
+    const grupo = grupos.get(chave) ?? { chave, titulo: loja.cliente?.nome ?? "Sem cliente vinculado", lojas: [] };
+    grupo.lojas.push(loja);
+    grupos.set(chave, grupo);
+  }
+  return [...grupos.values()]
+    .map((g) => ({ ...g, lojas: g.lojas.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")) }))
+    .sort((a, b) => {
+      if ((a.chave === "sem-cliente") !== (b.chave === "sem-cliente")) return a.chave === "sem-cliente" ? 1 : -1;
+      return a.titulo.localeCompare(b.titulo, "pt-BR");
+    });
+}
+
 /** Busca por nome da loja, endereço ou nome do cliente — o que se tem na mão. */
 export function filtrarLojas(lojas: LojaNoPainel[], busca: string): LojaNoPainel[] {
   const q = busca.trim().toLowerCase();
@@ -285,108 +307,8 @@ export function sugerirCliente(
   return null;
 }
 
-/* ─────────────────────────── catálogo ─────────────────────────── */
-
-export type ResumoCatalogo = {
-  total: number;
-  ativos: number;
-  inativos: number;
-  semFoto: number;
-  semPreco: number;
-  prometendoEstoqueQueNaoTem: number;
-  fotoNaoEDoItem: number;
-};
-
-/**
- * O que olhar num catálogo de outra pessoa.
- *
- * Cada número aqui é um defeito que o comprador vê e o lojista não: produto no
- * ar sem foto, sem preço, ou dizendo "em estoque" com zero unidade. Só conta
- * produto **ativo** — rascunho com campo faltando é trabalho em andamento, não
- * problema, e contá-lo encheria a tela de alarme que ninguém precisa resolver.
- */
-export function resumirCatalogo(produtos: ProdutoDaLoja[]): ResumoCatalogo {
-  const ativos = produtos.filter((p) => p.ativo);
-  return {
-    total: produtos.length,
-    ativos: ativos.length,
-    inativos: produtos.length - ativos.length,
-    semFoto: ativos.filter((p) => p.imagens.length === 0).length,
-    semPreco: ativos.filter((p) => p.precoCentavos <= 0).length,
-    prometendoEstoqueQueNaoTem: ativos.filter(
-      (p) => p.disponibilidade === "in_stock" && p.estoque !== null && p.estoque <= 0,
-    ).length,
-    fotoNaoEDoItem: ativos.filter((p) => p.imagens.length > 0 && p.imagemOrigem !== "propria").length,
-  };
-}
-
-export type SituacaoProduto =
-  | "todos"
-  | "ativos"
-  | "inativos"
-  | "sem-foto"
-  | "sem-preco"
-  | "sem-estoque"
-  | "foto-de-outro";
-
-export const SITUACOES: { valor: SituacaoProduto; rotulo: string }[] = [
-  { valor: "todos", rotulo: "Todos" },
-  { valor: "ativos", rotulo: "No ar" },
-  { valor: "inativos", rotulo: "Fora do ar" },
-  { valor: "sem-foto", rotulo: "Sem foto" },
-  { valor: "sem-preco", rotulo: "Sem preço" },
-  { valor: "sem-estoque", rotulo: "Estoque zerado" },
-  { valor: "foto-de-outro", rotulo: "Foto de outro item" },
-];
-
-export function lerSituacao(valor: string | undefined): SituacaoProduto {
-  return SITUACOES.some((s) => s.valor === valor) ? (valor as SituacaoProduto) : "todos";
-}
-
-/** Busca por nome, SKU ou marca — o que a pessoa tem na mão quando procura. */
-export function filtrarProdutos(
-  produtos: ProdutoDaLoja[],
-  filtro: { busca?: string; situacao?: SituacaoProduto },
-): ProdutoDaLoja[] {
-  const busca = (filtro.busca ?? "").trim().toLowerCase();
-  const situacao = filtro.situacao ?? "todos";
-
-  return produtos.filter((p) => {
-    if (busca) {
-      const alvo = `${p.nome} ${p.sku ?? ""} ${p.marca ?? ""}`.toLowerCase();
-      if (!alvo.includes(busca)) return false;
-    }
-    switch (situacao) {
-      case "ativos":
-        return p.ativo;
-      case "inativos":
-        return !p.ativo;
-      case "sem-foto":
-        return p.ativo && p.imagens.length === 0;
-      case "sem-preco":
-        return p.ativo && p.precoCentavos <= 0;
-      case "sem-estoque":
-        return p.ativo && p.disponibilidade === "in_stock" && p.estoque !== null && p.estoque <= 0;
-      case "foto-de-outro":
-        return p.ativo && p.imagens.length > 0 && p.imagemOrigem !== "propria";
-      default:
-        return true;
-    }
-  });
-}
-
-export const PRODUTOS_POR_PAGINA = 50;
-
-/**
- * Uma página do catálogo. Loja de peças passa de mil itens; mandar tudo para o
- * navegador de uma vez é HTML de megabytes para ler trinta linhas.
- */
-export function paginar<T>(itens: T[], pagina: number, porPagina = PRODUTOS_POR_PAGINA) {
-  const paginas = Math.max(1, Math.ceil(itens.length / porPagina));
-  const atual = Math.min(Math.max(1, Math.trunc(pagina) || 1), paginas);
-  const inicio = (atual - 1) * porPagina;
-  return { itens: itens.slice(inicio, inicio + porPagina), pagina: atual, paginas, total: itens.length };
-}
+/* O catálogo (filtros, ordenação, agrupamento, paginação e indicadores) mora
+   em `lojas-catalogo.ts`, que trabalha sobre a lista enxuta da plataforma. */
 
 /* ─────────────────────────── evidência ─────────────────────────── */
 
