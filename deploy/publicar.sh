@@ -87,7 +87,28 @@ no_build "cd ~/${BUILD_DIR} && tar xzf app.tgz && ${PESADO}docker build -q \
   --build-arg GIT_SHA=${SHA} --build-arg BUILT_AT=\$(date -u +%FT%TZ) -t ${TAG} ."
 
 echo "==> Levando a imagem para o applications"
-no_build "docker save ${TAG} | gzip -1" | ssh applications "gunzip | docker load"
+# A cópia da imagem no host do build (~565 MB por deploy) só sai depois de o
+# `applications` provar que a tem. Se o load falhar ou a tag não aparecer lá,
+# ela fica onde está e o script para antes de trocar o container.
+if ! no_build "docker save ${TAG} | gzip -1" | ssh applications "gunzip | docker load" | tee "$TMP/load.log"; then
+  echo "Erro: o envio da ${TAG} (docker save | docker load) para o applications falhou. A imagem continua no host do build (${BUILD_HOST}); nada foi trocado em produção." >&2
+  exit 1
+fi
+if ! ssh applications "docker image inspect ${TAG} >/dev/null 2>&1"; then
+  echo "Erro: o docker load terminou, mas a tag ${TAG} não existe no applications. A imagem continua no host do build (${BUILD_HOST}); nada foi trocado em produção." >&2
+  exit 1
+fi
+
+echo "==> Apagando a imagem ${TAG} do host do build (${BUILD_HOST})"
+# Só esta tag, sem -f e sem prune. A tag pode já existir no applications de um
+# deploy anterior do mesmo commit; por isso só apaga se o load disse que
+# carregou esta. Falha aqui não derruba um deploy que deu certo: avisa e segue.
+if grep -Eq "^Loaded image: (docker\.io/library/)?${TAG}\$" "$TMP/load.log"; then
+  no_build "docker rmi ${TAG} >/dev/null" \
+    || echo "Aviso: não consegui apagar a ${TAG} do host do build; apague à mão com 'docker rmi ${TAG}'." >&2
+else
+  echo "Aviso: o docker load não confirmou 'Loaded image: ${TAG}'; mantive a imagem no host do build." >&2
+fi
 
 echo "==> Trocando o container (backup do compose em deploy-backups/)"
 ssh applications "cd ${APP_DIR} \
