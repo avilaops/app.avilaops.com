@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import CriarMensalidade from "@/components/CriarMensalidade";
+import ControleDeIsencao from "@/components/lojas/ControleDeIsencao";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import FiltrosDoCatalogo from "@/components/lojas/FiltrosDoCatalogo";
@@ -15,15 +16,10 @@ import {
   agruparPagina,
   consultaDoIndicador,
   enderecoDaConsulta,
-  facetas,
-  filtrarCatalogo,
   filtrosAtivos,
   indicadorSelecionado,
   lerConsulta,
-  ordenarCatalogo,
-  paginarCatalogo,
   pendenciaDoProduto,
-  resumirCatalogo,
   sobConsulta,
   type Consulta,
   type Pendencia,
@@ -40,7 +36,13 @@ type Params = {
 };
 
 const preco = (p: ProdutoResumido) => (sobConsulta(p) ? "Sob consulta" : formatCurrency(p.precoCentavos / 100));
-const estoque = (p: ProdutoResumido) => (p.estoque === null ? "Não controla" : p.estoque.toLocaleString("pt-BR"));
+/** Três estados que não se confundem: a loja não conta, ninguém cadastrou saldo, ou há número (que pode ser zero). */
+const estoque = (p: ProdutoResumido) =>
+  p.estoqueEstado === "nao-controla"
+    ? "Não controla"
+    : p.estoqueEstado === "desconhecido"
+      ? "Sem saldo cadastrado"
+      : (p.estoque ?? 0).toLocaleString("pt-BR");
 
 /** Miniatura, ou um espaço discreto quando não há foto. Nunca uma imagem inventada. */
 function Miniatura({ produto }: { produto: ProdutoResumido }) {
@@ -61,7 +63,9 @@ export default async function LojaPage({ params, searchParams }: Params) {
   const { slug } = await params;
   const bruto = await searchParams;
   const consulta = lerConsulta(bruto);
-  const detalhe = await montarDetalheDaLoja(slug, { atualizar: bruto.atualizar === "1" });
+  // Uma leitura por abertura: a plataforma devolve a página pedida e os
+  // totais, calculados no banco dela. Nada do catálogo fica guardado aqui.
+  const detalhe = await montarDetalheDaLoja(slug, consulta);
 
   // Plataforma configurada e respondendo, e a loja não existe lá: 404 de
   // verdade. Sem token ou com a plataforma fora do ar, a tela explica em vez
@@ -74,29 +78,27 @@ export default async function LojaPage({ params, searchParams }: Params) {
   const dono = ehDono(admin.role);
   const base = `/lojas/${slug}`;
 
-  // Tudo sobre o catálogo INTEIRO, antes da paginação: filtrar, ordenar, contar.
-  const resumo = resumirCatalogo(detalhe.produtos);
-  const { categorias, marcas } = facetas(detalhe.produtos);
-  const filtrados = filtrarCatalogo(detalhe.produtos, consulta);
-  const ordenados = ordenarCatalogo(filtrados, consulta.ordem, consulta.grupo);
-  const pagina = paginarCatalogo(ordenados, consulta.pagina, consulta.por);
-  const grupos = agruparPagina(ordenados, pagina.itens, consulta.grupo);
-  const temEstoque = resumo.controlamEstoque > 0;
+  const pagina = detalhe.catalogo;
+  const resumo = pagina?.resumo ?? null;
+  const grupos = pagina ? agruparPagina(pagina, consulta.grupo) : [];
+  // Estoque só é assunto desta loja se algum produto tem contagem. Sem isso,
+  // filtro, ordenação e coluna de estoque seriam controles que não fazem nada.
+  const temEstoque = (resumo?.controlamEstoque ?? 0) > 0;
   const comFiltro = filtrosAtivos(consulta) > 0;
 
   const ir = (mudanca: Partial<Consulta>) => enderecoDaConsulta(base, consulta, mudanca);
   // A ficha do produto recebe a MESMA consulta da lista (filtros, ordem,
   // página) e monta sozinha o caminho de volta, até a linha do produto.
-  const consultaNoEndereco = enderecoDaConsulta("", { ...consulta, pagina: pagina.pagina });
+  const consultaNoEndereco = enderecoDaConsulta("", { ...consulta, pagina: pagina?.pagina ?? consulta.pagina });
   const fichaDoProduto = (produto: ProdutoResumido) => `${base}/produtos/${produto.id}${consultaNoEndereco}`;
 
   const indicadores: { pendencia: Pendencia; rotulo: string; total: number; regra: string }[] = [
-    { pendencia: "sem-foto", rotulo: "Sem foto", total: resumo.semFoto, regra: "ativos com nenhuma imagem" },
-    { pendencia: "sob-consulta", rotulo: "Sem preço", total: resumo.sobConsulta, regra: "ativos com preço zero: a vitrine mostra “sob consulta”" },
+    { pendencia: "sem-foto", rotulo: "Sem foto", total: resumo?.semFoto ?? 0, regra: "ativos com nenhuma imagem" },
+    { pendencia: "sob-consulta", rotulo: "Sem preço", total: resumo?.sobConsulta ?? 0, regra: "ativos com preço zero: a vitrine mostra “sob consulta”" },
     ...(temEstoque
-      ? [{ pendencia: "anuncia-sem-saldo" as const, rotulo: "Anuncia sem saldo", total: resumo.anunciaSemSaldo, regra: "ativos marcados “em estoque” com contagem zerada" }]
+      ? [{ pendencia: "anuncia-sem-saldo" as const, rotulo: "Anuncia sem saldo", total: resumo?.anunciaSemSaldo ?? 0, regra: "ativos marcados “em estoque” com saldo das variações zerado" }]
       : []),
-    { pendencia: "foto-de-outro", rotulo: "Foto de outro item", total: resumo.fotoDeOutroItem, regra: "ativos com foto declarada como representativa ou ilustração" },
+    { pendencia: "foto-de-outro", rotulo: "Foto de outro item", total: resumo?.fotoDeOutroItem ?? 0, regra: "ativos com foto declarada como representativa ou ilustração" },
   ];
 
   return (
@@ -189,20 +191,21 @@ export default async function LojaPage({ params, searchParams }: Params) {
           </dl>
 
           <details className="catalogo-assinatura">
-            <summary>Gerenciar assinatura</summary>
+            <summary>Gerenciar assinatura e isenção</summary>
             <div>
               <p>
                 A mensalidade pertence à <strong>loja</strong> e mora na plataforma de lojas (plano {rotuloDoPlano(ficha.plano)}
-                ). Quem cobra é o Mercado Pago: criar a mensalidade gera o link de cartão, e ela só passa a cobrar depois que
-                o lojista cadastra o cartão. Pagamento confirmado chega pelo aviso do Mercado Pago — nada aqui marca
-                cobrança como paga.
+                ). São quatro coisas diferentes: o <strong>plano</strong> diz o que a loja tem; o <strong>acesso</strong> é o
+                status dela (no ar, suspensa); a <strong>cobrança</strong> começa quando a mensalidade é criada no Mercado
+                Pago e o lojista cadastra o cartão; e o <strong>pagamento</strong> só é confirmado pelo aviso do Mercado
+                Pago. Nada nesta tela marca cobrança como paga.
               </p>
               {!dono ? (
-                <p>Só o dono da conta cria, altera ou cancela mensalidade.</p>
+                <p>Só o dono da conta cria, altera ou cancela mensalidade, e marca ou tira isenção.</p>
               ) : ficha.cobrancaIsenta ? (
                 <p>
-                  Esta loja está marcada como isenta: é cobrada por fora da plataforma, e criar a mensalidade aqui faria o
-                  cliente pagar duas vezes. A isenção é tirada na plataforma de lojas.
+                  Esta loja está isenta: a plataforma não a cobra e a régua de inadimplência a ignora. Enquanto estiver
+                  isenta, criar mensalidade aqui fica bloqueado, porque faria o cliente pagar duas vezes.
                 </p>
               ) : ficha.assinaturaId ? (
                 <p>
@@ -214,6 +217,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
               ) : (
                 <CriarMensalidade slug={slug} nome={ficha.nome} plano={rotuloDoPlano(ficha.plano)} />
               )}
+              {dono && detalhe.isencao ? <ControleDeIsencao slug={slug} nome={ficha.nome} situacao={detalhe.isencao} /> : null}
               <p>
                 <Link className="text-link" href="/financeiro/mercadopago">
                   Ver todas as mensalidades e recebimentos
@@ -224,13 +228,13 @@ export default async function LojaPage({ params, searchParams }: Params) {
         </section>
       )}
 
-      {!detalhe.catalogoLido ? (
+      {!pagina || !resumo ? (
         // Falha de leitura não é catálogo vazio, e nenhum indicador vira zero por causa dela.
         <EstadoVazio
           compacto
           titulo="Não consegui ler o catálogo"
           descricao="A plataforma de lojas não respondeu a esta leitura. Nenhum número é mostrado: zero aqui seria mentira."
-          acao={{ label: "Tentar de novo", href: `${enderecoDaConsulta(base, consulta)}${comFiltro || consulta.pagina > 1 ? "&" : "?"}atualizar=1` }}
+          acao={{ label: "Tentar de novo", href: enderecoDaConsulta(base, consulta) }}
         />
       ) : (
         <>
@@ -238,10 +242,10 @@ export default async function LojaPage({ params, searchParams }: Params) {
             <header>
               <h2>Catálogo</h2>
               <p>
-                {contar(resumo.total, "produto", "produtos")} na loja
-                {detalhe.catalogoLidoEm ? ` · lido em ${formatDateTime(detalhe.catalogoLidoEm)}` : ""}
+                {contar(resumo.total, "produto", "produtos")} na loja · lido da plataforma em {formatDateTime(pagina.lidoEm)}
                 {" · "}
-                <a className="text-link" href={`${ir({})}${ir({}).includes("?") ? "&" : "?"}atualizar=1`}>
+                {/* Link comum, de propósito: recarrega a página inteira e relê tudo na plataforma. */}
+                <a className="text-link" href={enderecoDaConsulta(base, { ...consulta, pagina: pagina.pagina })}>
                   Atualizar
                 </a>
               </p>
@@ -281,8 +285,9 @@ export default async function LojaPage({ params, searchParams }: Params) {
               <summary>Como estes números são calculados</summary>
               <ul>
                 <li>
-                  Fonte: plataforma de lojas, <code>GET /api/admin/tenants/{slug}/produtos?resumo=1</code>, guardada por até
-                  um minuto neste painel. São contagens: não se editam aqui, mudam quando o produto muda na loja.
+                  Fonte: plataforma de lojas, <code>GET /api/admin/tenants/{slug}/produtos/consulta</code>. A contagem é
+                  feita no banco dela a cada abertura desta tela; nada fica guardado aqui. São contagens: não se editam,
+                  mudam quando o produto muda na loja.
                 </li>
                 <li>Ativos e inativos: o campo “ativo” do produto. Inativo não aparece na vitrine; não é loja fora do ar.</li>
                 {indicadores.map((i) => (
@@ -291,15 +296,23 @@ export default async function LojaPage({ params, searchParams }: Params) {
                   </li>
                 ))}
                 <li>
-                  {temEstoque
-                    ? `Estoque: ${contar(resumo.controlamEstoque, "produto controla", "produtos controlam")} estoque; nos demais a contagem é “não controla”, que não é zero.`
-                    : "Estoque: nenhum produto desta loja controla estoque, então não há indicador nem filtro de estoque."}
+                  Estoque: vem das variações do produto (saldo físico menos o reservado por pedidos em aberto), não da
+                  cópia no cadastro. {contar(resumo.controlamEstoque, "produto tem", "produtos têm")} contagem,{" "}
+                  {resumo.naoControlamEstoque.toLocaleString("pt-BR")} não controlam estoque e{" "}
+                  {resumo.estoqueDesconhecido.toLocaleString("pt-BR")} estão sem saldo cadastrado.
+                  {temEstoque ? "" : " Como nenhum tem contagem, não há indicador, filtro nem coluna de estoque nesta loja."}
                 </li>
               </ul>
             </details>
           </section>
 
-          <FiltrosDoCatalogo base={base} consulta={consulta} categorias={categorias} marcas={marcas} temEstoque={temEstoque} />
+          <FiltrosDoCatalogo
+            base={base}
+            consulta={consulta}
+            categorias={pagina.facetas.categorias}
+            marcas={pagina.facetas.marcas}
+            temEstoque={temEstoque}
+          />
 
           <ResultadoDoCatalogo>
             <div className="catalogo-barra">

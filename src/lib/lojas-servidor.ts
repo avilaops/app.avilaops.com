@@ -1,7 +1,8 @@
 import {
   lerProduto,
   listarLojas,
-  listarCatalogoResumido,
+  consultarCatalogo,
+  lerIsencao,
   lerLoja,
   lerRotinas,
   PlataformaIndisponivel,
@@ -9,7 +10,7 @@ import {
   type FichaDaLoja,
   type FichaDoProduto,
   type LojaDaPlataforma,
-  type ProdutoResumido,
+  type SituacaoDaIsencao,
   type SaudeDasRotinas,
 } from "@/lib/lojas-plataforma";
 import {
@@ -18,6 +19,7 @@ import {
   type LojaNoPainel,
   type VinculoDeLoja,
 } from "@/lib/lojas-painel";
+import { queryDaPlataforma, type Consulta, type PaginaDoCatalogo } from "@/lib/lojas-catalogo";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -109,52 +111,16 @@ export async function montarPainelDeLojas(): Promise<PainelDeLojas> {
   };
 }
 
-/**
- * O catálogo lido há pouco, por loja.
- *
- * Cada clique de filtro, de ordenação ou de página refazia a leitura inteira
- * na plataforma — que é a parte lenta. O catálogo de uma loja não muda a cada
- * segundo, e a tela diz quando foi lido: guardar por um minuto faz o filtro
- * responder na hora, e "Atualizar" força a leitura nova.
- *
- * Em memória do processo, e a promessa também fica guardada: dois pedidos
- * simultâneos da mesma loja fazem UMA chamada à plataforma, não duas.
- */
-const VALIDADE_DO_CATALOGO_MS = 60_000;
-type CatalogoGuardado = { lidoEm: number; produtos: Promise<ProdutoResumido[]> };
-const catalogos = new Map<string, CatalogoGuardado>();
-
-export function esquecerCatalogos() {
-  catalogos.clear();
-}
-
-async function catalogoDaLoja(slug: string, forcar: boolean): Promise<{ produtos: ProdutoResumido[]; lidoEm: number }> {
-  const agora = Date.now();
-  const guardado = catalogos.get(slug);
-  if (guardado && !forcar && agora - guardado.lidoEm < VALIDADE_DO_CATALOGO_MS) {
-    return { produtos: await guardado.produtos, lidoEm: guardado.lidoEm };
-  }
-  const novo: CatalogoGuardado = { lidoEm: agora, produtos: listarCatalogoResumido(slug) };
-  catalogos.set(slug, novo);
-  try {
-    return { produtos: await novo.produtos, lidoEm: agora };
-  } catch (erro) {
-    // Falha não fica guardada: a próxima abertura tenta de novo.
-    if (catalogos.get(slug) === novo) catalogos.delete(slug);
-    throw erro;
-  }
-}
-
 export type DetalheDaLoja = {
   ficha: FichaDaLoja | null;
-  produtos: ProdutoResumido[];
   /**
-   * `false` quando o catálogo não pôde ser lido. A tela usa isto para NÃO
-   * mostrar zero: lista vazia por falha e loja sem produto são coisas diferentes.
+   * A página do catálogo que a consulta pediu, com os totais — lida da
+   * plataforma nesta abertura, sem cópia guardada aqui. `null` quando a
+   * leitura falhou: a tela diz que não leu, e nenhum número vira zero.
    */
-  catalogoLido: boolean;
-  /** Quando o catálogo mostrado foi lido na plataforma (pode ser de até um minuto atrás). */
-  catalogoLidoEm: string | null;
+  catalogo: PaginaDoCatalogo | null;
+  /** A isenção de mensalidade e o que a régua diria sem ela. `null` se não deu para ler. */
+  isencao: SituacaoDaIsencao | null;
   cliente: { id: string; nome: string } | null;
   /** A carteira, para dizer de quem é a loja quando ninguém reivindicou. */
   clientes: ClienteCandidato[];
@@ -163,29 +129,28 @@ export type DetalheDaLoja = {
   lidoEm: string;
 };
 
-export async function montarDetalheDaLoja(slug: string, opcoes: { atualizar?: boolean } = {}): Promise<DetalheDaLoja> {
+export async function montarDetalheDaLoja(slug: string, consulta: Consulta): Promise<DetalheDaLoja> {
   const falhas: string[] = [];
   let configurado = true;
-  let catalogoLido = true;
-  let catalogoLidoEm: string | null = null;
 
-  const [ficha, produtos, vinculo, clientes] = await Promise.all([
+  const [ficha, catalogo, isencao, vinculo, clientes] = await Promise.all([
     lerLoja(slug).catch((erro) => {
       if (erro instanceof PlataformaIndisponivel) configurado = false;
       else falhas.push(`ficha da loja: ${motivo(erro)}`);
       return null;
     }),
-    catalogoDaLoja(slug, Boolean(opcoes.atualizar))
-      .then((lido) => {
-        catalogoLidoEm = new Date(lido.lidoEm).toISOString();
-        return lido.produtos;
-      })
-      .catch((erro) => {
-        catalogoLido = false;
-        // Sem `PlataformaIndisponivel` duas vezes: a ficha já reportou.
-        if (!(erro instanceof PlataformaIndisponivel)) falhas.push(`catálogo: ${motivo(erro)}`);
-        return [] as ProdutoResumido[];
-      }),
+    consultarCatalogo(slug, queryDaPlataforma(consulta)).catch((erro) => {
+      // Sem `PlataformaIndisponivel` duas vezes: a ficha já reportou.
+      if (!(erro instanceof PlataformaIndisponivel)) falhas.push(`catálogo: ${motivo(erro)}`);
+      return null;
+    }),
+    // Rota de 09/10/2026: plataforma ainda não atualizada responde 404, e isso
+    // é versão, não avaria — a tela só fica sem o bloco de isenção.
+    lerIsencao(slug).catch((erro) => {
+      const semARota = erro instanceof RespostaDaPlataforma && erro.status === 404;
+      if (!semARota && !(erro instanceof PlataformaIndisponivel)) falhas.push(`isenção de mensalidade: ${motivo(erro)}`);
+      return null;
+    }),
     prisma.organizationIntegration
       .findFirst({
         where: { provider: "lojas_avilaops", publicId: slug },
@@ -206,9 +171,8 @@ export async function montarDetalheDaLoja(slug: string, opcoes: { atualizar?: bo
 
   return {
     ficha,
-    produtos,
-    catalogoLido,
-    catalogoLidoEm,
+    catalogo,
+    isencao,
     cliente: vinculo ? { id: vinculo.organization.id, nome: vinculo.organization.name } : null,
     clientes: clientes.map((c) => ({ id: c.id, nome: c.name, slug: c.slug })),
     falhas,

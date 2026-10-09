@@ -3,9 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import CabecalhoPagina from "@/components/hub-social/CabecalhoPagina";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
 import BadgeStatus from "@/components/sistema/Status";
+import EditarProduto from "@/components/lojas/EditarProduto";
 import { getAdmin } from "@/lib/auth";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { enderecoDaConsulta, lerConsulta } from "@/lib/lojas-catalogo";
+import { autorDaAlteracao, rotuloDoCampo, valorDoCampo } from "@/lib/lojas-historico";
 import { montarDetalheDoProduto } from "@/lib/lojas-servidor";
 
 export const dynamic = "force-dynamic";
@@ -21,36 +23,13 @@ const ORIGEM_DA_FOTO: Record<string, string> = {
   ilustracao: "Ilustração, não fotografia",
 };
 
-const ORIGEM_DA_ALTERACAO: Record<string, string> = {
-  painel: "Painel da loja",
-  importacao: "Importação em lote",
-  erp: "Sincronização do ERP",
-  pesquisa: "Pesquisa de catálogo",
-};
-
-/** De onde a alteração veio, em palavras. Origem que o painel não conhece aparece como está gravada. */
-function origemLegivel(origem: string): string {
-  if (origem.startsWith("api:")) return `API (${origem.slice(4)})`;
-  return ORIGEM_DA_ALTERACAO[origem] ?? origem;
-}
-
-/** Valor de um campo do histórico, curto o bastante para caber numa linha. Nunca segredo: o histórico é de catálogo. */
-function valorCurto(valor: unknown): string {
-  if (valor === null || valor === undefined || valor === "") return "vazio";
-  if (Array.isArray(valor)) return valor.length === 0 ? "vazio" : `${valor.length} ${valor.length === 1 ? "item" : "itens"}`;
-  if (typeof valor === "object") return "objeto";
-  const texto = String(valor);
-  return texto.length > 60 ? `${texto.slice(0, 57)}…` : texto;
-}
-
 /**
- * A ficha de um produto, só para ler.
+ * A ficha de um produto.
  *
- * O catálogo é da loja: preço, estoque, foto e situação mudam no painel da
- * loja, por importação ou pelo ERP, e cada mudança fica no histórico da
- * própria plataforma. Esta tela mostra o produto e esse histórico; não edita
- * nada, para uma alteração feita aqui não ser desfeita pela próxima
- * sincronização sem ninguém ver.
+ * O catálogo é da loja e o estado oficial mora na plataforma de lojas. Daqui
+ * dá para alterar situação, categoria e preço (`EditarProduto`): quem grava é
+ * a plataforma, com o nome de quem está logado no histórico dela. Estoque,
+ * fotos e textos seguem no painel da loja, por importação ou pelo ERP.
  *
  * O endereço traz a consulta da lista de onde a pessoa veio (filtros, ordem,
  * página): "voltar" devolve exatamente aquele contexto, na linha do produto.
@@ -94,8 +73,20 @@ export default async function ProdutoDaLojaPage({ params, searchParams }: Params
     );
   }
 
-  const { produto, historico } = detalhe.ficha;
+  const { produto, historico, resumo, categorias } = detalhe.ficha;
   const semPreco = produto.precoCentavos <= 0;
+  // O estoque que vale é o das variações, calculado pela plataforma como na
+  // lista. Plataforma antiga, sem esse campo, cai na cópia do cadastro — e diz.
+  const estoqueOficial = resumo
+    ? resumo.estoqueEstado === "nao-controla"
+      ? "Não controla estoque"
+      : resumo.estoqueEstado === "desconhecido"
+        ? "Sem saldo cadastrado (disponibilidade desconhecida)"
+        : `${(resumo.estoque ?? 0).toLocaleString("pt-BR")} disponível`
+    : produto.estoque === null
+      ? "Não controla estoque"
+      : produto.estoque.toLocaleString("pt-BR");
+  const ultimaAutomatica = historico[0] && autorDaAlteracao(historico[0].origem).tipo === "automatica" ? autorDaAlteracao(historico[0].origem).caminho : null;
 
   return (
     <>
@@ -139,7 +130,8 @@ export default async function ProdutoDaLojaPage({ params, searchParams }: Params
             <div>
               <dt>Estoque</dt>
               <dd className="catalogo-numero">
-                {produto.estoque === null ? "Não controla estoque" : produto.estoque.toLocaleString("pt-BR")}
+                {estoqueOficial}
+                {resumo && resumo.variacoes > 0 ? <small>somado em {resumo.variacoes} variações</small> : null}
               </dd>
             </div>
             <div>
@@ -165,11 +157,28 @@ export default async function ProdutoDaLojaPage({ params, searchParams }: Params
           </dl>
           {produto.descricaoCurta ? <p className="produto-nota">{produto.descricaoCurta}</p> : null}
           <p className="produto-nota">
-            Estes dados são da loja e se alteram no painel dela, por importação ou pelo ERP. Lido da plataforma em{" "}
+            Estes dados são da loja. Situação, categoria e preço podem ser alterados abaixo; o resto, no painel dela, por
+            importação ou pelo ERP. Lido da plataforma em{" "}
             {formatDateTime(detalhe.lidoEm)}.
           </p>
         </section>
       </div>
+
+      <section className="produto-historico" aria-label="Alterar produto">
+        <EditarProduto
+          // A versão na chave: salvou, a ficha relê e o formulário renasce com os valores da plataforma.
+          key={produto.versaoCatalogo}
+          slug={slug}
+          id={produto.id}
+          versao={produto.versaoCatalogo}
+          ativo={produto.ativo}
+          precoCentavos={produto.precoCentavos}
+          categoria={produto.categoria?.slug ?? null}
+          categorias={(categorias ?? []).map((c) => ({ valor: c.slug, rotulo: c.nome }))}
+          temVariacoes={(resumo?.variacoes ?? 0) > 0}
+          sincronizado={ultimaAutomatica}
+        />
+      </section>
 
       <section className="produto-historico" aria-label="Histórico de alterações">
         <h2>Histórico de alterações</h2>
@@ -182,13 +191,19 @@ export default async function ProdutoDaLojaPage({ params, searchParams }: Params
                 <header>
                   <strong>{formatDateTime(alteracao.criadoEm)}</strong>
                   <span>
-                    {origemLegivel(alteracao.origem)} · versão {alteracao.versao}
+                    {(() => {
+                      const quem = autorDaAlteracao(alteracao.origem);
+                      return quem.tipo === "automatica"
+                        ? `${quem.caminho} · automática`
+                        : `${quem.caminho} · ${quem.autor ?? "autor não registrado"}`;
+                    })()}
+                    {" · "}versão {alteracao.versao}
                   </span>
                 </header>
                 <ul>
                   {alteracao.campos.slice(0, 8).map((campo) => (
                     <li key={campo}>
-                      <code>{campo}</code>: {valorCurto(alteracao.antes?.[campo])} → {valorCurto(alteracao.depois?.[campo])}
+                      <strong>{rotuloDoCampo(campo)}</strong>: {valorDoCampo(campo, alteracao.antes?.[campo])} → {valorDoCampo(campo, alteracao.depois?.[campo])}
                     </li>
                   ))}
                   {alteracao.campos.length > 8 ? <li>e mais {alteracao.campos.length - 8} campos</li> : null}
@@ -198,7 +213,9 @@ export default async function ProdutoDaLojaPage({ params, searchParams }: Params
           </ol>
         )}
         <p className="produto-nota">
-          Registro gravado pela plataforma de lojas a cada mudança (as 20 mais recentes). Não é editável por aqui.
+          Registro gravado pela plataforma de lojas na mesma operação de cada mudança (as 20 mais recentes); não se edita.
+          Alteração feita por pessoa a partir de 09/10/2026 traz quem foi. As anteriores, e as feitas pelo painel da loja
+          antes dessa data, aparecem como “autor não registrado”: o dado não existe e não é inventado aqui.
         </p>
       </section>
     </>

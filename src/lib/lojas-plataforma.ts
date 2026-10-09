@@ -12,7 +12,7 @@
  * pela porta dos fundos deixaria os dois lados discordando até a varredura do
  * dia seguinte.
  */
-import type { ProdutoResumido } from "@/lib/lojas-catalogo";
+import type { PaginaDoCatalogo, ProdutoResumido } from "@/lib/lojas-catalogo";
 
 const BASE = (process.env.LOJAS_API_URL ?? "https://lojas.avilaops.com").replace(/\/+$/, "");
 
@@ -145,11 +145,12 @@ export const lerLoja = (slug: string) =>
   chamar<FichaDaLoja>(`/api/admin/tenants/${encodeURIComponent(slug)}`);
 
 /**
- * O catálogo enxuto: só o que uma linha de tabela mostra, sem descrição,
- * atributos nem a lista inteira de imagens. É o que a tela da loja lê.
+ * Uma página do catálogo, com os totais. Quem busca, filtra, ordena, pagina e
+ * conta é a plataforma, no banco dela; o painel não recebe o catálogo inteiro.
+ * `query` é o que `queryDaPlataforma()` monta.
  */
-export const listarCatalogoResumido = (slug: string) =>
-  chamar<ProdutoResumido[]>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos?resumo=1`);
+export const consultarCatalogo = (slug: string, query: string) =>
+  chamar<PaginaDoCatalogo>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos/consulta?${query}`);
 
 /** Uma alteração de produto registrada pela própria plataforma (`HistoricoCatalogo`). */
 export interface AlteracaoDeProduto {
@@ -163,12 +164,58 @@ export interface AlteracaoDeProduto {
 }
 
 export interface FichaDoProduto {
-  produto: ProdutoDaLoja & { descricaoCurta: string | null; descricao: string | null; gtin: string | null; imagemFamilia: string | null };
+  produto: ProdutoDaLoja & { descricaoCurta: string | null; descricao: string | null; gtin: string | null; imagemFamilia: string | null; versaoCatalogo: number };
+  /** A mesma linha calculada da lista: estoque das variações, estado, quantas variações. */
+  resumo: ProdutoResumido | null;
+  /** Todas as categorias da loja, inclusive as vazias. */
+  categorias: { slug: string; nome: string }[];
   historico: AlteracaoDeProduto[];
 }
 
 export const lerProduto = (slug: string, id: string) =>
   chamar<FichaDoProduto>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos/${encodeURIComponent(id)}`);
+
+/** O que o painel pode alterar num produto. Só vai o que mudou. */
+export type EdicaoDeProduto = {
+  /** Quem está editando: vai para a origem do histórico da plataforma. */
+  autor: string;
+  /** A versão que a pessoa estava olhando. Produto que mudou depois recusa com 409. */
+  versao: number;
+  ativo?: boolean;
+  categoria?: string | null;
+  precoCentavos?: number;
+  precoDeCentavos?: number | null;
+};
+
+export type ProdutoEditado = {
+  produto: { id: string; ativo: boolean; precoCentavos: number; precoDeCentavos: number | null; versaoCatalogo: number; categoria: { nome: string; slug: string } | null };
+  /** Os campos que a plataforma gravou de fato. Vazio quando nada mudou. */
+  gravados: string[];
+};
+
+export const editarProduto = (slug: string, id: string, edicao: EdicaoDeProduto) =>
+  chamar<ProdutoEditado>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos/${encodeURIComponent(id)}`, { method: "PATCH", body: edicao });
+
+/** A isenção de mensalidade de uma loja e o que a régua de inadimplência diria sem ela. */
+export type SituacaoDaIsencao = {
+  isenta: boolean;
+  plano: string;
+  statusDaLoja: string;
+  assinaturaStatus: string;
+  temAssinatura: boolean;
+  suspensaoAutomatica: boolean;
+  /** Motivo pelo qual a loja cairia na régua hoje, ou `null` se não cairia. */
+  seNaoFosseIsenta: string | null;
+};
+
+export const lerIsencao = (slug: string) =>
+  chamar<SituacaoDaIsencao>(`/api/admin/tenants/${encodeURIComponent(slug)}/isencao`);
+
+export const mudarIsencao = (slug: string, isenta: boolean, cienteDaRegua: boolean) =>
+  chamar<{ mudou: boolean; antes: SituacaoDaIsencao; depois: SituacaoDaIsencao }>(
+    `/api/admin/tenants/${encodeURIComponent(slug)}/isencao`,
+    { method: "POST", body: { isenta, ...(cienteDaRegua ? { cienteDaRegua: true } : {}) } },
+  );
 
 export const listarProdutosDaLoja = (slug: string) =>
   chamar<ProdutoDaLoja[]>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos`);

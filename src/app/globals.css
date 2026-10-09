@@ -12254,6 +12254,39 @@ a[data-slot="button"][data-variant="default"] { @apply text-primary-foreground; 
   line-height: 1.55;
 }
 
+.produto-editar {
+  display: grid;
+  gap: var(--e3);
+}
+
+.produto-editar p {
+  margin: 0;
+}
+
+.produto-editar-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--e3);
+}
+
+.isencao {
+  display: grid;
+  gap: var(--e2);
+  padding-top: var(--e2);
+  border-top: 1px solid var(--line-soft, var(--line));
+}
+
+.produto-historico + .produto-historico {
+  margin-top: var(--e4);
+}
+
+.produto-historico h2,
+.produto-editar h2 {
+  margin: 0 0 var(--e3);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
 .produto-historico h2 {
   margin: 0 0 var(--e3);
   font-size: 0.9375rem;
