@@ -6,7 +6,8 @@ import { Grupo, IconeTile, LinhaInfo, LinhaLink } from "@/components/sistema/Lis
 import Status from "@/components/sistema/Status";
 import { Icone } from "@/components/ui/Icones";
 import { getAdmin } from "@/lib/auth";
-import { formatCurrency, formatShortDate, nomeProprio, saudacao } from "@/lib/format";
+import { agruparFilaDeAtencao } from "@/lib/fila-de-atencao";
+import { contar, formatCurrency, formatShortDate, nomeProprio, saudacao } from "@/lib/format";
 import { getOperationsDashboard } from "@/lib/operations";
 
 export const dynamic = "force-dynamic";
@@ -33,13 +34,21 @@ export default async function OperationsPage() {
   const ehDono = admin.role === "OWNER";
 
   const atencao = [
-    ...data.priorityTasks.map((task) => ({
-      chave: `tarefa-${task.id}`,
-      titulo: task.title,
-      descricao: `${nomeProprio(task.organization.name)}${task.project ? ` · ${task.project.title}` : ""}`,
-      status: task.status,
-      quando: prazo(task.dueAt),
-      href: task.project ? `/projetos/${task.project.id}` : `/clientes/${task.organization.id}`,
+    // Uma linha por projeto, não por tarefa: quem pede atenção é o projeto.
+    ...agruparFilaDeAtencao(data.priorityTasks, new Date()).map((linha) => ({
+      chave: linha.chave,
+      titulo: linha.titulo,
+      descricao: [
+        nomeProprio(linha.cliente),
+        linha.projeto,
+        linha.tarefas > 1 ? contar(linha.tarefas, "tarefa", "tarefas") : null,
+        linha.vencidas > 0 ? contar(linha.vencidas, "vencida", "vencidas") : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      status: linha.status,
+      quando: prazo(linha.quando),
+      href: linha.href,
       icone: "entregas" as const,
     })),
     ...data.upcomingDomains.map((domain) => ({
@@ -102,7 +111,7 @@ export default async function OperationsPage() {
             {atencao.length === 0 ? (
               <LinhaInfo
                 titulo="Nada urgente por aqui"
-                descricao="A fila mostra tarefas com prazo e domínios vencendo."
+                descricao="A fila mostra projetos com tarefa urgente ou com prazo, e domínios vencendo."
                 icone="saude"
                 tom="neutro"
               />

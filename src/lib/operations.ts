@@ -75,7 +75,9 @@ export async function getOperationsDashboard() {
         project: { select: { id: true, title: true } },
       },
       orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-      take: 6,
+      // Bem mais que as seis linhas da tela: a fila agrupa por projeto, e com
+      // seis tarefas lidas um projeto só ocupava a leitura inteira.
+      take: 120,
     }),
     prisma.domainAsset.findMany({
       where: {
