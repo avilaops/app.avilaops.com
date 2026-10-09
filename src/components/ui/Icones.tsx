@@ -28,6 +28,7 @@ export type NomeIcone =
   | "icones"
   | "vagas"
   | "lojas"
+  | "implantacao"
   | "automacoes"
   | "saude"
   | "telas";
@@ -198,6 +199,7 @@ const caminhos: Record<NomeIcone, React.ReactNode> = {
       <path d="M10 20v-4.5h4V20" />
     </>
   ),
+  implantacao: <><rect x="3" y="5" width="18" height="14" rx="3" /><path d="m9 9-3 3 3 3m6-6 3 3-3 3" /></>,
   automacoes: <path d="M13 3 5 13.5h5.5L11 21l8-10.5h-5.5L13 3Z" />,
   saude: <path d="M3 12.5h4l2.5-6 3.5 12 2.5-6h5.5" />,
   // Tela de parede com o pé embaixo: o que a Ávila TV entrega é a tela do
