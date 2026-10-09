@@ -376,7 +376,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
                                 <Miniatura produto={produto} />
                               </td>
                               <th scope="row" className="col-produto">
-                                <Link prefetch={false} href={fichaDoProduto(produto)}>{produto.nome}</Link>
+                                <LinkCatalogo href={fichaDoProduto(produto)}>{produto.nome}</LinkCatalogo>
                                 <small>
                                   {produto.marca ?? "sem marca"}
                                   {pendencia ? (
@@ -395,9 +395,9 @@ export default async function LojaPage({ params, searchParams }: Params) {
                               <td className="col-preco">{preco(produto)}</td>
                               <td className="col-estoque">{estoque(produto)}</td>
                               <td className="col-acoes">
-                                <Link prefetch={false} className="text-button" href={fichaDoProduto(produto)} aria-label={`Abrir ${produto.nome}`}>
+                                <LinkCatalogo className="text-button" href={fichaDoProduto(produto)} aria-label={`Abrir ${produto.nome}`}>
                                   Abrir
-                                </Link>
+                                </LinkCatalogo>
                               </td>
                             </tr>
                           );
@@ -451,9 +451,9 @@ export default async function LojaPage({ params, searchParams }: Params) {
                                     <dd>{estoque(produto)}</dd>
                                   </div>
                                 </dl>
-                                <Link prefetch={false} className="secondary-button" href={fichaDoProduto(produto)}>
+                                <LinkCatalogo className="secondary-button" href={fichaDoProduto(produto)}>
                                   Abrir produto
-                                </Link>
+                                </LinkCatalogo>
                               </details>
                             </li>
                           );

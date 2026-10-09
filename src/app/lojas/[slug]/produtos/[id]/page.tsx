@@ -7,6 +7,7 @@ import EditarProduto from "@/components/lojas/EditarProduto";
 import { getAdmin } from "@/lib/auth";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { enderecoDaConsulta, lerConsulta } from "@/lib/lojas-catalogo";
+import { LinkCatalogo } from "@/components/lojas/navegacao-catalogo";
 import { autorDaAlteracao, rotuloDoCampo, valorDoCampo } from "@/lib/lojas-historico";
 import { montarDetalheDoProduto } from "@/lib/lojas-servidor";
 
@@ -50,9 +51,9 @@ export default async function ProdutoDaLojaPage({ params, searchParams }: Params
     <nav className="catalogo-migalhas" aria-label="Você está em">
       <Link href="/lojas">Lojas</Link>
       <span aria-hidden="true">/</span>
-      <Link href={voltar}>{slug}</Link>
+      <LinkCatalogo href={voltar}>{slug}</LinkCatalogo>
       <span aria-hidden="true">/</span>
-      <Link href={voltar}>Produtos</Link>
+      <LinkCatalogo href={voltar}>Produtos</LinkCatalogo>
       <span aria-hidden="true">/</span>
       <span aria-current="page">{nome}</span>
     </nav>

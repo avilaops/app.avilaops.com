@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useSyncExternalStore, useTransition, type ComponentProps, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 
 /**
  * A navegação do catálogo, com o "carregando" que a tela precisa.
@@ -13,7 +13,24 @@ import { useCallback, useEffect, useSyncExternalStore, useTransition, type Compo
  * "há uma navegação do catálogo em curso" num lugar só, para o controle que foi
  * clicado e a lista (que são componentes separados) concordarem.
  */
-let pendentes = 0;
+
+/**
+ * Por que há um vigia aqui (09/10/2026): com o Next 16.2.11, a troca dentro da
+ * mesma rota com a lista cheia às vezes não conclui — a resposta chega inteira
+ * do servidor, sem erro, e a tela não troca (medido sobre a imagem de produção:
+ * ~1 em cada 5 trocas, também com `router.push` puro e com `<Link>` comum, e
+ * nunca nas outras páginas). Repetir a navegação resolve em ~250 ms. Então a
+ * navegação do catálogo confere se chegou: sem troca de endereço em 1,5 s,
+ * tenta de novo; na terceira vez, carrega a página inteira, que não falha.
+ * O "carregando" segue o endereço, não a transição do React, que fica presa
+ * junto. Quando uma versão do Next resolver isso, o vigia vira peso morto
+ * inofensivo e pode sair.
+ */
+const ESPERA_MS = 1500;
+const TENTATIVAS = 2;
+
+let alvo: string | null = null;
+let relogio: ReturnType<typeof setTimeout> | null = null;
 const ouvintes = new Set<() => void>();
 const avisar = () => ouvintes.forEach((o) => o());
 const assinar = (ouvinte: () => void) => {
@@ -21,30 +38,56 @@ const assinar = (ouvinte: () => void) => {
   return () => ouvintes.delete(ouvinte);
 };
 
-function usePendente() {
-  return useSyncExternalStore(assinar, () => pendentes > 0, () => false);
+/** Caminho e consulta, sem a âncora: é o que diz se a navegação chegou. */
+const semAncora = (href: string) => {
+  const u = new URL(href, window.location.origin);
+  return u.pathname + u.search;
+};
+const aqui = () => window.location.pathname + window.location.search;
+
+function chegou() {
+  if (relogio) clearTimeout(relogio);
+  relogio = null;
+  if (alvo === null) return;
+  alvo = null;
+  avisar();
 }
 
-/** Navega para um endereço do catálogo marcando a lista como "carregando" até a resposta chegar. */
+function usePendente() {
+  return useSyncExternalStore(assinar, () => alvo !== null, () => false);
+}
+
+/** Navega para um endereço do catálogo marcando a lista como "carregando" até o endereço trocar. */
 export function useNavegarCatalogo() {
   const router = useRouter();
-  // A transição do React fica pendente até o servidor devolver a página nova:
-  // é ela que sabe quando a navegação acabou.
-  const [pendente, iniciar] = useTransition();
+  const caminho = usePathname();
+  const consulta = useSearchParams();
 
-  useEffect(() => {
-    if (!pendente) return;
-    pendentes += 1;
-    avisar();
-    return () => {
-      pendentes -= 1;
-      avisar();
-    };
-  }, [pendente]);
+  // O endereço trocou (por aqui, pelo voltar do navegador ou por outro link): acabou a espera.
+  useEffect(chegou, [caminho, consulta]);
 
   return useCallback(
-    // `scroll: false`: trocar filtro não joga a pessoa para o topo da página.
-    (href: string) => iniciar(() => router.push(href, { scroll: false })),
+    (href: string) => {
+      const destino = semAncora(href);
+      if (relogio) clearTimeout(relogio);
+      alvo = destino;
+      avisar();
+      let tentativa = 0;
+      const ir = () => {
+        // `scroll: false`: trocar filtro não joga a pessoa para o topo da página.
+        router.push(href, { scroll: false });
+        relogio = setTimeout(() => {
+          if (alvo !== destino) return;
+          if (aqui() === destino) return chegou();
+          tentativa += 1;
+          if (tentativa > TENTATIVAS) return window.location.assign(href);
+          ir();
+        }, ESPERA_MS);
+      };
+      // Já está no endereço pedido (clicar duas vezes no mesmo filtro): nada a esperar.
+      if (aqui() === destino) return chegou();
+      ir();
+    },
     [router],
   );
 }
