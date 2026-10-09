@@ -5,6 +5,7 @@ import AcoesAssinatura from "@/components/AcoesAssinatura";
 import { ACOES_DO_MODULO } from "@/components/financeiro/acoes";
 import Aviso from "@/components/financeiro/Aviso";
 import CabecalhoFinanceiro from "@/components/financeiro/CabecalhoFinanceiro";
+import CriarMensalidade from "@/components/CriarMensalidade";
 import { FaixaIndicadores, Indicador } from "@/components/financeiro/Indicadores";
 import Painel from "@/components/financeiro/Painel";
 import EstadoVazio from "@/components/hub-social/EstadoVazio";
@@ -80,6 +81,90 @@ export default async function MercadoPagoPage() {
   const ativas = painel.linhas.filter((l) => l.mp?.status === "authorized").length;
   const aguardandoCartao = painel.linhas.filter((l) => l.mp?.status === "pending").length;
   const recusados = painel.pagamentos.filter((p) => p.status === "rejected").length;
+
+  const encerrada = (l: LinhaAssinatura) => Boolean(l.mp && !l.loja && l.mp.status === "cancelled");
+  const visiveis = painel.linhas.filter((l) => !encerrada(l));
+  const encerradas = painel.linhas.filter(encerrada);
+
+  const renderLinha = (l: LinhaAssinatura, i: number) => {
+                  const chave = l.mp?.id ?? l.loja?.slug ?? `linha-${i}`;
+                  const pior = l.divergencias.find((d) => d.gravidade === "erro") ?? l.divergencias[0];
+                  const ref = referencia(l);
+                  return (
+                    <li
+                      key={chave}
+                      className="grid min-w-0 gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0 min-[900px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]"
+                    >
+                      <div className="min-w-0">
+                        <strong className="block break-words text-[15px] font-semibold text-foreground">
+                          {l.mp ? (
+                            <Link href={`/financeiro/mercadopago/${l.mp.id}`} className="hover:underline">
+                              {titulo(l)}
+                            </Link>
+                          ) : (
+                            titulo(l)
+                          )}
+                        </strong>
+                        {ref ? (
+                          <details className="text-[12px] text-muted-foreground">
+                            <summary className="inline-flex min-h-11 cursor-pointer items-center underline">Ver referência</summary>
+                            <span className="block font-mono [overflow-wrap:anywhere]">{ref}</span>
+                          </details>
+                        ) : null}
+                        {pior ? (
+                          <div className="mt-2">
+                            <Aviso compacto gravidade={pior.gravidade} titulo={pior.titulo}>
+                              <span>{pior.detalhe}</span>
+                            </Aviso>
+                          </div>
+                        ) : null}
+                      </div>
+                      <dl className="m-0 grid min-w-0 grid-cols-2 content-start gap-x-3 gap-y-1 text-[13px]">
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Mercado Pago</dt>
+                          <dd className="m-0 text-foreground">{l.mp ? (STATUS_ASSINATURA[l.mp.status] ?? "Outro estado") : "Sem assinatura"}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Plataforma</dt>
+                          <dd className="m-0 text-foreground">
+                            {l.loja ? (STATUS_LOJA[l.loja.status] ?? "Outro estado") : "Sem loja"}
+                            {l.loja ? ` · ${PLANO[l.loja.plano] ?? l.loja.plano}` : ""}
+                          </dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Valor</dt>
+                          <dd className="m-0 text-foreground tabular-nums">{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "Sem valor"}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-muted-foreground">Próxima</dt>
+                          <dd className="m-0 text-foreground">{l.mp?.proximaCobranca ? formatDate(l.mp.proximaCobranca) : "Sem data"}</dd>
+                        </div>
+                      </dl>
+                      <div className="flex min-w-0 items-start justify-end max-[899px]:justify-start">
+                        {l.loja?.assinaturaId ? (
+                          <AcoesAssinatura
+                            slug={l.loja.slug}
+                            nome={l.loja.nome}
+                            status={l.mp?.status ?? "pending"}
+                            valorCentavos={l.mp?.valorCentavos ?? 0}
+                          />
+                        ) : l.loja?.cobrancaIsenta ? (
+                          <span className="max-w-[220px] text-right text-[12px] text-muted-foreground max-[899px]:text-left">
+                            Isenta: cobrada fora da plataforma.
+                          </span>
+                        ) : l.loja && !l.mp && l.loja.status !== "CANCELADA" ? (
+                          <CriarMensalidade slug={l.loja.slug} nome={l.loja.nome} plano={PLANO[l.loja.plano] ?? l.loja.plano} />
+                        ) : l.mp?.linkCadastroCartao ? (
+                          <Button asChild variant="outline" size="sm" className="min-h-9">
+                            <a href={l.mp.linkCadastroCartao} target="_blank" rel="noopener">
+                              Link do cartão
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+  };
 
   return (
     <AppShell adminName={admin.nome} papel={admin.role} section="mercadopago">
@@ -181,81 +266,26 @@ export default async function MercadoPagoPage() {
             {painel.linhas.length === 0 ? (
               <EstadoVazio compacto titulo="Nenhuma assinatura e nenhuma loja ainda." />
             ) : (
-              <ul className="m-0 list-none p-0">
-                {painel.linhas.map((l, i) => {
-                  const chave = l.mp?.id ?? l.loja?.slug ?? `linha-${i}`;
-                  const pior = l.divergencias.find((d) => d.gravidade === "erro") ?? l.divergencias[0];
-                  const ref = referencia(l);
-                  return (
-                    <li
-                      key={chave}
-                      className="grid min-w-0 gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0 min-[900px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]"
-                    >
-                      <div className="min-w-0">
-                        <strong className="block break-words text-[15px] font-semibold text-foreground">
-                          {l.mp ? (
-                            <Link href={`/financeiro/mercadopago/${l.mp.id}`} className="hover:underline">
-                              {titulo(l)}
-                            </Link>
-                          ) : (
-                            titulo(l)
-                          )}
-                        </strong>
-                        {ref ? (
-                          <details className="text-[12px] text-muted-foreground">
-                            <summary className="inline-flex min-h-11 cursor-pointer items-center underline">Ver referência</summary>
-                            <span className="block font-mono [overflow-wrap:anywhere]">{ref}</span>
-                          </details>
-                        ) : null}
-                        {pior ? (
-                          <div className="mt-2">
-                            <Aviso compacto gravidade={pior.gravidade} titulo={pior.titulo}>
-                              <span>{pior.detalhe}</span>
-                            </Aviso>
-                          </div>
-                        ) : null}
-                      </div>
-                      <dl className="m-0 grid min-w-0 grid-cols-2 content-start gap-x-3 gap-y-1 text-[13px]">
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Mercado Pago</dt>
-                          <dd className="m-0 text-foreground">{l.mp ? (STATUS_ASSINATURA[l.mp.status] ?? "Outro estado") : "Sem assinatura"}</dd>
-                        </div>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Plataforma</dt>
-                          <dd className="m-0 text-foreground">
-                            {l.loja ? (STATUS_LOJA[l.loja.status] ?? "Outro estado") : "Sem loja"}
-                            {l.loja ? ` · ${PLANO[l.loja.plano] ?? l.loja.plano}` : ""}
-                          </dd>
-                        </div>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Valor</dt>
-                          <dd className="m-0 text-foreground tabular-nums">{l.mp ? formatCurrency(l.mp.valorCentavos / 100) : "Sem valor"}</dd>
-                        </div>
-                        <div className="min-w-0">
-                          <dt className="text-muted-foreground">Próxima</dt>
-                          <dd className="m-0 text-foreground">{l.mp?.proximaCobranca ? formatDate(l.mp.proximaCobranca) : "Sem data"}</dd>
-                        </div>
-                      </dl>
-                      <div className="flex min-w-0 items-start justify-end max-[899px]:justify-start">
-                        {l.loja?.assinaturaId ? (
-                          <AcoesAssinatura
-                            slug={l.loja.slug}
-                            nome={l.loja.nome}
-                            status={l.mp?.status ?? "pending"}
-                            valorCentavos={l.mp?.valorCentavos ?? 0}
-                          />
-                        ) : l.mp?.linkCadastroCartao ? (
-                          <Button asChild variant="outline" size="sm" className="min-h-9">
-                            <a href={l.mp.linkCadastroCartao} target="_blank" rel="noopener">
-                              Link do cartão
-                            </a>
-                          </Button>
-                        ) : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                {visiveis.length === 0 ? (
+                  <EstadoVazio compacto titulo="Nenhuma mensalidade em uso." />
+                ) : (
+                  <ul className="m-0 list-none p-0">{visiveis.map(renderLinha)}</ul>
+                )}
+                {encerradas.length > 0 ? (
+                  /*
+                    Assinatura cancelada no Mercado Pago e sem loja: teste antigo
+                    ou loja que saiu. O Mercado Pago não apaga assinatura, então
+                    "excluir" aqui é tirar da frente — elas continuam a um toque.
+                  */
+                  <details className="mt-2 border-t border-border pt-2">
+                    <summary className="inline-flex min-h-11 cursor-pointer items-center text-[13px] text-muted-foreground underline">
+                      {contar(encerradas.length, "cancelada sem loja", "canceladas sem loja")}
+                    </summary>
+                    <ul className="m-0 list-none p-0">{encerradas.map(renderLinha)}</ul>
+                  </details>
+                ) : null}
+              </>
             )}
           </Painel>
 

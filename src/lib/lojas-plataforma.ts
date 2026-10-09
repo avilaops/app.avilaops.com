@@ -70,6 +70,12 @@ export interface LojaDaPlataforma {
   criadoEm: string;
   assinaturaId: string | null;
   assinaturaStatus: string;
+  /**
+   * Loja cobrada por fora da plataforma, ou da casa. Opcional porque a
+   * plataforma só passou a mandar o campo em 08/10/2026: ausente, a tela não
+   * afirma isenção nenhuma.
+   */
+  cobrancaIsenta?: boolean;
   ultimoPagamentoEm: string | null;
   setupPagoEm: string | null;
   suspensaEm: string | null;
@@ -138,13 +144,14 @@ export const listarProdutosDaLoja = (slug: string) =>
   chamar<ProdutoDaLoja[]>(`/api/admin/tenants/${encodeURIComponent(slug)}/produtos`);
 
 export type AcaoAssinatura =
+  | { acao: "iniciar" }
   | { acao: "cancelar" }
   | { acao: "pausar" }
   | { acao: "retomar" }
   | { acao: "valor"; centavos: number };
 
 export const agirNaAssinatura = (slug: string, acao: AcaoAssinatura) =>
-  chamar<{ slug: string; status: string; assinaturaStatus: string }>(
+  chamar<{ slug: string; status: string; assinaturaStatus: string; assinaturaId?: string | null; initPoint?: string | null }>(
     `/api/admin/tenants/${encodeURIComponent(slug)}/assinatura`,
     { method: "POST", body: acao },
   );

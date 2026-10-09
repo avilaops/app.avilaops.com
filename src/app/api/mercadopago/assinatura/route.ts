@@ -5,7 +5,7 @@ import { agirNaAssinatura, type AcaoAssinatura } from "@/lib/lojas-plataforma";
  * Repassa a ação para o lojas.avilaops.com. Não fala com o Mercado Pago.
  *
  * A validação de forma é lá — aqui só garantimos que quem pediu é admin e que
- * a ação é uma das quatro. Duplicar regra de negócio nas duas pontas seria
+ * a ação é uma das cinco. Duplicar regra de negócio nas duas pontas seria
  * criar a segunda verdade que este desenho existe para evitar.
  */
 export async function POST(request: Request) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const acao = corpo?.acao;
   if (!slug || !acao) return Response.json({ erro: "slug e ação são obrigatórios" }, { status: 422 });
 
-  const permitidas = ["cancelar", "pausar", "retomar", "valor"];
+  const permitidas = ["iniciar", "cancelar", "pausar", "retomar", "valor"];
   if (!permitidas.includes(acao)) return Response.json({ erro: "ação desconhecida" }, { status: 422 });
 
   try {
