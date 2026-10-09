@@ -5,10 +5,12 @@ export const imagensNavegacao: Partial<Record<NomeIcone, string>> = {
   inicio: "inicio", clientes: "clientes", entregas: "entregas", mais: "mais",
   operacao: "operacao", casa: "casa", hub: "hub-social", infra: "infraestrutura",
   fiscal: "fiscal", financeiro: "financeiro", credito: "credito", config: "configuracoes",
+  whatsapp: "whatsapp", meta: "meta", google: "google", lojas: "lojas", vagas: "vagas",
+  implantacao: "implantacao-openai", automacoes: "automacoes",
   seo: "seo", dominios: "dominios", newsletter: "newsletter", estudio: "estudio",
 };
 
-/** Imagens só na navegação; controles e marcas de terceiros conservam seus desenhos. */
+/** Imagens 3D na navegação; controles continuam usando os desenhos vetoriais. */
 export default function IconeNavegacao({ nome, tamanho = 40 }: { nome: NomeIcone; tamanho?: number }) {
   const arquivo = imagensNavegacao[nome];
   return arquivo ? (

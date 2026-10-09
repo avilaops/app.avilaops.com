@@ -162,7 +162,7 @@ export const navegacao: GrupoNavegacao[] = [
         href: "/implantacao",
         label: "Implantação OpenAI",
         section: "partner-network",
-        icone: "automacoes",
+        icone: "implantacao",
         descricao: "Pilares, roadmap e evidências do programa",
       },
       {
