@@ -376,7 +376,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
                                 <Miniatura produto={produto} />
                               </td>
                               <th scope="row" className="col-produto">
-                                <Link href={fichaDoProduto(produto)}>{produto.nome}</Link>
+                                <Link prefetch={false} href={fichaDoProduto(produto)}>{produto.nome}</Link>
                                 <small>
                                   {produto.marca ?? "sem marca"}
                                   {pendencia ? (
@@ -395,7 +395,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
                               <td className="col-preco">{preco(produto)}</td>
                               <td className="col-estoque">{estoque(produto)}</td>
                               <td className="col-acoes">
-                                <Link className="text-button" href={fichaDoProduto(produto)} aria-label={`Abrir ${produto.nome}`}>
+                                <Link prefetch={false} className="text-button" href={fichaDoProduto(produto)} aria-label={`Abrir ${produto.nome}`}>
                                   Abrir
                                 </Link>
                               </td>
@@ -451,7 +451,7 @@ export default async function LojaPage({ params, searchParams }: Params) {
                                     <dd>{estoque(produto)}</dd>
                                   </div>
                                 </dl>
-                                <Link className="secondary-button" href={fichaDoProduto(produto)}>
+                                <Link prefetch={false} className="secondary-button" href={fichaDoProduto(produto)}>
                                   Abrir produto
                                 </Link>
                               </details>

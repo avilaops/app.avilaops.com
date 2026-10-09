@@ -56,6 +56,9 @@ export function LinkCatalogo({ href, onClick, ...resto }: ComponentProps<typeof 
     <Link
       href={href}
       scroll={false}
+      // Sem pré-carregamento: a lista é sempre lida na hora (nada a aproveitar), e
+      // cada link visível custaria um pedido ao servidor a cada tela desenhada.
+      prefetch={false}
       {...resto}
       onClick={(evento) => {
         onClick?.(evento);
