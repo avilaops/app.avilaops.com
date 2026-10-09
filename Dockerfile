@@ -1,4 +1,6 @@
-# Build no GitHub Actions; o servidor recebe somente a imagem pronta.
+# Construída no GitHub Actions e pelo deploy/publicar.sh, que por padrão
+# constrói na máquina que chama (o servidor `creators`, sob a trava do
+# build-pesado). O servidor de produção recebe somente a imagem pronta.
 FROM node:22-bookworm-slim AS base
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

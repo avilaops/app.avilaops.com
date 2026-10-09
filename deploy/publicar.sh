@@ -12,6 +12,11 @@
 #   rede da Hetzner com `docker save | docker load`. O alias de SSH
 #   `orchestrator` deixou de existir em 10/2026; para construir em outro
 #   host, passe `BUILD_HOST=<alias>`.
+# - O `creators` é também o servidor dos agentes (4 GB de RAM). Quando o build
+#   é local e o `build-pesado` existe no PATH, o `docker build` passa por ele:
+#   um build pesado por vez (quem chega depois espera a trava; sai com 75 se
+#   ela não soltar no prazo). Só a trava: o heap de 4096 MB do Dockerfile fica
+#   como está, porque o `next build` daqui não cabe em menos.
 # - O container não roda migração. Se o ref tiver migração que o banco de
 #   produção ainda não aplicou, o script para antes de trocar a imagem e diz
 #   quais são: aplicar migração é decisão à parte, não efeito colateral.
@@ -74,7 +79,11 @@ else
 fi
 
 echo "==> Build da imagem ${TAG} (uns 10 minutos)"
-no_build "cd ~/${BUILD_DIR} && tar xzf app.tgz && docker build -q \
+PESADO=""
+if [ "$BUILD_HOST" = local ] && command -v build-pesado >/dev/null 2>&1; then
+  PESADO="build-pesado "
+fi
+no_build "cd ~/${BUILD_DIR} && tar xzf app.tgz && ${PESADO}docker build -q \
   --build-arg GIT_SHA=${SHA} --build-arg BUILT_AT=\$(date -u +%FT%TZ) -t ${TAG} ."
 
 echo "==> Levando a imagem para o applications"
