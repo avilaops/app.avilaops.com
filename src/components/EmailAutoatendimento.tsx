@@ -206,8 +206,8 @@ export default function EmailAutoatendimento() {
             <>
               <h2>{pedido.endereco}</h2>
               <p>
-                Enviamos a senha provisória para <strong>o e-mail de contato do cadastro</strong>. Ela
-                vale até o primeiro acesso, e no primeiro acesso você escolhe a sua.
+                Enviamos para <strong>o e-mail de contato do cadastro</strong> um link para você criar
+                a sua senha. Ele vale por 72 horas; se vencer, peça outro em &quot;Esqueci a senha&quot;.
               </p>
               <a className="autoatendimento-whatsapp" href="https://mail.avilaops.com">
                 Abrir o webmail
@@ -371,7 +371,7 @@ export default function EmailAutoatendimento() {
               gente. Acima de cinco, fale conosco.
             </p>
 
-            <label htmlFor="contato">Seu e-mail (para receber a senha)</label>
+            <label htmlFor="contato">Seu e-mail (para criar a senha)</label>
             <input
               id="contato"
               type="email"
@@ -382,7 +382,8 @@ export default function EmailAutoatendimento() {
               required
             />
             <p className="autoatendimento-nota">
-              Precisa ser um endereço que você já lê hoje: a senha da caixa nova vai para ele.
+              Precisa ser um endereço que você já lê hoje: o link para criar a senha da caixa nova
+              vai para ele.
             </p>
 
             <label htmlFor="nome">Seu nome</label>
