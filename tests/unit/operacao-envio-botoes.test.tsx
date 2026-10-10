@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Os quatro botões de envio de cobrança da ficha do cliente, clicados.
+ * Os botões de envio de cobrança da ficha do cliente, clicados.
  *
  * `pedidoDeEnvio` já é testada como função pura; faltava provar a ligação
  * botão → modo. Trocar "teste" por "cliente" num `onClick` mandaria a mensagem
@@ -156,51 +156,49 @@ afterEach(() => {
 
 const ROTA = "/api/billing/faturas/fatura-1/enviar";
 
-describe("OperacaoPanel — os quatro botões de envio de cobrança", () => {
-  it("mostra os quatro, cada um com o seu rótulo", () => {
+describe("OperacaoPanel — os dois botões de envio de cobrança", () => {
+  it("mostra dois por fatura: um de teste e um de cliente, e o canal é pergunta", () => {
     const { html, botao } = renderizar();
 
-    for (const rotulo of [
-      "Enviar teste por e-mail",
-      "Enviar ao cliente por e-mail",
-      "Enviar teste por WhatsApp",
-      "Enviar ao cliente por WhatsApp",
-    ]) {
+    for (const rotulo of ["Enviar teste", "Enviar ao cliente"]) {
       expect(html).toContain(rotulo);
       botao(rotulo);
     }
+    expect(botoes.filter((b) => b.rotulo.startsWith("Enviar "))).toHaveLength(2);
   });
 
-  it('"Enviar teste por e-mail" manda teste: true para o endereço informado, e não pede confirmação de cliente', async () => {
+  it('"Enviar teste" por e-mail manda teste: true para o endereço informado, e não pede confirmação de cliente', async () => {
     const { botao } = renderizar();
-    navegador({ prompt: ["1", " eu@avilaops.com "] });
+    navegador({ prompt: ["1", "1", " eu@avilaops.com "] });
 
-    await botao("Enviar teste por e-mail").onClick();
+    await botao("Enviar teste").onClick();
 
     expect(chamadas).toEqual([
       { url: ROTA, method: "POST", corpo: { canal: "email", conteudo: "cobranca", teste: true, destinoTeste: "eu@avilaops.com" } },
     ]);
-    expect(prompts[1]).toContain("Envio de TESTE por email");
+    expect(prompts[0]).toContain("Envio de TESTE — por onde?");
+    expect(prompts[2]).toContain("Envio de TESTE por email");
     expect(confirmacoes).toEqual([]);
   });
 
-  it('"Enviar ao cliente por e-mail" manda teste: false, sem destino de teste, depois da confirmação', async () => {
+  it('"Enviar ao cliente" por e-mail manda teste: false, sem destino de teste, depois da confirmação', async () => {
     const { botao } = renderizar();
-    navegador({ prompt: ["3"], confirm: true });
+    navegador({ prompt: ["1", "3"], confirm: true });
 
-    await botao("Enviar ao cliente por e-mail").onClick();
+    await botao("Enviar ao cliente").onClick();
 
     expect(chamadas).toEqual([{ url: ROTA, method: "POST", corpo: { canal: "email", conteudo: "ambos", teste: false } }]);
+    expect(prompts[0]).toContain("Envio ao CLIENTE — por onde?");
     expect(confirmacoes).toEqual(["Enviar esta cobrança por email ao CLIENTE REAL agora?"]);
-    // Só a escolha do conteúdo: o envio real nunca pergunta destino.
-    expect(prompts).toHaveLength(1);
+    // O canal e o conteúdo: o envio real nunca pergunta destino.
+    expect(prompts).toHaveLength(2);
   });
 
-  it('"Enviar teste por WhatsApp" manda teste: true pelo canal whatsapp', async () => {
+  it('"Enviar teste" por WhatsApp manda teste: true pelo canal whatsapp', async () => {
     const { botao } = renderizar();
-    navegador({ prompt: ["2", "5511999990000"] });
+    navegador({ prompt: ["2", "2", "5511999990000"] });
 
-    await botao("Enviar teste por WhatsApp").onClick();
+    await botao("Enviar teste").onClick();
 
     expect(chamadas).toEqual([
       { url: ROTA, method: "POST", corpo: { canal: "whatsapp", conteudo: "fatura", teste: true, destinoTeste: "5511999990000" } },
@@ -208,60 +206,87 @@ describe("OperacaoPanel — os quatro botões de envio de cobrança", () => {
     expect(confirmacoes).toEqual([]);
   });
 
-  it('"Enviar ao cliente por WhatsApp" manda teste: false pelo canal whatsapp', async () => {
+  it('"Enviar ao cliente" por WhatsApp manda teste: false pelo canal whatsapp', async () => {
     const { botao } = renderizar();
-    navegador({ prompt: ["1"], confirm: true });
+    navegador({ prompt: [" 2 ", "1"], confirm: true });
 
-    await botao("Enviar ao cliente por WhatsApp").onClick();
+    await botao("Enviar ao cliente").onClick();
 
     expect(chamadas).toEqual([{ url: ROTA, method: "POST", corpo: { canal: "whatsapp", conteudo: "cobranca", teste: false } }]);
     expect(confirmacoes).toEqual(["Enviar esta cobrança por whatsapp ao CLIENTE REAL agora?"]);
   });
 
+  it("canal que não é 1 nem 2 não envia e não chega a pedir confirmação: o canal não se adivinha", async () => {
+    for (const resposta of ["3", "whatsapp", "  "]) {
+      const { botao } = renderizar();
+      navegador({ prompt: [resposta, "1"], confirm: true });
+      await botao("Enviar ao cliente").onClick();
+    }
+
+    expect(chamadas).toEqual([]);
+    expect(confirmacoes).toEqual([]);
+    expect(depoisDoClique()).toContain("Escolha 1 (e-mail) ou 2 (WhatsApp). Nada foi enviado.");
+  });
+
+  it("cancelar a escolha do canal não envia nada", async () => {
+    const { botao } = renderizar();
+    navegador({ prompt: [null], confirm: true });
+
+    await botao("Enviar ao cliente").onClick();
+    await botao("Enviar teste").onClick();
+
+    expect(chamadas).toEqual([]);
+    expect(confirmacoes).toEqual([]);
+  });
+
   it("sem confirmar, o botão de cliente não envia nada", async () => {
     const { botao } = renderizar();
-    navegador({ prompt: ["1", "1"], confirm: false });
+    navegador({ prompt: ["1", "1", "2", "1"], confirm: false });
 
-    await botao("Enviar ao cliente por e-mail").onClick();
-    await botao("Enviar ao cliente por WhatsApp").onClick();
+    await botao("Enviar ao cliente").onClick();
+    await botao("Enviar ao cliente").onClick();
 
-    expect(confirmacoes).toHaveLength(2);
+    expect(confirmacoes).toEqual([
+      "Enviar esta cobrança por email ao CLIENTE REAL agora?",
+      "Enviar esta cobrança por whatsapp ao CLIENTE REAL agora?",
+    ]);
     expect(chamadas).toEqual([]);
   });
 
   it("teste com destino em branco ou cancelado não envia nada — e nunca vira envio ao cliente", async () => {
     const { botao } = renderizar();
 
-    navegador({ prompt: ["1", "   "] });
-    await botao("Enviar teste por e-mail").onClick();
+    navegador({ prompt: ["1", "1", "   "] });
+    await botao("Enviar teste").onClick();
+    navegador({ prompt: ["2", "1", null] });
+    await botao("Enviar teste").onClick();
+    // Cancelou na escolha do conteúdo.
     navegador({ prompt: ["1", null] });
-    await botao("Enviar teste por WhatsApp").onClick();
-    // Cancelou já na escolha do conteúdo.
-    navegador({ prompt: [null] });
-    await botao("Enviar teste por e-mail").onClick();
+    await botao("Enviar teste").onClick();
 
     expect(chamadas).toEqual([]);
   });
 
   it("fatura sem cobrança emitida envia o resumo da fatura, sem perguntar o conteúdo", async () => {
     const { botao } = renderizar(null);
-    navegador({ prompt: ["eu@avilaops.com"], confirm: true });
+    navegador({ prompt: ["1", "eu@avilaops.com", "2"], confirm: true });
 
-    await botao("Enviar teste por e-mail").onClick();
-    await botao("Enviar ao cliente por WhatsApp").onClick();
+    await botao("Enviar teste").onClick();
+    await botao("Enviar ao cliente").onClick();
 
     expect(chamadas.map((c) => c.corpo)).toEqual([
       { canal: "email", conteudo: "fatura", teste: true, destinoTeste: "eu@avilaops.com" },
       { canal: "whatsapp", conteudo: "fatura", teste: false },
     ]);
-    expect(prompts).toHaveLength(1);
+    // Canal e destino no teste; só o canal no envio ao cliente.
+    expect(prompts).toHaveLength(3);
   });
 
   it("fatura cancelada não oferece envio nenhum", () => {
     const { html } = renderizar(COBRANCA, "CANCELLED");
 
-    expect(html).not.toContain("Enviar teste por");
-    expect(html).not.toContain("Enviar ao cliente por");
+    expect(html).not.toContain("Enviar teste");
+    expect(html).not.toContain("Enviar ao cliente");
     expect(botoes.filter((b) => b.rotulo.startsWith("Enviar "))).toEqual([]);
   });
 });
@@ -276,8 +301,8 @@ describe("OperacaoPanel — o que aparece depois do envio", () => {
 
   async function enviarAoCliente() {
     const { botao } = renderizar();
-    navegador({ prompt: ["1"], confirm: true });
-    await botao("Enviar ao cliente por e-mail").onClick();
+    navegador({ prompt: ["1", "1"], confirm: true });
+    await botao("Enviar ao cliente").onClick();
     expect(chamadas).toHaveLength(1);
     return depoisDoClique();
   }
@@ -305,9 +330,9 @@ describe("OperacaoPanel — o que aparece depois do envio", () => {
   it("registrado: false sem texto de aviso ainda avisa, com a frase do painel", async () => {
     resposta = { ok: true, destino: "5511999990000", registrado: false };
     const { botao } = renderizar();
-    navegador({ prompt: ["1", "5511999990000"] });
+    navegador({ prompt: ["2", "1", "5511999990000"] });
 
-    await botao("Enviar teste por WhatsApp").onClick();
+    await botao("Enviar teste").onClick();
 
     expect(depoisDoClique()).toContain(
       '<div class="prov-result prov-result-erro" role="status"><strong>Enviado por whatsapp para 5511999990000 (teste).</strong> O registro na auditoria falhou.</div>',

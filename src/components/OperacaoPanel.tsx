@@ -361,6 +361,25 @@ export default function OperacaoPanel({
     );
   }
 
+  // Dois botões por fatura, e não quatro: no celular os quatro caíam um por
+  // linha e cada fatura aberta ocupava uma tela. O que separa os botões é o que
+  // não pode se confundir — teste e cliente real; o canal é só uma pergunta.
+  // Resposta que não é 1 nem 2 não envia: adivinhar o canal mandaria a cobrança
+  // por onde a pessoa não pediu.
+  async function enviarPor(invoiceId: string, temCobranca: boolean, modo: ModoEnvio) {
+    const escolha = window.prompt(
+      `${modo === "teste" ? "Envio de TESTE" : "Envio ao CLIENTE"} — por onde?\n\n1 = e-mail\n2 = WhatsApp`,
+      "1",
+    );
+    if (escolha === null) return; // cancelou
+    const canal = escolha.trim() === "1" ? "email" : escolha.trim() === "2" ? "whatsapp" : null;
+    if (!canal) {
+      registrar("cobranca", { tipo: "erro", conteudo: "Escolha 1 (e-mail) ou 2 (WhatsApp). Nada foi enviado." });
+      return;
+    }
+    await enviarCobranca(invoiceId, temCobranca, canal, modo);
+  }
+
   async function cobrar(assinaturaId: string, invoiceId: string, metodo: "PIX" | "BOLETO" | "PAYPAL", moeda: string) {
     await executar(
       "cobranca",
@@ -538,17 +557,11 @@ export default function OperacaoPanel({
                       ) : null}
                       {f.status !== "CANCELLED" ? (
                         <span className="prov-fatura-acoes">
-                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.id, Boolean(f.cobranca), "email", "teste")}>
-                            Enviar teste por e-mail
+                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarPor(f.id, Boolean(f.cobranca), "teste")}>
+                            Enviar teste
                           </button>
-                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.id, Boolean(f.cobranca), "email", "cliente")}>
-                            Enviar ao cliente por e-mail
-                          </button>
-                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.id, Boolean(f.cobranca), "whatsapp", "teste")}>
-                            Enviar teste por WhatsApp
-                          </button>
-                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarCobranca(f.id, Boolean(f.cobranca), "whatsapp", "cliente")}>
-                            Enviar ao cliente por WhatsApp
+                          <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarPor(f.id, Boolean(f.cobranca), "cliente")}>
+                            Enviar ao cliente
                           </button>
                         </span>
                       ) : null}

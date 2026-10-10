@@ -62,10 +62,10 @@ levantamento original de 19/09; o que mudou desde então:
   o que os testes não viam: no celular o último botão de cada grupo saía pela
   borda do cartão, as ações da assinatura se espremiam em três linhas e a
   linha de condições cortava a comissão. Corrigido no CSS.
-- **A aba financeira é comprida no celular.** Cada fatura aberta ocupa uns
-  350 px, quase tudo dos quatro botões de envio (teste e cliente, e-mail e
-  WhatsApp), que no celular caem um por linha. Estão separados de propósito,
-  para o envio de teste nunca ir ao cliente; juntar pede decisão de desenho.
+- **Envio de cobrança em dois botões por fatura** ("Enviar teste" e "Enviar ao
+  cliente"), cada um perguntando o canal. Eram quatro, um por linha no
+  celular. Teste e cliente seguem separados, e canal que não é 1 nem 2 não
+  envia.
 
 ---
 
