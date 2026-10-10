@@ -92,6 +92,7 @@ function renderizar(
           startedAt: "2026-09-01",
           productKey: null,
           productTenantId: null,
+          salesCommissionPercent: null,
           invoices: [{ ...fatura(cobranca), status }],
         },
       ]}
@@ -311,5 +312,31 @@ describe("OperacaoPanel — o que aparece depois do envio", () => {
     expect(depoisDoClique()).toContain(
       '<div class="prov-result prov-result-erro" role="status"><strong>Enviado por whatsapp para 5511999990000 (teste).</strong> O registro na auditoria falhou.</div>',
     );
+  });
+});
+
+describe("OperacaoPanel — pagamento recebido por fora", () => {
+  it('"Registrar pagamento" lança a baixa da fatura com a data e o ID do comprovante', async () => {
+    const { botao } = renderizar();
+    navegador({ prompt: ["2026-10-01", " E60701190202610011238DY5L0FLMH1Y "] });
+
+    await botao("Registrar pagamento").onClick();
+
+    expect(chamadas).toEqual([
+      {
+        url: "/api/billing/faturas/fatura-1/baixa",
+        method: "POST",
+        corpo: { pagoEm: "2026-10-01", comprovante: "E60701190202610011238DY5L0FLMH1Y" },
+      },
+    ]);
+  });
+
+  it("cancelar qualquer uma das duas perguntas não lança nada", async () => {
+    const { botao } = renderizar();
+    navegador({ prompt: ["2026-10-01", null] });
+
+    await botao("Registrar pagamento").onClick();
+
+    expect(chamadas).toEqual([]);
   });
 });
