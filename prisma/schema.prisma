@@ -1461,7 +1461,7 @@ model DeliverableCharge {
   id            String    @id @default(cuid())
   deliverableId String    @map("deliverable_id")
   method        String
-  provider      String    @default("EFI")
+  provider      String    @default("MERCADO_PAGO")
   externalId    String?   @map("external_id")
   status        String    @default("CREATED")
   amount        Decimal   @db.Decimal(10, 2)

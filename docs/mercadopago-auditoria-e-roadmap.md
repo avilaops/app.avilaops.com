@@ -323,6 +323,21 @@ produção. O código está pronto para o dia em que houver.
 > o default `EFI` de `DeliverableCharge.provider` no schema. Em produção, nesta
 > data, não há nenhuma cobrança gravada (nem Efí nem Mercado Pago), há 3
 > assinaturas ativas e a competência mais recente faturada é 2026-09.
+>
+> **Estado em 10/10/2026.** Feito: o default de `DeliverableCharge.provider`
+> passou a `MERCADO_PAGO` (migração
+> `20261010040000_cobranca_de_entregavel_nasce_no_mercado_pago`); a tabela está
+> vazia em produção, então não há linha antiga a corrigir e o P1-6 fecha. O
+> agendamento existe no n8n e está **desligado**: workflow "Ávila OS —
+> Faturamento recorrente (diário)" (`S7FwBU1svbXAYbnJ`), 05:50, `POST` com a
+> credencial "Ávila OS Service Key". Não foi publicado porque a simulação
+> (`GET`) desta data mostra o que a primeira rodada gravaria: fatura de 2026-10
+> de R$ 357 para a Vedashow ("Lojas · Loja Pro") e de R$ 250 para a Minas
+> Espetinhos ("Plataforma de restaurantes"), e a fatura 2026-09 da Vedashow
+> (R$ 357, vencida em 15/09) passando a `OVERDUE`. O valor da Vedashow está
+> por confirmar (350 ou 357), e a fatura aberta aparece no portal do cliente.
+> **Para ligar:** acertar o valor da assinatura da Vedashow, decidir se a da
+> Minas Espetinhos segue ativa, simular de novo e publicar o workflow.
 
 - Rotina mensal de faturamento: para cada `Subscription` ativa, `garantirFatura`
   da competência e a primeira cobrança PIX. Idempotente pelo índice único que já

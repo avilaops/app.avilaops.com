@@ -39,6 +39,16 @@ levantamento original de 19/09; o que mudou desde então:
 - **Novo:** a suíte recusa rodar se o Postgres em `DATABASE_URL` tiver outros
   bancos (`tests/global-setup.ts`). Motivo e data no próprio arquivo.
 
+## Atualização de 10/10/2026
+
+- **Faturamento recorrente pronto e desligado.** A rotina existe, o workflow do
+  n8n existe (`S7FwBU1svbXAYbnJ`) e não foi publicado: a primeira rodada cria a
+  fatura de outubro da Vedashow com R$ 357, valor ainda por confirmar (350 ou
+  357), e a da Minas Espetinhos com R$ 250. Detalhe e passos para ligar em
+  `mercadopago-auditoria-e-roadmap.md`, Fase 2.
+- **Gateway padrão da cobrança de entregável** passou a `MERCADO_PAGO` no
+  schema e no banco.
+
 ---
 
 ## 1. Cadastro do cliente
