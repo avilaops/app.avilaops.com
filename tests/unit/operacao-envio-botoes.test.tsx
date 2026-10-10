@@ -318,7 +318,7 @@ describe("OperacaoPanel — o que aparece depois do envio", () => {
 describe("OperacaoPanel — pagamento recebido por fora", () => {
   it('"Registrar pagamento" lança a baixa da fatura com a data e o ID do comprovante', async () => {
     const { botao } = renderizar();
-    navegador({ prompt: ["2026-10-01", " E60701190202610011238DY5L0FLMH1Y "] });
+    navegador({ prompt: ["2026-10-01", " E00000000202610010000COMPROVANTE1 "] });
 
     await botao("Registrar pagamento").onClick();
 
@@ -326,7 +326,7 @@ describe("OperacaoPanel — pagamento recebido por fora", () => {
       {
         url: "/api/billing/faturas/fatura-1/baixa",
         method: "POST",
-        corpo: { pagoEm: "2026-10-01", comprovante: "E60701190202610011238DY5L0FLMH1Y" },
+        corpo: { pagoEm: "2026-10-01", comprovante: "E00000000202610010000COMPROVANTE1" },
       },
     ]);
   });

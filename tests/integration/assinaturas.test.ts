@@ -352,7 +352,7 @@ describe("resumo entregue ao produto", () => {
 });
 
 describe("pagamento recebido direto na chave Pix", () => {
-  const COMPROVANTE = "E60701190202610011238DY5L0FLMH1Y";
+  const COMPROVANTE = "E00000000202610010000COMPROVANTE1";
   const PAGO_EM = new Date("2026-10-01T09:38:31-03:00");
 
   it("quita a fatura na data do comprovante e deixa o pagamento no ledger", async () => {
