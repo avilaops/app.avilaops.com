@@ -1513,6 +1513,10 @@ model Subscription {
   endedAt         DateTime?     @map("ended_at")
   productKey      String?       @map("product_key")
   productTenantId String?       @map("product_tenant_id")
+  /// Percentual sobre as vendas do cliente, combinado além do valor fixo
+  /// (5.00 = 5%). Nulo para quem não tem comissão. Registra o acordo e aparece
+  /// na ficha; nenhuma fatura é gerada a partir dele.
+  salesCommissionPercent Decimal? @map("sales_commission_percent") @db.Decimal(5, 2)
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 

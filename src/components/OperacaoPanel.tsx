@@ -42,6 +42,8 @@ export type AssinaturaDaFicha = {
   startedAt: string;
   productKey: string | null;
   productTenantId: string | null;
+  /** Percentual sobre as vendas combinado além do valor fixo; nulo para quem não tem. */
+  salesCommissionPercent: number | null;
   invoices: FaturaDaFicha[];
 };
 
@@ -236,6 +238,37 @@ export default function OperacaoPanel({
     );
   }
 
+  // Pix que o cliente mandou direto na chave: nenhum webhook fecha essa fatura.
+  // Pede o que está no comprovante — a data e o ID da transação, que é o que
+  // impede lançar o mesmo pagamento duas vezes.
+  async function registrarPagamento(invoiceId: string) {
+    const pagoEm = window.prompt("Data do pagamento, como está no comprovante (AAAA-MM-DD):", new Date().toISOString().slice(0, 10));
+    if (pagoEm === null) return; // cancelou
+    const comprovante = window.prompt("ID da transação do comprovante Pix (começa com E):");
+    if (comprovante === null) return; // cancelou
+    await executar(
+      "cobranca",
+      async () => {
+        await chamar(`/api/billing/faturas/${invoiceId}/baixa`, { pagoEm: pagoEm.trim(), comprovante: comprovante.trim() });
+        return null;
+      },
+      "Pagamento registrado.",
+    );
+  }
+
+  async function ajustarComissao(assinaturaId: string, atual: number | null) {
+    const resposta = window.prompt("Comissão sobre as vendas, em % (0 tira a comissão):", atual === null ? "" : String(atual).replace(".", ","));
+    if (resposta === null || !resposta.trim()) return; // cancelou
+    await executar(
+      "cobranca",
+      async () => {
+        await chamar(`${base}/assinatura/${assinaturaId}`, { acao: "ajustar", comissao: resposta.trim() }, "PATCH");
+        return null;
+      },
+      "Comissão atualizada.",
+    );
+  }
+
   // Pela fatura, não pela cobrança: sem cobrança emitida ainda dá para mandar o
   // resumo; com cobrança, o servidor usa a mais recente e recusa a que não vale.
   //
@@ -408,6 +441,7 @@ export default function OperacaoPanel({
                     <strong>{a.description}</strong>
                     <small>
                       {dinheiro(a.amountCents, a.currency)}/{a.billingCycle === "YEARLY" ? "ano" : "mês"} · vence dia {a.billingDay} · desde {dataCurta(a.startedAt)}
+                      {a.salesCommissionPercent !== null ? ` · mais ${String(a.salesCommissionPercent).replace(".", ",")}% sobre as vendas` : ""}
                       {a.productKey ? ` · ${a.productKey}` : ""}
                     </small>
                   </div>
@@ -444,6 +478,9 @@ export default function OperacaoPanel({
                               PayPal
                             </button>
                           )}
+                          <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => registrarPagamento(f.id)}>
+                            Registrar pagamento
+                          </button>
                         </span>
                       ) : null}
                       {f.status !== "CANCELLED" ? (
@@ -470,6 +507,9 @@ export default function OperacaoPanel({
                     <>
                       <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => agir(a.id, "gerar-fatura")}>
                         Fatura do mês
+                      </button>
+                      <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => ajustarComissao(a.id, a.salesCommissionPercent)}>
+                        Comissão sobre vendas
                       </button>
                       <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => agir(a.id, "pausar")}>
                         Pausar

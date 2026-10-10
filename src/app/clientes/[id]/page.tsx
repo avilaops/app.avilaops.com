@@ -103,6 +103,7 @@ export default async function ClientDossierPage({
     startedAt: a.startedAt.toISOString(),
     productKey: a.productKey,
     productTenantId: a.productTenantId,
+    salesCommissionPercent: a.salesCommissionPercent ? Number(a.salesCommissionPercent.toString()) : null,
     invoices: a.invoices.map((f) => ({
       id: f.id,
       competence: f.competence,

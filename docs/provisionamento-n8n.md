@@ -100,6 +100,8 @@ painel "Cobrança e cadastro" (`src/components/OperacaoPanel.tsx`):
 |---|---|---|
 | Nova assinatura | `POST /api/organizations/[id]/assinatura` `{ descricao, valor, dia, inicio?, implantacao?, produto?, tenant? }` | `Subscription` + primeira `SubscriptionInvoice` MONTHLY (+ SETUP em 7 dias); etapa BILLING |
 | Pausar / retomar / cancelar / ajustar / fatura do mês / cobrar | `PATCH /api/organizations/[id]/assinatura/[subId]` `{ acao, … }` | status da assinatura; `garantirFatura`; `criarCobrancaDaFatura` (PIX/boleto Éfi) devolve copia-e-cola ou link |
+| Registrar pagamento recebido por fora | `POST /api/billing/faturas/[id]/baixa` `{ pagoEm, comprovante }` — dono pela ficha, ou `x-service-key` | cobrança `PIX_DIRETO` com o ID da transação do comprovante, fatura `PAID` na data do comprovante, pagamento em `core.payments` (`source = BAIXA_MANUAL`), auditoria `FATURA_BAIXADA_POR_FORA`. O mesmo comprovante duas vezes é uma baixa só |
+| Comissão sobre vendas | `PATCH /api/organizations/[id]/assinatura/[subId]` `{ acao: "ajustar", comissao }` | `Subscription.salesCommissionPercent` (0 tira). Registra o combinado e aparece na ficha; não gera fatura |
 | Guardar / listar / remover credencial | `GET/POST /api/organizations/[id]/cofre`, `DELETE …/cofre/[provider]` | `OrganizationIntegrationConnection` com `tokenCiphertext` AES-256-GCM (formato do ai-core; chave `AI_CORE_TOKEN_ENCRYPTION_KEY`, criada no servidor em 30/08) |
 | Nova marca | `POST /api/organizations/[id]/marcas` | `Brand` com slug único por cliente |
 | Etapas automáticas | `src/lib/onboarding-etapas.ts` → `marcarEtapa()` chamado por acesso, domínio, caixa, Google (callback), loja e assinatura | `OrganizationOnboardingStep` DONE; primeira marcação semeia as 12 etapas |

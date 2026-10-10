@@ -876,7 +876,7 @@ export async function baixarCobrancaPorIdExterno(
             currency: assinatura.currency,
             status: "CONFIRMED",
             paidAt: cobranca.paidAt ?? momentoDoPagamento,
-            source: "GATEWAY_WEBHOOK",
+            source: cobranca.provider === PROVEDOR_PIX_DIRETO ? "BAIXA_MANUAL" : "GATEWAY_WEBHOOK",
           },
         });
         // Aloca o menor entre o principal da cobrança e o que a fatura ainda
@@ -1014,4 +1014,74 @@ export async function baixarCobrancaPorIdExterno(
   }
 
   return cobranca;
+}
+
+/**
+ * "Gateway" da cobrança que não passou por gateway: o cliente pagou direto na
+ * chave Pix da casa. É o que distingue, no ledger e na ficha, o dinheiro que
+ * alguém conferiu no comprovante do que um webhook confirmou.
+ */
+export const PROVEDOR_PIX_DIRETO = "PIX_DIRETO";
+
+/** A baixa manual foi recusada por um motivo que quem pediu precisa ler. */
+export class BaixaRecusadaError extends Error {}
+
+/**
+ * Dá baixa numa fatura paga por fora: Pix direto na chave, sem cobrança emitida.
+ *
+ * Existe porque é assim que parte dos clientes paga, e o Mercado Pago não
+ * entrega pela API o Pix recebido por chave — nenhum webhook vai fechar essa
+ * fatura. Sem isto ela ficava aberta com o dinheiro na conta, e a rotina de
+ * vencimento a marcaria como em atraso.
+ *
+ * Não tem regra própria de baixa: grava uma cobrança `PIX_DIRETO` com o
+ * identificador do comprovante e entrega para `baixarCobrancaPorIdExterno`, a
+ * mesma função dos gateways. Fatura, cobrança e ledger (`core.payments`)
+ * fecham pelo mesmo caminho, e o identificador do comprovante vira a chave
+ * única do pagamento: o mesmo comprovante lançado duas vezes é uma baixa só.
+ *
+ * O valor é o da fatura. Quem recebeu um valor diferente acerta a fatura
+ * antes; aqui não se quita fatura por valor parcial.
+ */
+export async function registrarPagamentoDireto(params: {
+  invoiceId: string;
+  /** O instante do comprovante, não o do lançamento. */
+  pagoEm: Date;
+  /** Identificador ponta a ponta do Pix (o "ID da transação" do comprovante). */
+  comprovante: string;
+}) {
+  const comprovante = params.comprovante.trim().toUpperCase();
+  if (!/^[A-Z0-9]{10,64}$/.test(comprovante)) {
+    throw new BaixaRecusadaError("Informe o ID da transação do comprovante (letras e números, sem espaço).");
+  }
+
+  const fatura = await prisma.subscriptionInvoice.findUnique({
+    where: { id: params.invoiceId },
+    select: { id: true, status: true, amount: true },
+  });
+  if (!fatura) throw new BaixaRecusadaError("Fatura não encontrada.");
+  if (fatura.status === "CANCELLED") throw new BaixaRecusadaError("Fatura cancelada não recebe pagamento.");
+
+  const jaLancado = await prisma.subscriptionCharge.findFirst({
+    where: { externalId: comprovante },
+    select: { invoiceId: true },
+  });
+  if (jaLancado && jaLancado.invoiceId !== fatura.id) {
+    throw new BaixaRecusadaError("Este comprovante já quitou outra fatura.");
+  }
+  if (!jaLancado) {
+    if (fatura.status === "PAID") throw new BaixaRecusadaError("Esta fatura já está paga.");
+    await prisma.subscriptionCharge.create({
+      data: {
+        invoiceId: fatura.id,
+        method: "PIX",
+        provider: PROVEDOR_PIX_DIRETO,
+        externalId: comprovante,
+        status: "PENDING",
+        amount: fatura.amount,
+      },
+    });
+  }
+
+  return baixarCobrancaPorIdExterno(comprovante, "PAID", params.pagoEm);
 }

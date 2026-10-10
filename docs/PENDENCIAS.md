@@ -48,6 +48,17 @@ levantamento original de 19/09; o que mudou desde então:
   `mercadopago-auditoria-e-roadmap.md`, Fase 2.
 - **Gateway padrão da cobrança de entregável** passou a `MERCADO_PAGO` no
   schema e no banco.
+- **Pix direto na chave tem baixa.** A ficha do cliente ganhou "Registrar
+  pagamento" na fatura aberta (data e ID da transação do comprovante); a rota é
+  `POST /api/billing/faturas/[id]/baixa`. Antes, fatura paga por Pix direto
+  ficava aberta para sempre: o Mercado Pago não avisa Pix recebido por chave.
+- **Comissão sobre vendas é só registro.** O percentual mora na assinatura e
+  aparece na ficha. Não há cálculo nem fatura de comissão: falta decidir a base
+  (com ou sem frete, pedido pago ou entregue) e o dia de fechamento. A leitura
+  dos pedidos existe na plataforma de lojas
+  (`GET /api/admin/tenants/<slug>/pedidos`).
+- **As telas novas da ficha não foram conferidas no navegador** (dois botões e
+  um trecho de texto na lista de assinaturas). Lint e testes passaram.
 
 ---
 

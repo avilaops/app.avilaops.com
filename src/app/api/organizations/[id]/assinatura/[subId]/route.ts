@@ -19,7 +19,8 @@ const METODOS: MetodoCobranca[] = ["PIX", "BOLETO", "PAYPAL"];
 /**
  * Ações sobre uma assinatura existente:
  * - `pausar` / `retomar` / `cancelar` (cancelar fecha `endedAt`);
- * - `ajustar` `{ valor?, dia? }` — vale a partir da próxima fatura;
+ * - `ajustar` `{ valor?, dia?, comissao? }` — vale a partir da próxima fatura;
+ *   `comissao` é o percentual sobre as vendas (0 tira);
  * - `gerar-fatura` `{ competencia? }` — mensalidade do mês (idempotente);
  * - `cobrar` `{ invoiceId, metodo: PIX | BOLETO | PAYPAL }` — emite a cobrança no
  *   Mercado Pago, único meio da casa desde 31/08/2026
@@ -74,11 +75,28 @@ export async function PATCH(
     if (dia !== null && (!Number.isInteger(dia) || dia < 1 || dia > 28)) {
       return NextResponse.json({ error: "Dia entre 1 e 28." }, { status: 400 });
     }
+    // Comissão sobre as vendas: campo ausente não mexe, "0" tira a comissão.
+    const comissaoTexto = cleanText(body?.comissao, 10).replace(",", ".");
+    const comissao = comissaoTexto ? Number(comissaoTexto) : null;
+    if (comissao !== null && (!Number.isFinite(comissao) || comissao < 0 || comissao > 100)) {
+      return NextResponse.json({ error: "Comissão entre 0 e 100%." }, { status: 400 });
+    }
     await prisma.subscription.update({
       where: { id: subId },
-      data: { ...(valor !== null ? { amount: valor } : {}), ...(dia !== null ? { billingDay: dia } : {}) },
+      data: {
+        ...(valor !== null ? { amount: valor } : {}),
+        ...(dia !== null ? { billingDay: dia } : {}),
+        ...(comissao !== null ? { salesCommissionPercent: comissao === 0 ? null : comissao } : {}),
+      },
     });
-    await auditar("SUBSCRIPTION_ADJUSTED", { valorAntes: assinatura.amount.toString(), valor, diaAntes: assinatura.billingDay, dia });
+    await auditar("SUBSCRIPTION_ADJUSTED", {
+      valorAntes: assinatura.amount.toString(),
+      valor,
+      diaAntes: assinatura.billingDay,
+      dia,
+      comissaoAntes: assinatura.salesCommissionPercent?.toString() ?? null,
+      comissao,
+    });
     return NextResponse.json({ ok: true });
   }
 

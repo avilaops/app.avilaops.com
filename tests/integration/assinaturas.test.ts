@@ -5,6 +5,7 @@ import {
   CobrancaIndisponivelError,
   criarCobrancaDaFatura,
   garantirFatura,
+  registrarPagamentoDireto,
 } from "@/lib/assinaturas";
 import { prisma } from "@/lib/prisma";
 import { cnpjDeTeste } from "../fixtures/documento";
@@ -347,5 +348,75 @@ describe("resumo entregue ao produto", () => {
     expect(
       await assinaturaDoProduto({ productKey: PRODUTO, productTenantId: "nao-existe" }),
     ).toBeNull();
+  });
+});
+
+describe("pagamento recebido direto na chave Pix", () => {
+  const COMPROVANTE = "E60701190202610011238DY5L0FLMH1Y";
+  const PAGO_EM = new Date("2026-10-01T09:38:31-03:00");
+
+  it("quita a fatura na data do comprovante e deixa o pagamento no ledger", async () => {
+    const fatura = await garantirFatura({ subscriptionId, competencia: "2026-10" });
+
+    await registrarPagamentoDireto({ invoiceId: fatura!.id, pagoEm: PAGO_EM, comprovante: COMPROVANTE });
+
+    const depois = await prisma.subscriptionInvoice.findUniqueOrThrow({ where: { id: fatura!.id }, include: { charges: true } });
+    expect(depois.status).toBe("PAID");
+    expect(depois.paidAt?.toISOString()).toBe(PAGO_EM.toISOString());
+    expect(depois.charges).toHaveLength(1);
+    expect(depois.charges[0]).toMatchObject({ provider: "PIX_DIRETO", method: "PIX", status: "PAID", externalId: COMPROVANTE });
+
+    // É a mesma baixa dos gateways: o dinheiro aparece na tesouraria, alocado
+    // na fatura, e marcado como lançado à mão.
+    const pagamento = await prisma.corePayment.findFirstOrThrow({
+      where: { provider: "PIX_DIRETO", externalId: COMPROVANTE },
+      include: { allocations: true },
+    });
+    expect(pagamento).toMatchObject({ status: "CONFIRMED", source: "BAIXA_MANUAL", organizationId });
+    expect(Number(pagamento.amount)).toBe(250);
+    expect(pagamento.allocations.map((a) => [a.invoiceId, Number(a.amount)])).toEqual([[fatura!.id, 250]]);
+  });
+
+  it("o mesmo comprovante lançado duas vezes é uma baixa só", async () => {
+    const fatura = await garantirFatura({ subscriptionId, competencia: "2026-10" });
+
+    await registrarPagamentoDireto({ invoiceId: fatura!.id, pagoEm: PAGO_EM, comprovante: COMPROVANTE });
+    // Minúsculas e espaço em volta: é o mesmo comprovante copiado de outro jeito.
+    await registrarPagamentoDireto({ invoiceId: fatura!.id, pagoEm: new Date(), comprovante: ` ${COMPROVANTE.toLowerCase()} ` });
+
+    expect(await prisma.subscriptionCharge.count({ where: { invoiceId: fatura!.id } })).toBe(1);
+    expect(await prisma.corePayment.count({ where: { externalId: COMPROVANTE } })).toBe(1);
+    const depois = await prisma.subscriptionInvoice.findUniqueOrThrow({ where: { id: fatura!.id } });
+    expect(depois.paidAt?.toISOString()).toBe(PAGO_EM.toISOString());
+  });
+
+  it("um comprovante não quita duas faturas", async () => {
+    const outubro = await garantirFatura({ subscriptionId, competencia: "2026-10" });
+    const novembro = await garantirFatura({ subscriptionId, competencia: "2026-11" });
+    await registrarPagamentoDireto({ invoiceId: outubro!.id, pagoEm: PAGO_EM, comprovante: COMPROVANTE });
+
+    await expect(
+      registrarPagamentoDireto({ invoiceId: novembro!.id, pagoEm: PAGO_EM, comprovante: COMPROVANTE }),
+    ).rejects.toThrow(/já quitou outra fatura/i);
+    expect((await prisma.subscriptionInvoice.findUniqueOrThrow({ where: { id: novembro!.id } })).status).toBe("OPEN");
+  });
+
+  it("recusa fatura cancelada, fatura já paga e comprovante sem identificador", async () => {
+    const fatura = await garantirFatura({ subscriptionId, competencia: "2026-10" });
+
+    await expect(
+      registrarPagamentoDireto({ invoiceId: fatura!.id, pagoEm: PAGO_EM, comprovante: "pix do zé" }),
+    ).rejects.toThrow(/ID da transação/i);
+
+    await prisma.subscriptionInvoice.update({ where: { id: fatura!.id }, data: { status: "PAID", paidAt: PAGO_EM } });
+    await expect(
+      registrarPagamentoDireto({ invoiceId: fatura!.id, pagoEm: PAGO_EM, comprovante: COMPROVANTE }),
+    ).rejects.toThrow(/já está paga/i);
+
+    await prisma.subscriptionInvoice.update({ where: { id: fatura!.id }, data: { status: "CANCELLED", paidAt: null } });
+    await expect(
+      registrarPagamentoDireto({ invoiceId: fatura!.id, pagoEm: PAGO_EM, comprovante: COMPROVANTE }),
+    ).rejects.toThrow(/cancelada/i);
+    expect(await prisma.subscriptionCharge.count({ where: { invoiceId: fatura!.id } })).toBe(0);
   });
 });
