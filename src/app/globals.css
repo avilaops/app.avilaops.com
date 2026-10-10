@@ -6456,19 +6456,40 @@ tbody tr:last-child td {
   flex: 1 1 220px;
 }
 
+/* Encolhe até a largura do cartão e aí quebra: com `flex: 0 0 auto` o grupo
+   ficava da largura dos botões somados, e no celular o último (cancelar a
+   fatura, enviar por WhatsApp) saía pela borda do cartão sem como alcançar. */
 .prov-fatura-acoes {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
   gap: 6px;
 }
 
+/* As ações da assinatura quebram de linha em vez de espremer: seis botões
+   numa linha só viravam rótulos em três linhas e empurravam "Pausar" e
+   "Cancelar" para fora do cartão. Cada botão fica inteiro, com 44px de toque. */
 .prov-assinatura-acoes {
   min-height: 44px;
-  gap: 16px;
+  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 0;
   padding-top: 4px;
   padding-bottom: 4px;
+}
+
+.prov-assinatura-acoes .text-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+/* A linha de condições da assinatura (valor, vencimento, comissão) não corta:
+   cortada, a comissão sobre as vendas era justamente o que sumia. */
+.prov-row-main-solto small {
+  white-space: normal;
 }
 
 .prov-perigo {

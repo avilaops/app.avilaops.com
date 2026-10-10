@@ -57,8 +57,15 @@ levantamento original de 19/09; o que mudou desde então:
   (com ou sem frete, pedido pago ou entregue) e o dia de fechamento. A leitura
   dos pedidos existe na plataforma de lojas
   (`GET /api/admin/tenants/<slug>/pedidos`).
-- **As telas novas da ficha não foram conferidas no navegador** (dois botões e
-  um trecho de texto na lista de assinaturas). Lint e testes passaram.
+- **Aba financeira da ficha conferida no navegador** (375, 393 e 1440, claro e
+  escuro, com dados fictícios sobre a imagem de produção). A conferência achou
+  o que os testes não viam: no celular o último botão de cada grupo saía pela
+  borda do cartão, as ações da assinatura se espremiam em três linhas e a
+  linha de condições cortava a comissão. Corrigido no CSS.
+- **A aba financeira é comprida no celular.** Cada fatura aberta ocupa uns
+  350 px, quase tudo dos quatro botões de envio (teste e cliente, e-mail e
+  WhatsApp), que no celular caem um por linha. Estão separados de propósito,
+  para o envio de teste nunca ir ao cliente; juntar pede decisão de desenho.
 
 ---
 

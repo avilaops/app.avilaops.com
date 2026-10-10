@@ -482,7 +482,7 @@ export default function OperacaoPanel({
             assinaturas.map((a) => (
               <div className="ios-list" key={a.id}>
                 <div className="ios-row ios-row-static">
-                  <div className="prov-row-main">
+                  <div className="prov-row-main prov-row-main-solto">
                     <strong>{a.description}</strong>
                     <small>
                       {dinheiro(a.amountCents, a.currency)}/{a.billingCycle === "YEARLY" ? "ano" : "mês"} · vence dia {a.billingDay} · desde {dataCurta(a.startedAt)}
