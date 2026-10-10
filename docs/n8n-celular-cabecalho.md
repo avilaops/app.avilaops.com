@@ -79,3 +79,29 @@ uma borda lateral e um realce discreto na cor da família.
 A fonte versionada desses arquivos está em
 `arxisvr.avilaops.com/deploy/n8n-override/`; as rotas estáticas correspondentes
 estão no bloco do n8n em `deploy/Caddyfile.apps-noclient`.
+
+## Settings no celular (10/10/2026)
+
+Em Settings o n8n põe o menu numa coluna lateral de no mínimo 200 px e dá
+48 px de respiro de cada lado ao conteúdo. A 390 px sobravam 94 px úteis: uma
+palavra por linha. A mesma folha (`avila-n8n-mobile.css`, agora `?v=3` no
+`index.html` do override) trata isso até 820 px:
+
+- a grade de Settings perde a coluna lateral; o menu vira uma faixa de uma
+  linha no topo, com rolagem lateral;
+- o item aberto (`aria-current="page"`) vai para o começo da faixa;
+- o conteúdo fica com 16 px de respiro (358 px úteis a 390 px).
+
+Âncora: `[data-test-id="settings-back"]`, que só existe nessa tela. A grade de
+Settings fica dentro da grade do aplicativo (as duas têm a classe `app-grid`);
+`.app-grid:has(> #sidebar [data-test-id="settings-back"])` escolhe só a de
+dentro.
+
+O n8n voltou para o servidor `applications` em 08/10/2026: os arquivos estão em
+`/opt/n8n/override` lá, e a fonte versionada continua em
+`arxisvr.avilaops.com/deploy/n8n-override/`.
+
+Prova: Playwright a 390×844 no `apps-noclient`
+(`/opt/build/n8n-settings-celular/rodar.sh`), na homologação com a conta do
+dono (seis telas de Settings) e em produção com `claude@avilaops.com`
+(Personal, n8n API e Instance-level MCP, que passou a caber numa tela).
