@@ -340,3 +340,47 @@ describe("OperacaoPanel — pagamento recebido por fora", () => {
     expect(chamadas).toEqual([]);
   });
 });
+
+describe("OperacaoPanel — valor, implantação e cancelamento de fatura", () => {
+  const ASSINATURA = "/api/organizations/org-1/assinatura/assinatura-1";
+
+  it('"Alterar valor" mostra o valor atual, avisa que as faturas emitidas não mudam e manda o novo', async () => {
+    const { botao } = renderizar();
+    navegador({ prompt: [" 350,00 "] });
+
+    await botao("Alterar valor").onClick();
+
+    expect(prompts[0]).toContain("as já emitidas não mudam");
+    expect(chamadas).toEqual([{ url: ASSINATURA, method: "PATCH", corpo: { acao: "ajustar", valor: "350,00" } }]);
+  });
+
+  it('"Criar implantação" pede valor e vencimento e manda os dois', async () => {
+    const { botao } = renderizar();
+    navegador({ prompt: ["497", "2026-09-02"] });
+
+    await botao("Criar implantação").onClick();
+
+    expect(chamadas).toEqual([
+      { url: ASSINATURA, method: "PATCH", corpo: { acao: "implantacao", valor: "497", vencimento: "2026-09-02" } },
+    ]);
+  });
+
+  it('"Cancelar fatura" só cancela depois da confirmação, que nomeia a fatura', async () => {
+    const { botao } = renderizar();
+    navegador({ confirm: false });
+    await botao("Cancelar fatura").onClick();
+    expect(chamadas).toEqual([]);
+    expect(confirmacoes[0]).toContain('"Mensalidade 2026-09"');
+
+    navegador({ confirm: true });
+    await botao("Cancelar fatura").onClick();
+    expect(chamadas).toEqual([{ url: ASSINATURA, method: "PATCH", corpo: { acao: "cancelar-fatura", invoiceId: "fatura-1" } }]);
+  });
+
+  it("fatura paga não oferece cancelamento nem registro de pagamento", () => {
+    renderizar(COBRANCA, "PAID");
+
+    expect(botoes.map((b) => b.rotulo)).not.toContain("Cancelar fatura");
+    expect(botoes.map((b) => b.rotulo)).not.toContain("Registrar pagamento");
+  });
+});

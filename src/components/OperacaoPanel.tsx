@@ -256,6 +256,51 @@ export default function OperacaoPanel({
     );
   }
 
+  // O valor novo vale da próxima fatura em diante: as que já existem ficam como
+  // nasceram, e é o texto da pergunta que diz isso a quem está mudando.
+  async function ajustarValor(assinaturaId: string, atualCents: number, ciclo: string) {
+    const resposta = window.prompt(
+      `Novo valor ${ciclo === "YEARLY" ? "anual" : "mensal"}, em reais.\n\nVale a partir da próxima fatura; as já emitidas não mudam.`,
+      (atualCents / 100).toFixed(2).replace(".", ","),
+    );
+    if (resposta === null || !resposta.trim()) return; // cancelou
+    await executar(
+      "cobranca",
+      async () => {
+        await chamar(`${base}/assinatura/${assinaturaId}`, { acao: "ajustar", valor: resposta.trim() }, "PATCH");
+        return null;
+      },
+      "Valor atualizado.",
+    );
+  }
+
+  async function criarImplantacao(assinaturaId: string) {
+    const valor = window.prompt("Valor da implantação, em reais:");
+    if (valor === null || !valor.trim()) return; // cancelou
+    const vencimento = window.prompt("Vencimento da implantação (AAAA-MM-DD):", new Date().toISOString().slice(0, 10));
+    if (vencimento === null || !vencimento.trim()) return; // cancelou
+    await executar(
+      "cobranca",
+      async () => {
+        await chamar(`${base}/assinatura/${assinaturaId}`, { acao: "implantacao", valor: valor.trim(), vencimento: vencimento.trim() }, "PATCH");
+        return null;
+      },
+      "Implantação criada.",
+    );
+  }
+
+  async function cancelarFatura(assinaturaId: string, invoiceId: string, rotulo: string) {
+    if (!window.confirm(`Cancelar a fatura "${rotulo}"?\n\nEla deixa de ser cobrada e sai do que o cliente deve. Não dá para reabrir.`)) return;
+    await executar(
+      "cobranca",
+      async () => {
+        await chamar(`${base}/assinatura/${assinaturaId}`, { acao: "cancelar-fatura", invoiceId }, "PATCH");
+        return null;
+      },
+      "Fatura cancelada.",
+    );
+  }
+
   async function ajustarComissao(assinaturaId: string, atual: number | null) {
     const resposta = window.prompt("Comissão sobre as vendas, em % (0 tira a comissão):", atual === null ? "" : String(atual).replace(".", ","));
     if (resposta === null || !resposta.trim()) return; // cancelou
@@ -481,6 +526,14 @@ export default function OperacaoPanel({
                           <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => registrarPagamento(f.id)}>
                             Registrar pagamento
                           </button>
+                          <button
+                            type="button"
+                            className="text-button prov-perigo"
+                            disabled={ocupado === "cobranca"}
+                            onClick={() => cancelarFatura(a.id, f.id, f.kind === "SETUP" ? "Implantação" : `Mensalidade ${f.competence}`)}
+                          >
+                            Cancelar fatura
+                          </button>
                         </span>
                       ) : null}
                       {f.status !== "CANCELLED" ? (
@@ -507,6 +560,12 @@ export default function OperacaoPanel({
                     <>
                       <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => agir(a.id, "gerar-fatura")}>
                         Fatura do mês
+                      </button>
+                      <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => criarImplantacao(a.id)}>
+                        Criar implantação
+                      </button>
+                      <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => ajustarValor(a.id, a.amountCents, a.billingCycle)}>
+                        Alterar valor
                       </button>
                       <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => ajustarComissao(a.id, a.salesCommissionPercent)}>
                         Comissão sobre vendas

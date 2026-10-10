@@ -22,6 +22,9 @@ const METODOS: MetodoCobranca[] = ["PIX", "BOLETO", "PAYPAL"];
  * - `ajustar` `{ valor?, dia?, comissao? }` — vale a partir da próxima fatura;
  *   `comissao` é o percentual sobre as vendas (0 tira);
  * - `gerar-fatura` `{ competencia? }` — mensalidade do mês (idempotente);
+ * - `implantacao` `{ valor, vencimento }` — fatura de implantação numa
+ *   assinatura que já existe; a competência é a do vencimento;
+ * - `cancelar-fatura` `{ invoiceId }` — só fatura em aberto;
  * - `cobrar` `{ invoiceId, metodo: PIX | BOLETO | PAYPAL }` — emite a cobrança no
  *   Mercado Pago, único meio da casa desde 31/08/2026
  *   e devolve o copia-e-cola / link do boleto para mandar ao cliente.
@@ -124,6 +127,63 @@ export async function PATCH(
     const fatura = await garantirFatura({ subscriptionId: subId, competencia, tipo });
     await auditar("SUBSCRIPTION_INVOICE_ENSURED", { competencia, faturaId: fatura?.id ?? null });
     return NextResponse.json({ ok: true, faturaId: fatura?.id ?? null, competencia });
+  }
+
+  if (acao === "implantacao") {
+    const valorTexto = cleanText(body?.valor, 30).replace(/\./g, "").replace(",", ".");
+    const valor = Number(valorTexto);
+    if (!valorTexto || !Number.isFinite(valor) || valor <= 0) {
+      return NextResponse.json({ error: "Informe o valor da implantação." }, { status: 400 });
+    }
+    // A competência sai do vencimento: implantação combinada meses atrás e
+    // lançada só agora precisa cair no mês em que foi cobrada, não no de hoje.
+    const vencimentoTexto = cleanText(body?.vencimento, 10);
+    const vencimento = /^\d{4}-\d{2}-\d{2}$/.test(vencimentoTexto) ? new Date(`${vencimentoTexto}T00:00:00Z`) : null;
+    if (!vencimento || Number.isNaN(vencimento.getTime())) {
+      return NextResponse.json({ error: "Informe o vencimento (AAAA-MM-DD)." }, { status: 400 });
+    }
+    if (assinatura.status !== "ACTIVE") {
+      return NextResponse.json({ error: "A assinatura não está ativa." }, { status: 409 });
+    }
+    const competencia = vencimentoTexto.slice(0, 7);
+    // `garantirFatura` devolveria a que já existe, com o valor antigo, e a
+    // tela diria "criada" sobre uma fatura que não é a que a pessoa pediu.
+    const existente = await prisma.subscriptionInvoice.findUnique({
+      where: { subscriptionId_competence_kind: { subscriptionId: subId, competence: competencia, kind: "SETUP" } },
+      select: { id: true },
+    });
+    if (existente) {
+      return NextResponse.json({ error: `Esta assinatura já tem implantação em ${competencia}.` }, { status: 409 });
+    }
+    const fatura = await garantirFatura({
+      subscriptionId: subId, competencia, tipo: "SETUP", valorCents: Math.round(valor * 100), vencimento,
+    });
+    await auditar("SUBSCRIPTION_SETUP_INVOICE_CREATED", { competencia, valor, vencimento: vencimentoTexto, faturaId: fatura?.id ?? null });
+    return NextResponse.json({ ok: true, faturaId: fatura?.id ?? null, competencia });
+  }
+
+  if (acao === "cancelar-fatura") {
+    const invoiceId = cleanText(body?.invoiceId, 64);
+    if (!invoiceId) return NextResponse.json({ error: "Informe a fatura." }, { status: 400 });
+    const fatura = await prisma.subscriptionInvoice.findFirst({
+      where: { id: invoiceId, subscriptionId: subId },
+      select: { id: true, status: true, competence: true, kind: true, amount: true },
+    });
+    if (!fatura) return NextResponse.json({ error: "Fatura não encontrada nesta assinatura." }, { status: 404 });
+    // O status entra na condição: fatura paga entre a leitura e aqui não é
+    // cancelada. Cobrança já emitida segue valendo no gateway — se o cliente
+    // pagar depois, a baixa reabre e quita a fatura, porque o dinheiro entrou.
+    const { count } = await prisma.subscriptionInvoice.updateMany({
+      where: { id: invoiceId, status: { in: ["OPEN", "OVERDUE"] } },
+      data: { status: "CANCELLED" },
+    });
+    if (count !== 1) {
+      return NextResponse.json({ error: "Só fatura em aberto pode ser cancelada." }, { status: 409 });
+    }
+    await auditar("SUBSCRIPTION_INVOICE_CANCELLED", {
+      invoiceId, competencia: fatura.competence, tipo: fatura.kind, valor: fatura.amount.toString(), de: fatura.status,
+    });
+    return NextResponse.json({ ok: true });
   }
 
   if (acao === "cobrar") {
