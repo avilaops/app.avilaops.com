@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   // reserializar o JSON mudaria espaço em branco e derrubaria a verificação.
   const bruto = await request.text();
 
-  if (!paypalConfigurado()) {
+  if (!(await paypalConfigurado())) {
     console.error("[paypal] webhook chegou sem PAYPAL_CLIENT_ID/SECRET configurados");
     return NextResponse.json({ erro: "PayPal não configurado." }, { status: 503 });
   }

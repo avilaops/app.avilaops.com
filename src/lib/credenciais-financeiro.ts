@@ -162,7 +162,7 @@ export const FINANCEIRAS: Financeira[] = [
       {
         chave: "PAYPAL_AMBIENTE",
         rotulo: "Ambiente",
-        ajuda: "sandbox ou producao. Sandbox e produção são mundos separados, com credenciais próprias.",
+        ajuda: "live (conta de verdade) ou sandbox (teste). São mundos separados, com credenciais e webhook próprios; em branco vale sandbox.",
         obrigatorio: false,
       },
     ],

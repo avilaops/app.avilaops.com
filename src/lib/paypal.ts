@@ -12,6 +12,8 @@
  * saiu.
  */
 
+import { obterCredencial } from "@/lib/credenciais";
+
 const BASES = {
   sandbox: "https://api-m.sandbox.paypal.com",
   live: "https://api-m.paypal.com",
@@ -19,12 +21,29 @@ const BASES = {
 
 export class PayPalIndisponivel extends Error {}
 
-function ambiente(): keyof typeof BASES {
-  return process.env.PAYPAL_AMBIENTE?.trim().toLowerCase() === "live" ? "live" : "sandbox";
+/**
+ * Uma credencial do PayPal: primeiro o cofre (Empresa › Credenciais), depois a
+ * variável do servidor.
+ *
+ * Até 12/10/2026 este módulo lia só `process.env`, e a ficha do PayPal na tela
+ * gravava no cofre: o que se salvava lá era ignorado, e trocar uma chave
+ * rotacionada exigia editar o `.env` do servidor e reiniciar o app. O cofre tem
+ * cache de um minuto, então a troca pela tela vale sem deploy.
+ */
+async function credencial(chave: string): Promise<string | null> {
+  return (await obterCredencial(chave))?.trim() || process.env[chave]?.trim() || null;
 }
 
-export function paypalConfigurado(): boolean {
-  return Boolean(process.env.PAYPAL_CLIENT_ID?.trim() && process.env.PAYPAL_SECRET?.trim());
+/** Os nomes que a tela e as pessoas usam para "de verdade"; qualquer outro valor é sandbox. */
+const NOMES_DE_PRODUCAO = new Set(["live", "producao", "produção", "production"]);
+
+async function ambiente(): Promise<keyof typeof BASES> {
+  const valor = (await credencial("PAYPAL_AMBIENTE"))?.toLowerCase() ?? "";
+  return NOMES_DE_PRODUCAO.has(valor) ? "live" : "sandbox";
+}
+
+export async function paypalConfigurado(): Promise<boolean> {
+  return Boolean((await credencial("PAYPAL_CLIENT_ID")) && (await credencial("PAYPAL_SECRET")));
 }
 
 /**
@@ -82,10 +101,10 @@ export type DiagnosticoPaypal = {
  * painel pergunta direto, e o operador vê verde/vermelho na tela.
  */
 export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
-  const amb = ambiente();
-  const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim() || null;
+  const amb = await ambiente();
+  const webhookId = await credencial("PAYPAL_WEBHOOK_ID");
 
-  if (!paypalConfigurado()) {
+  if (!(await paypalConfigurado())) {
     return { ambiente: amb, configurado: false, oauthOk: false, webhookId, webhookUrl: null, eventos: [], erro: "PAYPAL_CLIENT_ID/SECRET ausentes." };
   }
 
@@ -134,13 +153,13 @@ export async function diagnosticarWebhook(): Promise<DiagnosticoPaypal> {
  * silenciosamente no dia em que a chave é trocada.
  */
 async function token(): Promise<string> {
-  const id = process.env.PAYPAL_CLIENT_ID?.trim();
-  const segredo = process.env.PAYPAL_SECRET?.trim();
+  const id = await credencial("PAYPAL_CLIENT_ID");
+  const segredo = await credencial("PAYPAL_SECRET");
   if (!id || !segredo) {
     throw new PayPalIndisponivel("PAYPAL_CLIENT_ID e PAYPAL_SECRET não configurados.");
   }
 
-  const resposta = await fetch(`${BASES[ambiente()]}/v1/oauth2/token`, {
+  const resposta = await fetch(`${BASES[await ambiente()]}/v1/oauth2/token`, {
     method: "POST",
     headers: {
       authorization: `Basic ${Buffer.from(`${id}:${segredo}`).toString("base64")}`,
@@ -162,7 +181,7 @@ async function token(): Promise<string> {
 
 async function chamar<T>(caminho: string, init?: RequestInit): Promise<T> {
   const acesso = await token();
-  const resposta = await fetch(`${BASES[ambiente()]}${caminho}`, {
+  const resposta = await fetch(`${BASES[await ambiente()]}${caminho}`, {
     ...init,
     headers: {
       authorization: `Bearer ${acesso}`,
@@ -234,7 +253,7 @@ export async function assinaturaConfere(
   cabecalhos: Headers,
   corpoBruto: string,
 ): Promise<boolean> {
-  const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim();
+  const webhookId = await credencial("PAYPAL_WEBHOOK_ID");
   if (!webhookId) return false;
 
   const obrigatorios = [

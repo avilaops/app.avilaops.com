@@ -55,6 +55,46 @@ describe("diagnóstico do PayPal", () => {
     );
   }
 
+  it("a credencial gravada no cofre vale sobre a do servidor: chave rotacionada se troca pela tela", async () => {
+    comWebhookAssinando([...EVENTOS_DE_PAGAMENTO]);
+    cofre.set("PAYPAL_CLIENT_ID", "id-do-cofre");
+    cofre.set("PAYPAL_SECRET", "segredo-do-cofre");
+
+    await diagnosticarWebhook();
+
+    const pedidoDeToken = vi.mocked(fetch).mock.calls.find(([destino]) => String(destino).endsWith("/v1/oauth2/token"));
+    const basic = (pedidoDeToken?.[1]?.headers as Record<string, string>).authorization;
+    expect(Buffer.from(basic.replace("Basic ", ""), "base64").toString()).toBe("id-do-cofre:segredo-do-cofre");
+  });
+
+  it("só com o cofre preenchido, sem nada no servidor, o PayPal conta como configurado", async () => {
+    comWebhookAssinando([...EVENTOS_DE_PAGAMENTO]);
+    for (const nome of ["PAYPAL_CLIENT_ID", "PAYPAL_SECRET", "PAYPAL_WEBHOOK_ID"]) delete process.env[nome];
+    cofre.set("PAYPAL_CLIENT_ID", "id-do-cofre");
+    cofre.set("PAYPAL_SECRET", "segredo-do-cofre");
+    cofre.set("PAYPAL_WEBHOOK_ID", "WH-1");
+
+    const d = await diagnosticarWebhook();
+
+    expect(d).toMatchObject({ configurado: true, oauthOk: true, webhookId: "WH-1", erro: null });
+  });
+
+  it.each([
+    ["live", "https://api-m.paypal.com"],
+    ["producao", "https://api-m.paypal.com"],
+    ["Produção", "https://api-m.paypal.com"],
+    ["sandbox", "https://api-m.sandbox.paypal.com"],
+    ["", "https://api-m.sandbox.paypal.com"],
+  ])('ambiente "%s" fala com %s', async (valor, base) => {
+    comWebhookAssinando([...EVENTOS_DE_PAGAMENTO]);
+    cofre.set("PAYPAL_AMBIENTE", valor);
+
+    const d = await diagnosticarWebhook();
+
+    expect(d.ambiente).toBe(base.includes("sandbox") ? "sandbox" : "live");
+    expect(vi.mocked(fetch).mock.calls.every(([destino]) => String(destino).startsWith(base))).toBe(true);
+  });
+
   it("webhook só com DENIED não é saudável: nunca avisaria pagamento nem reembolso", async () => {
     comWebhookAssinando(["PAYMENT.CAPTURE.DENIED"]);
     const d = await diagnosticarWebhook();
