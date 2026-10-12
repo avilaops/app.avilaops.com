@@ -105,3 +105,24 @@ Prova: Playwright a 390×844 no `apps-noclient`
 (`/opt/build/n8n-settings-celular/rodar.sh`), na homologação com a conta do
 dono (seis telas de Settings) e em produção com `claude@avilaops.com`
 (Personal, n8n API e Instance-level MCP, que passou a caber numa tela).
+
+## Janela de credencial no celular (12/10/2026)
+
+Na janela de uma credencial o n8n põe o menu (Connection, Sharing, Details) numa
+coluna lateral que cresce. A 390 px o menu tomava 304 px e o formulário ficava
+com 8 px: não dava para preencher nem ler nada. A mesma folha
+(`avila-n8n-mobile.css`, agora `?v=5`) trata isso até 820 px:
+
+- a janela usa quase a tela toda (largura da tela menos 56 px, 86% da altura);
+- o menu vira uma faixa de uma linha no topo;
+- o conteúdo fica com a largura toda (334 px úteis a 390 px) e rola sozinho.
+
+Âncoras: `[data-test-id="editCredential-modal"]` (a janela) e
+`[data-test-id="credential-edit-dialog"]` (menu + conteúdo; o menu é o primeiro
+bloco quando há outro depois dele).
+
+Prova: Playwright a 390×844 e a 1280×800 no `apps-noclient`, em produção com
+`claude@avilaops.com`, abrindo uma credencial nova de Header Auth sem salvar
+(`~/.agents/claude/out/n8n-credencial-celular/rodar.sh` no `creators`). A 1280 px
+o print saiu idêntico ao de antes. Não conferido: credencial com OAuth (botão de
+conectar) e a aba Details de uma credencial já salva.
