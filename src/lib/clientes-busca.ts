@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { TIPOS_PARA_A_LISTA, logoDaLista } from "@/lib/marca/logo-da-lista";
 
 /**
  * Busca e paginação da lista de clientes.
@@ -132,9 +133,18 @@ async function carregarLinhas(ids: string[]) {
       status: true,
       createdAt: true,
       _count: { select: { brands: true, projects: true, domains: true, subscriptions: true } },
+      // Só as versões atuais dos tipos que servem de miniatura; o mais recente
+      // de cada tipo vem primeiro, e é ele que `logoDaLista` escolhe.
+      brandAssets: {
+        where: { isCurrent: true, storageKey: { not: null }, assetType: { in: [...TIPOS_PARA_A_LISTA] } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, assetType: true, mimeType: true, storageKey: true },
+      },
     },
   });
-  const porId = new Map(linhas.map((linha) => [linha.id, linha]));
+  const porId = new Map(
+    linhas.map(({ brandAssets, ...linha }) => [linha.id, { ...linha, logoId: logoDaLista(brandAssets) }]),
+  );
   return ids.map((id) => porId.get(id)).filter((linha) => linha !== undefined);
 }
 

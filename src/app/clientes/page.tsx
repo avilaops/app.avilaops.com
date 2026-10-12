@@ -109,10 +109,21 @@ export default async function ClientsPage({
                 <li key={cliente.id} className="linha-cliente">
                   <span className="linha-cliente-numero">{cliente.clientNumber}</span>
                   <div className="linha-cliente-identidade">
-                    <Link href={`/clientes/${cliente.id}`} className="linha-cliente-nome">
-                      {nome}
-                    </Link>
-                    <small>{detalhe || "Sem razão social nem documento"}</small>
+                    {/* A logo do cliente, quando ele tem; senão a inicial, para as linhas não ficarem desalinhadas. */}
+                    <span className="linha-cliente-marca" aria-hidden="true">
+                      {cliente.logoId ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- arquivo privado do cliente, servido pela rota autenticada
+                        <img src={`/api/organizations/${cliente.id}/brand-assets/${cliente.logoId}/preview`} alt="" loading="lazy" decoding="async" />
+                      ) : (
+                        nome.trim().charAt(0).toUpperCase()
+                      )}
+                    </span>
+                    <div className="linha-cliente-texto">
+                      <Link href={`/clientes/${cliente.id}`} className="linha-cliente-nome">
+                        {nome}
+                      </Link>
+                      <small>{detalhe || "Sem razão social nem documento"}</small>
+                    </div>
                   </div>
                   <span className="linha-cliente-sinais">{sinais.join(" · ")}</span>
                   <BadgeStatus status={cliente.status} />

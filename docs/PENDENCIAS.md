@@ -45,6 +45,10 @@ levantamento original de 19/09; o que mudou desde então:
   navegador, Android, iPhone, maskable com a zona segura, WhatsApp e link
   compartilhado), respondendo à folga, ao fundo e ao recorte antes de gerar.
   Folga e fundo saem das mesmas funções que o gerador usa.
+- **2.3, primeiro passo.** A lista de clientes mostra a marca de cada um num
+  quadrado de 32 px: o ícone gerado quando existe, senão o símbolo ou a logo;
+  quem não tem arquivo aparece com a inicial. Seguem sem a logo do cliente: o
+  site interno, a cobrança e a nota, e a newsletter.
 - **1.1 já estava resolvido de outro jeito.** A lista "Só o cliente responde"
   virou linha com "Preencher", que leva ao campo no formulário.
 

@@ -179,6 +179,28 @@ describe("arquivar e excluir", () => {
     expect(await prisma.organization.count({ where: { id: cliente.id } })).toBe(1);
   });
 
+  it("a linha traz a miniatura da marca: versão atual, do melhor tipo, e nada para quem não tem", async () => {
+    const comLogo = await criar({ name: "Miniatura Zequivo Com Logo" });
+    await criar({ name: "Miniatura Zequivo Sem Logo" });
+    const arquivo = (assetType: string, parcial: Record<string, unknown> = {}) =>
+      prisma.organizationBrandAsset.create({
+        data: { organizationId: comLogo.id, assetType, name: "a.png", mimeType: "image/png", storageKey: `local:${comLogo.id}/${assetType}.png`, ...parcial },
+      });
+    await arquivo("Logo principal");
+    const simbolo = await arquivo("Símbolo");
+    // Versão antiga de um tipo melhor não conta: só o que está em uso.
+    await arquivo("Ícone 192x192", { isCurrent: false });
+
+    const { itens } = await buscarClientes(filtro({ q: "miniatura zequivo" }));
+
+    expect(itens.map((item) => [item.name, item.logoId])).toEqual([
+      ["Miniatura Zequivo Com Logo", simbolo.id],
+      ["Miniatura Zequivo Sem Logo", null],
+    ]);
+    // A lista de arquivos não vaza para a tela: só o id escolhido.
+    expect(itens[0]).not.toHaveProperty("brandAssets");
+  });
+
   it("o cliente de referência da busca continua lá", async () => {
     expect(await prisma.organization.count({ where: { id: brilho } })).toBe(1);
   });
