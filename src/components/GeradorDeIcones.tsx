@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import PreviaDosIcones from "@/components/PreviaDosIcones";
 import {
   ICONES_DERIVADOS,
   MIMES_ORIGEM,
@@ -220,6 +221,16 @@ export default function GeradorDeIcones({
           <span>Refazer também os tipos que já têm arquivo</span>
         </label>
       </div>
+
+      {origemId ? (
+        <PreviaDosIcones
+          logoUrl={`/api/organizations/${organizationId}/brand-assets/${origemId}/preview`}
+          nome={organizationName}
+          fundo={fundo || null}
+          margem={margem}
+          recortar={recortar}
+        />
+      ) : null}
 
       <fieldset className="icon-generator-tipos">
         <legend>

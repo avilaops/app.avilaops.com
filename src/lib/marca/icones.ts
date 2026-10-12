@@ -10,9 +10,10 @@
  */
 import sharp from "sharp";
 import {
-  BRANCO,
   ICONES_DERIVADOS,
   MIMES_ORIGEM,
+  fundoEfetivo,
+  margemEfetiva,
   type EspecIcone,
   type OpcoesGeracao,
 } from "./especificacoes";
@@ -64,7 +65,7 @@ async function desenhar(
   const altura = lado;
   // A folga escolhida vale para todos, menos onde o formato exige mais: o
   // maskable precisa da zona segura de 22% ou o Android corta a marca.
-  const margem = Math.max(opcoes.margem, spec.margemMinima ?? 0);
+  const margem = margemEfetiva(spec, opcoes.margem);
   const folga = Math.round((Math.min(largura, altura) * margem) / 100);
   const interno = {
     largura: Math.max(1, largura - folga * 2),
@@ -72,11 +73,8 @@ async function desenhar(
   };
 
   const transparente = { r: 0, g: 0, b: 0, alpha: 0 };
-  const fundoDoIcone = opcoes.fundo
-    ? rgba(opcoes.fundo)
-    : spec.exigeFundo
-      ? rgba(BRANCO)
-      : transparente;
+  const fundo = fundoEfetivo(spec, opcoes.fundo);
+  const fundoDoIcone = fundo ? rgba(fundo) : transparente;
 
   const conteudo = await sharp(logo)
     .resize(interno.largura, interno.altura, { fit: "contain", background: transparente })

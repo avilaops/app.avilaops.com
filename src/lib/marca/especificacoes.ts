@@ -138,6 +138,25 @@ export const OPCOES_PADRAO: OpcoesGeracao = {
 export const BRANCO = "#FFFFFF";
 export const HEX = /^#[0-9a-fA-F]{6}$/;
 
+/**
+ * A folga que vale para um ícone: a escolhida, menos onde o formato exige
+ * mais. O maskable precisa da zona segura de 22% ou o Android corta a marca.
+ *
+ * Mora aqui, e não no gerador, porque a prévia da tela desenha com a mesma
+ * conta: prévia com regra própria mostraria um ícone que o servidor não gera.
+ */
+export function margemEfetiva(spec: Pick<EspecIcone, "margemMinima">, margem: number): number {
+  return Math.max(margem, spec.margemMinima ?? 0);
+}
+
+/**
+ * O fundo que vale para um ícone: o escolhido; sem escolha, branco onde o
+ * formato não aceita transparência e nenhum (null) onde aceita.
+ */
+export function fundoEfetivo(spec: Pick<EspecIcone, "exigeFundo">, fundo: string | null): string | null {
+  return fundo ?? (spec.exigeFundo ? BRANCO : null);
+}
+
 export function saneiaOpcoes(entrada: unknown): OpcoesGeracao {
   const o = (entrada && typeof entrada === "object" ? entrada : {}) as Record<string, unknown>;
   const fundo = typeof o.fundo === "string" && HEX.test(o.fundo) ? o.fundo.toUpperCase() : null;
@@ -205,4 +224,14 @@ export function manifesto(nome: string, corTema: string | null, base = "/"): str
     null,
     2,
   );
+}
+
+/**
+ * A folga de um ícone como `padding` de CSS, que é sempre percentual da
+ * LARGURA da caixa. O gerador tira a folga do menor lado; num ícone em
+ * paisagem o menor lado é a altura, então a mesma folga pesa menos na largura.
+ */
+export function folgaDaPrevia(spec: Pick<EspecIcone, "largura" | "altura" | "margemMinima">, margem: number): number {
+  const menorLado = Math.min(spec.largura, spec.altura);
+  return (margemEfetiva(spec, margem) * menorLado) / spec.largura;
 }

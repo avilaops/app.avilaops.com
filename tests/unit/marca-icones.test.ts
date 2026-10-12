@@ -4,7 +4,10 @@ import {
   ICONES_DERIVADOS,
   OPCOES_PADRAO,
   especPorTipo,
+  folgaDaPrevia,
+  fundoEfetivo,
   manifesto,
+  margemEfetiva,
   saneiaOpcoes,
   trechoHtml,
 } from "@/lib/marca/especificacoes";
@@ -225,5 +228,39 @@ describe("trecho para o site", () => {
 
   it("sem cor escolhida o tema cai no branco em vez de ficar vazio", () => {
     expect(JSON.parse(manifesto("Ávila", null)).theme_color).toBe("#FFFFFF");
+  });
+});
+
+describe("regra de folga e de fundo, a mesma para o gerador e para a prévia", () => {
+  const de = (tipo: string) => especPorTipo(tipo)!;
+
+  it("a folga escolhida vale, menos no maskable, que nunca fica abaixo da zona segura", () => {
+    expect(margemEfetiva(de("Ícone 192x192"), 10)).toBe(10);
+    expect(margemEfetiva(de("Ícone maskable 512"), 10)).toBe(22);
+    expect(margemEfetiva(de("Ícone maskable 512"), 35)).toBe(35);
+  });
+
+  it("sem fundo escolhido: branco onde o formato não aceita transparência, nenhum onde aceita", () => {
+    expect(fundoEfetivo(de("Favicon"), null)).toBeNull();
+    expect(fundoEfetivo(de("Apple Touch Icon"), null)).toBe("#FFFFFF");
+    expect(fundoEfetivo(de("Open Graph Image"), null)).toBe("#FFFFFF");
+    expect(fundoEfetivo(de("Favicon"), "#112233")).toBe("#112233");
+  });
+
+  it("na prévia a folga do ícone em paisagem sai do menor lado, como no arquivo gerado", () => {
+    expect(folgaDaPrevia(de("Ícone 512x512"), 10)).toBe(10);
+    // 1200×630: 10% de 630 são 63 px de cada lado, 5,25% da largura.
+    expect(folgaDaPrevia(de("Open Graph Image"), 10)).toBeCloseTo(5.25);
+    expect(folgaDaPrevia(de("Preview image"), 20)).toBeCloseTo(11.25);
+  });
+
+  it("o arquivo gerado obedece a essa folga: a marca do maskable cabe na zona segura", async () => {
+    const { buffer } = await gerarIcone(await logoPng(), "image/png", de("Ícone maskable 512"), { ...OPCOES_PADRAO, margem: 0 });
+    const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+    const vermelho = (x: number, y: number) => data[(y * info.width + x) * info.channels] > 200 && data[(y * info.width + x) * info.channels + 1] < 80;
+    const folga = Math.round(512 * 0.22);
+    // Logo na borda da área útil, e nada dela na faixa de folga.
+    expect(vermelho(folga + 4, 256)).toBe(true);
+    expect(vermelho(folga - 4, 256)).toBe(false);
   });
 });

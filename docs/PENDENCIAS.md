@@ -39,6 +39,15 @@ levantamento original de 19/09; o que mudou desde então:
 - **Novo:** a suíte recusa rodar se o Postgres em `DATABASE_URL` tiver outros
   bancos (`tests/global-setup.ts`). Motivo e data no próprio arquivo.
 
+## Atualização de 12/10/2026
+
+- **2.1 feito.** O gerador de ícones mostra a prévia dos seis usos (aba do
+  navegador, Android, iPhone, maskable com a zona segura, WhatsApp e link
+  compartilhado), respondendo à folga, ao fundo e ao recorte antes de gerar.
+  Folga e fundo saem das mesmas funções que o gerador usa.
+- **1.1 já estava resolvido de outro jeito.** A lista "Só o cliente responde"
+  virou linha com "Preencher", que leva ao campo no formulário.
+
 ## Atualização de 10/10/2026
 
 - **Faturamento recorrente pronto e desligado.** A rotina existe, o workflow do
