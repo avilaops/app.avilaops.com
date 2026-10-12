@@ -108,15 +108,20 @@ function Icone({
 }) {
   const spec = especPorTipo(tipo) as EspecIcone;
   const cor = fundoEfetivo(spec, fundo);
-  const estilo: CSSProperties = {
+  const folga = folgaDaPrevia(spec, margem);
+  const caixa: CSSProperties = {
     aspectRatio: `${spec.largura} / ${spec.altura}`,
-    padding: `${folgaDaPrevia(spec, margem)}%`,
     ...(cor ? { background: cor } : {}),
   };
+  // A folga é `inset` de uma camada interna, e não `padding` da caixa: padding
+  // em porcentagem é medido na largura de quem contém a caixa, e o ícone
+  // cresceria com a coluna em vez de guardar a própria proporção.
   return (
-    <span className={cor ? `icon-previa-icone ${className}` : `icon-previa-icone icon-previa-vazado ${className}`} style={estilo}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- arquivo privado do cliente, servido pela rota autenticada; pode ser data: do recorte */}
-      <img src={logo} alt="" />
+    <span className={cor ? `icon-previa-icone ${className}` : `icon-previa-icone icon-previa-vazado ${className}`} style={caixa}>
+      <span className="icon-previa-logo" style={{ inset: `${folga.vertical}% ${folga.horizontal}%` }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- arquivo privado do cliente, servido pela rota autenticada; pode ser data: do recorte */}
+        <img src={logo} alt="" />
+      </span>
     </span>
   );
 }
@@ -144,35 +149,37 @@ export default function PreviaDosIcones({
           <Icone tipo="Favicon" className="icon-previa-favicon" {...comum} />
           <span>{nome}</span>
         </div>
-        <figcaption>Aba do navegador</figcaption>
+        <figcaption>Navegador</figcaption>
       </figure>
 
       <figure className="icon-previa-item">
         <Icone tipo="Ícone 192x192" className="icon-previa-android" {...comum} />
-        <figcaption>Tela do Android</figcaption>
+        <figcaption>Android</figcaption>
       </figure>
 
       <figure className="icon-previa-item">
         <Icone tipo="Apple Touch Icon" className="icon-previa-iphone" {...comum} />
-        <figcaption>Tela do iPhone</figcaption>
+        <figcaption>iPhone</figcaption>
       </figure>
 
       <figure className="icon-previa-item">
         <span className="icon-previa-mascara">
           <Icone tipo="Ícone maskable 512" className="icon-previa-maskable" {...comum} />
         </span>
-        <figcaption>Maskable: o Android pode cortar fora do círculo</figcaption>
+        <figcaption>Maskable</figcaption>
       </figure>
 
       <figure className="icon-previa-item icon-previa-largo">
         <Icone tipo="Preview image" className="icon-previa-cartao" {...comum} />
-        <figcaption>WhatsApp (16:9)</figcaption>
+        <figcaption>WhatsApp</figcaption>
       </figure>
 
       <figure className="icon-previa-item icon-previa-largo">
         <Icone tipo="Open Graph Image" className="icon-previa-cartao" {...comum} />
-        <figcaption>Link compartilhado (1200×630)</figcaption>
+        <figcaption>Link compartilhado</figcaption>
       </figure>
+
+      <p className="icon-previa-nota">No maskable, o Android pode cortar o que fica fora do círculo tracejado.</p>
     </div>
   );
 }

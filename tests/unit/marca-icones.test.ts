@@ -248,10 +248,14 @@ describe("regra de folga e de fundo, a mesma para o gerador e para a prévia", (
   });
 
   it("na prévia a folga do ícone em paisagem sai do menor lado, como no arquivo gerado", () => {
-    expect(folgaDaPrevia(de("Ícone 512x512"), 10)).toBe(10);
-    // 1200×630: 10% de 630 são 63 px de cada lado, 5,25% da largura.
-    expect(folgaDaPrevia(de("Open Graph Image"), 10)).toBeCloseTo(5.25);
-    expect(folgaDaPrevia(de("Preview image"), 20)).toBeCloseTo(11.25);
+    expect(folgaDaPrevia(de("Ícone 512x512"), 10)).toEqual({ vertical: 10, horizontal: 10 });
+    // 1200×630: 10% de 630 são 63 px de cada lado — 10% da altura, 5,25% da largura.
+    const og = folgaDaPrevia(de("Open Graph Image"), 10);
+    expect(og.vertical).toBeCloseTo(10);
+    expect(og.horizontal).toBeCloseTo(5.25);
+    expect(folgaDaPrevia(de("Preview image"), 20).horizontal).toBeCloseTo(11.25);
+    // O maskable nunca desce da zona segura, também na prévia.
+    expect(folgaDaPrevia(de("Ícone maskable 512"), 0)).toEqual({ vertical: 22, horizontal: 22 });
   });
 
   it("o arquivo gerado obedece a essa folga: a marca do maskable cabe na zona segura", async () => {

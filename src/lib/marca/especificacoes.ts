@@ -227,11 +227,15 @@ export function manifesto(nome: string, corTema: string | null, base = "/"): str
 }
 
 /**
- * A folga de um ícone como `padding` de CSS, que é sempre percentual da
- * LARGURA da caixa. O gerador tira a folga do menor lado; num ícone em
- * paisagem o menor lado é a altura, então a mesma folga pesa menos na largura.
+ * A folga de um ícone em porcentagem de cada lado da própria caixa, que é como
+ * a prévia a desenha (`inset`). O gerador tira a folga do menor lado; num ícone
+ * em paisagem o menor lado é a altura, então a mesma folga pesa menos na
+ * largura.
  */
-export function folgaDaPrevia(spec: Pick<EspecIcone, "largura" | "altura" | "margemMinima">, margem: number): number {
-  const menorLado = Math.min(spec.largura, spec.altura);
-  return (margemEfetiva(spec, margem) * menorLado) / spec.largura;
+export function folgaDaPrevia(
+  spec: Pick<EspecIcone, "largura" | "altura" | "margemMinima">,
+  margem: number,
+): { vertical: number; horizontal: number } {
+  const folga = margemEfetiva(spec, margem) * Math.min(spec.largura, spec.altura);
+  return { vertical: folga / spec.altura, horizontal: folga / spec.largura };
 }

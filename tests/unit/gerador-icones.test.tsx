@@ -85,7 +85,7 @@ describe("GeradorDeIcones", () => {
   it("mostra a prévia dos seis usos com a logo escolhida, antes de gerar qualquer arquivo", () => {
     const html = renderizar([ativo({ assetType: "Logo principal", name: "logo.svg", mimeType: "image/svg+xml" })]);
 
-    for (const uso of ["Aba do navegador", "Tela do Android", "Tela do iPhone", "Maskable", "WhatsApp (16:9)", "Link compartilhado"]) {
+    for (const uso of ["Navegador", "Android", "iPhone", "Maskable", "WhatsApp", "Link compartilhado"]) {
       expect(html).toContain(uso);
     }
     expect(html.match(/src="\/api\/organizations\/org1\/brand-assets\/id-Logo principal\/preview"/g)).toHaveLength(6);
@@ -93,11 +93,14 @@ describe("GeradorDeIcones", () => {
 
   it("a prévia segue a regra do gerador: maskable com a zona segura, iPhone com fundo, favicon vazado", () => {
     const html = renderizar([ativo({ assetType: "Logo principal" })]);
-    const icone = (classe: string) => html.match(new RegExp(`<span class="[^"]*${classe}"[^>]*>`))?.[0] ?? "";
+    // A caixa do ícone e, dentro dela, a camada da logo afastada pela folga.
+    const icone = (classe: string) => html.match(new RegExp(`<span class="[^"]*${classe}"[^>]*><span class="icon-previa-logo"[^>]*>`))?.[0] ?? "";
 
     // Folga padrão de 10%: o maskable ignora e usa os 22% que o Android exige.
-    expect(icone("icon-previa-maskable")).toContain("padding:22%");
-    expect(icone("icon-previa-android")).toContain("padding:10%");
+    expect(icone("icon-previa-maskable")).toContain("inset:22% 22%");
+    expect(icone("icon-previa-android")).toContain("inset:10% 10%");
+    // Em paisagem (1200×675) a folga sai da altura: 10% em cima e embaixo, 5,625% dos lados.
+    expect(icone("icon-previa-cartao")).toContain("inset:10% 5.625%");
     // O iOS pinta transparência de preto: sem fundo escolhido, sai branco.
     expect(icone("icon-previa-iphone")).toContain("background:#FFFFFF");
     expect(icone("icon-previa-favicon")).toContain("icon-previa-vazado");
