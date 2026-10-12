@@ -11157,9 +11157,15 @@ main [data-slot="select-trigger"]:focus-visible {
 }
 
 .identidade-nome,
+/* `minmax(0, 1fr)` e `min-width: 0`: item de grade nasce com a largura mínima
+   do conteúdo, e um valor guardado comprido e sem espaço (um endereço colado
+   no campo errado, por exemplo) alargava a ficha inteira para fora da tela do
+   celular, cortando até o texto de ajuda. */
 .credencial-campo {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
+  min-width: 0;
 }
 
 .identidade-nome > span,
@@ -11205,6 +11211,7 @@ main [data-slot="select-trigger"]:focus-visible {
 
 .credenciais-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   padding: 16px;
 }
@@ -11215,6 +11222,7 @@ main [data-slot="select-trigger"]:focus-visible {
  */
 .credenciais-bloco {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   min-width: 0;
   margin: 0;
@@ -11243,13 +11251,16 @@ main [data-slot="select-trigger"]:focus-visible {
   align-items: baseline;
   justify-content: space-between;
   gap: 4px 12px;
+  min-width: 0;
 }
 
 .credencial-selo {
+  min-width: 0;
   color: var(--muted);
   font-size: 0.75rem;
   font-style: normal;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .credencial-selo-ok {
