@@ -26,6 +26,7 @@ export const tiposServico = [
   ["PROFESSIONAL_EMAIL", "E-mail profissional"],
   ["BRAND_IDENTITY", "Identidade visual"],
   ["ONLINE_STORE", "Loja online"],
+  ["ADMINISTRATIVE", "Administrativo empresarial"],
 ] as const;
 
 export const ciclos = [
