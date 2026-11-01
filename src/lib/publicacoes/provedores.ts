@@ -1,6 +1,7 @@
 import { obterCredencial } from "@/lib/credenciais";
 import { metaGraphVersion,tokenParaPublicacaoMeta } from "@/lib/meta";
 import { prisma } from "@/lib/prisma";
+import { THREADS_GRAPH, tokenDaEmpresaThreads } from "@/lib/threads";
 import { createHmac } from "node:crypto";
 import type { Destino, Entrega, Post } from "./repositorio";
 
@@ -26,6 +27,13 @@ export const requisitar: Requisicao = async (url, token, corpo, efeito = Boolean
 };
 
 async function tokenDoDestino(d: Pick<Destino,"canal"|"identificador"|"credencial"|"perfil_id">) {
+  if (d.canal === "threads") {
+    if (d.credencial !== "META_EMPRESA") throw new FalhaProvedor("THREADS_EXIGE_CONEXAO_DA_EMPRESA");
+    const [perfil] = await prisma.$queryRaw<{ organization_id: string }[]>`SELECT organization_id FROM operations.social_profiles WHERE id=${d.perfil_id}::uuid`;
+    if (!perfil) throw new FalhaProvedor("PERFIL_AUSENTE");
+    try { return (await tokenDaEmpresaThreads(perfil.organization_id, "threads_content_publish", d.identificador)).token; }
+    catch { throw new FalhaProvedor("THREADS_CONEXAO_OU_PERMISSAO_INDISPONIVEL"); }
+  }
   if(d.credencial!=="META_EMPRESA") return obterCredencial(d.credencial);
   if(!["instagram","facebook"].includes(d.canal)) throw new FalhaProvedor("CONEXAO_META_INCOMPATIVEL");
   const [perfil]=await prisma.$queryRaw<{organization_id:string}[]>`SELECT organization_id FROM operations.social_profiles WHERE id=${d.perfil_id}::uuid`;
@@ -38,7 +46,11 @@ export async function verificarDestino(d: Pick<Destino,"canal"|"identificador"|"
   if(d.canal==="whatsapp") throw new FalhaProvedor("WHATSAPP_REQUER_DESTINO_SUPORTADO");
   const token=await tokenDoDestino(d);
   if(!token) throw new FalhaProvedor("CREDENCIAL_AUSENTE");
-  if(d.canal==="reddit") {
+  if(d.canal==="threads") {
+    if(!/^\d+$/.test(d.identificador)) throw new FalhaProvedor("ID_THREADS_INVALIDO");
+    const info = await requisitar(`${THREADS_GRAPH}/me?fields=id`, token);
+    if(String(info.id)!==d.identificador) throw new FalhaProvedor("DESTINO_NAO_CONFIRMADO");
+  } else if(d.canal==="reddit") {
     if(!/^[A-Za-z0-9_]{3,21}$/.test(d.identificador)) throw new FalhaProvedor("SUBREDDIT_INVALIDO");
     await requisitar("https://oauth.reddit.com/api/v1/me",token);
     const dados=await requisitar(`https://oauth.reddit.com/r/${d.identificador}/about`,token);
@@ -54,7 +66,19 @@ export async function verificarDestino(d: Pick<Destino,"canal"|"identificador"|"
 export async function conferirPublicacao(d: Entrega, id: string) {
   const token=await tokenDoDestino(d.destino);
   if(!token) throw new FalhaProvedor("CREDENCIAL_AUSENTE");
-  if(d.canal==="instagram") {
+  if(d.canal==="threads") {
+    if(!/^\d+$/.test(id)) throw new FalhaProvedor("ID_INVALIDO");
+    let cursor = "";
+    for (let page = 0; page < 10; page++) {
+      const response = await requisitar(`${THREADS_GRAPH}/${d.destino.identificador}/threads?fields=id,permalink&limit=100${cursor ? `&after=${encodeURIComponent(cursor)}` : ""}`, token);
+      const posts = response.data as { id: string; permalink?: string }[] | undefined;
+      const found = posts?.find(post => post.id === id);
+      if (found) return { id, url: found.permalink || null };
+      const paging = response.paging as { cursors?: { after?: string }; next?: string } | undefined;
+      if (!paging?.next || !paging.cursors?.after) break;
+      cursor = paging.cursors.after;
+    }
+  } else if(d.canal==="instagram") {
     if(!/^\d+$/.test(id)) throw new FalhaProvedor("ID_INVALIDO");
     const base=`https://graph.facebook.com/${await metaGraphVersion()}/${d.destino.identificador}/media`;
     let cursor="";
@@ -89,6 +113,38 @@ export async function publicar(post: Post, d: Entrega, checkpoint: (valor: Recor
   if(!token) throw new FalhaProvedor("CREDENCIAL_AUSENTE");
   const request=op.request || requisitar;
   const p=post.conteudo;
+  if (d.canal === "threads") {
+    if (!/^\d+$/.test(destino.identificador)) throw new FalhaProvedor("ID_THREADS_INVALIDO");
+    if (Array.from(p.texto).length > 500) throw new FalhaProvedor("THREADS_TEXTO_ACIMA_DO_LIMITE");
+    // A completed checkpoint must never cause another publish request.
+    if (d.checkpoint.idPublicado) return { id: d.checkpoint.idPublicado, url: null };
+    let container = d.checkpoint.container;
+    if (!container) {
+      const body = new URLSearchParams({ text: p.texto, media_type: p.tipo === "image" ? "IMAGE" : p.tipo === "video" ? "VIDEO" : "TEXT" });
+      if (p.tipo === "image") body.set("image_url", p.midiaUrl!);
+      if (p.tipo === "video") body.set("video_url", p.midiaUrl!);
+      if (p.tipo === "link") body.set("link_attachment", p.midiaUrl!);
+      const created = await request(`${THREADS_GRAPH}/${destino.identificador}/threads`, token, body, false);
+      if (!created.id || !/^\d+$/.test(String(created.id))) throw new FalhaProvedor("THREADS_SEM_CONTAINER", false, true);
+      container = String(created.id);
+      await checkpoint({ container });
+    }
+    if (!/^\d+$/.test(container)) throw new FalhaProvedor("THREADS_CONTAINER_INVALIDO");
+    const processing = await request(`${THREADS_GRAPH}/${container}?fields=status`, token);
+    if (processing.status === "PUBLISHED") throw new FalhaProvedor("THREADS_CONFERIR_PUBLICACAO", true);
+    if (["ERROR", "EXPIRED"].includes(String(processing.status))) throw new FalhaProvedor("THREADS_CONTAINER_INVALIDO");
+    if (processing.status !== "FINISHED") throw new FalhaProvedor("THREADS_PROCESSANDO", false, true);
+    const published = await request(`${THREADS_GRAPH}/${destino.identificador}/threads_publish`, token, new URLSearchParams({ creation_id: container }));
+    if (!published.id || !/^\d+$/.test(String(published.id))) throw new FalhaProvedor("THREADS_SEM_CONFIRMACAO", true);
+    const id = String(published.id);
+    await checkpoint({ idPublicado: id });
+    let url: string | null = null;
+    try {
+      const details = await request(`${THREADS_GRAPH}/${id}?fields=permalink`, token);
+      url = typeof details.permalink === "string" ? details.permalink : null;
+    } catch { /* The saved published ID prevents a duplicate on permalink failure. */ }
+    return { id, url };
+  }
   if(d.canal==="reddit") {
     if(!["text","link"].includes(p.tipo)) throw new FalhaProvedor("REDDIT_MIDIA_NATIVA_REQUER_UPLOAD");
     if(!/^[A-Za-z0-9_]{3,21}$/.test(destino.identificador)) throw new FalhaProvedor("SUBREDDIT_INVALIDO");

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const canais = ["instagram", "facebook", "reddit", "tiktok", "whatsapp"] as const;
+export const canais = ["instagram", "facebook", "threads", "reddit", "tiktok", "whatsapp"] as const;
 export type Canal = typeof canais[number];
 const urlPublica = z.string().url().refine((s) => {
   const u = new URL(s);
@@ -17,11 +17,12 @@ export const publicacaoSchema = z.object({
   tipo: z.enum(["text", "link", "image", "video"]),
   midiaUrl: urlPublica.nullable().default(null),
   renderId: z.string().regex(/^[a-z0-9]+$/).max(80).nullable().optional(),
-  canais: z.array(z.enum(canais)).min(1).max(5).refine(c => new Set(c).size === c.length, "Canal repetido."),
+  canais: z.array(z.enum(canais)).min(1).max(canais.length).refine(c => new Set(c).size === c.length, "Canal repetido."),
   opcionais: z.array(z.enum(canais)).default([]),
   agendadoEm: z.iso.datetime({ offset: true }),
   chave: z.string().uuid(),
 }).superRefine((p, ctx) => {
+  if (p.canais.includes("threads") && Array.from(p.texto).length > 500) ctx.addIssue({ code: "custom", path: ["texto"], message: "Threads permite até 500 caracteres nesta publicação." });
   if (p.tipo !== "text" && !p.midiaUrl && !p.renderId) ctx.addIssue({ code: "custom", path: ["midiaUrl"], message: "Informe a mídia ou selecione um resultado do Estúdio." });
   if(p.midiaUrl && p.renderId) ctx.addIssue({code:"custom",path:["renderId"],message:"Escolha uma mídia do Estúdio ou um endereço externo."});
   if(p.renderId && !["image","video"].includes(p.tipo)) ctx.addIssue({code:"custom",path:["renderId"],message:"Resultado do Estúdio exige formato imagem ou vídeo."});

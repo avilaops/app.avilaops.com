@@ -12,12 +12,20 @@ function providerResponses() {
   return vi.fn()
     .mockResolvedValueOnce(Response.json({ access_token: "short" }))
     .mockResolvedValueOnce(Response.json({ access_token: "long", expires_in: 5184000 }))
-    .mockResolvedValueOnce(Response.json({ id: "remote-id", username: "brand" }));
+    .mockResolvedValueOnce(Response.json({ id: "remote-id", username: "brand" }))
+    .mockResolvedValueOnce(Response.json({ data: { is_valid: true, user_id: "remote-id", scopes: ["threads_basic"] } }));
 }
 beforeEach(() => { vi.clearAllMocks(); db.find.mockResolvedValue(null); db.save.mockResolvedValue({ id: "legacy" }); db.account.mockResolvedValue({ id: "account" }); });
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Threads OAuth", () => {
+  it("refuses external URLs, path traversal and query injection", async () => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    for (const path of ["https://evil.test/token", "/v1.0/../me", "//evil.test", "/v1.0/me?token=private"]) {
+      await expect(threadsRequest(path, "private")).rejects.toThrow("Caminho");
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("binds state to company and actor and rejects malformed states", () => {
     const state = threadsState("company", "actor");
     expect(parseThreadsState(state)).toEqual({ organizationId: "company", actorId: "actor" });
@@ -26,10 +34,10 @@ describe("Threads OAuth", () => {
   });
   it("uses Threads credentials, callback and consent scopes", async () => {
     const url = await threadsLoginUrl("https://app.avilaops.com/", "state");
-    expect(url.origin).toBe("https://threads.net");
+    expect(url.origin).toBe("https://threads.com");
     expect(url.searchParams.get("client_id")).toBe("threads-app");
     expect(url.searchParams.get("redirect_uri")).toBe("https://app.avilaops.com/api/integrations/threads/oauth/callback");
-    expect(url.searchParams.get("scope")).toBe("threads_basic,threads_content_publish");
+    expect(url.searchParams.get("scope")).toBe("threads_basic,threads_content_publish,threads_manage_insights");
     expect(url.toString()).not.toContain("private-secret");
   });
   it("serializes the remote account check and refuses a cross-company connection", async () => {

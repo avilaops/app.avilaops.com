@@ -10,6 +10,7 @@ import { getMetaConnectionStatus, metaRedirectUri } from "@/lib/meta";
 import { prisma } from "@/lib/prisma";
 import { obterCredencial } from "@/lib/credenciais";
 import { threadsCallback } from "@/lib/threads";
+import ThreadsResultados from "@/components/threads/ThreadsResultados";
 
 export default async function MetaOperationsPage({
   searchParams,
@@ -40,7 +41,7 @@ export default async function MetaOperationsPage({
     obterCredencial("THREADS_APP_ID"), obterCredencial("THREADS_APP_SECRET"),
     prisma.organizationIntegrationConnection.findUnique({
       where: { organizationId_provider: { organizationId: selectedOrganizationId, provider: "threads_login" } },
-      select: { accountName: true, status: true, tokenExpiresAt: true },
+      select: { accountName: true, status: true, tokenExpiresAt: true, scopes: true },
     }),
   ]);
   const threadsAccount = threadsConnection?.status === "ACTIVE" && threadsConnection.tokenExpiresAt && threadsConnection.tokenExpiresAt > new Date() ? threadsConnection.accountName : null;
@@ -79,6 +80,8 @@ export default async function MetaOperationsPage({
         instagram={instagram}
         instagramPronto={instagramPronto}
       />
+      <ThreadsResultados key={`threads-${selectedOrganizationId}`} organizationId={selectedOrganizationId}
+        enabled={Boolean(threadsAccount && Array.isArray(threadsConnection?.scopes) && threadsConnection.scopes.includes("threads_manage_insights"))} />
     </div>
   );
 }

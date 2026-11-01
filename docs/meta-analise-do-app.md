@@ -134,13 +134,12 @@ use antes de enviar.
 
 ## threads_business_basic
 
-> Usamos threads_business_basic para identificar a conta do Threads associada à
-> conta do Instagram que o cliente já conectou, e para ler dados básicos do
-> perfil.
->
-> Isso completa o painel de presença digital: o cliente vê Facebook, Instagram e
-> Threads lado a lado, sem precisar informar manualmente qual conta do Threads é
-> dele. Somente leitura.
+Não usar a justificativa de simples exibição de perfil. A referência oficial
+consultada em 01/11/2026 limita esta permissão à obtenção de `threads_user_id`
+para criação de anúncios no Threads. A revisão exige demonstrar essa criação.
+Conexão, conteúdo orgânico e métricas usam os escopos próprios da API Threads.
+Solicitar `threads_business_basic` somente com esse fluxo de anúncios implementado
+e demonstrado. Fonte: https://developers.facebook.com/docs/permissions/.
 
 ---
 
