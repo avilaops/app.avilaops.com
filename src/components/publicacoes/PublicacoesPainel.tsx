@@ -8,7 +8,7 @@ import styles from "./publicacoes.module.css";
 
 type PostDTO={id:string;perfil_id:string;conteudo:NovaPublicacao;agendado_em:string;estado:string;versao:number;entregas:{id:string;canal:string;estado:string;ultimo_erro:string|null;id_externo:string|null;url_publicada:string|null}[]};
 export type DadosPainel={perfis:{id:string;nome:string;empresa:string;organization_id:string}[];destinos:{perfil_id:string;canal:string;identificador:string;credencial:string;ativo:boolean}[];posts:PostDTO[];renders:{id:string;kind:string;piece:{title:string;organizationId:string|null}}[]};
-const nomes:Record<string,string>={instagram:"Instagram",facebook:"Facebook",reddit:"Reddit",tiktok:"TikTok",whatsapp:"WhatsApp"};
+const nomes:Record<string,string>={instagram:"Instagram",facebook:"Facebook",threads:"Threads",reddit:"Reddit",tiktok:"TikTok",whatsapp:"WhatsApp"};
 const estados:Record<string,string>={RASCUNHO:"Rascunho",AGENDADO:"Agendado",PROCESSANDO:"Processando",PUBLICADO:"Publicado",CANCELADO:"Cancelado",PENDENTE:"Pendente",REPETIR:"Nova tentativa",RECONCILIAR:"Conferir publicação",QUARENTENA:"Precisa de atenção"};
 function dataLocal(iso:string) { const d=new Date(iso); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
 export default function PublicacoesPainel({inicial,empresas,dono}:{inicial:DadosPainel;empresas:{id:string;name:string}[];dono:boolean}) {
@@ -97,7 +97,7 @@ export default function PublicacoesPainel({inicial,empresas,dono}:{inicial:Dados
           <label>Canal<select name="canal">{canais.map(c=><option key={c} value={c}>{nomes[c]}</option>)}</select></label>
           <label>ID da conta ou nome do subreddit<input name="identificador" required /></label>
           <label>Conexão da empresa ou referência do cofre<input name="credencial" required pattern="(SOCIAL_[A-Z0-9_]+_TOKEN|META_EMPRESA)" placeholder="META_EMPRESA" /></label>
-          <p className={styles.ajuda}>Use META_EMPRESA para a conexão já autorizada em <Link href="/hub-social/meta">Meta</Link>. Para um token individual, use sua referência SOCIAL_PERFIL_CANAL_TOKEN no cofre.</p>
+          <p className={styles.ajuda}>Use META_EMPRESA para a conexão já autorizada em <Link href="/hub-social/meta">Meta e Threads</Link>. Threads exige essa conexão da empresa. Para os demais canais, também é possível usar uma referência SOCIAL_PERFIL_CANAL_TOKEN no cofre.</p>
           <label className={styles.linha}><input name="ativo" type="checkbox"/>Verificar acesso e habilitar</label><Button variant="outline" disabled={ocupado}>Salvar conexão</Button>
         </form>}
       </details>)}
