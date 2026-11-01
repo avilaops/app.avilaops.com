@@ -110,8 +110,7 @@ function flowResponseFor(request: FlowRequest) {
 
 function verifySignature(rawBody: string, signature: string | null) {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
-  if (!appSecret) return true;
-  if (!signature) return false;
+  if (!appSecret || !signature || !/^sha256=[a-f0-9]{64}$/.test(signature)) return false;
 
   const expected =
     "sha256=" +
@@ -128,6 +127,7 @@ export function verifyWhatsappWebhookToken(token: string | null) {
 export function isWhatsappConfigured() {
   return Boolean(
     process.env.WHATSAPP_VERIFY_TOKEN &&
+      process.env.WHATSAPP_APP_SECRET &&
       process.env.WHATSAPP_API_TOKEN &&
       process.env.WHATSAPP_PHONE_NUMBER_ID,
   );
