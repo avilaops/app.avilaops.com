@@ -8,6 +8,9 @@ O painel `/hub-social/meta` oferece **Entrar com Threads**, mantendo a empresa s
 
 Cadastrar `THREADS_APP_ID` e `THREADS_APP_SECRET` no cofre da plataforma. São as credenciais do aplicativo do Threads, não as do Facebook. A chave existente `META_TOKEN_ENCRYPTION_KEY` cifra os tokens de cada empresa.
 
+A migration `20261101021000_threads_credenciais` cria as duas entradas pendentes
+na interface do cofre, sem valores e sem substituir configurações existentes.
+
 No caso de uso do Threads, cadastrar o retorno exato:
 
 ```
