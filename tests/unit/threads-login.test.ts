@@ -15,8 +15,8 @@ function providerResponses() {
     .mockResolvedValueOnce(Response.json({ id: "remote-id", username: "brand" }))
     .mockResolvedValueOnce(Response.json({ data: { is_valid: true, user_id: "remote-id", scopes: ["threads_basic"] } }));
 }
-beforeEach(() => { vi.clearAllMocks(); db.find.mockResolvedValue(null); db.save.mockResolvedValue({ id: "legacy" }); db.account.mockResolvedValue({ id: "account" }); });
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => { vi.clearAllMocks(); vi.spyOn(console, "error").mockImplementation(() => {}); db.find.mockResolvedValue(null); db.save.mockResolvedValue({ id: "legacy" }); db.account.mockResolvedValue({ id: "account" }); });
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("Threads OAuth", () => {
   it("refuses external URLs, path traversal and query injection", async () => {
@@ -54,6 +54,10 @@ describe("Threads OAuth", () => {
     expect(exchange.pathname).toBe("/access_token");
     expect(exchange.searchParams.get("access_token")).toBe("short");
     expect(exchange.searchParams.get("grant_type")).toBe("th_exchange_token");
+    const inspection = new URL(String(fetch.mock.calls[3][0]));
+    expect(inspection.pathname).toBe("/v1.0/debug_token");
+    expect(inspection.searchParams.get("access_token")).toBe("TH|threads-app|private-secret");
+    expect(inspection.searchParams.get("input_token")).toBe("long");
     expect(db.save).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ organizationId: "company", tokenCiphertext: "encrypted", scopes: ["threads_basic"] }) }));
     expect(db.connection).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ organizationId: "company", authorizedById: "actor", legacyConnectionId: "legacy" }) }));
     expect(db.audit).toHaveBeenCalledOnce();
@@ -67,5 +71,33 @@ describe("Threads OAuth", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: { message: "secret-token" } }, { status: 401 })));
     await expect(threadsRequest("/v1.0/me", "secret-token")).rejects.toThrow("HTTP 401");
     await expect(threadsRequest("/v1.0/me", "secret-token")).rejects.not.toThrow("secret-token");
+  });
+  it("identifies the failed exchange using only allowlisted numeric diagnostics", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ access_token: "short" }))
+      .mockResolvedValueOnce(Response.json({ error: { code: 190, error_subcode: 463, message: "private-secret short long" } }, { status: 400 })));
+    await expect(connectThreads("https://app.avilaops.com", "private-code", "company", "actor")).rejects.toThrow("HTTP 400");
+    expect(console.error).toHaveBeenCalledExactlyOnceWith("[threads.oauth.failed]", {
+      stage: "long_lived_token", httpStatus: 400, providerCode: 190, providerSubcode: 463, databaseCode: null,
+    });
+    expect(db.save).not.toHaveBeenCalled();
+  });
+  it("does not log arbitrary provider codes or transport errors containing credentials", async () => {
+    const fetch = vi.fn().mockRejectedValueOnce(new Error("https://provider/?access_token=private-secret"))
+      .mockResolvedValueOnce(Response.json({ error: { code: "private-secret", error_subcode: { token: "private-secret" } } }, { status: 400 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(connectThreads("https://app.avilaops.com", "code", "company", "actor")).rejects.toThrow();
+    await expect(connectThreads("https://app.avilaops.com", "code", "company", "actor")).rejects.toThrow();
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("private-secret");
+    expect(console.error).toHaveBeenLastCalledWith("[threads.oauth.failed]", {
+      stage: "authorization_code", httpStatus: 400, providerCode: null, providerSubcode: null, databaseCode: null,
+    });
+  });
+  it("identifies persistence errors without logging Prisma messages or queries", async () => {
+    vi.stubGlobal("fetch", providerResponses());
+    db.save.mockRejectedValueOnce(Object.assign(new Error("private query with private-secret"), { code: "P2002" }));
+    await expect(connectThreads("https://app.avilaops.com", "code", "company", "actor")).rejects.toThrow();
+    expect(console.error).toHaveBeenCalledExactlyOnceWith("[threads.oauth.failed]", {
+      stage: "persistence", httpStatus: null, providerCode: null, providerSubcode: null, databaseCode: "P2002",
+    });
   });
 });

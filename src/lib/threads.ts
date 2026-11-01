@@ -7,6 +7,31 @@ export const THREADS_PROVIDER = "threads_login";
 export const THREADS_STATE_COOKIE = "avila_threads_oauth_state";
 export const THREADS_SCOPES = ["threads_basic", "threads_content_publish", "threads_manage_insights"];
 export const THREADS_GRAPH = "https://graph.threads.com/v1.0";
+
+class ThreadsRequestError extends Error {
+  constructor(readonly httpStatus: number, readonly providerCode: number | null, readonly providerSubcode: number | null) {
+    super(`Threads: a solicitação falhou (HTTP ${httpStatus}). Confira a autorização da conta.`);
+  }
+}
+
+type ThreadsConnectionStage = "credentials" | "authorization_code" | "long_lived_token" | "profile" | "permissions" | "persistence";
+
+async function etapaConexaoThreads<T>(stage: ThreadsConnectionStage, action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    // Only allowlisted diagnostics: never log error messages, bodies, URLs or credentials.
+    const code = error && typeof error === "object" && "code" in error ? error.code : null;
+    console.error("[threads.oauth.failed]", {
+      stage,
+      httpStatus: error instanceof ThreadsRequestError ? error.httpStatus : null,
+      providerCode: error instanceof ThreadsRequestError ? error.providerCode : null,
+      providerSubcode: error instanceof ThreadsRequestError ? error.providerSubcode : null,
+      databaseCode: typeof code === "string" && /^P\d{4}$/.test(code) ? code : null,
+    });
+    throw error;
+  }
+}
 export function threadsState(organizationId: string, actorId: string) {
   return `${organizationId}.${actorId}.${crypto.randomBytes(24).toString("hex")}`;
 }
@@ -36,7 +61,9 @@ export async function threadsRequest<T>(path: string, token?: string, fields?: R
     ...(method === "POST" ? { body: params } : {}) });
   const data = await response.json().catch(() => null);
   // Never return provider bodies or token-bearing URLs to the UI/logs.
-  if (!response.ok || !data || data.error) throw new Error(`Threads: a solicitação falhou (HTTP ${response.status}). Confira a autorização da conta.`);
+  if (!response.ok || !data || data.error) throw new ThreadsRequestError(response.status,
+    Number.isSafeInteger(data?.error?.code) ? data.error.code : null,
+    Number.isSafeInteger(data?.error?.error_subcode) ? data.error.error_subcode : null);
   return data as T;
 }
 
@@ -44,7 +71,7 @@ export async function conferirPermissoesThreads(token: string, userId: string) {
   const appId = await exigirCredencial("THREADS_APP_ID");
   const secret = await exigirCredencial("THREADS_APP_SECRET");
   const result = await threadsRequest<{ data?: { is_valid?: boolean; user_id?: string; scopes?: unknown; expires_at?: number; data_access_expires_at?: number } }>(
-    "/v1.0/debug_token", `TH|${appId}|${secret}`, { input_token: token },
+    "/v1.0/debug_token", undefined, { access_token: `TH|${appId}|${secret}`, input_token: token },
   );
   const data = result.data;
   const now = Date.now() / 1000;
@@ -101,22 +128,35 @@ export async function metricasThreads(organizationId: string) {
 }
 
 export async function connectThreads(origin: string, code: string, organizationId: string, actorId: string) {
-  const appId = await exigirCredencial("THREADS_APP_ID");
-  const secret = await exigirCredencial("THREADS_APP_SECRET");
-  const short = await threadsRequest<{ access_token: string }>("/oauth/access_token", undefined, {
-    client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: threadsCallback(origin), code,
-  }, "POST");
-  if (!short.access_token) throw new Error("Threads não forneceu autorização.");
-  const token = await threadsRequest<{ access_token: string; expires_in: number }>("/access_token", undefined,
-    { grant_type: "th_exchange_token", client_secret: secret, access_token: short.access_token });
-  if (!token.access_token || !Number.isFinite(token.expires_in) || token.expires_in <= 0) throw new Error("Threads retornou uma autorização sem validade.");
-  const profile = await threadsRequest<{ id: string; username: string }>("/v1.0/me", token.access_token, { fields: "id,username" });
-  if (!profile.id || !profile.username) throw new Error("Threads não retornou a conta autorizada.");
-  const scopes = await conferirPermissoesThreads(token.access_token, profile.id);
-  if (!scopes.includes("threads_basic")) throw new Error("Acesso básico ao Threads não concedido.");
+  const [appId, secret] = await etapaConexaoThreads("credentials", () => Promise.all([
+    exigirCredencial("THREADS_APP_ID"), exigirCredencial("THREADS_APP_SECRET"),
+  ]));
+  const short = await etapaConexaoThreads("authorization_code", async () => {
+    const result = await threadsRequest<{ access_token: string }>("/oauth/access_token", undefined, {
+      client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: threadsCallback(origin), code,
+    }, "POST");
+    if (!result.access_token) throw new Error("Threads não forneceu autorização.");
+    return result;
+  });
+  const token = await etapaConexaoThreads("long_lived_token", async () => {
+    const result = await threadsRequest<{ access_token: string; expires_in: number }>("/access_token", undefined,
+      { grant_type: "th_exchange_token", client_secret: secret, access_token: short.access_token });
+    if (!result.access_token || !Number.isFinite(result.expires_in) || result.expires_in <= 0) throw new Error("Threads retornou uma autorização sem validade.");
+    return result;
+  });
+  const profile = await etapaConexaoThreads("profile", async () => {
+    const result = await threadsRequest<{ id: string; username: string }>("/v1.0/me", token.access_token, { fields: "id,username" });
+    if (!result.id || !result.username) throw new Error("Threads não retornou a conta autorizada.");
+    return result;
+  });
+  const scopes = await etapaConexaoThreads("permissions", async () => {
+    const result = await conferirPermissoesThreads(token.access_token, profile.id);
+    if (!result.includes("threads_basic")) throw new Error("Acesso básico ao Threads não concedido.");
+    return result;
+  });
   const expiresAt = new Date(Date.now() + token.expires_in * 1000);
   const namespace = `threads:${appId}`;
-  return prisma.$transaction(async tx => {
+  return etapaConexaoThreads("persistence", () => prisma.$transaction(async tx => {
     // Serialize ownership checks for the same remote account, including first login.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${namespace + ":" + profile.id}, 0))`;
     const other = await tx.organizationIntegrationConnection.findFirst({ where: {
@@ -136,5 +176,5 @@ export async function connectThreads(origin: string, code: string, organizationI
     await tx.coreConnection.upsert({ where: { legacyConnectionId: legacy.id }, create: { ...authorization, legacyConnectionId: legacy.id }, update: authorization });
     await tx.operationsAuditEvent.create({ data: { actorId, organizationId, action: "THREADS_CONNECTED", entityType: "OrganizationIntegrationConnection", entityId: legacy.id } });
     return { username: profile.username };
-  });
+  }));
 }
