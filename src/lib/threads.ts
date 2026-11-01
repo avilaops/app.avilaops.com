@@ -107,8 +107,8 @@ export async function connectThreads(origin: string, code: string, organizationI
     client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: threadsCallback(origin), code,
   }, "POST");
   if (!short.access_token) throw new Error("Threads não forneceu autorização.");
-  const token = await threadsRequest<{ access_token: string; expires_in: number }>("/access_token", short.access_token,
-    { grant_type: "th_exchange_token", client_secret: secret });
+  const token = await threadsRequest<{ access_token: string; expires_in: number }>("/access_token", undefined,
+    { grant_type: "th_exchange_token", client_secret: secret, access_token: short.access_token });
   if (!token.access_token || !Number.isFinite(token.expires_in) || token.expires_in <= 0) throw new Error("Threads retornou uma autorização sem validade.");
   const profile = await threadsRequest<{ id: string; username: string }>("/v1.0/me", token.access_token, { fields: "id,username" });
   if (!profile.id || !profile.username) throw new Error("Threads não retornou a conta autorizada.");

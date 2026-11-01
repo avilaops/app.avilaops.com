@@ -48,8 +48,12 @@ describe("Threads OAuth", () => {
     expect(db.save).not.toHaveBeenCalled();
   });
   it("persists encrypted credentials and verified basic access in both connection records", async () => {
-    vi.stubGlobal("fetch", providerResponses());
+    const fetch = providerResponses(); vi.stubGlobal("fetch", fetch);
     await expect(connectThreads("https://app.avilaops.com", "code", "company", "actor")).resolves.toEqual({ username: "brand" });
+    const exchange = new URL(String(fetch.mock.calls[1][0]));
+    expect(exchange.pathname).toBe("/access_token");
+    expect(exchange.searchParams.get("access_token")).toBe("short");
+    expect(exchange.searchParams.get("grant_type")).toBe("th_exchange_token");
     expect(db.save).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ organizationId: "company", tokenCiphertext: "encrypted", scopes: ["threads_basic"] }) }));
     expect(db.connection).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ organizationId: "company", authorizedById: "actor", legacyConnectionId: "legacy" }) }));
     expect(db.audit).toHaveBeenCalledOnce();
