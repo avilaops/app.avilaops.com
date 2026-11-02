@@ -1,12 +1,10 @@
-import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
 /**
  * Leitura da sessão emitida por `auth.avilaops.com`.
  *
- * O cookie é gravado lá em `.avilaops.com` e chega aqui sozinho. Verificamos a
- * assinatura localmente com o segredo compartilhado — sem round-trip por
- * request.
+ * O cookie é gravado lá em `.avilaops.com` e chega aqui sozinho. A validade e
+ * a autorização são decididas pelo Auth; este app não replica a assinatura.
  */
 
 const COOKIE_SSO = "avila_sso";
@@ -29,17 +27,24 @@ export function urlLoginSSO(returnTo = "https://app.avilaops.com/operacao"): str
   return `${ssoBaseUrl()}/login?${p.toString()}`;
 }
 
-export async function lerSessaoSSO(): Promise<SessaoSSO | null> {
-  const segredo = process.env.SSO_JWT_SECRET;
-  // Sem o segredo configurado o SSO simplesmente não está ligado neste ambiente.
-  // Não é erro: o login local por CPF/senha continua atendendo.
-  if (!segredo) return null;
+export function urlLogoutSSO(returnTo = "https://app.avilaops.com/"): string {
+  const p = new URLSearchParams({ client_id: "app", post_logout_redirect_uri: returnTo });
+  return `${ssoBaseUrl()}/api/auth/logout?${p.toString()}`;
+}
 
+export async function lerSessaoSSO(): Promise<SessaoSSO | null> {
   const token = (await cookies()).get(COOKIE_SSO)?.value;
   if (!token) return null;
 
   try {
-    return jwt.verify(token, segredo, { issuer: "auth.avilaops.com" }) as SessaoSSO;
+    const resposta = await fetch(`${ssoBaseUrl()}/api/session?app=app`, {
+      headers: { Cookie: `${COOKIE_SSO}=${token}`, Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resposta.ok) return null;
+    const corpo = await resposta.json() as { autenticado?: boolean; permitido?: boolean; sessao?: SessaoSSO };
+    return corpo.autenticado && corpo.permitido && corpo.sessao?.sub && corpo.sessao.email ? corpo.sessao : null;
   } catch {
     return null;
   }
