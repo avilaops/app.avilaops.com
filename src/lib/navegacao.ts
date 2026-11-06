@@ -28,6 +28,7 @@ export type SecaoApp =
   | "health-live"
   | "mcps"
   | "onnix"
+  | "github-ci"
   | "credenciais"
   | "meta"
   | "whatsapp"
@@ -209,6 +210,7 @@ export const navegacao: GrupoNavegacao[] = [
       { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live", icone: "saude", descricao: "Disponibilidade e capacidade, medidas agora" },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs", icone: "operacao", descricao: "Métricas e sinais dos sistemas" },
       { href: "/operacao/onnix", label: "ONNIX · MLOps", section: "onnix", icone: "infra", descricao: "Inferência CPU e evidências do Experiments", somenteDono: true },
+      { href: "/operacao/github-ci", label: "GitHub Actions · MLOps", section: "github-ci", icone: "infra", descricao: "Workflows, commits e evidências reais", somenteDono: true },
       { href: "/operacao/mcps", label: "Publicações MCP", section: "mcps", icone: "infra", descricao: "Inventário independente de cada integração", somenteDono: true },
       { href: "/operacao/telas", label: "Telas (Ávila TV)", section: "telas", icone: "telas", descricao: "Quem está no ar, quem caiu e quem espera um nome" },
       {
