@@ -40,7 +40,8 @@ export type SecaoApp =
   | "telas"
   | "estudio"
   | "icones"
-  | "automacoes";
+  | "automacoes"
+  | "mcps";
 
 export type ItemNavegacao = {
   href: string;
@@ -206,6 +207,7 @@ export const navegacao: GrupoNavegacao[] = [
     items: [
       { href: "/operacao/saude", label: "Saúde em tempo real", section: "health-live", icone: "saude", descricao: "Disponibilidade e capacidade, medidas agora" },
       { href: "/operacao/obs", label: "Observabilidade", section: "obs", icone: "operacao", descricao: "Métricas e sinais dos sistemas" },
+      { href: "/operacao/mcps", label: "Publicações MCP", section: "mcps", icone: "infra", descricao: "Uma publicação por integração, com versões e estado", somenteDono: true },
       { href: "/operacao/telas", label: "Telas (Ávila TV)", section: "telas", icone: "telas", descricao: "Quem está no ar, quem caiu e quem espera um nome" },
       {
         href: "/operacao/credenciais",
