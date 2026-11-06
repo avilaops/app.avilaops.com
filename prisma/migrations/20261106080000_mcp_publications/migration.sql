@@ -26,3 +26,8 @@ INSERT INTO "operations"."mcp_publications" ("id", "name", "domain", "endpoint",
 ('avx-tools', 'Avx-tools', NULL, NULL, 'Ferramentas e processamento técnico'),
 ('n8n', 'n8n', 'n8n.avilaops.com', NULL, 'Automações e workflows')
 ON CONFLICT ("id") DO NOTHING;
+
+-- O aplicativo consulta este cadastro com a role de runtime da plataforma.
+-- Alinhar a propriedade à convenção das demais tabelas do App.
+ALTER TABLE "operations"."mcp_publications" OWNER TO app_avila;
+
