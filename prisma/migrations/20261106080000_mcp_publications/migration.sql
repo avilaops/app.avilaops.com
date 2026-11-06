@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "operations"."mcp_publications" (
   "enabled" BOOLEAN NOT NULL DEFAULT FALSE,
   "description" TEXT,
   "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "mcp_publications_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "mcp_publications_endpoint_https_check"
     CHECK ("endpoint" IS NULL OR "endpoint" LIKE 'https://%')
