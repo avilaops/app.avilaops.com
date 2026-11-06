@@ -20,7 +20,7 @@ export default async function OnnixOperationsPage() {
   const { status, evidence } = await fetchOnnixSnapshot();
   const evaluation = evidence?.available ? evidence.evaluation : undefined;
   const measuredAt = evidence?.createdAt ? Date.parse(evidence.createdAt) : NaN;
-  const stale = Number.isFinite(measuredAt) && (Date.now() - measuredAt > 36 * 60 * 60 * 1000 || measuredAt > Date.now() + 60000);
+  const stale = evidence?.stale === true;
   const stateLabel = status === "unconfigured" ? "Conexão não configurada" :
     status === "unavailable" ? "Experiments indisponível" :
     !evidence?.available ? "Sem evidência" :
