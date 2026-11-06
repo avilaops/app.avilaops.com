@@ -29,3 +29,9 @@
 - Para publicação e operações de escrita, adotar política de aprovação e auditoria.
 - Atualizar o cadastro `enabled` **somente após homologação**; habilitar não deve ser confundido com disponibilidade em tempo real.
 - Submeter a revisão e fazer deploy apenas pelo pipeline padrão, nunca diretamente a partir do PR em draft.
+
+## Retificação do endereço MCP da Lojas — 06/11/2026
+
+O endpoint contratual do Lojas é `https://lojas.avilaops.com/api/mcp`, conforme `lojas.avilaops.com/docs/MCP.md` e `src/app/api/mcp/route.ts`. O seed inicial cadastrava `/mcp`, que não corresponde à rota. A migração aditiva `20261106180000_correct_lojas_mcp_endpoint` ajusta exclusivamente esse registro caso continue desabilitado e com o endereço antigo. O teste sem credenciais encontrou `POST /api/mcp` com HTTP 401; isso verifica exigência de autenticação, **não homologação OAuth, escopos ou isolamento por tenant**. Mantenha `enabled=false` até os demais testes.
+
+Auth, Mail e TMS ainda exigem reconciliação entre domínio, implantação atual e contrato MCP. HTTP 404 sem credencial não permite concluir que não existe outro endpoint válido.
