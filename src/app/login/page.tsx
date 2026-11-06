@@ -8,13 +8,13 @@ import { urlLoginSSO } from "@/lib/sso";
  * todos os `*.avilaops.com`. Este endereço só redireciona para lá.
  *
  * O formulário local por CPF/senha fica apenas para ambiente sem SSO ligado
- * (dev sem `SSO_JWT_SECRET`), para não travar quem roda o app na máquina.
+ * (dev sem `SSO_BASE_URL`), para não travar quem roda o app na máquina.
  */
 export default async function LoginPage() {
   const admin = await getAdmin();
   if (admin) redirect("/operacao");
 
-  if (process.env.SSO_JWT_SECRET) redirect(urlLoginSSO());
+  if (process.env.SSO_BASE_URL) redirect(urlLoginSSO());
 
   return (
     <main className="login-page">
