@@ -2797,3 +2797,19 @@ model PolicyParameterVersion {
   @@map("policy_parameter_versions")
   @@schema("operations")
 }
+
+/// Publicação MCP independente; URLs registradas não implicam disponibilidade.
+/// Estado operacional só pode ser apresentado com evidências de check.
+model McpPublication {
+  id          String    @id
+  name        String
+  domain      String?
+  endpoint    String?
+  enabled     Boolean   @default(false)
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("mcp_publications")
+  @@schema("operations")
+}
