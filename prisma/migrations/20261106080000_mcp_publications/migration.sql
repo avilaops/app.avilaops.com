@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "operations"."mcp_publications" (
   "enabled" BOOLEAN NOT NULL DEFAULT FALSE,
   "description" TEXT,
   "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMPTZ(3) NOT NULL,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "mcp_publications_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "mcp_publications_endpoint_https_check"
     CHECK ("endpoint" IS NULL OR "endpoint" LIKE 'https://%')
@@ -26,6 +26,9 @@ INSERT INTO "operations"."mcp_publications" ("id", "name", "domain", "endpoint",
 ('avx-tools', 'Avx-tools', NULL, NULL, 'Ferramentas e processamento técnico'),
 ('n8n', 'n8n', 'n8n.avilaops.com', NULL, 'Automações e workflows')
 ON CONFLICT ("id") DO NOTHING;
+
+-- Seed usa NOW; depois remove o default para corresponder a @updatedAt do Prisma.
+ALTER TABLE "operations"."mcp_publications" ALTER COLUMN "updated_at" DROP DEFAULT;
 
 -- O aplicativo consulta este cadastro com a role de runtime da plataforma.
 -- Alinhar a propriedade à convenção das demais tabelas do App.
