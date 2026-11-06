@@ -10,7 +10,7 @@
 - `ml.avilaops.com` é Experiments/MLOps, com UI própria.
 - Persistência PostgreSQL centralizada no servidor `applications`, sem novos bancos persistentes nos outros servidores.
 
-## Entrega inicial (PR #93)
+## Entrega inicial (PR #95; substitui a PR #93)
 
 1. Modelo Prisma `McpPublication` no schema `operations`.
 2. Migração aditiva com dez publicações iniciais, todas `enabled=false`.
