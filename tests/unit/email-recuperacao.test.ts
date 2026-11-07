@@ -57,8 +57,15 @@ describe("e-mail de recuperação", () => {
     );
   });
 
-  it("recusa vazio e formato inválido", async () => {
-    for (const valor of ["", "   ", "sem-arroba", "a@b", undefined, null, 42]) {
+  it("aceita e-mail secundário ausente, sem consultar os domínios", async () => {
+    for (const valor of ["", "   ", undefined, null]) {
+      await expect(validarEmailRecuperacao(valor, "x@y.com")).resolves.toBeNull();
+    }
+    expect(consulta).not.toHaveBeenCalled();
+  });
+
+  it("recusa formato inválido quando informado", async () => {
+    for (const valor of ["sem-arroba", "a@b", 42]) {
       await expect(validarEmailRecuperacao(valor, "x@y.com")).rejects.toBeInstanceOf(
         EmailRecuperacaoInvalido,
       );

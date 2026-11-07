@@ -28,12 +28,8 @@ type NovaContaCliente = {
   email: string;
   cpfCnpj?: string | null;
   telefone?: string | null;
-  /**
-   * Endereço pessoal, fora dos domínios que hospedamos. Obrigatório em conta
-   * nova: sem ele, quem perde a senha do e-mail profissional não tem por onde
-   * voltar — o link de recuperação chega na caixa trancada.
-   */
-  emailRecuperacao: string;
+  /** Endereço adicional opcional, fora dos domínios hospedados. */
+  emailRecuperacao?: string | null;
 };
 
 export type ResultadoAcesso = {
@@ -58,8 +54,7 @@ export async function garantirAcessoCliente(dados: NovaContaCliente): Promise<Re
   const existente = await buscarContaPorEmail(email);
   if (existente) return { id: existente.id, email, criado: false, senha: null };
 
-  // Antes de criar: conta sem endereço de recuperação nasce trancada no dia
-  // em que a senha se perder. Lança e a tela mostra o motivo.
+  // O endereço secundário é opcional; quando informado, segue validado.
   const recuperacao = await validarEmailRecuperacao(dados.emailRecuperacao, email);
 
   const senha = gerarSenhaProvisoria();
