@@ -211,10 +211,9 @@ export default function ProvisionamentoPanel({
     );
   }
 
-  const [formAcesso, setFormAcesso] = useState({ emailRecuperacao: "" });
   async function enviarAcesso(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    await acesso("criar", formAcesso.emailRecuperacao);
+    await acesso("criar");
   }
 
   /* ---------- Caixa ---------- */
@@ -693,22 +692,6 @@ export default function ProvisionamentoPanel({
                 </div>
               </div>
             </div>
-            <label className="field">
-              <span>E-mail de recuperação</span>
-              <input
-                type="email"
-                value={formAcesso.emailRecuperacao}
-                onChange={(e) => setFormAcesso({ emailRecuperacao: e.target.value })}
-                placeholder="pessoal@gmail.com"
-                autoCapitalize="none"
-                autoCorrect="off"
-                required
-                autoFocus
-              />
-              <small className="field-help">
-                Pessoal, fora dos domínios que hospedamos: é por onde a pessoa volta se perder a senha da caixa.
-              </small>
-            </label>
             {resultados.acesso?.tipo === "erro" ? (
               <p className="inline-feedback feedback-error" role="alert">{resultados.acesso.conteudo}</p>
             ) : null}
