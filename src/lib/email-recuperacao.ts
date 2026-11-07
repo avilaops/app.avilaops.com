@@ -7,9 +7,8 @@
  * pessoa não consegue abrir. Em 02/09/2026 as três contas ativas estavam
  * assim, a do dono inclusive.
  *
- * Por isso o endereço de recuperação precisa estar FORA dos domínios que
- * hospedamos. Não é preferência de formato: é o que faz a recuperação
- * funcionar quando ela é necessária.
+ * O endereço secundário agora é opcional. Quando informado, precisa estar
+ * fora dos domínios hospedados para evitar recuperação circular.
  */
 import { prisma } from "@/lib/prisma";
 
@@ -43,20 +42,15 @@ export async function dominiosHospedados(): Promise<string[]> {
 /**
  * Valida e normaliza o e-mail de recuperação.
  *
- * Lança `EmailRecuperacaoInvalido` com a mensagem que a tela mostra: quem
- * cadastra precisa entender por que o endereço foi recusado, senão tenta o
- * mesmo domínio de novo.
+ * Retorna null para campo omitido; endereços informados são validados.
+ * Lança `EmailRecuperacaoInvalido` para endereços inválidos.
  */
 export async function validarEmailRecuperacao(
   valor: unknown,
   emailDeLogin: string,
-): Promise<string> {
+): Promise<string | null> {
   const email = typeof valor === "string" ? valor.trim().toLowerCase() : "";
-  if (!email) {
-    throw new EmailRecuperacaoInvalido(
-      "Informe um e-mail de recuperação. É por ele que a pessoa volta a entrar se perder a senha.",
-    );
-  }
+  if (!email && (valor == null || typeof valor === "string")) return null;
   if (!FORMATO.test(email)) {
     throw new EmailRecuperacaoInvalido("E-mail de recuperação inválido.");
   }
