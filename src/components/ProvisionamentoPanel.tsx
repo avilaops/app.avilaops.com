@@ -416,6 +416,7 @@ export default function ProvisionamentoPanel({
 
       <div className="prov-grid">
         <Cartao
+          id="acesso-ao-painel"
           titulo="Acesso ao painel"
           resultado={resultados.acesso ?? null}
           acoes={
@@ -443,6 +444,7 @@ export default function ProvisionamentoPanel({
         </Cartao>
 
         <Cartao
+          id="dominios"
           titulo="Domínios"
           resultado={resultados.dominio ?? null}
           acoes={
@@ -495,6 +497,7 @@ export default function ProvisionamentoPanel({
         </Cartao>
 
         <Cartao
+          id="email-profissional"
           titulo="E-mail profissional"
           resultado={resultados.caixa ?? null}
           acoes={
@@ -537,6 +540,7 @@ export default function ProvisionamentoPanel({
         </Cartao>
 
         <Cartao
+          id="google"
           titulo="Google"
           descricao="GA4, Tag Manager, Search Console, sitemap e indexação."
           resultado={resultados.google ?? null}
@@ -573,6 +577,7 @@ export default function ProvisionamentoPanel({
         </Cartao>
 
         <Cartao
+          id="loja-virtual"
           titulo="Loja virtual"
           descricao="Loja na plataforma lojas.avilaops.com, com DNS e e-mail provisionados."
           resultado={resultados.loja ?? null}
@@ -605,6 +610,7 @@ export default function ProvisionamentoPanel({
         </Cartao>
 
         <Cartao
+          id="comandeiro"
           titulo="Restaurante (Comandeiro)"
           descricao="Estabelecimento no Comandeiro: cardápio, mesas, comanda e cozinha, com as senhas de estreia."
           resultado={resultados.restaurante ?? null}

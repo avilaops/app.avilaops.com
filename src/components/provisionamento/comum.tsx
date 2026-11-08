@@ -69,12 +69,14 @@ export function Pill({ status }: { status: string | null }) {
 }
 
 export function Cartao({
+  id,
   titulo,
   descricao,
   children,
   acoes,
   resultado,
 }: {
+  id?: string;
   titulo: string;
   /** Só quando o título não basta. Card não é lugar de manual. */
   descricao?: string;
@@ -83,7 +85,7 @@ export function Cartao({
   resultado: Resultado | null;
 }) {
   return (
-    <article className="operations-panel prov-card">
+    <article id={id} className="operations-panel prov-card">
       <div className="prov-card-head">
         <div>
           <h3>{titulo}</h3>

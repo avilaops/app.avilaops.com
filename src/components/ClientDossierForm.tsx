@@ -795,6 +795,7 @@ export default function ClientDossierForm({
     // o envio sem conseguir mostrar o balão em campo invisível, e "Salvar
     // ficha" simplesmente não fazia nada. Quem valida é a API.
     <form
+      id="formulario-da-ficha"
       ref={formRef}
       noValidate
       className={temAlteracao ? "client-dossier tem-alteracao" : "client-dossier"}
@@ -879,7 +880,7 @@ export default function ClientDossierForm({
           <label>Segmento<input name="segment" defaultValue={organization.segment ?? ""} /></label>
           <label>Site<input name="siteUrl" defaultValue={organization.siteUrl ?? ""} /></label>
           <label>Domínio<input name="primaryDomain" defaultValue={valueOf(organization.webPresence?.primaryDomain)} placeholder="exemplo.com.br" /></label>
-          <label>Status do onboarding<select name="onboardingStage" defaultValue={valueOf(organization.profile?.onboardingStage) || "BASIC"}><option value="BASIC">Cadastro básico</option><option value="COMPLETE_DATA">Dados completos</option><option value="IDENTITY">Identidade</option><option value="SITE">Site</option><option value="INTEGRATIONS">Integrações</option><option value="PUBLISHED">Publicação</option></select></label>
+          <label id="status-do-onboarding">Status do onboarding<select name="onboardingStage" defaultValue={valueOf(organization.profile?.onboardingStage) || "BASIC"}><option value="BASIC">Cadastro básico</option><option value="COMPLETE_DATA">Dados completos</option><option value="IDENTITY">Identidade</option><option value="SITE">Site</option><option value="INTEGRATIONS">Integrações</option><option value="PUBLISHED">Publicação</option></select></label>
           <label>Responsável interno<input name="internalOwnerName" defaultValue={valueOf(organization.profile?.internalOwnerName)} /></label>
           <label>Próxima ação<input name="nextAction" defaultValue={valueOf(organization.profile?.nextAction)} /></label>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Cartao, chamar, dataCurta, dinheiro, Pill, type Resultado } from "@/components/provisionamento/comum";
@@ -7,6 +8,23 @@ import Confirmacao from "@/components/sistema/Confirmacao";
 import { Icone } from "@/components/ui/Icones";
 import Sheet from "@/components/ui/Sheet";
 import { pedidoDeEnvio, type ModoEnvio } from "@/lib/envio-cobranca-pedido";
+import type { EtapaKey } from "@/lib/onboarding-etapas";
+
+const destinoDaEtapa: Record<EtapaKey, string> = {
+  BASIC: "registration&tab=overview#formulario-da-ficha",
+  COMPLETE_DATA: "registration#formulario-da-ficha",
+  IDENTITY: "files#formulario-da-ficha",
+  SITE: "registration&tab=presence#formulario-da-ficha",
+  INTEGRATIONS: "registration&tab=integrations#formulario-da-ficha",
+  PUBLISHED: "registration&tab=overview#status-do-onboarding",
+  ACCESS: "services#acesso-ao-painel",
+  DOMAIN: "services#dominios",
+  EMAIL: "services#email-profissional",
+  GOOGLE: "services#google",
+  STORE: "services#loja-virtual",
+  RESTAURANT: "services#comandeiro",
+  BILLING: "finance#cobranca-recorrente",
+};
 
 export type CobrancaDaFicha = {
   id: string;
@@ -484,6 +502,7 @@ export default function OperacaoPanel({
 
       <div className="prov-grid">
         <Cartao
+          id="cobranca-recorrente"
           titulo="Cobrança recorrente"
           resultado={resultados.cobranca ?? null}
           acoes={
@@ -613,13 +632,18 @@ export default function OperacaoPanel({
               <p className="prov-empty">As etapas aparecem na primeira ação de provisionamento.</p>
             ) : (
               etapas.map((e) => (
-                <div className="ios-row ios-row-static" key={e.stepKey}>
+                <Link
+                  className="ios-row"
+                  key={e.stepKey}
+                  href={`/clientes/${encodeURIComponent(organizationId)}?section=${Object.hasOwn(destinoDaEtapa, e.stepKey) ? destinoDaEtapa[e.stepKey as EtapaKey] : "registration#formulario-da-ficha"}`}
+                >
                   <div className="prov-row-main">
                     <strong>{e.label}</strong>
                     <small>{e.completedAt ? `Concluída em ${dataCurta(e.completedAt)}${e.notes ? ` · ${e.notes}` : ""}` : e.notes ?? "Pendente"}</small>
                   </div>
                   <Pill status={e.status} />
-                </div>
+                  <Icone nome="chevron" tamanho={16} className="chevron" />
+                </Link>
               ))
             )}
           </div>
