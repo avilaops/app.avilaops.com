@@ -27,7 +27,7 @@ export default async function ClientDossierPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ section?: string; banco?: string; q?: string; tabela?: string; vazias?: string }>;
+  searchParams: Promise<{ section?: string; tab?: string; banco?: string; q?: string; tabela?: string; vazias?: string }>;
 }) {
   const admin = await getAdmin();
   if (!admin) redirect("/login");
@@ -36,6 +36,7 @@ export default async function ClientDossierPage({
   const query = await searchParams;
   const requestedSection = query.section;
   const section = ["summary", "registration", "services", "finance", "files", "database"].includes(requestedSection ?? "") ? requestedSection! : "summary";
+  const cadastroTab = query.tab === "overview" || query.tab === "presence" || query.tab === "integrations" ? query.tab : "registration";
   const [organization, plans] = await Promise.all([
     prisma.organization.findUnique({
       where: { id },
@@ -164,7 +165,7 @@ export default async function ClientDossierPage({
       {section === "summary" ? <ClientSummary organization={organization} /> : null}
       {section === "summary" ? <NucleoDaEmpresa identityId={admin.id} organizationId={id} /> : null}
       {section === "registration" && painelAssistente ? <CadastroAssistidoPanel painelInicial={JSON.parse(JSON.stringify(painelAssistente))} /> : null}
-      {section === "registration" ? <ClientDossierForm key={`${id}-registration`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab="registration" /> : null}
+      {section === "registration" ? <ClientDossierForm key={`${id}-registration-${cadastroTab}`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab={cadastroTab} /> : null}
       {section === "files" ? <ClientDossierForm key={`${id}-files`} organization={JSON.parse(JSON.stringify(organizacaoParaFicha))} plans={JSON.parse(JSON.stringify(plans))} initialTab="assets" /> : null}
       {section === "services" ? <ProvisionamentoPanel
         organizationId={organization.id}
