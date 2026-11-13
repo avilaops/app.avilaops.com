@@ -280,3 +280,23 @@ export interface SaudeDasRotinas {
 }
 
 export const lerRotinas = () => chamar<SaudeDasRotinas>("/api/admin/rotinas");
+
+export interface MetricasDasLojas {
+  medidoEm: string;
+  processoDesde: string;
+  janelaMinutos: number;
+  lojas: {
+    slug: string;
+    nome: string;
+    status: string;
+    operacao: { requisicoes: number; erros: number };
+    negocio24h: {
+      sessoes: number;
+      pedidosCriados: number;
+      pedidosPagos: number;
+      conversao: number | null;
+    };
+  }[];
+}
+
+export const lerMetricasDasLojas = () => chamar<MetricasDasLojas>("/api/admin/metricas");
