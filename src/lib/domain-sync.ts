@@ -45,8 +45,13 @@ export async function syncCloudflareDomains(actorId: string): Promise<DomainSync
     // Se o domínio já foi sincronizado antes, respeita a organização atual
     // dele (que pode ter sido renomeada/mesclada manualmente) em vez de
     // recriar/reatribuir pelo slug do domínio a cada resincronização.
-    const existingDomainAsset = await prisma.domainAsset.findUnique({
-      where: { cloudflareZoneId: zone.id },
+    const existingDomainAsset = await prisma.domainAsset.findFirst({
+      where: {
+        OR: [
+          { cloudflareZoneId: zone.id },
+          { fqdn: zone.name },
+        ],
+      },
       select: { id: true, organizationId: true },
     });
 
@@ -79,22 +84,26 @@ export async function syncCloudflareDomains(actorId: string): Promise<DomainSync
             })
           ).id;
 
-    const domainAsset = await prisma.domainAsset.upsert({
-      where: { cloudflareZoneId: zone.id },
-      create: {
-        organizationId,
-        fqdn: zone.name,
-        cloudflareZoneId: zone.id,
-        cloudflarePlan: zone.plan.name,
-        cloudflareStatus: zone.status,
-        dnsLastSyncedAt: new Date(),
-      },
-      update: {
-        cloudflarePlan: zone.plan.name,
-        cloudflareStatus: zone.status,
-        dnsLastSyncedAt: new Date(),
-      },
-    });
+    const domainAsset = existingDomainAsset
+      ? await prisma.domainAsset.update({
+          where: { id: existingDomainAsset.id },
+          data: {
+            cloudflareZoneId: zone.id,
+            cloudflarePlan: zone.plan.name,
+            cloudflareStatus: zone.status,
+            dnsLastSyncedAt: new Date(),
+          },
+        })
+      : await prisma.domainAsset.create({
+          data: {
+            organizationId,
+            fqdn: zone.name,
+            cloudflareZoneId: zone.id,
+            cloudflarePlan: zone.plan.name,
+            cloudflareStatus: zone.status,
+            dnsLastSyncedAt: new Date(),
+          },
+        });
 
     const dnsRecords = await listDnsRecords(zone.id);
 
