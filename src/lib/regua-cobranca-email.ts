@@ -241,4 +241,3 @@ export async function processarReguaDeCobranca(agora = new Date(), limite = 50):
   }
   return resumo;
 }
-

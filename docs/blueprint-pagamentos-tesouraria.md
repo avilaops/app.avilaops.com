@@ -1,6 +1,6 @@
 # Blueprint — Módulo de Pagamentos e Tesouraria
 
-_Atualizado em 2026-10-05 · Nicolas_
+_Atualizado em 2026-11-17 · Nicolas_
 
 Como dono, quero um lugar só pra cuidar do meu dinheiro: ver se os gateways estão de pé, cobrar o cliente, receber e acompanhar — sem SSH e sem planilha paralela. Este é o mapa do que o módulo faz hoje e do que ainda vou desenvolver.
 
@@ -61,7 +61,19 @@ Se a mensagem saiu e o desfecho não foi gravado, a resposta não vem como um "o
 
 O "começou" que ficou sem desfecho já tem como ser listado: uma consulta pronta no código devolve esses envios, de todos os clientes ou de um só.
 
-Limites de hoje: esses registros ainda não aparecem em nenhuma tela (ficam no banco), e a consulta dos envios sem desfecho também não — nada avisa sozinho; os registros de "começou", recusado e erro gravados até 05/10/2026 saíram sem o cliente (`organizationId`) e só se acham pela fatura ou cobrança; e se o sistema não consegue descobrir o cliente na hora (fatura que não existe, banco fora), o "começou" sai sem ele como antes.
+## Régua automática por e-mail **[já funciona]**
+
+Cada fatura aberta ou vencida recebe uma agenda persistente, no fuso `America/Sao_Paulo`:
+
+- **D−5 às 09:00** • lembrete amigável com o resumo da fatura.
+- **D0 às 09:00** • fatura com a forma de pagamento.
+- **D+3 às 09:00** • aviso de atraso com a forma de pagamento.
+
+O n8n apenas aciona o processador a cada 30 minutos. A regra, o estado e a auditoria ficam no app. Uma falha é tentada novamente depois de 30 minutos, com no máximo duas tentativas. Fatura paga ou cancelada interrompe os lembretes; item atrasado mais de 24 horas não é enviado fora de contexto.
+
+Na ficha do cliente, a etapa mostra data, status e tentativas. O dono pode cancelar um lembrete pendente sem alterar os demais. Cada tentativa automática usa a mesma trilha de auditoria do envio manual, marcada com `origem: regua-automatica`.
+
+Limites de hoje: a régua é única para todas as faturas e não tem configuração por cliente; D0 e D+3 exigem uma cobrança ativa com forma de pagamento; os registros de "começou", recusado e erro gravados até 05/10/2026 saíram sem o cliente (`organizationId`) e só se acham pela fatura ou cobrança; e se o sistema não consegue descobrir o cliente na hora (fatura que não existe, banco fora), o "começou" sai sem ele como antes.
 
 ## Acompanhar e me proteger **[parcial]**
 
@@ -86,7 +98,6 @@ A visão é **tesouraria completa** — ver, cobrar e pagar — construída em p
 - **Ledger único (recebimento num lugar só):** o que entra pelo gateway (PayPal, Mercado Pago) já cai no ledger (`core.payments`), alocado na fatura. Falta o extrato do banco cair no mesmo lugar: a conciliação ainda grava em outro registro (`ledgerEntry`). Quando os dois se encontrarem, meus recebíveis ficam certos sozinhos.
 - **Cobrar e pagar completo:** além de receber, também registrar e fazer pagamentos (saídas) pelo painel.
 - **Multimoeda (Wise):** receber e ver em outras moedas, não só em real.
-- **Envio automático (opcional):** mandar a cobrança sozinha ao emitir, quando eu confiar no fluxo — hoje é sempre no meu clique.
 
 Cada parte entra como uma **fatia própria, testada e publicada**, pra não quebrar o que já funciona.
 
@@ -99,6 +110,7 @@ Cada parte entra como uma **fatia própria, testada e publicada**, pra não queb
   - Rota irmã: `src/app/api/cobrancas/[id]/enviar/route.ts` — envia a partir de uma **cobrança** específica já emitida. Existe, mas nenhuma tela chama hoje.
   - As duas passam por `responderEnvio` (`src/lib/entrega-cobranca-http.ts`): só o dono, modo de teste por padrão e o registro em `operations.audit_events` em dois tempos — `COBRANCA_ENVIO_INICIADO` antes de enviar (com o `organizationId` do dono da fatura, lido antes; se a gravação falha, 503 e nada sai) e depois o desfecho com `tentativaId` no `metadata`: `COBRANCA_ENVIADA`, `COBRANCA_ENVIO_FALHOU`, `COBRANCA_ENVIO_RECUSADO` ou `COBRANCA_ENVIO_ERRO`. Desfecho não gravado: `registrado: false` na resposta, lido em `enviarCobranca` no `OperacaoPanel.tsx`.
   - Envios sem desfecho: `listarEnviosSemDesfecho` em `src/lib/auditoria-envio-cobranca.ts` — as intenções que nenhum desfecho com o mesmo `tentativaId` fechou. Só biblioteca: nenhuma tela ou rota chama ainda.
+  - Régua automática: `src/lib/regua-cobranca-email.ts` reconcilia a agenda, reivindica os itens com trava concorrente e envia; `POST /api/internal/billing/email-reminders` é chamado pelo n8n; `DELETE /api/billing/faturas/[id]/lembretes/[dispatchId]` cancela uma etapa pendente.
 - Painel de integrações: `src/app/financeiro/integracoes/page.tsx`, `src/lib/integracoes.ts`, diagnóstico em `src/lib/paypal.ts` (`diagnosticarWebhook`).
 - Baixa e ledger: `baixarCobrancaPorIdExterno` em `src/lib/assinaturas.ts` — grava `core.payments`, aloca na fatura dentro de `prisma.$transaction` com `SELECT … FOR UPDATE` em `operations.subscription_invoices` (espera de 5 s e duração de 10 s, em vez dos 2 s e 5 s padrão), e chama `auditarPagamentoForaDaFatura` (`PAGAMENTO_SEM_ALOCACAO`, `PAGAMENTO_ALOCADO_EM_PARTE`, `PAGAMENTO_LEDGER_FALHOU` com `metadata.operacao` = `PAGAMENTO` ou `REEMBOLSO`, `PAGAMENTO_LEDGER_RESOLVIDO` só para falha de pagamento, `PAGO_APOS_REEMBOLSO` para o aviso de pago ignorado em cobrança `REFUNDED`, `CONTESTACAO_REEMBOLSADA` para o `charged_back` que o webhook do Mercado Pago recebe com `status_detail` `reimbursed`, pelo tópico `payment` ou pelo `topic_chargebacks_wh`, que traz o pagamento em `data.payment_id`), que procura e grava sob `pg_advisory_xact_lock` da chave ação + entidade + id — sem índice único na tabela.
 - Conciliação do extrato (ainda fora do ledger único): `src/lib/conciliacao-automatica.ts` e `src/app/api/reconciliations/[id]/route.ts` gravam em `ledgerEntry`, não em `core.payments`.
