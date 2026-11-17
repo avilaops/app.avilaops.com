@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       "tests/unit/regua-cobranca-email*.test.ts",
       "tests/unit/regua-cobranca-email-route.test.ts",
+      "tests/unit/regua-cobranca-individual.test.ts",
       "tests/unit/fatura-personalizada.test.ts",
       "tests/unit/erp-nfse.test.ts",
       "tests/unit/fila-nfse-route.test.ts",

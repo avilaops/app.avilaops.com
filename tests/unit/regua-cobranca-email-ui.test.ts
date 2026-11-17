@@ -2,10 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { descricaoDoLembrete } from "@/lib/regua-cobranca-email-ui";
 
-const estado = vi.hoisted(() => ({ admin: vi.fn(), dono: vi.fn(), origem: vi.fn(), updateMany: vi.fn() }));
+const estado = vi.hoisted(() => ({ admin: vi.fn(), dono: vi.fn(), origem: vi.fn(), cancelar: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getAdmin: estado.admin, ehDono: estado.dono }));
 vi.mock("@/lib/http", () => ({ sameOrigin: estado.origem }));
-vi.mock("@/lib/prisma", () => ({ prisma: { billingEmailDispatch: { updateMany: estado.updateMany } } }));
+vi.mock("@/lib/regua-cobranca-individual", () => ({
+  alterarLembreteIndividual: vi.fn(),
+  cancelarLembreteIndividual: estado.cancelar,
+  ReguaIndividualErro: class ReguaIndividualErro extends Error {},
+}));
 
 const { DELETE } = await import("@/app/api/billing/faturas/[id]/lembretes/[dispatchId]/route");
 
@@ -15,7 +19,7 @@ describe("controles da régua na ficha", () => {
     estado.admin.mockResolvedValue({ id: "admin-1", role: "OWNER" });
     estado.dono.mockReturnValue(true);
     estado.origem.mockReturnValue(true);
-    estado.updateMany.mockResolvedValue({ count: 1 });
+    estado.cancelar.mockResolvedValue({ id: "envio-1", status: "CANCELLED" });
   });
 
   it("descreve etapa, estado e horário para a pessoa", () => {
@@ -32,9 +36,10 @@ describe("controles da régua na ficha", () => {
       { params: Promise.resolve({ id: "fatura-1", dispatchId: "envio-1" }) },
     );
     expect(resposta.status).toBe(200);
-    expect(estado.updateMany).toHaveBeenCalledWith({
-      where: { id: "envio-1", invoiceId: "fatura-1", status: "PENDING" },
-      data: expect.objectContaining({ status: "CANCELLED" }),
+    expect(estado.cancelar).toHaveBeenCalledWith({
+      invoiceId: "fatura-1",
+      dispatchId: "envio-1",
+      actorId: "admin-1",
     });
   });
 
@@ -45,6 +50,6 @@ describe("controles da régua na ficha", () => {
       { params: Promise.resolve({ id: "fatura-1", dispatchId: "envio-1" }) },
     );
     expect(resposta.status).toBe(403);
-    expect(estado.updateMany).not.toHaveBeenCalled();
+    expect(estado.cancelar).not.toHaveBeenCalled();
   });
 });

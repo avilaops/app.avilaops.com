@@ -43,3 +43,37 @@ export async function alterarLembreteIndividual(params: { invoiceId: string; dis
     return dispatch;
   });
 }
+
+export async function cancelarLembreteIndividual(
+  params: { invoiceId: string; dispatchId: string; actorId: string },
+  agora = new Date(),
+) {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.billingEmailDispatch.findFirst({
+      where: {
+        id: params.dispatchId,
+        invoiceId: params.invoiceId,
+        stage: { startsWith: "CUSTOM:" },
+        status: "PENDING",
+      },
+      include: { invoice: { select: { organizationId: true } } },
+    });
+    if (!current) throw new ReguaIndividualErro("Lembrete personalizado não encontrado.");
+
+    const dispatch = await tx.billingEmailDispatch.update({
+      where: { id: current.id },
+      data: { status: "CANCELLED", cancelledAt: agora },
+    });
+    await tx.operationsAuditEvent.create({
+      data: {
+        actorId: params.actorId,
+        organizationId: current.invoice.organizationId,
+        action: "COBRANCA_LEMBRETE_CANCELADO",
+        entityType: "BillingEmailDispatch",
+        entityId: dispatch.id,
+        metadata: { invoiceId: params.invoiceId },
+      },
+    });
+    return dispatch;
+  });
+}
