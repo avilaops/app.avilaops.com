@@ -22,12 +22,12 @@ CREATE TABLE operations.nfse_dispatches (
   cancelled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT nfse_dispatches_invoice_fk FOREIGN KEY (invoice_id)
-    REFERENCES operations.subscription_invoices(id) ON DELETE CASCADE,
+  CONSTRAINT nfse_dispatches_invoice_id_fkey FOREIGN KEY (invoice_id)
+    REFERENCES operations.subscription_invoices(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT nfse_dispatches_status_check CHECK (
     status IN ('PENDING', 'PROCESSING', 'ISSUED', 'UNCERTAIN', 'FAILED', 'CANCELLED')
   )
 );
 
-CREATE INDEX nfse_dispatches_status_next_attempt_idx
+CREATE INDEX nfse_dispatches_status_next_attempt_at_idx
   ON operations.nfse_dispatches(status, next_attempt_at);
