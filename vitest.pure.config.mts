@@ -10,6 +10,7 @@ export default defineConfig({
       "tests/unit/regua-cobranca-individual.test.ts",
       "tests/unit/fatura-personalizada.test.ts",
       "tests/unit/erp-nfse.test.ts",
+      "tests/unit/nfse-manual-route.test.ts",
       "tests/unit/fila-nfse-route.test.ts",
       "tests/unit/fila-nfse-processador.test.ts",
       "tests/unit/fila-nfse.test.ts",

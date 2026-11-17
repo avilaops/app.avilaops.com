@@ -1,4 +1,4 @@
-type ErpIssuance = { id: string; externalId: string; status: string; revision: string | number; accessKey?: string; reason?: string };
+type ErpIssuance = { id: string; externalId: string; status: string; revision: string | number; accessKey?: string; reason?: string; portalUrl?: string };
 
 export class ErpNfseErro extends Error {
   constructor(message: string, readonly uncertain = false, readonly status?: number) { super(message); }
@@ -20,10 +20,10 @@ async function request(path: string, init: RequestInit, timeoutMs = 15_000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${baseUrl}${path}`, { ...init, signal: controller.signal, headers: { authorization: `Bearer ${serviceKey}`, "x-tenant-id": tenantId, accept: "application/json", ...(init.body ? { "content-type": "application/json" } : {}), ...init.headers }, cache: "no-store" });
-    const body = await response.json().catch(() => null) as { data?: unknown; error?: string; message?: string; title?: string } | null;
+    const body = await response.json().catch(() => null) as { data?: unknown; portalUrl?: string; error?: string; message?: string; title?: string } | null;
     if (!response.ok) throw new ErpNfseErro((body?.error || body?.message || body?.title || `ERP respondeu HTTP ${response.status}.`).slice(0, 500), response.status >= 500, response.status);
     if (!body || typeof body.data !== "object" || body.data === null) throw new ErpNfseErro("Resposta fiscal inválida do ERP.", true);
-    return body.data as ErpIssuance;
+    return { ...(body.data as ErpIssuance), ...(body.portalUrl ? { portalUrl: body.portalUrl } : {}) };
   } catch (error) {
     if (error instanceof ErpNfseErro) throw error;
     throw new ErpNfseErro(error instanceof Error && error.name === "AbortError" ? "Tempo limite ao chamar o ERP." : "Não foi possível confirmar a resposta do ERP.", true);
@@ -32,6 +32,16 @@ async function request(path: string, init: RequestInit, timeoutMs = 15_000) {
 
 export async function emitirNfseNoErp(input: { idempotencyKey: string; externalId: string; competenceDate: string; amount: string; serviceCode: string; description: string; customer: { name: string; taxId: string; email?: string } }) {
   return request("/api/v1/integrations/nfse/issuances", { method: "POST", headers: { "idempotency-key": input.idempotencyKey }, body: JSON.stringify({ externalId: input.externalId, environment: "homologation", competenceDate: input.competenceDate, amount: input.amount, serviceCode: input.serviceCode, description: input.description, customer: input.customer }) });
+}
+
+type NfseInput = Parameters<typeof emitirNfseNoErp>[0];
+
+export async function prepararNfseManualNoErp(input: NfseInput) {
+  return request("/api/v1/integrations/nfse/manual-issuances", { method: "POST", headers: { "idempotency-key": input.idempotencyKey }, body: JSON.stringify({ externalId: input.externalId, environment: "production", competenceDate: input.competenceDate, amount: input.amount, serviceCode: input.serviceCode, description: input.description, customer: input.customer }) });
+}
+
+export async function confirmarNfseManualNoErp(id: string, idempotencyKey: string, xml: string) {
+  return request(`/api/v1/integrations/nfse/issuances/${encodeURIComponent(id)}/manual-confirm`, { method: "POST", headers: { "idempotency-key": idempotencyKey }, body: JSON.stringify({ xml }) }, 45_000);
 }
 
 export const consultarNfseNoErp = (id: string) => request(`/api/v1/integrations/nfse/issuances/${encodeURIComponent(id)}`, { method: "GET" });

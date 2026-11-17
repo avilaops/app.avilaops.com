@@ -1614,6 +1614,8 @@ model NfseDispatch {
   idempotencyKey String    @unique @map("idempotency_key") @db.Uuid
   /// PENDING | PROCESSING | ISSUED | UNCERTAIN | FAILED | CANCELLED
   status         String    @default("PENDING")
+  /// AUTOMATIC usa API assinada com A1; MANUAL usa o Emissor Nacional e importa o XML.
+  issuanceMode   String    @default("AUTOMATIC") @map("issuance_mode")
   attempts       Int       @default(0)
   nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
   claimedAt      DateTime? @map("claimed_at") @db.Timestamptz(6)
