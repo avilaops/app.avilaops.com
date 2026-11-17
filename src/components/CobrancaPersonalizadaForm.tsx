@@ -21,7 +21,7 @@ export default function CobrancaPersonalizadaForm({ organizationId, onSuccess }:
     <label>Competência<input name="competencia" type="month" required /></label>
     <label>Vencimento<input name="vencimento" type="date" required /></label>
     <label>Forma de cobrança<select name="metodo" defaultValue="PIX"><option value="PIX">PIX</option><option value="BOLETO">Boleto</option></select></label>
-    <label><input name="nfseAutomatica" type="checkbox" /> Emitir NFS-e automaticamente após o pagamento</label>
+    <label><input name="nfseAutomatica" type="checkbox" /> Emitir NFS-e automaticamente após o pagamento • exige certificado A1</label>
     <label>Código nacional do serviço<input name="codigoServico" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} /></label>
     <label>Descrição fiscal<textarea name="descricaoFiscal" maxLength={2000} rows={4} /></label>
     {error ? <p className="inline-feedback feedback-error" role="alert">{error}</p> : null}

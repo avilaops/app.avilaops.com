@@ -162,6 +162,7 @@ export default async function ClientDossierPage({
     nfse: f.nfseDispatch ? {
       id: f.nfseDispatch.id,
       status: f.nfseDispatch.status,
+      issuanceMode: f.nfseDispatch.issuanceMode,
       erpStatus: f.nfseDispatch.erpStatus,
       accessKey: f.nfseDispatch.accessKey,
       lastError: f.nfseDispatch.lastError,

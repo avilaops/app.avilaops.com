@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { emitirNfseNoErp, ErpNfseErro } from "@/lib/erp-nfse";
+import { confirmarNfseManualNoErp, emitirNfseNoErp, ErpNfseErro, prepararNfseManualNoErp } from "@/lib/erp-nfse";
 
 describe("cliente TypeScript da NFS-e no ERP", () => {
   beforeEach(() => {
@@ -56,5 +56,18 @@ describe("cliente TypeScript da NFS-e no ERP", () => {
       description: "Serviço",
       customer: { name: "Cliente", taxId: "12345678901" },
     })).rejects.toThrow("Certificado A1 não configurado");
+  });
+
+  it("prepara emissão manual em produção e confirma o XML sem certificado no app", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "nfse-1", externalId: "invoice-1", status: "pending", revision: 1 }, portalUrl: "https://www.nfse.gov.br/EmissorNacional" }), { status: 201, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "nfse-1", externalId: "invoice-1", status: "authorized", revision: 2, accessKey: "1".repeat(50) } }), { status: 200, headers: { "content-type": "application/json" } }));
+    const prepared = await prepararNfseManualNoErp({ idempotencyKey: "eaf02748-0d0c-4c4b-a8ab-a3797f94dbba", externalId: "invoice-1", competenceDate: "2026-11-01", amount: "1250.00", serviceCode: "010701", description: "Consultoria", customer: { name: "Cliente", taxId: "12345678901" } });
+    expect(prepared).toMatchObject({ status: "pending", portalUrl: "https://www.nfse.gov.br/EmissorNacional" });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://erp.avilaops.com/api/v1/integrations/nfse/manual-issuances");
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"environment":"production"');
+    await confirmarNfseManualNoErp("nfse-1", "baf02748-0d0c-4c4b-a8ab-a3797f94dbba", "<?xml version=\"1.0\"?><NFSe/>");
+    expect(fetchMock.mock.calls[1][0]).toBe("https://erp.avilaops.com/api/v1/integrations/nfse/issuances/nfse-1/manual-confirm");
+    expect(String(fetchMock.mock.calls[1][1]?.body)).toContain("<NFSe/>");
   });
 });

@@ -49,7 +49,7 @@ export type FaturaDaFicha = {
   status: string;
   paidAt: string | null;
   automaticNfse?: boolean;
-  nfse?: { id: string; status: string; erpStatus: string | null; accessKey: string | null; lastError: string | null } | null;
+  nfse?: { id: string; status: string; issuanceMode: string; erpStatus: string | null; accessKey: string | null; lastError: string | null } | null;
   cobranca: CobrancaDaFicha | null;
   lembretes?: Array<{
     id: string;
@@ -517,9 +517,26 @@ export default function OperacaoPanel({
 
   async function emitirNfse(invoiceId: string) {
     await executar("cobranca", async () => {
-      await chamar(`/api/billing/faturas/${invoiceId}/nfse`, {}, "POST");
-      return null;
-    }, "Emissão de NFS-e solicitada.");
+      const result = await chamar<{ portalUrl?: string }>(`/api/billing/faturas/${invoiceId}/nfse`, {}, "POST");
+      return { tipo: "ok", conteudo: <><strong>Dados da NFS-e preparados no ERP.</strong><span>Emita a nota no <a href={result.portalUrl || "https://www.nfse.gov.br/EmissorNacional"} target="_blank" rel="noreferrer">Emissor Nacional com Gov.br</a> e depois importe o XML nesta cobrança.</span></> };
+    }, "NFS-e preparada para emissão no Gov.br.");
+  }
+
+  async function importarXmlNfse(invoiceId: string, file: File | undefined) {
+    if (!file) return;
+    setOcupado("cobranca");
+    try {
+      const form = new FormData();
+      form.set("xml", file);
+      const response = await fetch(`/api/billing/faturas/${invoiceId}/nfse`, { method: "PUT", body: form });
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(body?.error || "Não foi possível validar o XML da NFS-e.");
+      registrar("cobranca", { tipo: "ok", conteudo: <strong>XML validado e NFS-e registrada pelo ERP.</strong> });
+      setAviso("NFS-e registrada.");
+      router.refresh();
+    } catch (error) {
+      registrar("cobranca", { tipo: "erro", conteudo: error instanceof Error ? error.message : "Falhou." });
+    } finally { setOcupado(null); }
   }
 
   async function cancelarNfse(invoiceId: string) {
@@ -652,9 +669,11 @@ export default function OperacaoPanel({
                         <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => agendarLembrete(f.id)}>Agendar lembrete</button>
                       </span> : null}
                       {f.status === "PAID" ? <span className="prov-fatura-acoes">
-                        {!f.nfse || ["FAILED", "UNCERTAIN"].includes(f.nfse.status) ? <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => emitirNfse(f.id)}>Emitir NFS-e</button> : null}
+                        {!f.nfse || ["FAILED", "UNCERTAIN"].includes(f.nfse.status) ? <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => emitirNfse(f.id)}>Preparar NFS-e no Gov.br</button> : null}
+                        {f.nfse?.erpStatus === "pending" ? <label className="text-button">Importar XML emitido<input className="sr-only" type="file" accept=".xml,application/xml,text/xml" disabled={ocupado === "cobranca"} onChange={(event) => { void importarXmlNfse(f.id, event.target.files?.[0]); event.currentTarget.value = ""; }} /></label> : null}
                         {f.nfse?.status === "ISSUED" ? <a className="text-button" href={`/api/billing/faturas/${f.id}/nfse`} target="_blank" rel="noreferrer">Baixar XML</a> : null}
-                        {f.nfse?.status === "ISSUED" ? <button type="button" className="text-button prov-perigo" disabled={ocupado === "cobranca"} onClick={() => cancelarNfse(f.id)}>Cancelar NFS-e</button> : null}
+                        {f.nfse?.status === "ISSUED" && f.nfse.issuanceMode === "AUTOMATIC" ? <button type="button" className="text-button prov-perigo" disabled={ocupado === "cobranca"} onClick={() => cancelarNfse(f.id)}>Cancelar NFS-e</button> : null}
+                        {f.nfse?.status === "ISSUED" && f.nfse.issuanceMode === "MANUAL" ? <a className="text-button prov-perigo" href="https://www.nfse.gov.br/EmissorNacional" target="_blank" rel="noreferrer">Cancelar no Gov.br</a> : null}
                       </span> : null}
                     </div>
                   );
