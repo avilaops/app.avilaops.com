@@ -20,6 +20,18 @@ describe("cliente TypeScript da NFS-e no ERP", () => {
     expect(String(init?.body)).toContain('"environment":"homologation"');
   });
 
+  it("aceita HTTP somente no hostname privado do ERP", async () => {
+    process.env.ERP_NFSE_URL = "http://api:8081";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { id: "nfse-1", externalId: "invoice-1", status: "pending", revision: 1 } }), { status: 201, headers: { "content-type": "application/json" } }));
+
+    await emitirNfseNoErp({ idempotencyKey: "eaf02748-0d0c-4c4b-a8ab-a3797f94dbba", externalId: "invoice-1", competenceDate: "2026-11-01", amount: "1250.00", serviceCode: "010701", description: "Consultoria", customer: { name: "Cliente", taxId: "12345678901" } });
+
+    expect(fetchMock).toHaveBeenCalledWith("http://api:8081/api/v1/integrations/nfse/issuances", expect.any(Object));
+
+    process.env.ERP_NFSE_URL = "http://example.com";
+    await expect(emitirNfseNoErp({ idempotencyKey: "eaf02748-0d0c-4c4b-a8ab-a3797f94dbba", externalId: "invoice-2", competenceDate: "2026-11-01", amount: "1.00", serviceCode: "010701", description: "Consultoria", customer: { name: "Cliente", taxId: "12345678901" } })).rejects.toThrow("A URL do ERP deve usar HTTPS.");
+  });
+
   it("marca resposta 5xx como incerta sem incluir a credencial no erro", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("indisponível", { status: 503 }));
     const error = await emitirNfseNoErp({ idempotencyKey: "eaf02748-0d0c-4c4b-a8ab-a3797f94dbba", externalId: "invoice-1", competenceDate: "2026-11-01", amount: "1.00", serviceCode: "010701", description: "Serviço", customer: { name: "Cliente", taxId: "12345678901" } }).catch((value) => value) as unknown as ErpNfseErro;
