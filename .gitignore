@@ -33,3 +33,4 @@ output/publicacoes-validation/
 
 # Rascunho de agente; nunca entra em commit.
 .work/
+.worktrees/
