@@ -507,6 +507,7 @@ model Organization {
   domains                  DomainAsset[]
   deliverables             Deliverable[]
   subscriptions            Subscription[]
+  invoices                 SubscriptionInvoice[]
   integrationConnections   OrganizationIntegrationConnection[]
   metaBusinessAccounts     MetaBusinessAccount[]
   metaPages                MetaPage[]
@@ -1415,8 +1416,8 @@ model DomainAsset {
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  brand        Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  brand        Brand?           @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   dnsRecords   DnsRecord[]
   dnsVersions  DnsZoneVersion[]
 
@@ -1493,32 +1494,32 @@ model DeliverableCharge {
 /// esta assinatura paga. É por esse par que o produto pergunta "qual é a minha
 /// fatura?" — o produto não conhece `Organization`, e não precisa conhecer.
 model Subscription {
-  coreContract    CoreContract?
-  id              String        @id @default(cuid())
-  organizationId  String        @map("organization_id")
-  description     String
-  amount          Decimal       @db.Decimal(10, 2)
-  currency        String        @default("BRL")
+  coreContract           CoreContract?
+  id                     String        @id @default(cuid())
+  organizationId         String        @map("organization_id")
+  description            String
+  amount                 Decimal       @db.Decimal(10, 2)
+  currency               String        @default("BRL")
   /// Dia do vencimento, 1–28. Os dias 29, 30 e 31 não existem em todo mês, e
   /// mensalidade que some em fevereiro é conversa desagradável.
-  billingDay      Int           @map("billing_day")
+  billingDay             Int           @map("billing_day")
   /// MONTHLY | YEARLY. O anual cobra uma vez por ano, na competência do mês de
   /// aniversário, usando o mesmo `billingDay` para o vencimento. Serviço pago
   /// adiantado por ano (e-mail, domínio) não cabia no modelo mensal: gravar o
   /// valor do ano num campo lido como mensal mentiria o MRR e a tela.
-  billingCycle    String        @default("MONTHLY") @map("billing_cycle")
+  billingCycle           String        @default("MONTHLY") @map("billing_cycle")
   /// ACTIVE | PAUSED | CANCELLED
-  status          String        @default("ACTIVE")
-  startedAt       DateTime      @map("started_at")
-  endedAt         DateTime?     @map("ended_at")
-  productKey      String?       @map("product_key")
-  productTenantId String?       @map("product_tenant_id")
+  status                 String        @default("ACTIVE")
+  startedAt              DateTime      @map("started_at")
+  endedAt                DateTime?     @map("ended_at")
+  productKey             String?       @map("product_key")
+  productTenantId        String?       @map("product_tenant_id")
   /// Percentual sobre as vendas do cliente, combinado além do valor fixo
   /// (5.00 = 5%). Nulo para quem não tem comissão. Registra o acordo e aparece
   /// na ficha; nenhuma fatura é gerada a partir dele.
-  salesCommissionPercent Decimal? @map("sales_commission_percent") @db.Decimal(5, 2)
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  salesCommissionPercent Decimal?      @map("sales_commission_percent") @db.Decimal(5, 2)
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
 
   organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   invoices     SubscriptionInvoice[]
@@ -1534,34 +1535,43 @@ model Subscription {
 /// `unique(assinatura, competência)` é o que impede faturar agosto duas vezes
 /// quando o job roda de novo — sem isso, ninguém tem coragem de reexecutar.
 model SubscriptionInvoice {
-  coreLedgerLink  CoreInvoiceLedgerLink?
-  coreAllocations CorePaymentAllocation[]
-  id              String                  @id @default(cuid())
-  subscriptionId  String                  @map("subscription_id")
+  coreLedgerLink    CoreInvoiceLedgerLink?
+  coreAllocations   CorePaymentAllocation[]
+  id                String                  @id @default(cuid())
+  organizationId    String                  @map("organization_id")
+  subscriptionId    String?                 @map("subscription_id")
   /// AAAA-MM. Competência, não data de emissão.
-  competence      String
+  competence        String
   /// MONTHLY | YEARLY | SETUP. A implantação é cobrada uma vez, no começo, e
   /// não é mensalidade — mas é fatura do mesmo cliente, aparece na mesma tela e
   /// é paga pelos mesmos meios. Separar em outra tabela renderia duas telas e
   /// dois webhooks para a mesma coisa. YEARLY é a recorrente da assinatura
   /// anual: uma por ano, na competência do mês de aniversário.
-  kind            String                  @default("MONTHLY")
-  amount          Decimal                 @db.Decimal(10, 2)
-  dueDate         DateTime                @map("due_date") @db.Date
+  kind              String                  @default("MONTHLY")
+  description       String
+  currency          String                  @default("BRL")
+  automaticNfse     Boolean                 @default(false) @map("automatic_nfse")
+  fiscalServiceCode String?                 @map("fiscal_service_code")
+  fiscalDescription String?                 @map("fiscal_description")
+  amount            Decimal                 @db.Decimal(10, 2)
+  dueDate           DateTime                @map("due_date") @db.Date
   /// OPEN | PAID | OVERDUE | CANCELLED
-  status          String                  @default("OPEN")
-  paidAt          DateTime?               @map("paid_at")
-  createdAt       DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
+  status            String                  @default("OPEN")
+  paidAt            DateTime?               @map("paid_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
 
-  subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  charges      SubscriptionCharge[]
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscription    Subscription?          @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  charges         SubscriptionCharge[]
   emailDispatches BillingEmailDispatch[]
+  nfseDispatch    NfseDispatch?
 
   /// A competência sozinha não basta: a implantação e a primeira mensalidade
   /// caem no mesmo mês, e são duas faturas legítimas.
   @@unique([subscriptionId, competence, kind])
   @@index([status, dueDate])
+  @@index([organizationId, status, dueDate])
   @@map("subscription_invoices")
   @@schema("operations")
 }
@@ -1569,22 +1579,24 @@ model SubscriptionInvoice {
 /// Uma etapa persistente da régua automática de cobrança por e-mail.
 /// A unicidade por fatura e etapa torna a reconciliação segura para reexecução.
 model BillingEmailDispatch {
-  id            String   @id @default(cuid())
-  invoiceId     String   @map("invoice_id")
+  id            String    @id @default(cuid())
+  invoiceId     String    @map("invoice_id")
   /// PRE_DUE | DUE | OVERDUE
   stage         String
-  scheduledFor  DateTime @map("scheduled_for") @db.Timestamptz(6)
+  /// fatura | cobranca | ambos
+  content       String    @default("ambos")
+  scheduledFor  DateTime  @map("scheduled_for") @db.Timestamptz(6)
   /// PENDING | PROCESSING | SENT | FAILED | CANCELLED | SKIPPED
-  status        String   @default("PENDING")
-  attempts      Int      @default(0)
+  status        String    @default("PENDING")
+  attempts      Int       @default(0)
   nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(6)
   claimedAt     DateTime? @map("claimed_at") @db.Timestamptz(6)
   claimToken    String?   @map("claim_token")
   sentAt        DateTime? @map("sent_at") @db.Timestamptz(6)
   cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(6)
   lastError     String?   @map("last_error")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -1592,6 +1604,33 @@ model BillingEmailDispatch {
   @@index([status, scheduledFor])
   @@index([status, nextAttemptAt])
   @@map("billing_email_dispatches")
+  @@schema("operations")
+}
+
+/// Comando fiscal durável. O app orquestra; o ERP TypeScript emite.
+model NfseDispatch {
+  id             String    @id @default(cuid())
+  invoiceId      String    @unique @map("invoice_id")
+  idempotencyKey String    @unique @map("idempotency_key") @db.Uuid
+  /// PENDING | PROCESSING | ISSUED | UNCERTAIN | FAILED | CANCELLED
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  claimedAt      DateTime? @map("claimed_at") @db.Timestamptz(6)
+  claimToken     String?   @map("claim_token") @db.Uuid
+  erpIssuanceId  String?   @map("erp_issuance_id")
+  erpStatus      String?   @map("erp_status")
+  accessKey      String?   @map("access_key")
+  lastError      String?   @map("last_error")
+  issuedAt       DateTime? @map("issued_at") @db.Timestamptz(6)
+  cancelledAt    DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@map("nfse_dispatches")
   @@schema("operations")
 }
 
@@ -2830,14 +2869,14 @@ model PolicyParameterVersion {
 
 // Inventário cadastral independente da disponibilidade real dos MCPs.
 model McpPublication {
-  id          String    @id
+  id          String   @id
   name        String
   domain      String?
   endpoint    String?
-  enabled     Boolean   @default(false)
+  enabled     Boolean  @default(false)
   description String?
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("mcp_publications")
   @@schema("operations")

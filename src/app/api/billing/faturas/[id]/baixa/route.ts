@@ -53,7 +53,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     await prisma.operationsAuditEvent.create({
       data: {
-        organizationId: cobranca.invoice.subscription.organizationId,
+        organizationId: cobranca.invoice.organizationId,
         action: "FATURA_BAIXADA_POR_FORA",
         entityType: "SubscriptionInvoice",
         entityId: id,

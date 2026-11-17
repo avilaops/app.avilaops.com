@@ -10,6 +10,7 @@ import Sheet from "@/components/ui/Sheet";
 import { pedidoDeEnvio, type ModoEnvio } from "@/lib/envio-cobranca-pedido";
 import type { EtapaKey } from "@/lib/onboarding-etapas";
 import { descricaoDoLembrete } from "@/lib/regua-cobranca-email-ui";
+import CobrancaPersonalizadaForm from "@/components/CobrancaPersonalizadaForm";
 
 const destinoDaEtapa: Record<EtapaKey, string> = {
   BASIC: "registration&tab=overview#formulario-da-ficha",
@@ -39,16 +40,21 @@ export type CobrancaDaFicha = {
 
 export type FaturaDaFicha = {
   id: string;
+  description?: string;
   competence: string;
   kind: string;
   amountCents: number;
+  currency?: string;
   dueDate: string;
   status: string;
   paidAt: string | null;
+  automaticNfse?: boolean;
+  nfse?: { id: string; status: string; erpStatus: string | null; accessKey: string | null; lastError: string | null } | null;
   cobranca: CobrancaDaFicha | null;
   lembretes?: Array<{
     id: string;
     stage: string;
+    content?: string;
     status: string;
     scheduledFor: string;
     attempts: number;
@@ -110,6 +116,7 @@ type Props = {
   organizationId: string;
   nomeCliente: string;
   assinaturas: AssinaturaDaFicha[];
+  faturasPersonalizadas?: FaturaDaFicha[];
   planos: PlanoDaFicha[];
   marcas: MarcaDaFicha[];
   credenciais: CredencialDaFicha[];
@@ -142,6 +149,7 @@ export default function OperacaoPanel({
   organizationId,
   nomeCliente,
   assinaturas,
+  faturasPersonalizadas = [],
   planos,
   marcas,
   credenciais,
@@ -153,7 +161,7 @@ export default function OperacaoPanel({
   const base = `/api/organizations/${organizationId}`;
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
-  const [folha, setFolha] = useState<"assinatura" | "marca" | "credencial" | null>(null);
+  const [folha, setFolha] = useState<"assinatura" | "cobranca" | "marca" | "credencial" | null>(null);
   const [resultados, setResultados] = useState<Record<string, Resultado | null>>({});
   const fecharFolha = useCallback(() => setFolha(null), []);
 
@@ -340,6 +348,27 @@ export default function OperacaoPanel({
     );
   }
 
+  async function agendarLembrete(invoiceId: string) {
+    const scheduledFor = window.prompt("Data e hora do lembrete (AAAA-MM-DDTHH:MM):");
+    if (!scheduledFor) return;
+    const choice = window.prompt("Conteúdo • 1 fatura • 2 cobrança • 3 ambos", "3");
+    if (!choice) return;
+    const content = choice.trim() === "1" ? "fatura" : choice.trim() === "2" ? "cobranca" : "ambos";
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/lembretes`, { scheduledFor: new Date(scheduledFor).toISOString(), content }, "POST");
+      return null;
+    }, "Lembrete agendado.");
+  }
+
+  async function alterarLembrete(invoiceId: string, dispatchId: string, restore = false) {
+    const scheduledFor = window.prompt("Nova data e hora (AAAA-MM-DDTHH:MM):");
+    if (!scheduledFor) return;
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/lembretes/${dispatchId}`, { scheduledFor: new Date(scheduledFor).toISOString(), restore }, "PATCH");
+      return null;
+    }, restore ? "Lembrete restaurado." : "Lembrete alterado.");
+  }
+
   async function ajustarComissao(assinaturaId: string, atual: number | null) {
     const resposta = window.prompt("Comissão sobre as vendas, em % (0 tira a comissão):", atual === null ? "" : String(atual).replace(".", ","));
     if (resposta === null || !resposta.trim()) return; // cancelou
@@ -462,6 +491,46 @@ export default function OperacaoPanel({
     );
   }
 
+  async function cobrarFatura(invoiceId: string, metodo: "PIX" | "BOLETO", moeda: string) {
+    await executar(
+      "cobranca",
+      async () => {
+        const r = await chamar<{ cobranca: { pixCopiaECola: string | null; boletoUrl: string | null; boletoLinhaDigitavel: string | null; expiraEm: string | null; valorCents: number } }>(
+          `/api/billing/faturas/${invoiceId}/cobranca`,
+          { metodo },
+          "POST",
+        );
+        const c = r.cobranca;
+        return {
+          tipo: "ok",
+          conteudo: <>
+            <strong>{metodo === "PIX" ? "PIX" : "Boleto"} de {dinheiro(c.valorCents, moeda)} emitido.</strong>
+            {c.pixCopiaECola ? <span>Copia e cola: <code className="prov-copia">{c.pixCopiaECola}</code></span> : null}
+            {c.boletoUrl ? <span>Boleto: <a href={c.boletoUrl} target="_blank" rel="noreferrer">abrir boleto</a></span> : null}
+            {c.boletoLinhaDigitavel ? <span>Linha digitável: <code className="prov-copia">{c.boletoLinhaDigitavel}</code></span> : null}
+          </>,
+        };
+      },
+      "Cobrança emitida.",
+    );
+  }
+
+  async function emitirNfse(invoiceId: string) {
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/nfse`, {}, "POST");
+      return null;
+    }, "Emissão de NFS-e solicitada.");
+  }
+
+  async function cancelarNfse(invoiceId: string) {
+    const reason = window.prompt("Justificativa do cancelamento da NFS-e:");
+    if (!reason) return;
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/nfse/cancelar`, { reason }, "POST");
+      return null;
+    }, "Cancelamento fiscal solicitado.");
+  }
+
   /* ---------- Marcas ---------- */
   const [formMarca, setFormMarca] = useState({ name: "", siteUrl: "" });
   async function enviarMarca(evento: FormEvent<HTMLFormElement>) {
@@ -524,21 +593,75 @@ export default function OperacaoPanel({
       <div className="prov-grid">
         <Cartao
           id="cobranca-recorrente"
-          titulo="Cobrança recorrente"
+          titulo="Cobranças"
           resultado={resultados.cobranca ?? null}
           acoes={
-            <button type="button" className="primary-button" onClick={() => setFolha("assinatura")}>
-              <Icone nome="adicionar" tamanho={18} />
-              Nova assinatura
-            </button>
+            <>
+              <button type="button" className="secondary-button" onClick={() => setFolha("cobranca")}>
+                <Icone nome="adicionar" tamanho={18} />
+                Nova cobrança
+              </button>
+              <button type="button" className="primary-button" onClick={() => setFolha("assinatura")}>
+                <Icone nome="adicionar" tamanho={18} />
+                Nova assinatura
+              </button>
+            </>
           }
         >
-          {assinaturas.length === 0 ? (
+          {assinaturas.length === 0 && faturasPersonalizadas.length === 0 ? (
             <div className="ios-list">
               <p className="prov-empty">Nenhuma assinatura. Crie a partir de um plano do catálogo.</p>
             </div>
-          ) : (
-            assinaturas.map((a) => (
+          ) : (<>
+            {faturasPersonalizadas.length ? (
+              <div className="ios-list">
+                <div className="ios-row ios-row-static">
+                  <div className="prov-row-main prov-row-main-solto">
+                    <strong>Cobranças personalizadas</strong>
+                    <small>Faturas avulsas deste cliente</small>
+                  </div>
+                </div>
+                {faturasPersonalizadas.map((f) => {
+                  const aberta = f.status === "OPEN" || f.status === "OVERDUE";
+                  return (
+                    <div className="ios-row ios-row-static prov-fatura" key={f.id}>
+                      <div className="prov-row-main">
+                        <strong>{f.description} · {dinheiro(f.amountCents, f.currency ?? "BRL")}</strong>
+                        <small>Competência {f.competence} · vence {dataCurta(f.dueDate)}{f.paidAt ? ` · paga em ${dataCurta(f.paidAt)}` : ""}{f.cobranca ? ` · ${f.cobranca.method} ${f.cobranca.status}` : ""}{f.automaticNfse ? " · NFS-e automática" : ""}</small>
+                        {f.nfse ? <small title={f.nfse.lastError ?? undefined}>NFS-e • {f.nfse.erpStatus ?? f.nfse.status}{f.nfse.accessKey ? ` • ${f.nfse.accessKey}` : ""}</small> : null}
+                      </div>
+                      <Pill status={f.status} />
+                      {f.lembretes?.length ? <span className="prov-fatura-acoes" aria-label="Régua individual">
+                        {f.lembretes.map((item) => <span key={item.id}>
+                          <small title={item.lastError ?? undefined}>{descricaoDoLembrete(item)}{item.stage.startsWith("CUSTOM:") ? ` • ${item.content ?? "ambos"}` : ""}</small>
+                          {item.stage.startsWith("CUSTOM:") && item.status === "PENDING" ? <>
+                            <button type="button" className="text-button" onClick={() => alterarLembrete(f.id, item.id)}>Alterar</button>
+                            <button type="button" className="text-button" onClick={() => cancelarLembrete(f.id, item.id)}>Cancelar</button>
+                          </> : null}
+                          {item.stage.startsWith("CUSTOM:") && item.status === "CANCELLED" ? <button type="button" className="text-button" onClick={() => alterarLembrete(f.id, item.id, true)}>Restaurar</button> : null}
+                        </span>)}
+                      </span> : null}
+                      {aberta ? <span className="prov-fatura-acoes">
+                        <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrarFatura(f.id, "PIX", f.currency ?? "BRL")}>PIX</button>
+                        <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrarFatura(f.id, "BOLETO", f.currency ?? "BRL")}>Boleto</button>
+                        <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => registrarPagamento(f.id)}>Registrar pagamento</button>
+                      </span> : null}
+                      {f.status !== "CANCELLED" ? <span className="prov-fatura-acoes">
+                        <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarPor(f.id, Boolean(f.cobranca), "teste")}>Enviar teste</button>
+                        <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarPor(f.id, Boolean(f.cobranca), "cliente")}>Enviar ao cliente</button>
+                        <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => agendarLembrete(f.id)}>Agendar lembrete</button>
+                      </span> : null}
+                      {f.status === "PAID" ? <span className="prov-fatura-acoes">
+                        {!f.nfse || ["FAILED", "UNCERTAIN"].includes(f.nfse.status) ? <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => emitirNfse(f.id)}>Emitir NFS-e</button> : null}
+                        {f.nfse?.status === "ISSUED" ? <a className="text-button" href={`/api/billing/faturas/${f.id}/nfse`} target="_blank" rel="noreferrer">Baixar XML</a> : null}
+                        {f.nfse?.status === "ISSUED" ? <button type="button" className="text-button prov-perigo" disabled={ocupado === "cobranca"} onClick={() => cancelarNfse(f.id)}>Cancelar NFS-e</button> : null}
+                      </span> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {assinaturas.map((a) => (
               <div className="ios-list" key={a.id}>
                 <div className="ios-row ios-row-static">
                   <div className="prov-row-main prov-row-main-solto">
@@ -658,8 +781,8 @@ export default function OperacaoPanel({
                   ) : null}
                 </div>
               </div>
-            ))
-          )}
+            ))}
+          </>)}
         </Cartao>
 
         <Cartao
@@ -839,6 +962,19 @@ export default function OperacaoPanel({
               <p className="inline-feedback feedback-error" role="alert">{resultados.cobranca.conteudo}</p>
             ) : null}
           </form>
+        </Sheet>
+      ) : null}
+
+      {folha === "cobranca" ? (
+        <Sheet titulo="Nova cobrança personalizada" aoFechar={fecharFolha}>
+          <CobrancaPersonalizadaForm
+            organizationId={organizationId}
+            onSuccess={() => {
+              fecharFolha();
+              setAviso("Cobrança personalizada criada.");
+              router.refresh();
+            }}
+          />
         </Sheet>
       ) : null}
 

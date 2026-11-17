@@ -71,6 +71,16 @@ export default async function ClientDossierPage({
             },
           },
         },
+        invoices: {
+          where: { subscriptionId: null },
+          orderBy: [{ dueDate: "desc" }],
+          take: 24,
+          include: {
+            charges: { orderBy: { createdAt: "desc" }, take: 1 },
+            emailDispatches: { orderBy: { scheduledFor: "asc" } },
+            nfseDispatch: true,
+          },
+        },
       },
     }),
     prisma.servicePlan.findMany({
@@ -119,6 +129,7 @@ export default async function ClientDossierPage({
       lembretes: f.emailDispatches.map((item) => ({
         id: item.id,
         stage: item.stage,
+        content: item.content,
         status: item.status,
         scheduledFor: item.scheduledFor.toISOString(),
         attempts: item.attempts,
@@ -137,10 +148,50 @@ export default async function ClientDossierPage({
         : null,
     })),
   }));
+  const faturasPersonalizadas = organization.invoices.map((f) => ({
+    id: f.id,
+    description: f.description,
+    competence: f.competence,
+    kind: f.kind,
+    amountCents: cents(f.amount),
+    currency: f.currency,
+    dueDate: f.dueDate.toISOString(),
+    status: f.status,
+    paidAt: f.paidAt?.toISOString() ?? null,
+    automaticNfse: f.automaticNfse,
+    nfse: f.nfseDispatch ? {
+      id: f.nfseDispatch.id,
+      status: f.nfseDispatch.status,
+      erpStatus: f.nfseDispatch.erpStatus,
+      accessKey: f.nfseDispatch.accessKey,
+      lastError: f.nfseDispatch.lastError,
+    } : null,
+    lembretes: f.emailDispatches.map((item) => ({
+      id: item.id,
+      stage: item.stage,
+      content: item.content,
+      status: item.status,
+      scheduledFor: item.scheduledFor.toISOString(),
+      attempts: item.attempts,
+      lastError: item.lastError,
+    })),
+    cobranca: f.charges[0]
+      ? {
+          id: f.charges[0].id,
+          method: f.charges[0].method,
+          status: f.charges[0].status,
+          pixCopyPaste: f.charges[0].pixCopyPaste,
+          boletoUrl: f.charges[0].boletoUrl,
+          boletoBarcode: f.charges[0].boletoBarcode,
+          expiresAt: f.charges[0].expiresAt?.toISOString() ?? null,
+        }
+      : null,
+  }));
   // A ficha (ClientDossierForm) não precisa das assinaturas nem das conexões
   // cifradas; tirar daqui evita mandar ciphertext ao navegador.
-  const { subscriptions: _subscriptions, integrationConnections, ...organizacaoParaFicha } = organization;
+  const { subscriptions: _subscriptions, invoices: _invoices, integrationConnections, ...organizacaoParaFicha } = organization;
   void _subscriptions;
+  void _invoices;
 
   // Só a aba de cadastro usa o assistente; nas outras a consulta extra seria
   // desperdício em cada carregamento de página.
@@ -211,6 +262,7 @@ export default async function ClientDossierPage({
         organizationId={organization.id}
         nomeCliente={organization.name}
         assinaturas={assinaturas}
+        faturasPersonalizadas={faturasPersonalizadas}
         planos={plans.map((p) => ({ id: p.id, name: p.name, serviceType: p.serviceType, priceCents: p.priceCents, currency: p.currency, billingCycle: p.billingCycle }))}
         marcas={organization.brands}
         credenciais={integrationConnections.map(resumirCredencial)}

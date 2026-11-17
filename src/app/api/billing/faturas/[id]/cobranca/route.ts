@@ -5,6 +5,8 @@ import {
   type MetodoCobranca,
 } from "@/lib/assinaturas";
 import { verifyServiceJwt } from "@/lib/service-auth";
+import { ehDono, getAdmin } from "@/lib/auth";
+import { sameOrigin } from "@/lib/http";
 
 const METODOS: MetodoCobranca[] = ["PIX", "BOLETO", "CARD"];
 
@@ -19,7 +21,9 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!verifyServiceJwt(req)) {
+  const serviceRequest = verifyServiceJwt(req);
+  const admin = serviceRequest ? null : await getAdmin();
+  if (!serviceRequest && (!admin || !ehDono(admin.role) || !sameOrigin(req))) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 

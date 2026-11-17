@@ -217,7 +217,7 @@ export async function marcarFaturasVencidas(opcoes: {
       id: true,
       competence: true,
       dueDate: true,
-      subscription: { select: { organizationId: true } },
+      organizationId: true,
     },
     orderBy: { dueDate: "asc" },
   });
@@ -227,7 +227,7 @@ export async function marcarFaturasVencidas(opcoes: {
   for (const fatura of abertas) {
     const linha = {
       faturaId: fatura.id,
-      organizationId: fatura.subscription.organizationId,
+      organizationId: fatura.organizationId,
       competencia: fatura.competence,
       vencimento: fatura.dueDate.toISOString().slice(0, 10),
     };

@@ -217,6 +217,7 @@ export type ResultadoEnvio = {
 };
 
 const INCLUI_FATURA = {
+  organization: { include: { profile: true, contacts: { where: { isPrimary: true } } } },
   subscription: {
     include: {
       organization: { include: { profile: true, contacts: { where: { isPrimary: true } } } },
@@ -270,7 +271,7 @@ export async function enviarCobrancaPorEmail(
 ): Promise<ResultadoEnvio> {
   const { invoice, cobranca } = await carregarAlvo(alvo);
 
-  const organizacao = invoice.subscription.organization;
+  const organizacao = invoice.organization;
   const emailReal = organizacao.profile?.email ?? organizacao.contacts[0]?.email ?? "";
   const nome = organizacao.profile?.ownerName ?? organizacao.contacts[0]?.name ?? organizacao.name;
   const destino = opcoes?.destinoTeste ?? emailReal;
@@ -278,14 +279,14 @@ export async function enviarCobrancaPorEmail(
 
   const conteudo = opcoes?.conteudo ?? "cobranca";
   garantirEnviavel(invoice, cobranca, conteudo);
-  const descricao = `${invoice.subscription.description} · ${invoice.competence}`;
+  const descricao = `${invoice.description} • ${invoice.competence}`;
   const email = montarEmailDaCobranca(
     conteudo === "fatura" ? null : cobranca,
     { nome, email: destino },
     descricao,
     conteudo,
     invoice.dueDate ?? null,
-    invoice.subscription.currency,
+    invoice.currency,
     Number(invoice.amount),
   );
   const enviado = await avisarPorEmail(email);
@@ -346,7 +347,7 @@ export async function enviarCobrancaPorWhatsapp(
 
   // Empresa importada só com contato (sem nome de dono) pode ter o telefone no
   // perfil, não num OrganizationContact — mesmo fallback que o e-mail usa.
-  const organizacao = invoice.subscription.organization;
+  const organizacao = invoice.organization;
   const contato = organizacao.contacts[0];
   const numeroReal =
     contato?.whatsapp ?? contato?.phone ?? organizacao.profile?.whatsapp ?? organizacao.profile?.phone ?? "";
@@ -355,13 +356,13 @@ export async function enviarCobrancaPorWhatsapp(
 
   const conteudo = opcoes?.conteudo ?? "cobranca";
   garantirEnviavel(invoice, cobranca, conteudo);
-  const descricao = `${invoice.subscription.description} · ${invoice.competence}`;
+  const descricao = `${invoice.description} • ${invoice.competence}`;
   const texto = montarWhatsappDaCobranca(
     conteudo === "fatura" ? null : cobranca,
     descricao,
     conteudo,
     invoice.dueDate ?? null,
-    invoice.subscription.currency,
+    invoice.currency,
     Number(invoice.amount),
   );
   const enviado = await avisarPorWhatsapp({ to: destino, text: texto });
