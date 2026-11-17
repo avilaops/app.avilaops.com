@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { agendarEmissaoNfse } from "@/lib/fila-nfse";
 import { centavosAAlocar } from "@/lib/alocacao-pagamento";
 import {
   createBoletoCharge,
@@ -820,9 +821,12 @@ export async function baixarCobrancaPorIdExterno(
   });
 
   if (pago && cobranca.invoice.status !== "PAID") {
-    await prisma.subscriptionInvoice.update({
-      where: { id: cobranca.invoiceId },
-      data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? momentoDoPagamento },
+    await prisma.$transaction(async (tx) => {
+      await tx.subscriptionInvoice.update({
+        where: { id: cobranca.invoiceId },
+        data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? momentoDoPagamento },
+      });
+      if (cobranca.invoice.automaticNfse) await agendarEmissaoNfse(cobranca.invoiceId, tx);
     });
   }
 

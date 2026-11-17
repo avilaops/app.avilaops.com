@@ -1565,6 +1565,7 @@ model SubscriptionInvoice {
   subscription    Subscription?          @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   charges         SubscriptionCharge[]
   emailDispatches BillingEmailDispatch[]
+  nfseDispatch    NfseDispatch?
 
   /// A competência sozinha não basta: a implantação e a primeira mensalidade
   /// caem no mesmo mês, e são duas faturas legítimas.
@@ -1582,6 +1583,8 @@ model BillingEmailDispatch {
   invoiceId     String    @map("invoice_id")
   /// PRE_DUE | DUE | OVERDUE
   stage         String
+  /// fatura | cobranca | ambos
+  content       String    @default("ambos")
   scheduledFor  DateTime  @map("scheduled_for") @db.Timestamptz(6)
   /// PENDING | PROCESSING | SENT | FAILED | CANCELLED | SKIPPED
   status        String    @default("PENDING")
@@ -1601,6 +1604,33 @@ model BillingEmailDispatch {
   @@index([status, scheduledFor])
   @@index([status, nextAttemptAt])
   @@map("billing_email_dispatches")
+  @@schema("operations")
+}
+
+/// Comando fiscal durável. O app orquestra; o ERP TypeScript emite.
+model NfseDispatch {
+  id             String    @id @default(cuid())
+  invoiceId      String    @unique @map("invoice_id")
+  idempotencyKey String    @unique @map("idempotency_key") @db.Uuid
+  /// PENDING | PROCESSING | ISSUED | UNCERTAIN | FAILED | CANCELLED
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  claimedAt      DateTime? @map("claimed_at") @db.Timestamptz(6)
+  claimToken     String?   @map("claim_token") @db.Uuid
+  erpIssuanceId  String?   @map("erp_issuance_id")
+  erpStatus      String?   @map("erp_status")
+  accessKey      String?   @map("access_key")
+  lastError      String?   @map("last_error")
+  issuedAt       DateTime? @map("issued_at") @db.Timestamptz(6)
+  cancelledAt    DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@map("nfse_dispatches")
   @@schema("operations")
 }
 

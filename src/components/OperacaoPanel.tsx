@@ -49,10 +49,12 @@ export type FaturaDaFicha = {
   status: string;
   paidAt: string | null;
   automaticNfse?: boolean;
+  nfse?: { id: string; status: string; erpStatus: string | null; accessKey: string | null; lastError: string | null } | null;
   cobranca: CobrancaDaFicha | null;
   lembretes?: Array<{
     id: string;
     stage: string;
+    content?: string;
     status: string;
     scheduledFor: string;
     attempts: number;
@@ -346,6 +348,27 @@ export default function OperacaoPanel({
     );
   }
 
+  async function agendarLembrete(invoiceId: string) {
+    const scheduledFor = window.prompt("Data e hora do lembrete (AAAA-MM-DDTHH:MM):");
+    if (!scheduledFor) return;
+    const choice = window.prompt("Conteúdo • 1 fatura • 2 cobrança • 3 ambos", "3");
+    if (!choice) return;
+    const content = choice.trim() === "1" ? "fatura" : choice.trim() === "2" ? "cobranca" : "ambos";
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/lembretes`, { scheduledFor: new Date(scheduledFor).toISOString(), content }, "POST");
+      return null;
+    }, "Lembrete agendado.");
+  }
+
+  async function alterarLembrete(invoiceId: string, dispatchId: string, restore = false) {
+    const scheduledFor = window.prompt("Nova data e hora (AAAA-MM-DDTHH:MM):");
+    if (!scheduledFor) return;
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/lembretes/${dispatchId}`, { scheduledFor: new Date(scheduledFor).toISOString(), restore }, "PATCH");
+      return null;
+    }, restore ? "Lembrete restaurado." : "Lembrete alterado.");
+  }
+
   async function ajustarComissao(assinaturaId: string, atual: number | null) {
     const resposta = window.prompt("Comissão sobre as vendas, em % (0 tira a comissão):", atual === null ? "" : String(atual).replace(".", ","));
     if (resposta === null || !resposta.trim()) return; // cancelou
@@ -492,6 +515,22 @@ export default function OperacaoPanel({
     );
   }
 
+  async function emitirNfse(invoiceId: string) {
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/nfse`, {}, "POST");
+      return null;
+    }, "Emissão de NFS-e solicitada.");
+  }
+
+  async function cancelarNfse(invoiceId: string) {
+    const reason = window.prompt("Justificativa do cancelamento da NFS-e:");
+    if (!reason) return;
+    await executar("cobranca", async () => {
+      await chamar(`/api/billing/faturas/${invoiceId}/nfse/cancelar`, { reason }, "POST");
+      return null;
+    }, "Cancelamento fiscal solicitado.");
+  }
+
   /* ---------- Marcas ---------- */
   const [formMarca, setFormMarca] = useState({ name: "", siteUrl: "" });
   async function enviarMarca(evento: FormEvent<HTMLFormElement>) {
@@ -589,8 +628,19 @@ export default function OperacaoPanel({
                       <div className="prov-row-main">
                         <strong>{f.description} · {dinheiro(f.amountCents, f.currency ?? "BRL")}</strong>
                         <small>Competência {f.competence} · vence {dataCurta(f.dueDate)}{f.paidAt ? ` · paga em ${dataCurta(f.paidAt)}` : ""}{f.cobranca ? ` · ${f.cobranca.method} ${f.cobranca.status}` : ""}{f.automaticNfse ? " · NFS-e automática" : ""}</small>
+                        {f.nfse ? <small title={f.nfse.lastError ?? undefined}>NFS-e • {f.nfse.erpStatus ?? f.nfse.status}{f.nfse.accessKey ? ` • ${f.nfse.accessKey}` : ""}</small> : null}
                       </div>
                       <Pill status={f.status} />
+                      {f.lembretes?.length ? <span className="prov-fatura-acoes" aria-label="Régua individual">
+                        {f.lembretes.map((item) => <span key={item.id}>
+                          <small title={item.lastError ?? undefined}>{descricaoDoLembrete(item)}{item.stage.startsWith("CUSTOM:") ? ` • ${item.content ?? "ambos"}` : ""}</small>
+                          {item.stage.startsWith("CUSTOM:") && item.status === "PENDING" ? <>
+                            <button type="button" className="text-button" onClick={() => alterarLembrete(f.id, item.id)}>Alterar</button>
+                            <button type="button" className="text-button" onClick={() => cancelarLembrete(f.id, item.id)}>Cancelar</button>
+                          </> : null}
+                          {item.stage.startsWith("CUSTOM:") && item.status === "CANCELLED" ? <button type="button" className="text-button" onClick={() => alterarLembrete(f.id, item.id, true)}>Restaurar</button> : null}
+                        </span>)}
+                      </span> : null}
                       {aberta ? <span className="prov-fatura-acoes">
                         <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrarFatura(f.id, "PIX", f.currency ?? "BRL")}>PIX</button>
                         <button type="button" className="row-action" disabled={ocupado === "cobranca"} onClick={() => cobrarFatura(f.id, "BOLETO", f.currency ?? "BRL")}>Boleto</button>
@@ -599,6 +649,12 @@ export default function OperacaoPanel({
                       {f.status !== "CANCELLED" ? <span className="prov-fatura-acoes">
                         <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarPor(f.id, Boolean(f.cobranca), "teste")}>Enviar teste</button>
                         <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => enviarPor(f.id, Boolean(f.cobranca), "cliente")}>Enviar ao cliente</button>
+                        <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => agendarLembrete(f.id)}>Agendar lembrete</button>
+                      </span> : null}
+                      {f.status === "PAID" ? <span className="prov-fatura-acoes">
+                        {!f.nfse || ["FAILED", "UNCERTAIN"].includes(f.nfse.status) ? <button type="button" className="text-button" disabled={ocupado === "cobranca"} onClick={() => emitirNfse(f.id)}>Emitir NFS-e</button> : null}
+                        {f.nfse?.status === "ISSUED" ? <a className="text-button" href={`/api/billing/faturas/${f.id}/nfse`} target="_blank" rel="noreferrer">Baixar XML</a> : null}
+                        {f.nfse?.status === "ISSUED" ? <button type="button" className="text-button prov-perigo" disabled={ocupado === "cobranca"} onClick={() => cancelarNfse(f.id)}>Cancelar NFS-e</button> : null}
                       </span> : null}
                     </div>
                   );

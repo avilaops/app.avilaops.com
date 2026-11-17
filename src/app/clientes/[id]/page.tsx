@@ -78,6 +78,7 @@ export default async function ClientDossierPage({
           include: {
             charges: { orderBy: { createdAt: "desc" }, take: 1 },
             emailDispatches: { orderBy: { scheduledFor: "asc" } },
+            nfseDispatch: true,
           },
         },
       },
@@ -128,6 +129,7 @@ export default async function ClientDossierPage({
       lembretes: f.emailDispatches.map((item) => ({
         id: item.id,
         stage: item.stage,
+        content: item.content,
         status: item.status,
         scheduledFor: item.scheduledFor.toISOString(),
         attempts: item.attempts,
@@ -157,9 +159,17 @@ export default async function ClientDossierPage({
     status: f.status,
     paidAt: f.paidAt?.toISOString() ?? null,
     automaticNfse: f.automaticNfse,
+    nfse: f.nfseDispatch ? {
+      id: f.nfseDispatch.id,
+      status: f.nfseDispatch.status,
+      erpStatus: f.nfseDispatch.erpStatus,
+      accessKey: f.nfseDispatch.accessKey,
+      lastError: f.nfseDispatch.lastError,
+    } : null,
     lembretes: f.emailDispatches.map((item) => ({
       id: item.id,
       stage: item.stage,
+      content: item.content,
       status: item.status,
       scheduledFor: item.scheduledFor.toISOString(),
       attempts: item.attempts,

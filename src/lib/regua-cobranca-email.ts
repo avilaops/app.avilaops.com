@@ -78,7 +78,8 @@ export function claimExpirou(reivindicadoEm: Date, agora: Date) {
 type ItemReivindicado = {
   id: string;
   invoiceId: string;
-  stage: EtapaRegua;
+  stage: string;
+  content: ConteudoEnvio;
   attempts: number;
   claimToken: string;
 };
@@ -147,11 +148,11 @@ async function reivindicarItens(agora: Date, limite: number): Promise<ItemReivin
     UPDATE operations.billing_email_dispatches AS d
     SET status='PROCESSING', attempts=d.attempts+1, claimed_at=${agora}, claim_token=${claimToken}, updated_at=${agora}
     FROM candidatos WHERE d.id=candidatos.id
-    RETURNING d.id, d.invoice_id AS "invoiceId", d.stage, d.attempts, d.claim_token AS "claimToken"
+    RETURNING d.id, d.invoice_id AS "invoiceId", d.stage, d.content, d.attempts, d.claim_token AS "claimToken"
   `);
 }
 
-const conteudoDaEtapa = (stage: EtapaRegua): ConteudoEnvio => stage === "PRE_DUE" ? "fatura" : "ambos";
+const conteudoDaEtapa = (stage: string, content: ConteudoEnvio): ConteudoEnvio => stage.startsWith("CUSTOM:") ? content : stage === "PRE_DUE" ? "fatura" : "ambos";
 const mensagemDeErro = (erro: unknown) => (erro instanceof Error ? erro.message : String(erro)).slice(0, 500);
 
 async function processarItem(item: ItemReivindicado, agora: Date) {
@@ -167,7 +168,7 @@ async function processarItem(item: ItemReivindicado, agora: Date) {
     return "cancelado" as const;
   }
 
-  const conteudo = conteudoDaEtapa(item.stage);
+  const conteudo = conteudoDaEtapa(item.stage, item.content);
   let tentativaId: string | null = null;
   try {
     const intencao = await prisma.operationsAuditEvent.create({
