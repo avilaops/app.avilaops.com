@@ -69,11 +69,15 @@ Cada fatura aberta ou vencida recebe uma agenda persistente, no fuso `America/Sa
 - **D0 às 09:00** • fatura com a forma de pagamento.
 - **D+3 às 09:00** • aviso de atraso com a forma de pagamento.
 
-O n8n apenas aciona o processador a cada 30 minutos. A regra, o estado e a auditoria ficam no app. Uma falha é tentada novamente depois de 30 minutos, com no máximo duas tentativas. Fatura paga ou cancelada interrompe os lembretes; item atrasado mais de 24 horas não é enviado fora de contexto.
+O n8n apenas aciona o processador a cada 5 minutos. A regra, o estado e a auditoria ficam no app. Uma falha é tentada novamente depois de 30 minutos, com no máximo duas tentativas. Fatura paga ou cancelada interrompe os lembretes; item atrasado mais de 24 horas não é enviado fora de contexto.
 
-Na ficha do cliente, a etapa mostra data, status e tentativas. O dono pode cancelar um lembrete pendente sem alterar os demais. Cada tentativa automática usa a mesma trilha de auditoria do envio manual, marcada com `origem: regua-automatica`.
+Na ficha do cliente, a etapa mostra data, status e tentativas. O dono pode criar,
+alterar, cancelar e restaurar lembretes personalizados sem alterar os demais,
+escolhendo fatura, cobrança ou ambos. Etapas em processamento ou concluídas são
+imutáveis. Cada tentativa automática usa a mesma trilha de auditoria do envio
+manual, marcada com `origem: regua-automatica`.
 
-Limites de hoje: a régua é única para todas as faturas e não tem configuração por cliente; D0 e D+3 exigem uma cobrança ativa com forma de pagamento; os registros de "começou", recusado e erro gravados até 05/10/2026 saíram sem o cliente (`organizationId`) e só se acham pela fatura ou cobrança; e se o sistema não consegue descobrir o cliente na hora (fatura que não existe, banco fora), o "começou" sai sem ele como antes.
+Limites de hoje: D0 e D+3 exigem uma cobrança ativa com forma de pagamento; os registros de "começou", recusado e erro gravados até 05/10/2026 saíram sem o cliente (`organizationId`) e só se acham pela fatura ou cobrança; e se o sistema não consegue descobrir o cliente na hora (fatura que não existe, banco fora), o "começou" sai sem ele como antes.
 
 ## Acompanhar e me proteger **[parcial]**
 
@@ -116,3 +120,47 @@ Cada parte entra como uma **fatia própria, testada e publicada**, pra não queb
 - Conciliação do extrato (ainda fora do ledger único): `src/lib/conciliacao-automatica.ts` e `src/app/api/reconciliations/[id]/route.ts` gravam em `ledgerEntry`, não em `core.payments`.
 - Emissão/contratação (já existente): `src/lib/assinaturas.ts`, `src/lib/nucleo/contratacao.ts`.
 - Entregue no PR #78 (`avilaops/app.avilaops.com`).
+## Cobranças personalizadas • NFS-e Nacional **[homologação]**
+
+O app é o orquestrador financeiro. Ele cria a fatura, emite PIX ou boleto no
+Mercado Pago, confirma o pagamento e mantém as réguas de comunicação. O ERP
+P003 é o único emissor fiscal; o navegador nunca recebe sua chave de serviço.
+
+## Fluxo
+
+1. O dono cria uma cobrança personalizada na ficha financeira do cliente.
+2. A fatura `CUSTOM` pertence diretamente à organização e não cria assinatura
+   técnica.
+3. A confirmação do pagamento grava a baixa e, quando habilitado na fatura,
+   cria um único `NfseDispatch` na mesma transação.
+4. O relógio n8n chama `/api/internal/billing/nfse`. A fila usa claim,
+   idempotência, repetição exponencial e estado `UNCERTAIN` quando o ERP pode
+   ter recebido o comando sem devolver uma resposta confirmada.
+5. O app chama exclusivamente a API TypeScript privada do ERP. A emissão usa
+   `homologation`; a produção fiscal do ERP permanece protegida por
+   `NFSE_ISSUANCE_ENABLED`.
+
+## Configuração do app
+
+```dotenv
+ERP_NFSE_URL=https://erp.avilaops.com
+ERP_TENANT_ID=<tenant vinculado à chave>
+ERP_SERVICE_KEY=<chave erp_... exclusiva do app>
+```
+
+`SERVICE_JWT_SECRET` continua autenticando o n8n no app. A chave do ERP não é
+armazenada no n8n e não aparece em payload, log ou resposta ao navegador.
+
+## Operação segura
+
+• Aplicar as migrations antes de iniciar a nova imagem.
+
+• Publicar o P003 com `NFSE_ISSUANCE_ENABLED=false`.
+
+• Validar emissão na Produção Restrita com um tomador controlado.
+
+• Ativar produção fiscal somente depois de revisar XML, chave, valores e
+cancelamento na prefeitura de Ribeirão Preto.
+
+• Falha fiscal não reabre nem desfaz pagamento. O operador acompanha o estado
+na ficha e pode repetir emissão ou cancelar a nota já emitida.
