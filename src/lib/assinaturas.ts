@@ -302,7 +302,7 @@ export async function criarCobrancaDaFatura(params: {
 
   // Mercado Pago (Brasil) só emite BRL; o PayPal cobra na moeda da assinatura
   // (o trilho internacional). Outra moeda por outro método vira pagamento manual.
-  const moeda = fatura.currency ?? fatura.subscription?.currency ?? "BRL";
+  const moeda = fatura.subscription?.currency ?? fatura.currency ?? "BRL";
   if (moeda !== "BRL" && params.metodo !== "PAYPAL") {
     throw new CobrancaIndisponivelError("Cobrança automática nesta moeda só está disponível pelo PayPal (fora do Brasil). Solicite o pagamento ao atendimento.");
   }
@@ -730,7 +730,7 @@ export async function baixarCobrancaPorIdExterno(
 
   if (!cobranca) return null;
   const organizationId = cobranca.invoice.organizationId ?? cobranca.invoice.subscription?.organizationId;
-  const invoiceCurrency = cobranca.invoice.currency ?? cobranca.invoice.subscription?.currency ?? "BRL";
+  const invoiceCurrency = cobranca.invoice.subscription?.currency ?? cobranca.invoice.currency ?? "BRL";
 
   /*
     Os nomes de "pagou" de dois gateways ao mesmo tempo.
@@ -866,7 +866,6 @@ export async function baixarCobrancaPorIdExterno(
   // um pagamento que já deu certo.
   if (pago || reembolsado) {
     try {
-      const fatura = cobranca.invoice;
       const refExterna = cobranca.externalId ?? cobranca.id;
 
       if (reembolsado) {
