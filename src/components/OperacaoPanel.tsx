@@ -9,6 +9,7 @@ import { Icone } from "@/components/ui/Icones";
 import Sheet from "@/components/ui/Sheet";
 import { pedidoDeEnvio, type ModoEnvio } from "@/lib/envio-cobranca-pedido";
 import type { EtapaKey } from "@/lib/onboarding-etapas";
+import { descricaoDoLembrete } from "@/lib/regua-cobranca-email-ui";
 
 const destinoDaEtapa: Record<EtapaKey, string> = {
   BASIC: "registration&tab=overview#formulario-da-ficha",
@@ -45,6 +46,14 @@ export type FaturaDaFicha = {
   status: string;
   paidAt: string | null;
   cobranca: CobrancaDaFicha | null;
+  lembretes?: Array<{
+    id: string;
+    stage: string;
+    status: string;
+    scheduledFor: string;
+    attempts: number;
+    lastError: string | null;
+  }>;
 };
 
 export type AssinaturaDaFicha = {
@@ -319,6 +328,18 @@ export default function OperacaoPanel({
     );
   }
 
+  async function cancelarLembrete(invoiceId: string, dispatchId: string) {
+    if (!window.confirm("Cancelar este lembrete automático?")) return;
+    await executar(
+      "cobranca",
+      async () => {
+        await chamar(`/api/billing/faturas/${invoiceId}/lembretes/${dispatchId}`, {}, "DELETE");
+        return null;
+      },
+      "Lembrete automático cancelado.",
+    );
+  }
+
   async function ajustarComissao(assinaturaId: string, atual: number | null) {
     const resposta = window.prompt("Comissão sobre as vendas, em % (0 tira a comissão):", atual === null ? "" : String(atual).replace(".", ","));
     if (resposta === null || !resposta.trim()) return; // cancelou
@@ -545,6 +566,25 @@ export default function OperacaoPanel({
                         </small>
                       </div>
                       <Pill status={f.status} />
+                      {f.lembretes?.length ? (
+                        <span className="prov-fatura-acoes" aria-label="Régua automática de e-mail">
+                          {f.lembretes.map((lembrete) => (
+                            <span key={lembrete.id}>
+                              <small title={lembrete.lastError ?? undefined}>{descricaoDoLembrete(lembrete)}</small>
+                              {lembrete.status === "PENDING" ? (
+                                <button
+                                  type="button"
+                                  className="text-button"
+                                  disabled={ocupado === "cobranca"}
+                                  onClick={() => cancelarLembrete(f.id, lembrete.id)}
+                                >
+                                  Cancelar lembrete
+                                </button>
+                              ) : null}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
                       {aberta ? (
                         <span className="prov-fatura-acoes">
                           {clienteNoBrasil ? (

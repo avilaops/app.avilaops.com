@@ -64,7 +64,10 @@ export default async function ClientDossierPage({
             invoices: {
               orderBy: [{ dueDate: "desc" }],
               take: 12,
-              include: { charges: { orderBy: { createdAt: "desc" }, take: 1 } },
+              include: {
+                charges: { orderBy: { createdAt: "desc" }, take: 1 },
+                emailDispatches: { orderBy: { scheduledFor: "asc" } },
+              },
             },
           },
         },
@@ -113,6 +116,14 @@ export default async function ClientDossierPage({
       dueDate: f.dueDate.toISOString(),
       status: f.status,
       paidAt: f.paidAt?.toISOString() ?? null,
+      lembretes: f.emailDispatches.map((item) => ({
+        id: item.id,
+        stage: item.stage,
+        status: item.status,
+        scheduledFor: item.scheduledFor.toISOString(),
+        attempts: item.attempts,
+        lastError: item.lastError,
+      })),
       cobranca: f.charges[0]
         ? {
             id: f.charges[0].id,

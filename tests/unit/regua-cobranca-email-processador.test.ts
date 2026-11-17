@@ -39,7 +39,7 @@ describe("processador da régua de cobrança", () => {
       { id: "envio-1", invoiceId: "fatura-1", stage: "DUE", attempts: 1, claimToken: "claim-1" },
     ]);
     estado.findUnique.mockResolvedValue({ status: "OPEN", subscription: { organizationId: "org-1" } });
-    estado.auditCreate.mockResolvedValue({ id: 41n });
+    estado.auditCreate.mockResolvedValue({ id: BigInt(41) });
     estado.enviar.mockResolvedValue({
       enviado: true,
       destino: "financeiro@cliente.test",
