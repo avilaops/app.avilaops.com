@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { sameOrigin } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
-import { alterarLembreteIndividual, ReguaIndividualErro } from "@/lib/regua-cobranca-individual";
+import {
+  alterarLembreteIndividual,
+  cancelarLembreteIndividual,
+  ReguaIndividualErro,
+} from "@/lib/regua-cobranca-individual";
 import { cleanText } from "@/lib/http";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; dispatchId: string }> }) {
@@ -31,12 +34,13 @@ export async function DELETE(
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
 
   const { id, dispatchId } = await params;
-  const resultado = await prisma.billingEmailDispatch.updateMany({
-    where: { id: dispatchId, invoiceId: id, status: "PENDING" },
-    data: { status: "CANCELLED", cancelledAt: new Date() },
-  });
-  if (resultado.count === 0) {
-    return NextResponse.json({ error: "Lembrete pendente não encontrado." }, { status: 404 });
+  try {
+    await cancelarLembreteIndividual({ invoiceId: id, dispatchId, actorId: admin.id });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof ReguaIndividualErro) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    throw error;
   }
-  return NextResponse.json({ ok: true });
 }
