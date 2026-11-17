@@ -302,7 +302,8 @@ export async function criarCobrancaDaFatura(params: {
 
   // Mercado Pago (Brasil) só emite BRL; o PayPal cobra na moeda da assinatura
   // (o trilho internacional). Outra moeda por outro método vira pagamento manual.
-  if (fatura.currency !== "BRL" && params.metodo !== "PAYPAL") {
+  const moeda = fatura.currency ?? fatura.subscription?.currency ?? "BRL";
+  if (moeda !== "BRL" && params.metodo !== "PAYPAL") {
     throw new CobrancaIndisponivelError("Cobrança automática nesta moeda só está disponível pelo PayPal (fora do Brasil). Solicite o pagamento ao atendimento.");
   }
   const [saldo] = await prisma.$queryRaw<{ outstanding: unknown; amount: unknown }[]>`
@@ -311,9 +312,10 @@ export async function criarCobrancaDaFatura(params: {
     throw new CobrancaIndisponivelError("Há pagamento registrado para esta fatura. Concilie o saldo antes de gerar outra cobrança.");
   }
 
-  const organizacao = fatura.organization;
+  const organizacao = fatura.organization ?? fatura.subscription?.organization;
+  if (!organizacao) throw new CobrancaIndisponivelError("Cliente da fatura não encontrado.");
   const valorCents = centavos(fatura.amount);
-  const descricao = `${fatura.description} • ${fatura.competence}`;
+  const descricao = `${fatura.description ?? fatura.subscription?.description ?? "Serviço"} • ${fatura.competence}`;
   const pais = organizacao.profile?.country ?? "Brasil";
   const brasileira = paisEhBrasil(pais);
 
@@ -339,7 +341,7 @@ export async function criarCobrancaDaFatura(params: {
     // Moeda que o PayPal não aceita (ou valor com centavos em moeda sem
     // centavos) vira mensagem de "indisponível", não erro genérico da API.
     try {
-      valorPaypal(valorCents / 100, fatura.currency);
+      valorPaypal(valorCents / 100, moeda);
     } catch (erro) {
       if (erro instanceof MoedaNaoSuportadaPeloPaypal) throw new CobrancaIndisponivelError(erro.message);
       throw erro;
@@ -347,7 +349,7 @@ export async function criarCobrancaDaFatura(params: {
     const origem = (process.env.APP_URL ?? "https://app.avilaops.com").replace(/\/$/, "");
     const ordem = await criarOrdem({
       valor: valorCents / 100,
-      moeda: fatura.currency,
+      moeda,
       descricao,
       referencia: fatura.id,
       retorno: `${origem}/api/paypal/retorno`,
@@ -727,6 +729,8 @@ export async function baixarCobrancaPorIdExterno(
   });
 
   if (!cobranca) return null;
+  const organizationId = cobranca.invoice.organizationId ?? cobranca.invoice.subscription?.organizationId;
+  const invoiceCurrency = cobranca.invoice.currency ?? cobranca.invoice.subscription?.currency ?? "BRL";
 
   /*
     Os nomes de "pagou" de dois gateways ao mesmo tempo.
@@ -765,7 +769,7 @@ export async function baixarCobrancaPorIdExterno(
     if (pago) {
       await auditarPagamentoForaDaFatura({
         action: "PAGO_APOS_REEMBOLSO",
-        organizationId: cobranca.invoice.organizationId,
+        organizationId,
         entityType: "SubscriptionCharge",
         entityId: cobranca.id,
         metadata: {
@@ -821,13 +825,20 @@ export async function baixarCobrancaPorIdExterno(
   });
 
   if (pago && cobranca.invoice.status !== "PAID") {
-    await prisma.$transaction(async (tx) => {
-      await tx.subscriptionInvoice.update({
+    if (cobranca.invoice.automaticNfse) {
+      await prisma.$transaction(async (tx) => {
+        await tx.subscriptionInvoice.update({
+          where: { id: cobranca.invoiceId },
+          data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? momentoDoPagamento },
+        });
+        await agendarEmissaoNfse(cobranca.invoiceId, tx);
+      });
+    } else {
+      await prisma.subscriptionInvoice.update({
         where: { id: cobranca.invoiceId },
         data: { status: "PAID", paidAt: cobranca.invoice.paidAt ?? momentoDoPagamento },
       });
-      if (cobranca.invoice.automaticNfse) await agendarEmissaoNfse(cobranca.invoiceId, tx);
-    });
+    }
   }
 
   if (reembolsado && cobranca.invoice.status === "PAID") {
@@ -876,12 +887,12 @@ export async function baixarCobrancaPorIdExterno(
           },
           update: {},
           create: {
-            organizationId: fatura.organizationId,
+            organizationId,
             provider: cobranca.provider,
             providerAccount: "principal",
             externalId: refExterna,
             amount: cobranca.amount,
-            currency: fatura.currency,
+            currency: invoiceCurrency,
             status: "CONFIRMED",
             paidAt: cobranca.paidAt ?? momentoDoPagamento,
             source: cobranca.provider === PROVEDOR_PIX_DIRETO ? "BAIXA_MANUAL" : "GATEWAY_WEBHOOK",
@@ -936,7 +947,7 @@ export async function baixarCobrancaPorIdExterno(
             // decidir, e a auditoria é onde ela acha sem ler log do servidor.
             await auditarPagamentoForaDaFatura({
               action: aAlocar === 0 ? "PAGAMENTO_SEM_ALOCACAO" : "PAGAMENTO_ALOCADO_EM_PARTE",
-              organizationId: fatura.organizationId,
+              organizationId,
               entityType: "CorePayment",
               entityId: pagamento.id,
               metadata: {
@@ -953,7 +964,7 @@ export async function baixarCobrancaPorIdExterno(
           // Chegou até aqui: o ledger tem o pagamento. Se uma entrega anterior
           // tinha falhado, a trilha passa a dizer que o reenvio resolveu.
           await auditarLedgerResolvido({
-            organizationId: fatura.organizationId,
+            organizationId,
             chargeId: cobranca.id,
             metadata: {
               chargeId: cobranca.id,
@@ -973,7 +984,7 @@ export async function baixarCobrancaPorIdExterno(
       // inteiro. Só o log não basta para a conciliação achar.
       await auditarPagamentoForaDaFatura({
         action: "PAGAMENTO_LEDGER_FALHOU",
-        organizationId: cobranca.invoice.organizationId,
+        organizationId,
         entityType: "SubscriptionCharge",
         entityId: cobranca.id,
         metadata: {
@@ -1007,7 +1018,7 @@ export async function baixarCobrancaPorIdExterno(
   if (status === "charged_back" && detalhe === CONTESTACAO_REEMBOLSADA) {
     await auditarPagamentoForaDaFatura({
       action: "CONTESTACAO_REEMBOLSADA",
-      organizationId: cobranca.invoice.organizationId,
+      organizationId,
       entityType: "SubscriptionCharge",
       entityId: cobranca.id,
       metadata: {
