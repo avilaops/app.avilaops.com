@@ -16,7 +16,7 @@ async function fixture(tx: Tx) {
     senhaProvisoria: true, role: "ADMIN", organizationId: org.id, ativo: true,
   } });
   const subscription = await tx.subscription.create({ data: { organizationId: org.id, description: "Test", amount: 100, currency: "BRL", billingDay: 10, startedAt: new Date() } });
-  const invoice = await tx.subscriptionInvoice.create({ data: { subscriptionId: subscription.id, competence: "2026-09", amount: 100, dueDate: new Date("2026-09-01") } });
+  const invoice = await tx.subscriptionInvoice.create({ data: { organizationId: org.id, subscriptionId: subscription.id, description: subscription.description, competence: "2026-09", amount: 100, dueDate: new Date("2026-09-01") } });
   return { key, org, other, identity, subscription, invoice };
 }
 async function isolated(fn: (tx: Tx, f: Awaited<ReturnType<typeof fixture>>) => Promise<void>) {
@@ -104,7 +104,7 @@ describe("núcleo PostgreSQL — integridade real", () => {
   }));
   it("totais preservam moeda, ciclo anual e faturas fora da primeira página", () => isolated(async (tx, f) => {
     await tx.subscription.update({ where: { id: f.subscription.id }, data: { amount: 1200, currency: "USD", billingCycle: "YEARLY" } });
-    for (let n=1;n<=13;n++) await tx.subscriptionInvoice.create({ data: { subscriptionId: f.subscription.id, competence: `test-${n}`, amount: 100, dueDate: new Date() } });
+    for (let n=1;n<=13;n++) await tx.subscriptionInvoice.create({ data: { organizationId: f.org.id, subscriptionId: f.subscription.id, description: f.subscription.description, competence: `test-${n}`, amount: 100, dueDate: new Date() } });
     const [t] = await tx.$queryRaw<{ currency: string; outstanding: Prisma.Decimal; open_count: bigint }[]>`SELECT * FROM core.receivable_totals WHERE organization_id=${f.org.id}`;
     expect(t.currency).toBe("USD"); expect(Number(t.outstanding)).toBe(1400); expect(Number(t.open_count)).toBe(14);
     const [s] = await tx.$queryRaw<{ monthly_equivalent: Prisma.Decimal }[]>`SELECT monthly_equivalent FROM core.subscription_totals WHERE organization_id=${f.org.id}`;

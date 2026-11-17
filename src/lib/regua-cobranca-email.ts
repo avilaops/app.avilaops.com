@@ -157,7 +157,7 @@ const mensagemDeErro = (erro: unknown) => (erro instanceof Error ? erro.message 
 async function processarItem(item: ItemReivindicado, agora: Date) {
   const fatura = await prisma.subscriptionInvoice.findUnique({
     where: { id: item.invoiceId },
-    select: { status: true, subscription: { select: { organizationId: true } } },
+    select: { status: true, organizationId: true },
   });
   if (!fatura || deveCancelarPorStatus(fatura.status)) {
     await prisma.billingEmailDispatch.updateMany({
@@ -173,7 +173,7 @@ async function processarItem(item: ItemReivindicado, agora: Date) {
     const intencao = await prisma.operationsAuditEvent.create({
       data: {
         actorId: null,
-        organizationId: fatura.subscription.organizationId,
+        organizationId: fatura.organizationId,
         action: "COBRANCA_ENVIO_INICIADO",
         entityType: "SubscriptionInvoice",
         entityId: item.invoiceId,
@@ -211,7 +211,7 @@ async function processarItem(item: ItemReivindicado, agora: Date) {
       await prisma.operationsAuditEvent.create({
         data: {
           actorId: null,
-          organizationId: fatura.subscription.organizationId,
+          organizationId: fatura.organizationId,
           action: "COBRANCA_ENVIO_FALHOU",
           entityType: "SubscriptionInvoice",
           entityId: item.invoiceId,

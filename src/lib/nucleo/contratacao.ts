@@ -41,11 +41,13 @@ export async function criarContratacao(params: Contratacao, db: Pick<typeof pris
     const emSeteDias = new Date(agora.getTime() + 7 * 86_400_000);
     const vencimento = new Date(Date.UTC(params.inicio.getUTCFullYear(), params.inicio.getUTCMonth(), params.dia));
     const recorrente = await tx.subscriptionInvoice.create({ data: {
-      subscriptionId: assinatura.id, competence: competencia, kind: params.ciclo, amount: assinatura.amount,
+      organizationId: params.organizationId, subscriptionId: assinatura.id, competence: competencia, kind: params.ciclo,
+      description: assinatura.description, currency: assinatura.currency, amount: assinatura.amount,
       dueDate: vencimento < agora ? emSeteDias : vencimento,
     } });
     const setup = params.implantacaoCents ? await tx.subscriptionInvoice.create({ data: {
-      subscriptionId: assinatura.id, competence: competencia, kind: "SETUP",
+      organizationId: params.organizationId, subscriptionId: assinatura.id, competence: competencia, kind: "SETUP",
+      description: `Implantação • ${assinatura.description}`, currency: assinatura.currency,
       amount: new Prisma.Decimal(params.implantacaoCents).div(100), dueDate: emSeteDias,
     } }) : null;
     await tx.operationsAuditEvent.create({ data: {

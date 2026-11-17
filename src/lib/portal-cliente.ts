@@ -121,9 +121,9 @@ export async function carregarPainelDoCliente(identityId: string, organizationId
       ORDER BY (outstanding>0) DESC,CASE WHEN outstanding>0 THEN due_date END ASC,due_date DESC,source_id LIMIT 12`,
   ]);
   const invoices = await prisma.subscriptionInvoice.findMany({
-    where: { id: { in: recebiveis.map(r => r.source_id) }, subscription: { organizationId } },
+    where: { id: { in: recebiveis.map(r => r.source_id) }, organizationId },
     select: {
-      id: true, competence: true, kind: true, amount: true, dueDate: true, paidAt: true,
+      id: true, competence: true, kind: true, amount: true, dueDate: true, paidAt: true, description: true,
       subscription: { select: { description: true } },
       charges: {
         where: { status: { in: ["CREATED", "PENDING", "WAITING"] }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
@@ -173,7 +173,7 @@ export async function carregarPainelDoCliente(identityId: string, organizationId
       if (!f) return [];
       const c = f.charges[0];
       return [{
-        id: f.id, descricao: f.subscription.description, competencia: f.competence,
+        id: f.id, descricao: f.description, competencia: f.competence,
         tipo: f.kind, valor: Number(f.amount), saldo: Number(r.outstanding), moeda: r.currency,
         vencimento: f.dueDate, status: r.effective_status, pagaEm: f.paidAt,
         // A cobrança legada é pelo valor integral. Não oferecê-la após alocação parcial.

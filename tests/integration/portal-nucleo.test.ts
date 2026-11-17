@@ -30,10 +30,10 @@ describe("portal usando o núcleo", () => {
   it("totaliza mais de 12 faturas e mantém moeda/ciclo", () => isolated(async (tx, id, org) => {
     const sub = await tx.subscription.create({ data: { organizationId: org, description: "Anual USD", amount: 1200, currency: "USD", billingCycle: "YEARLY", billingDay: 10, startedAt: new Date() } });
     for (let n = 0; n < 14; n++) await tx.subscriptionInvoice.create({ data: {
-      subscriptionId: sub.id, competence: `period-${n}`, amount: 100, dueDate: new Date("2026-01-01"),
+      organizationId: org, subscriptionId: sub.id, description: sub.description, competence: `period-${n}`, amount: 100, dueDate: new Date("2026-01-01"),
     } });
     const brl = await tx.subscription.create({ data: { organizationId: org, description: "Mensal BRL", amount: 50, currency: "BRL", billingCycle: "MONTHLY", billingDay: 10, startedAt: new Date() } });
-    await tx.subscriptionInvoice.create({ data: { subscriptionId: brl.id, competence: "2026-01", amount: 50, dueDate: new Date("2026-01-01") } });
+    await tx.subscriptionInvoice.create({ data: { organizationId: org, subscriptionId: brl.id, description: brl.description, competence: "2026-01", amount: 50, dueDate: new Date("2026-01-01") } });
     const painel = await carregarPainelDoCliente(id, org);
     expect(painel?.faturas).toHaveLength(12);
     expect(painel?.totais).toEqual(expect.arrayContaining([
@@ -63,16 +63,16 @@ describe("portal usando o núcleo", () => {
 
   it("não envia moeda estrangeira como reais ao gateway", () => isolated(async (tx, _id, org) => {
     const sub = await tx.subscription.create({ data: { organizationId: org, description: "USD", amount: 100, currency: "USD", billingDay: 10, startedAt: new Date() } });
-    const f = await tx.subscriptionInvoice.create({ data: { subscriptionId: sub.id, competence: "2026-01", amount: 100, dueDate: new Date() } });
+    const f = await tx.subscriptionInvoice.create({ data: { organizationId: org, subscriptionId: sub.id, description: sub.description, competence: "2026-01", amount: 100, dueDate: new Date() } });
     await expect(criarCobrancaDaFatura({ invoiceId: f.id, metodo: "PIX" })).rejects.toThrow("nesta moeda");
     expect(await tx.subscriptionCharge.count({ where: { invoiceId: f.id } })).toBe(0);
   }));
 
   it("prioriza dívida antiga e mostra saldo parcial sem cobrança integral", () => isolated(async (tx, id, org) => {
     const sub = await tx.subscription.create({ data: { organizationId: org, description: "Test", amount: 100, billingDay: 10, startedAt: new Date() } });
-    const old = await tx.subscriptionInvoice.create({ data: { subscriptionId: sub.id, competence: "2020-01", amount: 100, dueDate: new Date("2020-01-01") } });
+    const old = await tx.subscriptionInvoice.create({ data: { organizationId: org, subscriptionId: sub.id, description: sub.description, competence: "2020-01", amount: 100, dueDate: new Date("2020-01-01") } });
     await tx.subscriptionCharge.create({ data: { invoiceId: old.id, provider: "TEST", method: "PIX", status: "PENDING", amount: 100, pixCopyPaste: "old-full-charge" } });
-    for (let n = 0; n < 13; n++) await tx.subscriptionInvoice.create({ data: { subscriptionId: sub.id, competence: `paid-${n}`, amount: 100, dueDate: new Date("2026-01-01"), status: "PAID" } });
+    for (let n = 0; n < 13; n++) await tx.subscriptionInvoice.create({ data: { organizationId: org, subscriptionId: sub.id, description: sub.description, competence: `paid-${n}`, amount: 100, dueDate: new Date("2026-01-01"), status: "PAID" } });
     const payment = await tx.corePayment.create({ data: { organizationId: org, provider: "TEST", providerAccount: "TEST", externalId: randomUUID(), amount: 40, currency: "BRL", status: "CONFIRMED", paidAt: new Date(), source: "TEST" } });
     await tx.corePaymentAllocation.create({ data: { paymentId: payment.id, invoiceId: old.id, amount: 40 } });
     const painel = await carregarPainelDoCliente(id, org);
