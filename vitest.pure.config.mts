@@ -9,6 +9,7 @@ export default defineConfig({
       "tests/unit/regua-cobranca-email-route.test.ts",
       "tests/unit/fatura-personalizada.test.ts",
       "tests/unit/erp-nfse.test.ts",
+      "tests/unit/fila-nfse-route.test.ts",
       "tests/unit/fila-nfse.test.ts",
       "tests/unit/entrega-cobranca-http.test.ts",
       "tests/unit/entrega-cobranca-saldo.test.ts",
