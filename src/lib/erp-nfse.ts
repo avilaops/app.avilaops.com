@@ -10,7 +10,7 @@ function config() {
   const tenantId = process.env.ERP_TENANT_ID?.trim();
   if (!baseUrl || !serviceKey || !tenantId) throw new ErpNfseErro("Integração fiscal com o ERP não configurada.");
   const url = new URL(baseUrl);
-  if (url.protocol !== "https:" && url.hostname !== "127.0.0.1" && url.hostname !== "localhost") throw new ErpNfseErro("A URL do ERP deve usar HTTPS.");
+  if (url.protocol !== "https:" && url.hostname !== "127.0.0.1" && url.hostname !== "localhost" && url.hostname !== "api") throw new ErpNfseErro("A URL do ERP deve usar HTTPS.");
   return { baseUrl, serviceKey, tenantId };
 }
 

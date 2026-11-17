@@ -17,3 +17,11 @@ services:
       - ./storage:/app/storage
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - erp-private
+
+networks:
+  erp-private:
+    external: true
+    name: ${ERP_NETWORK_NAME:-erp-next_erp}
