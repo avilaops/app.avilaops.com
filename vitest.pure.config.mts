@@ -10,6 +10,8 @@ export default defineConfig({
       "tests/unit/fatura-personalizada.test.ts",
       "tests/unit/erp-nfse.test.ts",
       "tests/unit/fila-nfse.test.ts",
+      "tests/unit/entrega-cobranca-http.test.ts",
+      "tests/unit/entrega-cobranca-saldo.test.ts",
     ],
     environment: "node",
   },

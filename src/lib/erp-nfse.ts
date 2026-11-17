@@ -1,5 +1,3 @@
-import "server-only";
-
 type ErpIssuance = { id: string; externalId: string; status: string; revision: number; accessKey?: string; reason?: string };
 
 export class ErpNfseErro extends Error {
