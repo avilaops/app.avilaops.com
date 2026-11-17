@@ -53,9 +53,10 @@ async function processOne(item: Claimed, now: Date) {
       if (taxId.length !== 11 && taxId.length !== 14) throw new ErpNfseErro("CPF ou CNPJ do cliente não cadastrado.");
       result = await emitirNfseNoErp({ idempotencyKey: item.idempotencyKey, externalId: invoice.id, competenceDate: `${invoice.competence}-01`, amount: invoice.amount.toFixed(2), serviceCode: invoice.fiscalServiceCode, description: invoice.fiscalDescription, customer: { name: invoice.organization.legalName || invoice.organization.name, taxId, email: invoice.organization.contacts[0]?.email ?? undefined } });
     }
-    const issued = result.status === "ISSUED";
-    await prisma.nfseDispatch.updateMany({ where: { id: item.id, claimToken: item.claimToken }, data: { status: issued ? "ISSUED" : result.status === "CANCELLED" ? "CANCELLED" : "UNCERTAIN", erpIssuanceId: result.id, erpStatus: result.status, accessKey: result.accessKey ?? null, issuedAt: issued ? now : null, nextAttemptAt: issued ? null : retryAt(item.attempts, now), lastError: result.reason ?? null, claimToken: null, claimedAt: null } });
-    return issued ? "issued" : "pending";
+    const issued = result.status === "authorized";
+    const rejected = result.status === "rejected";
+    await prisma.nfseDispatch.updateMany({ where: { id: item.id, claimToken: item.claimToken }, data: { status: issued ? "ISSUED" : rejected ? "FAILED" : "UNCERTAIN", erpIssuanceId: result.id, erpStatus: result.status, accessKey: result.accessKey ?? null, issuedAt: issued ? now : null, nextAttemptAt: issued || rejected ? null : retryAt(item.attempts, now), lastError: result.reason ?? null, claimToken: null, claimedAt: null } });
+    return issued ? "issued" : rejected ? "failed" : "uncertain";
   } catch (error) {
     const uncertain = error instanceof ErpNfseErro && error.uncertain;
     await prisma.nfseDispatch.updateMany({ where: { id: item.id, claimToken: item.claimToken }, data: { status: uncertain ? "UNCERTAIN" : "FAILED", nextAttemptAt: item.attempts < MAX_ATTEMPTS ? retryAt(item.attempts, now) : null, lastError: errorText(error), claimToken: null, claimedAt: null } });

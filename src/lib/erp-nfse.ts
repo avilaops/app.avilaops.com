@@ -1,4 +1,4 @@
-type ErpIssuance = { id: string; externalId: string; status: string; revision: number; accessKey?: string; reason?: string };
+type ErpIssuance = { id: string; externalId: string; status: string; revision: string | number; accessKey?: string; reason?: string };
 
 export class ErpNfseErro extends Error {
   constructor(message: string, readonly uncertain = false, readonly status?: number) { super(message); }
@@ -20,8 +20,8 @@ async function request(path: string, init: RequestInit, timeoutMs = 15_000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${baseUrl}${path}`, { ...init, signal: controller.signal, headers: { authorization: `Bearer ${serviceKey}`, "x-tenant-id": tenantId, accept: "application/json", ...(init.body ? { "content-type": "application/json" } : {}), ...init.headers }, cache: "no-store" });
-    const body = await response.json().catch(() => null) as { data?: unknown; error?: string; message?: string } | null;
-    if (!response.ok) throw new ErpNfseErro((body?.error || body?.message || `ERP respondeu HTTP ${response.status}.`).slice(0, 500), response.status >= 500, response.status);
+    const body = await response.json().catch(() => null) as { data?: unknown; error?: string; message?: string; title?: string } | null;
+    if (!response.ok) throw new ErpNfseErro((body?.error || body?.message || body?.title || `ERP respondeu HTTP ${response.status}.`).slice(0, 500), response.status >= 500, response.status);
     if (!body || typeof body.data !== "object" || body.data === null) throw new ErpNfseErro("Resposta fiscal inválida do ERP.", true);
     return body.data as ErpIssuance;
   } catch (error) {
