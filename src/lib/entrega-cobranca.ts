@@ -271,7 +271,8 @@ export async function enviarCobrancaPorEmail(
 ): Promise<ResultadoEnvio> {
   const { invoice, cobranca } = await carregarAlvo(alvo);
 
-  const organizacao = invoice.organization;
+  const organizacao = invoice.organization ?? invoice.subscription?.organization;
+  if (!organizacao) throw new CobrancaSemLink("Cliente da fatura não encontrado.");
   const emailReal = organizacao.profile?.email ?? organizacao.contacts[0]?.email ?? "";
   const nome = organizacao.profile?.ownerName ?? organizacao.contacts[0]?.name ?? organizacao.name;
   const destino = opcoes?.destinoTeste ?? emailReal;
@@ -347,7 +348,8 @@ export async function enviarCobrancaPorWhatsapp(
 
   // Empresa importada só com contato (sem nome de dono) pode ter o telefone no
   // perfil, não num OrganizationContact — mesmo fallback que o e-mail usa.
-  const organizacao = invoice.organization;
+  const organizacao = invoice.organization ?? invoice.subscription?.organization;
+  if (!organizacao) throw new CobrancaSemLink("Cliente da fatura não encontrado.");
   const contato = organizacao.contacts[0];
   const numeroReal =
     contato?.whatsapp ?? contato?.phone ?? organizacao.profile?.whatsapp ?? organizacao.profile?.phone ?? "";

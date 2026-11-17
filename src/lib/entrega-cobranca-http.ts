@@ -49,17 +49,17 @@ const AVISO_SEM_DESFECHO =
  * existe sai como recusado).
  */
 async function clienteDoAlvo(alvo: AlvoEnvio): Promise<string | null> {
-  const daFatura = { organizationId: true };
+  const daFatura = { organizationId: true, subscription: { select: { organizationId: true } } };
   try {
     if (alvo.tipo === "cobranca") {
       const cobranca = await prisma.subscriptionCharge.findUnique({
         where: { id: alvo.id },
         select: { invoice: { select: daFatura } },
       });
-      return cobranca?.invoice.organizationId ?? null;
+      return cobranca?.invoice.organizationId ?? cobranca?.invoice.subscription?.organizationId ?? null;
     }
     const fatura = await prisma.subscriptionInvoice.findUnique({ where: { id: alvo.id }, select: daFatura });
-    return fatura?.organizationId ?? null;
+    return fatura?.organizationId ?? fatura?.subscription?.organizationId ?? null;
   } catch (erro) {
     console.error(`[cobranca] não descobri o cliente de ${alvo.tipo} ${alvo.id}; a intenção vai sem ele`, erro);
     return null;
