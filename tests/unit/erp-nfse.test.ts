@@ -39,4 +39,22 @@ describe("cliente TypeScript da NFS-e no ERP", () => {
     expect(error.uncertain).toBe(true);
     expect(error.message).not.toContain("erp_tenant_secret");
   });
+
+  it("preserva o título seguro retornado pelo contrato Problem do ERP", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      type: "fiscal_certificate_missing",
+      title: "Certificado A1 não configurado",
+      status: 409,
+    }), { status: 409, headers: { "content-type": "application/problem+json" } }));
+
+    await expect(emitirNfseNoErp({
+      idempotencyKey: "eaf02748-0d0c-4c4b-a8ab-a3797f94dbba",
+      externalId: "invoice-1",
+      competenceDate: "2026-11-01",
+      amount: "1.00",
+      serviceCode: "010701",
+      description: "Serviço",
+      customer: { name: "Cliente", taxId: "12345678901" },
+    })).rejects.toThrow("Certificado A1 não configurado");
+  });
 });
