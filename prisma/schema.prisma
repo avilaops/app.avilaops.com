@@ -1556,12 +1556,42 @@ model SubscriptionInvoice {
 
   subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   charges      SubscriptionCharge[]
+  emailDispatches BillingEmailDispatch[]
 
   /// A competência sozinha não basta: a implantação e a primeira mensalidade
   /// caem no mesmo mês, e são duas faturas legítimas.
   @@unique([subscriptionId, competence, kind])
   @@index([status, dueDate])
   @@map("subscription_invoices")
+  @@schema("operations")
+}
+
+/// Uma etapa persistente da régua automática de cobrança por e-mail.
+/// A unicidade por fatura e etapa torna a reconciliação segura para reexecução.
+model BillingEmailDispatch {
+  id            String   @id @default(cuid())
+  invoiceId     String   @map("invoice_id")
+  /// PRE_DUE | DUE | OVERDUE
+  stage         String
+  scheduledFor  DateTime @map("scheduled_for") @db.Timestamptz(6)
+  /// PENDING | PROCESSING | SENT | FAILED | CANCELLED | SKIPPED
+  status        String   @default("PENDING")
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(6)
+  claimedAt     DateTime? @map("claimed_at") @db.Timestamptz(6)
+  claimToken    String?   @map("claim_token")
+  sentAt        DateTime? @map("sent_at") @db.Timestamptz(6)
+  cancelledAt   DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  lastError     String?   @map("last_error")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, stage])
+  @@index([status, scheduledFor])
+  @@index([status, nextAttemptAt])
+  @@map("billing_email_dispatches")
   @@schema("operations")
 }
 
