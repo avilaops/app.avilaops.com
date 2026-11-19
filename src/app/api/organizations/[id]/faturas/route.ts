@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { criarCobrancaDaFatura, CobrancaIndisponivelError } from "@/lib/assinaturas"
 import { ehDono, getAdmin } from "@/lib/auth"
-import { criarFaturaPersonalizada, FaturaPersonalizadaErro } from "@/lib/fatura-personalizada"
+import { criarFaturaPersonalizada, descartarFaturaSemCobranca, FaturaPersonalizadaErro } from "@/lib/fatura-personalizada"
 import { cleanText, sameOrigin } from "@/lib/http"
 
 function cents(value: unknown) {
@@ -30,7 +30,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (method !== "PIX" && method !== "BOLETO") return NextResponse.json({ error: "Escolha PIX ou boleto." }, { status: 400 })
   try {
     const invoice = await criarFaturaPersonalizada({ organizationId: id, description, amountCents, competence, dueDate: new Date(`${due}T00:00:00Z`), currency: "BRL", automaticNfse, fiscalServiceCode, fiscalDescription }, admin.id)
-    const charge = await criarCobrancaDaFatura({ invoiceId: invoice.id, metodo: method })
+    const charge = await criarCobrancaDaFatura({ invoiceId: invoice.id, metodo: method }).catch(async (error: unknown) => {
+      // Recusada antes do gateway: nenhuma cobrança externa existe, então a fatura não deve ficar aberta.
+      if (error instanceof CobrancaIndisponivelError) await descartarFaturaSemCobranca(invoice.id, admin.id, error.message)
+      throw error
+    })
     return NextResponse.json({ ok: true, invoiceId: invoice.id, charge: { id: charge.id, method: charge.method, status: charge.status, pixCopyPaste: charge.pixCopyPaste, boletoUrl: charge.boletoUrl, boletoBarcode: charge.boletoBarcode, expiresAt: charge.expiresAt?.toISOString() ?? null } }, { status: 201 })
   } catch (error) {
     if (error instanceof FaturaPersonalizadaErro || error instanceof CobrancaIndisponivelError) return NextResponse.json({ error: error.message }, { status: 422 })

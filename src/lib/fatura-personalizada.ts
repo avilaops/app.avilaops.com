@@ -47,3 +47,23 @@ export async function criarFaturaPersonalizada(input: EntradaFaturaPersonalizada
     return invoice
   })
 }
+
+/**
+ * Cancela a avulsa recém-criada cuja cobrança foi recusada antes do gateway
+ * (cadastro incompleto, moeda, método). Sem isto a fatura ficaria em aberto
+ * nos recebíveis e repetir o formulário criaria uma segunda.
+ *
+ * Só age em `CUSTOM` aberta e sem nenhuma cobrança registrada.
+ */
+export async function descartarFaturaSemCobranca(invoiceId: string, actorId: string, motivo: string) {
+  return prisma.$transaction(async tx => {
+    const { count } = await tx.subscriptionInvoice.updateMany({
+      where: { id: invoiceId, kind: "CUSTOM", status: "OPEN", charges: { none: {} } },
+      data: { status: "CANCELLED" },
+    })
+    if (!count) return false
+    const { organizationId } = await tx.subscriptionInvoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { organizationId: true } })
+    await tx.operationsAuditEvent.create({ data: { actorId, organizationId, action: "CUSTOM_INVOICE_DISCARDED", entityType: "SubscriptionInvoice", entityId: invoiceId, metadata: { motivo: motivo.slice(0, 500) } } })
+    return true
+  })
+}
