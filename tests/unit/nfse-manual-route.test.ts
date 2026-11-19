@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({ getAdmin: vi.fn().mockResolvedValue({ id: "owner-1", role: "OWNER" }), ehDono: vi.fn().mockReturnValue(true) }));
 vi.mock("@/lib/http", () => ({ sameOrigin: vi.fn().mockReturnValue(true) }));
-vi.mock("@/lib/fila-nfse", () => ({ agendarEmissaoNfse: state.schedule }));
+vi.mock("@/lib/fila-nfse", () => ({ reservarEmissaoManual: state.schedule }));
 vi.mock("@/lib/erp-nfse", () => ({ prepararNfseManualNoErp: state.prepare, confirmarNfseManualNoErp: state.confirm, baixarXmlNfseDoErp: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
   subscriptionInvoice: { findUnique: state.findInvoice },

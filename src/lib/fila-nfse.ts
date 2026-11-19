@@ -12,6 +12,31 @@ export async function agendarEmissaoNfse(invoiceId: string, db: Db = prisma) {
   return db.nfseDispatch.upsert({ where: { invoiceId }, create: { invoiceId, idempotencyKey: randomUUID(), nextAttemptAt: new Date() }, update: {} });
 }
 
+/**
+ * Reserva a emissão manual (Emissor Nacional + XML) sem disputar com a fila.
+ *
+ * Devolve `null` quando a fatura já tem emissão que não pode ser assumida: em
+ * processamento, incerta, emitida ou com registro no ERP. Assumir uma
+ * automática só vale enquanto ela nunca criou emissão no ERP (pendente ou
+ * falha local); por isso a chave idempotente é trocada nesse caso — o ERP
+ * responde conflito a uma chave repetida com corpo diferente.
+ */
+export async function reservarEmissaoManual(invoiceId: string) {
+  const criada = await prisma.nfseDispatch.createMany({
+    data: [{ invoiceId, idempotencyKey: randomUUID(), issuanceMode: "MANUAL", nextAttemptAt: null }],
+    skipDuplicates: true,
+  });
+  const atual = await prisma.nfseDispatch.findUnique({ where: { invoiceId } });
+  if (!atual) return null;
+  if (criada.count || (atual.issuanceMode === "MANUAL" && atual.status === "PENDING")) return atual;
+
+  const assumida = await prisma.nfseDispatch.updateMany({
+    where: { id: atual.id, issuanceMode: "AUTOMATIC", status: { in: ["PENDING", "FAILED"] }, erpIssuanceId: null, claimToken: null },
+    data: { issuanceMode: "MANUAL", status: "PENDING", idempotencyKey: randomUUID(), nextAttemptAt: null, lastError: null },
+  });
+  return assumida.count ? prisma.nfseDispatch.findUnique({ where: { invoiceId } }) : null;
+}
+
 function retryAt(attempts: number, now: Date) {
   return new Date(now.getTime() + Math.min(24 * 60, 5 * 2 ** Math.max(0, attempts - 1)) * 60_000);
 }
@@ -25,6 +50,7 @@ async function claim(now: Date, limit: number): Promise<Claimed[]> {
     WITH candidates AS (
       SELECT id FROM operations.nfse_dispatches
       WHERE attempts < ${MAX_ATTEMPTS}
+        AND issuance_mode = 'AUTOMATIC'
         AND ((status IN ('PENDING','FAILED','UNCERTAIN') AND COALESCE(next_attempt_at, created_at) <= ${now})
           OR (status='PROCESSING' AND claimed_at < ${stale}))
       ORDER BY COALESCE(next_attempt_at, created_at), id

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ehDono, getAdmin } from "@/lib/auth";
 import { randomUUID } from "node:crypto";
 import { baixarXmlNfseDoErp, confirmarNfseManualNoErp, prepararNfseManualNoErp } from "@/lib/erp-nfse";
-import { agendarEmissaoNfse } from "@/lib/fila-nfse";
+import { reservarEmissaoManual } from "@/lib/fila-nfse";
 import { sameOrigin } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!invoice.fiscalServiceCode || !invoice.fiscalDescription) return NextResponse.json({ error: "Preencha o código e a descrição fiscal da fatura." }, { status: 422 });
   const taxId = invoice.organization.cpfCnpj?.replace(/\D/g, "") ?? "";
   if (taxId.length !== 11 && taxId.length !== 14) return NextResponse.json({ error: "CPF ou CNPJ do cliente não cadastrado." }, { status: 422 });
-  const dispatch = await agendarEmissaoNfse(id);
+  const dispatch = await reservarEmissaoManual(id);
+  if (!dispatch) return NextResponse.json({ error: "A NFS-e desta fatura já está em emissão automática ou foi emitida." }, { status: 409 });
   const result = await prepararNfseManualNoErp({ idempotencyKey: dispatch.idempotencyKey, externalId: invoice.id, competenceDate: `${invoice.competence}-01`, amount: invoice.amount.toFixed(2), serviceCode: invoice.fiscalServiceCode, description: invoice.fiscalDescription, customer: { name: invoice.organization.legalName || invoice.organization.name, taxId, email: invoice.organization.contacts[0]?.email ?? undefined } });
   await prisma.$transaction([
     prisma.nfseDispatch.update({ where: { id: dispatch.id }, data: { status: "PENDING", issuanceMode: "MANUAL", erpIssuanceId: result.id, erpStatus: result.status, nextAttemptAt: null, lastError: result.reason ?? null } }),

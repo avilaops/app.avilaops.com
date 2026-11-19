@@ -27,6 +27,15 @@
 - Boleto sem cadastro obrigatório falha antes de criar cobrança externa • Task 2.
 - ERP indisponível preserva pagamento e agenda repetição fiscal sem duplicidade • Tasks 4 e 5.
 
+## Estado • 19/11/2026
+
+- Tasks 1–6 publicadas em #102–#111. Task 7 depende da homologação do P003.
+- `tests/integration/cobranca-personalizada-nfse.test.ts` cobre o Review Focus contra Postgres.
+- Corrigido nessa cobertura:
+  - `core.receivables`, `core.guard_allocation` e `core.guard_invoice_ledger` exigiam assinatura • fatura `CUSTOM` não aparecia nos recebíveis, a cobrança era recusada e o pagamento não era alocado no ledger • migração `20261119000000_custom_invoice_core_views`.
+  - Cobrança recusada antes do gateway deixava a fatura avulsa em aberto • agora é cancelada com auditoria `CUSTOM_INVOICE_DISCARDED`.
+  - Emissão manual podia disputar com a automática • `reservarEmissaoManual` recusa estados em processamento, incertos ou emitidos, e a fila só reivindica `issuance_mode = 'AUTOMATIC'`.
+
 ---
 
 ### Task 1: Fatura avulsa vinculada ao cliente
